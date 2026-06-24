@@ -396,60 +396,13 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
     if not required_keys.issubset(data.keys()):
         return None
 
-    # --- Grounding validation ---
-    # Build the exact set of number strings that the rest of this module would
-    # produce for these entries.  Using ONLY the canonical formatters keeps the
-    # allowed set tight: "9.2" is NOT a valid proxy for 9.16, so a model that
-    # fabricates 9.2 will be caught.
-    #
-    # Known limitation: this verifies each number/name is drawn from the real
-    # entry data, but does NOT bind a specific number to the correct player.
-    # Cross-player attribution (e.g. Kane's ceiling attributed to Salah) could
-    # still pass.  That is acceptable because the prompt forbids it and the
-    # cache/template tiers are the primary launch path.
-    allowed_numbers: set[str] = set()
-    # round_no itself is a legitimate integer in the text (e.g. "Round 3")
-    allowed_numbers.add(str(round_no))
-    # Collect proper-noun tokens from every entry field (names, teams, positions)
-    allowed_nouns: set[str] = set()
-    for entry in entries:
-        for k, v in entry.items():
-            if isinstance(v, (int, float)):
-                fv = float(v)
-                # points / EV / ceiling at 2dp
-                allowed_numbers.add(f"{fv:.2f}")
-                # ownership at 1dp (bare number, without the % sign)
-                allowed_numbers.add(f"{fv:.1f}")
-                # price at 1dp
-                allowed_numbers.add(f"{fv:.1f}")
-                # integer ranks / bare integers
-                if fv == int(fv):
-                    allowed_numbers.add(str(int(fv)))
-            # Proper nouns: name, team, position
-            if k in ("name", "team", "position") and isinstance(v, str):
-                for word in v.split():
-                    if word:
-                        allowed_nouns.add(word)
-
-    # Small structural stopwords that are never fabricated player/team names.
-    # These are English sentence-start words and domain terms that legitimately
-    # appear capitalised in prose but are not player/team names.
-    _STOPWORDS = {
-        "Round", "Bottom", "World", "Cup", "Fantasy", "The", "With", "From",
-        "This", "These", "Their", "There", "While", "When", "Where", "Which",
-        "Line", "Best", "High", "Ceiling", "Back", "Start", "Target",
-        "Bring", "Priced", "Owned", "Pick", "Picks", "Rank", "Value",
-        "Upside", "Variance", "Blowout", "Fixture", "Transfer",
-        # Common sentence-opening / domain words
-        "Ownership", "Captain", "Captains", "Managers", "Manager",
-        "Differential", "Differentials", "Points", "Projection", "Priority",
-        "With", "Also", "Note", "Even", "Both", "Only", "Just", "Most",
-        "More", "Some", "Each", "Every", "Another", "Other", "Same",
-        "Game", "Match", "Week", "Season", "Tournament", "Group",
-        "Half", "Full", "Late", "Early", "Last", "Next", "First", "Second",
-        "Third", "Fourth", "Fifth", "Final", "Semi",
-    }
-
+    # --- Grounding validation (practical guardrail against gross fabrication) ---
+    # Goal: reject made-up STAT figures and wholesale off-topic output, while
+    # allowing natural prose (legitimate rounding, integers like "Round 3" /
+    # "50,000" / "1%", country names, sentence-initial capitals). It does NOT bind
+    # a number to a specific player — cross-player attribution could still pass —
+    # which is acceptable because the prompt forbids it and the cache/template
+    # tiers exist as backstops.
     combined_output = (
         data.get("headline", "") + " " +
         data.get("standfirst", "") + " " +
@@ -457,23 +410,22 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
         data.get("bottom_line", "")
     )
 
-    # Check every numeric token: must appear in the exact-format allowed set.
-    numeric_tokens = re.findall(r"\d+(?:\.\d+)?", combined_output)
-    for token in numeric_tokens:
-        if token not in allowed_numbers:
+    # Numbers: scrutinise only DECIMAL tokens (the shape of a fabricated stat). A
+    # decimal is allowed if it is within 0.05 of some real entry value (covers
+    # legitimate 1dp/2dp rounding); bare integers are allowed freely.
+    real_values = [float(v) for e in entries for v in e.values()
+                   if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    for token in re.findall(r"\d+\.\d+", combined_output):
+        val = float(token)
+        if not any(abs(val - rv) <= 0.05 for rv in real_values):
             return None
 
-    # Check capitalised proper-noun tokens that look like names/teams.
-    output_words = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", combined_output)
-    for word in output_words:
-        if len(word) <= 3:
-            continue
-        if word in _STOPWORDS:
-            continue
-        # Accept if the word (or any sub-word) matches an allowed noun
-        sub_words = word.split()
-        if not any(sw in allowed_nouns for sw in sub_words):
-            return None
+    # Names: require the article's subject (the top entry) to actually appear,
+    # rather than policing every capitalised word (which false-rejects country
+    # names, "World Cup", sentence starts). Catches wholesale off-topic output.
+    subject = entries[0].get("name", "") if entries else ""
+    if subject and not any(w in combined_output for w in subject.split() if len(w) > 2):
+        return None
 
     # Convert body_markdown to HTML
     body_html = _md_to_html(data["body_markdown"])

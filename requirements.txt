@@ -1,2 +1,4 @@
 # Frontend only. The engine (core/, games/) is pure stdlib.
 streamlit>=1.30
+# Optional: evmax site LLM prose tier (cache/template tiers work without it).
+anthropic>=0.40

@@ -16,13 +16,23 @@ Every figure you cite must appear verbatim in the data below.
 {entries_json}
 --- END DATA ---
 
+Refer to the data fields by these reader-friendly names (NEVER print the raw keys):
+  - x_points → "xPts"            - captain_ev → "captain EV"
+  - ceiling → "ceiling"          - value → "points per million" (or "value")
+  - ownership_pct → write as a percentage, e.g. 1.3% (one decimal)
+  - price → a player's price, e.g. 5.9m (one decimal, suffix "m")
+
 Write a tight analytical article with:
-  - A punchy headline (≤ 10 words)
+  - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
+    nouns capitalised — e.g. "Amad Diallo is the Round 3 captain edge")
   - A one-line standfirst (≤ 20 words, gives the key takeaway)
   - 3–5 short paragraphs of body copy. Each paragraph should be 2–4 sentences.
     Include exactly one pull-quote paragraph formatted as: > Your pull-quote here.
     The final paragraph must start with "**Bottom line:**" and give a 1–2 sentence
     actionable recommendation grounded in the data.
+
+Voice: confident, analytical, a little contrarian — like a sharp fantasy analyst who
+trusts the model. No hype, no clichés, no exclamation marks.
 
 Constraints:
   - Use ONLY the numbers supplied above. Cite them precisely (copy the value exactly).
