@@ -53,7 +53,7 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
             "ceiling": round(ceiling, 2),
             "price": price,
             "ownership_pct": m.get("ownership_pct"),
-            "value": xp / price if price else None,
+            "value": round(xp / price, 3) if price else None,
             "kickoff": kickoffs.get(m.get("team")),
         })
     return rows
@@ -65,6 +65,11 @@ def select_xi(rows: list, key: str) -> list:
     pools = {pos: sorted([r for r in rows if r["position"] == pos and r.get(key) is not None],
                          key=lambda r: r[key], reverse=True)
              for pos in POS_MIN}
+    for pos in POS_MIN:
+        if len(pools[pos]) < POS_MIN[pos]:
+            raise ValueError(
+                f"insufficient {pos} pool for XI: need {POS_MIN[pos]}, have {len(pools[pos])}"
+            )
     chosen, counts = [], {}
     for pos in POS_MIN:
         take = pools[pos][:POS_MIN[pos]]

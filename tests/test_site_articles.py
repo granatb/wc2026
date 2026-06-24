@@ -55,7 +55,7 @@ class BuildRowsTest(unittest.TestCase):
         self.assertGreater(r["x_points"], 0)
         self.assertAlmostEqual(r["captain_ev"], 2 * r["x_points"], places=6)
         self.assertGreaterEqual(r["ceiling"], r["x_points"])  # P85 goals >= mean goals
-        self.assertAlmostEqual(r["value"], r["x_points"] / 11.0, places=6)
+        self.assertAlmostEqual(r["value"], round(r["x_points"] / 11.0, 3), places=6)
         self.assertEqual(r["kickoff"], "2026-06-26T19:00:00+00:00")
 
     def test_players_without_meta_or_position_are_skipped(self):
@@ -124,6 +124,15 @@ class SelectXITest(unittest.TestCase):
         pool[10]["ceiling"] = 99.0  # a DEF with huge ceiling
         xi = articles.select_xi(pool, "ceiling")
         self.assertEqual(xi[0]["ceiling"], 99.0)
+
+    def test_raises_when_position_pool_too_small(self):
+        # only 2 defenders but POS_MIN["DEF"] == 3
+        pool = [_row("GK0", "GK", 5.0)]
+        pool += [_row(f"DEF{i}", "DEF", 6 - i * 0.1) for i in range(2)]
+        pool += [_row(f"MID{i}", "MID", 7 - i * 0.1) for i in range(5)]
+        pool += [_row(f"FWD{i}", "FWD", 8 - i * 0.1) for i in range(5)]
+        with self.assertRaises(ValueError):
+            articles.select_xi(pool, "x_points")
 
 
 class BlowoutTest(unittest.TestCase):
