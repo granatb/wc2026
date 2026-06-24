@@ -25,8 +25,14 @@ def article_json(competition, fantasy_round, article, title, generated_at, sims,
 
 def summary_sentence(article, entries):
     if not entries:
-        return "No qualifying players this round."
+        return "No data available this round."
+    if article == "matches":
+        close = sum(1 for e in entries if e.get("close"))
+        return (f"Match predictions for {len(entries)} fixtures this round; "
+                f"{close} close game(s) to watch.")
     top = entries[0]
+    if "name" not in top:
+        return f"Round {article} analysis."
     name, team = top["name"], top.get("team", "")
     if article == "captains":
         return (f"Captain {name} ({team}): {top['captain_ev']:.1f} expected points — "
@@ -341,8 +347,105 @@ def _rank_table_html(entries, columns):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
+_MATCH_CSS = (
+    ".mx-lead{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:16px 20px;margin-bottom:24px}"
+    ".mx-lead h3{font-size:15px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;"
+    "color:var(--green);margin-bottom:10px}"
+    ".mx-close-list{display:flex;flex-wrap:wrap;gap:8px}"
+    ".mx-close-tag{background:#fdeee9;color:var(--acc);font-size:13px;font-weight:700;"
+    "padding:4px 10px;border-radius:8px}"
+    ".mx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}"
+    ".mx-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:18px 20px;display:flex;flex-direction:column;gap:10px}"
+    ".mx-card.mx-close-card{border-color:var(--acc);border-width:2px}"
+    ".mx-teams{font-size:18px;font-weight:800;letter-spacing:-.3px}"
+    ".mx-score{font-size:32px;font-weight:800;color:var(--green);letter-spacing:1px;"
+    "line-height:1}"
+    ".mx-xg{font-size:13px;color:var(--ink3);display:flex;align-items:center;gap:6px}"
+    ".mx-xg-h{color:var(--green);font-weight:700}"
+    ".mx-xg-a{color:var(--ink2);font-weight:700}"
+    ".mx-probs{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;"
+    "font-size:12px;font-weight:700;text-align:center}"
+    ".mx-ph{flex:1;background:#eaf5ee;color:var(--greend);padding:5px 2px}"
+    ".mx-pd{flex:1;background:var(--chipbg);color:var(--ink2);padding:5px 2px}"
+    ".mx-pa{flex:1;background:#f5f0ea;color:var(--ink2);padding:5px 2px}"
+    ".mx-ko{font-size:11px;color:var(--ink3);letter-spacing:.5px}"
+    ".mx-badge{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
+    "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;"
+    "padding:2px 8px;align-self:flex-start}"
+)
+
+
+def match_predictions_html(entries: list) -> str:
+    """Render fixture prediction cards in v2 editorial style."""
+    if not entries:
+        return "<p style='color:var(--ink3);text-align:center'>No fixtures found for this round.</p>"
+
+    close_matches = [e for e in entries if e.get("close")]
+
+    # Lead strip
+    lead_parts = []
+    if close_matches:
+        tags = "".join(
+            f'<span class="mx-close-tag">{_html.escape(e["match"])}</span>'
+            for e in close_matches
+        )
+        lead_parts.append(
+            f'<div class="mx-lead">'
+            f'<h3>Games to watch</h3>'
+            f'<div class="mx-close-list">{tags}</div>'
+            f'</div>'
+        )
+
+    # Sort: close games first, then by kickoff
+    sorted_entries = sorted(entries, key=lambda e: (not e.get("close"), e.get("kickoff", "")))
+
+    cards = []
+    for e in sorted_entries:
+        is_close = e.get("close", False)
+        card_cls = "mx-card mx-close-card" if is_close else "mx-card"
+        match_esc = _html.escape(e.get("match", ""))
+        home_esc = _html.escape(e.get("home", ""))
+        away_esc = _html.escape(e.get("away", ""))
+        score = _html.escape(e.get("top_scoreline", "?-?"))
+        xgh = e.get("exp_home_goals", 0.0)
+        xga = e.get("exp_away_goals", 0.0)
+        p_home = e.get("p_home", 0.0)
+        p_draw = e.get("p_draw", 0.0)
+        p_away = e.get("p_away", 0.0)
+        ko = e.get("kickoff", "")
+        # Format kickoff: show ISO date+time trimmed
+        ko_display = ko[:16].replace("T", " ") + " UTC" if ko else "—"
+
+        badge = '<span class="mx-badge">Close — one to watch</span>' if is_close else ""
+
+        card = (
+            f'<div class="{card_cls}">'
+            f'<div class="mx-teams">{home_esc} <span style="color:var(--ink3);font-weight:400">vs</span> {away_esc}</div>'
+            f'<div class="mx-score">{score}</div>'
+            f'<div class="mx-xg">'
+            f'<span class="mx-xg-h">{xgh:.2f} xG</span>'
+            f'<span style="color:var(--line)">|</span>'
+            f'<span class="mx-xg-a">{xga:.2f} xG</span>'
+            f'</div>'
+            f'<div class="mx-probs">'
+            f'<div class="mx-ph">H {p_home*100:.0f}%</div>'
+            f'<div class="mx-pd">D {p_draw*100:.0f}%</div>'
+            f'<div class="mx-pa">A {p_away*100:.0f}%</div>'
+            f'</div>'
+            f'<div class="mx-ko">{_html.escape(ko_display)}</div>'
+            f'{badge}'
+            f'</div>'
+        )
+        cards.append(card)
+
+    grid = f'<div class="mx-grid">{"".join(cards)}</div>'
+    return f'<style>{_MATCH_CSS}</style>' + "".join(lead_parts) + grid
+
+
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None):
+                 generated_at=None, date_str=None, show_table=True):
     """v2 editorial article page.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
@@ -373,7 +476,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
         _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
-    table_html = _rank_table_html(entries, columns)
+    table_html = _rank_table_html(entries, columns) if show_table else ""
+    data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     return f"""<!doctype html>
@@ -398,8 +502,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
 <div class="artviz">{viz_html}</div>
 <div class="prose">{prose["body_html"]}
-<h2>The data</h2>
-{table_html}
+{data_section}
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
 <p class="method"><b>How we get these numbers.</b> {METHODOLOGY}

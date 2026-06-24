@@ -12,10 +12,11 @@ XI_SIZE = 11
 DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
-ARTICLES = ["captains", "best-xi", "defenders", "risky", "efficiency",
+ARTICLES = ["captains", "matches", "best-xi", "defenders", "risky", "efficiency",
             "blowout-transfers"]
 ARTICLE_TITLES = {
     "captains": "Best captain picks",
+    "matches": "Match predictions & games to watch",
     "best-xi": "Best XI by expected points",
     "defenders": "Best defenders",
     "risky": "Risky chances — highest ceilings",
@@ -183,3 +184,96 @@ def blowout_transfers(rows: list, teams: set) -> list:
     """Attackers (FWD/MID) from the blowout fixtures, ranked by x_points."""
     pool = [r for r in rows if r["team"] in teams and r["position"] in ("FWD", "MID")]
     return _ranked(pool, "x_points")
+
+
+def match_predictions(match_samples: dict, fantasy_round: int) -> list:
+    """Return one prediction dict per fixture in fantasy_round, sorted by kickoff.
+
+    Derives predictions from the simulated scoreline distribution in match_samples
+    (a dict of match_id -> MatchSample from engine_events.simulate_round).
+    Falls back to lambda-Poisson grid if a match_id is absent from match_samples.
+
+    Each entry has:
+      match, home, away, kickoff (ISO str), exp_home_goals, exp_away_goals,
+      exp_total, top_scoreline ("H-A"), p_home, p_draw, p_away, close (bool).
+    """
+    import math
+
+    def _poisson_prob(lam: float, k: int) -> float:
+        if lam <= 0:
+            return 1.0 if k == 0 else 0.0
+        return math.exp(-lam) * (lam ** k) / math.factorial(k)
+
+    def _outcome_probs_from_lambdas(lam_h: float, lam_a: float, max_g: int = 7):
+        """Compute 1X2 probs + top scoreline from a Poisson grid."""
+        p_home = p_draw = p_away = 0.0
+        best_score = (0, 0)
+        best_p = 0.0
+        exp_h = exp_a = 0.0
+        for hg in range(max_g + 1):
+            ph = _poisson_prob(lam_h, hg)
+            for ag in range(max_g + 1):
+                pa = _poisson_prob(lam_a, ag)
+                p = ph * pa
+                if hg > ag:
+                    p_home += p
+                elif hg == ag:
+                    p_draw += p
+                else:
+                    p_away += p
+                if p > best_p:
+                    best_p = p
+                    best_score = (hg, ag)
+                exp_h += hg * p
+                exp_a += ag * p
+        return p_home, p_draw, p_away, best_score, exp_h, exp_a
+
+    fx_list = fixtures.by_round(fantasy_round)
+    results = []
+    for f in fx_list:
+        ms = match_samples.get(f.match_id)
+        if ms is not None and ms.sims > 0:
+            # Use simulated scoreline distribution
+            probs = ms.outcome_probs()
+            p_home = probs.get("H", 0.0)
+            p_draw = probs.get("D", 0.0)
+            p_away = probs.get("A", 0.0)
+            # Top scoreline
+            best_sl = max(ms.scorelines, key=lambda k: ms.scorelines[k])
+            # Expected goals from marginals
+            mh = ms.marginal_home()
+            ma = ms.marginal_away()
+            exp_h = sum(g * p for g, p in mh.items())
+            exp_a = sum(g * p for g, p in ma.items())
+        else:
+            # Fallback: Poisson grid from lambdas
+            lam_h, lam_a = f.lambdas()
+            p_home, p_draw, p_away, best_sl, exp_h, exp_a = \
+                _outcome_probs_from_lambdas(lam_h, lam_a)
+
+        # Normalise (avoid floating-point drift)
+        total_p = p_home + p_draw + p_away
+        if total_p > 0:
+            p_home /= total_p
+            p_draw /= total_p
+            p_away /= total_p
+
+        close = max(p_home, p_draw, p_away) < 0.45
+
+        results.append({
+            "match": f"{f.home} vs {f.away}",
+            "home": f.home,
+            "away": f.away,
+            "kickoff": f.kickoff.isoformat(),
+            "exp_home_goals": round(exp_h, 2),
+            "exp_away_goals": round(exp_a, 2),
+            "exp_total": round(exp_h + exp_a, 2),
+            "top_scoreline": f"{best_sl[0]}-{best_sl[1]}",
+            "p_home": round(p_home, 2),
+            "p_draw": round(p_draw, 2),
+            "p_away": round(p_away, 2),
+            "close": close,
+        })
+
+    results.sort(key=lambda r: r["kickoff"])
+    return results

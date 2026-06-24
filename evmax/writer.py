@@ -342,6 +342,47 @@ _TEMPLATES = {
             f"is the round's highest projection."
         ),
     },
+    "matches": {
+        "headline": lambda e, r, subj: f"Round {r} match predictions: scorelines and games to watch",
+        "standfirst": lambda e, r, subj: (
+            (lambda close: (
+                f"{len(e)} fixtures simulated; {len(close)} close game(s) to watch: "
+                + ", ".join(c["match"] for c in close[:2])
+                + ("." if len(close) <= 2 else " and more.")
+            ))([ c for c in e if c.get("close")])
+            if e else f"Match predictions for Round {r}."
+        ),
+        "body": lambda e, r, subj: (
+            (lambda top2, close: (
+                f"<p>The model simulates {len(e)} fixtures for Round {r}. "
+                + (f"The most decisive expected result is {html.escape(top2[0]['match'])} "
+                   f"(predicted {html.escape(top2[0]['top_scoreline'])}, "
+                   f"{top2[0]['exp_home_goals']:.2f}–{top2[0]['exp_away_goals']:.2f} xG)."
+                   if top2 else "")
+                + "</p>\n"
+                + (f"<blockquote><p>Close games — where no outcome exceeds 45% probability — "
+                   f"are the hardest to call and the most watchable: "
+                   + ", ".join(html.escape(c['match']) for c in close[:3])
+                   + ".</p></blockquote>\n"
+                   if close else "")
+                + (f"<p>{html.escape(top2[1]['match'])} is another fixture to note: "
+                   f"expected {html.escape(top2[1]['top_scoreline'])} "
+                   f"({top2[1]['exp_home_goals']:.2f}–{top2[1]['exp_away_goals']:.2f} xG).</p>"
+                   if len(top2) > 1 else "")
+            ))(
+                sorted(e, key=lambda x: -x.get("exp_total", 0))[:2],
+                [c for c in e if c.get("close")]
+            )
+        ),
+        "bottom_line": lambda e, r, subj: (
+            (lambda close: (
+                f"Watch {close[0]['match']} — the model rates it too close to call at "
+                f"{close[0]['p_home']*100:.0f}/{close[0]['p_draw']*100:.0f}/{close[0]['p_away']*100:.0f} 1X2."
+                if close else
+                f"No fixture is marked as close this round — the model has clear favourites across all {len(e)} games."
+            ))([c for c in e if c.get("close")])
+        ),
+    },
     "blowout-transfers": {
         "headline": lambda e, r, subj: f"{subj} — top blowout target for Round {r}",
         "standfirst": lambda e, r, subj: (
@@ -398,8 +439,13 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi with no subject, derive a useful team-level standfirst
-    subj = subject if subject is not None else (entries[0]["name"] if article != "best-xi" else None)
+    # For best-xi and matches (no player subject), skip per-player framing
+    if subject is not None:
+        subj = subject
+    elif article in ("best-xi", "matches"):
+        subj = None
+    else:
+        subj = entries[0].get("name") if entries else None
 
     tmpl = _TEMPLATES.get(article)
     if tmpl:
@@ -490,11 +536,16 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
     # Names: require the article's subject (passed in, or top entry) to actually appear,
     # rather than policing every capitalised word (which false-rejects country
     # names, "World Cup", sentence starts). Catches wholesale off-topic output.
-    grounding_subject = subject if subject else (entries[0].get("name", "") if entries else "")
-    if grounding_subject and not any(
-        w in combined_output for w in grounding_subject.split() if len(w) > 2
-    ):
-        return None
+    # For matches (subject=None, no "name" key), skip this check entirely.
+    has_name_field = entries and "name" in entries[0]
+    if subject is None and not has_name_field:
+        pass  # matches article — no player name to ground on; skip check
+    else:
+        grounding_subject = subject if subject else (entries[0].get("name", "") if entries else "")
+        if grounding_subject and not any(
+            w in combined_output for w in grounding_subject.split() if len(w) > 2
+        ):
+            return None
 
     # Convert body_markdown to HTML
     body_html = _md_to_html(data["body_markdown"])

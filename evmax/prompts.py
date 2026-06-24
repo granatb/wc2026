@@ -52,13 +52,21 @@ Return STRICT JSON with exactly these keys and no others:
 def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
     """Return a filled ARTICLE_PROMPT ready to send to the API.
 
-    subject: player name to centre prose on, or None for team-framing (best-xi).
+    subject: player name to centre prose on, or None for team-framing (best-xi / matches).
     """
     if subject is not None:
         subject_instruction = (
             f"Focus      : Center this article on {subject}. You may reference other "
             f"players in the data, but {subject} must be the main subject — lead with "
             f"their numbers and anchor the headline and recommendation on them.\n"
+        )
+    elif slug == "matches":
+        subject_instruction = (
+            "Focus      : Write about the round's fixtures as a whole. Cover expected "
+            "scorelines, goals (exp_home_goals / exp_away_goals), the top_scoreline for "
+            "notable games, the 1X2 probabilities (p_home/p_draw/p_away), and name the "
+            "fixtures marked close=true as games to watch. Do not invent players or "
+            "stats not in the data.\n"
         )
     else:
         subject_instruction = (

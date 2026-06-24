@@ -214,9 +214,12 @@ class RiskyTest(unittest.TestCase):
 
 class ArticleSetTest(unittest.TestCase):
     def test_articles_list_has_correct_slugs(self):
-        expected = ["captains", "best-xi", "defenders", "risky", "efficiency",
+        expected = ["captains", "matches", "best-xi", "defenders", "risky", "efficiency",
                     "blowout-transfers"]
         self.assertEqual(articles.ARTICLES, expected)
+
+    def test_matches_is_second(self):
+        self.assertEqual(articles.ARTICLES[1], "matches")
 
     def test_article_titles_match_articles(self):
         for slug in articles.ARTICLES:
@@ -230,3 +233,157 @@ class FormationTest(unittest.TestCase):
               + [_row(f"m{i}", "MID", 1) for i in range(4)]
               + [_row(f"f{i}", "FWD", 1) for i in range(3)])
         self.assertEqual(articles.formation_of(xi), "3-4-3")
+
+
+# ---------------------------------------------------------------------------
+# MatchSample stub — avoids importing the full engine in a unit test.
+# ---------------------------------------------------------------------------
+
+class _FakeMatchSample:
+    """Minimal stand-in for core.engine_events.MatchSample."""
+
+    def __init__(self, match_id, home, away, scorelines):
+        self.match_id = match_id
+        self.home = home
+        self.away = away
+        self.scorelines = scorelines          # {(hg, ag): count}
+        self.sims = sum(scorelines.values())
+
+    def prob(self, hg, ag):
+        return self.scorelines.get((hg, ag), 0) / self.sims if self.sims else 0.0
+
+    def marginal_home(self):
+        from collections import defaultdict
+        d = defaultdict(int)
+        for (hg, _ag), c in self.scorelines.items():
+            d[hg] += c
+        return {k: v / self.sims for k, v in d.items()}
+
+    def marginal_away(self):
+        from collections import defaultdict
+        d = defaultdict(int)
+        for (_hg, ag), c in self.scorelines.items():
+            d[ag] += c
+        return {k: v / self.sims for k, v in d.items()}
+
+    def outcome_probs(self):
+        d = {"H": 0, "D": 0, "A": 0}
+        for (hg, ag), c in self.scorelines.items():
+            d["H" if hg > ag else "A" if ag > hg else "D"] += c
+        return {k: v / self.sims for k, v in d.items()}
+
+
+class _FakeFixture:
+    """Minimal stand-in for core.fixtures.Fixture."""
+
+    def __init__(self, match_id, home, away, kickoff_iso, lam_home=1.5, lam_away=0.8):
+        from datetime import datetime, timezone
+        self.match_id = match_id
+        self.home = home
+        self.away = away
+        self.kickoff = datetime.fromisoformat(kickoff_iso).replace(tzinfo=timezone.utc)
+        self._lh = lam_home
+        self._la = lam_away
+
+    def lambdas(self):
+        return self._lh, self._la
+
+
+class MatchPredictionsTest(unittest.TestCase):
+    """Unit tests for articles.match_predictions using synthetic inputs."""
+
+    def _make_match_samples(self):
+        """Two synthetic MatchSamples:
+        - 'decided': England dominant (H wins ~70% → max outcome > 0.45, close=False)
+        - 'close':   perfectly balanced three-way (H/D/A each ~33%, close=True)
+        """
+        decided_sl = {
+            (2, 0): 300, (1, 0): 200, (2, 1): 100,
+            (0, 0): 100, (1, 1): 100, (0, 1): 100, (0, 2): 100,
+        }  # H wins 600/1000 = 60% → max outcome = 0.60 > 0.45
+
+        close_sl = {
+            (1, 0): 333, (0, 0): 334, (0, 1): 333,
+        }  # H 33.3%, D 33.4%, A 33.3% → max = 0.334 < 0.45
+
+        return {
+            "m1": _FakeMatchSample("m1", "England", "Senegal", decided_sl),
+            "m2": _FakeMatchSample("m2", "Spain", "Germany", close_sl),
+        }
+
+    def _patch_fixtures(self, fake_fixtures):
+        """Temporarily replace core.fixtures.by_round with fake data."""
+        import core.fixtures as core_fx
+        original = core_fx.by_round
+        core_fx.by_round = lambda r: fake_fixtures
+        return original
+
+    def _restore_fixtures(self, original):
+        import core.fixtures as core_fx
+        core_fx.by_round = original
+
+    def setUp(self):
+        self._fake_fx = [
+            _FakeFixture("m1", "England", "Senegal", "2026-06-28T18:00:00+00:00"),
+            _FakeFixture("m2", "Spain", "Germany",   "2026-06-28T21:00:00+00:00"),
+        ]
+        self._orig = self._patch_fixtures(self._fake_fx)
+        self._ms = self._make_match_samples()
+
+    def tearDown(self):
+        self._restore_fixtures(self._orig)
+
+    def test_returns_one_entry_per_fixture(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        self.assertEqual(len(result), 2)
+
+    def test_entry_has_required_keys(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        required = {"match", "home", "away", "kickoff",
+                    "exp_home_goals", "exp_away_goals", "exp_total",
+                    "top_scoreline", "p_home", "p_draw", "p_away", "close"}
+        for entry in result:
+            self.assertTrue(required.issubset(entry.keys()),
+                            f"Missing keys: {required - entry.keys()}")
+
+    def test_top_scoreline_format(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        for entry in result:
+            parts = entry["top_scoreline"].split("-")
+            self.assertEqual(len(parts), 2, f"Bad scoreline: {entry['top_scoreline']}")
+            self.assertTrue(parts[0].isdigit() and parts[1].isdigit(),
+                            f"Non-numeric scoreline: {entry['top_scoreline']}")
+
+    def test_probabilities_sum_to_one(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        for entry in result:
+            total = entry["p_home"] + entry["p_draw"] + entry["p_away"]
+            self.assertAlmostEqual(total, 1.0, places=1,
+                                   msg=f"Probs don't sum to 1 for {entry['match']}: {total}")
+
+    def test_close_flag_decided_fixture(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        england = next(e for e in result if e["home"] == "England")
+        # Decided fixture: p_home ~0.60 > 0.45 → close=False
+        self.assertFalse(england["close"],
+                         f"Expected close=False for decided fixture, got {england}")
+
+    def test_close_flag_balanced_fixture(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        spain = next(e for e in result if e["home"] == "Spain")
+        # Balanced fixture: max prob ~0.33 < 0.45 → close=True
+        self.assertTrue(spain["close"],
+                        f"Expected close=True for balanced fixture, got {spain}")
+
+    def test_sorted_by_kickoff(self):
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        kickoffs = [e["kickoff"] for e in result]
+        self.assertEqual(kickoffs, sorted(kickoffs))
+
+    def test_fallback_when_match_absent_from_samples(self):
+        """When match_samples is empty, falls back to lambda-Poisson grid."""
+        result = articles.match_predictions({}, fantasy_round=3)
+        self.assertEqual(len(result), 2)
+        for entry in result:
+            self.assertIn("top_scoreline", entry)
+            self.assertIsInstance(entry["close"], bool)

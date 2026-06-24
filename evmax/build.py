@@ -20,6 +20,7 @@ from evmax import articles, render, writer
 # ---------------------------------------------------------------------------
 _COLUMNS = {
     "captains":          ["captain_ev", "x_points", "ceiling", "price", "value", "ownership_pct"],
+    "matches":           [],  # no player table; fixture cards rendered by match_predictions_html
     "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
     "defenders":         ["x_points", "price", "value", "ceiling", "ownership_pct"],
     "risky":             ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
@@ -74,7 +75,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     date_str = _format_date(generated_at)
 
     # --- Simulate ---
-    players, _matches = engine_events.simulate_round(
+    players, match_samples = engine_events.simulate_round(
         fantasy_round, sims=sims,
         market_rates=espn.load_player_rates(fantasy_round),
         research=research.load_entries("players", fantasy_round),
@@ -87,6 +88,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
 
     # --- Build per-article data ---
     entries_map = _article_entries(rows, fantasy_round)
+    entries_map["matches"] = articles.match_predictions(match_samples, fantasy_round)
     nav = [(slug, articles.ARTICLE_TITLES[slug]) for slug in articles.ARTICLES]
 
     def w(path: str, text: str) -> None:
@@ -106,9 +108,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         title = f"{articles.ARTICLE_TITLES[slug]} — Round {fantasy_round}"
         json_url = f"/api/round/{fantasy_round}/{slug}.json"
 
+        # Matches article: no player subject, no player table
+        is_matches = (slug == "matches")
+
         # Determine the subject (lead player) for prose focus
-        if slug == "best-xi":
-            subject = None  # team-framed, no single player centred
+        if slug in ("best-xi", "matches"):
+            subject = None  # team/match-framed, no single player centred
         else:
             subject = next(
                 (e["name"] for e in entries if e["name"] not in used_leads),
@@ -123,7 +128,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         prose_map[slug] = prose
 
         # Viz
-        if slug in _XI_ARTICLES:
+        if is_matches:
+            viz_html = render.match_predictions_html(entries)
+        elif slug in _XI_ARTICLES:
             viz_html = render.pitch_svg(entries)
         else:
             viz_html = render.ev_bar(entries, columns[0])
@@ -138,7 +145,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         w(f"/round/{fantasy_round}/{slug}/index.html",
           render.article_page(fantasy_round, slug, title, prose, entries,
                               columns, json_url, viz_html,
-                              generated_at=generated_at, date_str=date_str))
+                              generated_at=generated_at, date_str=date_str,
+                              show_table=not is_matches))
 
     # --- About page ---
     w("/about/index.html", render.about_page())
@@ -156,7 +164,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         "viz_html": captains_viz,
     }
 
-    # Feed = the other five articles
+    # Feed = the other articles (not captains, which is featured)
     feed = []
     for slug in articles.ARTICLES:
         if slug == "captains":
@@ -164,11 +172,15 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         entries = entries_map[slug]
         columns = _COLUMNS[slug]
         prose = prose_map[slug]
-        primary_col = columns[0]
-        top_entry = entries[0] if entries else {}
-        # stat_value: formatted primary metric of top entry
-        stat_value = render._fmt(primary_col, top_entry)
-        stat_label = render._COL_LABEL.get(primary_col, primary_col)
+        if slug == "matches":
+            close_count = sum(1 for e in entries if e.get("close"))
+            stat_value = f"{len(entries)}"
+            stat_label = f"fixtures · {close_count} to watch"
+        else:
+            primary_col = columns[0]
+            top_entry = entries[0] if entries else {}
+            stat_value = render._fmt(primary_col, top_entry)
+            stat_label = render._COL_LABEL.get(primary_col, primary_col)
         feed.append({
             "slug": slug,
             "headline": prose["headline"],
