@@ -1,5 +1,7 @@
 """Pure emitters for the evmax static site (HTML/SVG/JSON/text). No I/O."""
 
+import html as _html
+
 SITE_URL = "https://evmax.pages.dev"
 METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
                "simulations, scored on the official FIFA World Cup Fantasy points table.")
@@ -40,3 +42,28 @@ def summary_sentence(article, entries):
         return (f"{name} ({team}) is the top attacker in this round's most lopsided fixtures "
                 f"at {top['x_points']:.1f} xPts.")
     return f"{name} ({team}) tops the list at {top['x_points']:.1f} expected points."
+
+
+def svg_bar_chart(pairs, unit, width=520, row_h=34):
+    """Horizontal bar chart as a standalone inline SVG (no JS). pairs = [(label, value)]."""
+    pairs = list(pairs)
+    height = max(row_h * len(pairs) + 10, 40)
+    if not pairs:
+        return f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg"></svg>'
+    vmax = max(v for _, v in pairs) or 1.0
+    label_w, pad = 150, 8
+    bar_max = width - label_w - 60
+    rows = []
+    for i, (label, value) in enumerate(pairs):
+        y = i * row_h + pad
+        bw = max(2, bar_max * (value / vmax))
+        lbl = _html.escape(str(label))
+        rows.append(
+            f'<text x="0" y="{y + 16}" font-size="13" fill="#cbd5e1">{lbl}</text>'
+            f'<rect x="{label_w}" y="{y + 4}" width="{bw:.1f}" height="18" rx="3" '
+            f'fill="#22d3ee"/>'
+            f'<text x="{label_w + bw + 6:.1f}" y="{y + 17}" font-size="12" '
+            f'fill="#e2e8f0">{value:.1f}</text>')
+    return (f'<svg viewBox="0 0 {width} {height}" width="100%" '
+            f'xmlns="http://www.w3.org/2000/svg" role="img" '
+            f'aria-label="{_html.escape(unit)} chart">' + "".join(rows) + "</svg>")

@@ -30,3 +30,17 @@ class JsonEnvelopeTest(unittest.TestCase):
         s = render.summary_sentence("captains", self.entries)
         self.assertIn("Bruno Fernandes", s)
         self.assertIn("11.3", s)  # captain EV, one decimal
+
+
+class SvgChartTest(unittest.TestCase):
+    def test_svg_contains_bars_and_labels(self):
+        svg = render.svg_bar_chart([("Bruno", 11.3), ("Wirtz", 10.1), ("Kane", 9.2)], "EV")
+        self.assertTrue(svg.startswith("<svg"))
+        self.assertIn("</svg>", svg)
+        self.assertEqual(svg.count("<rect"), 3)
+        self.assertIn("Bruno", svg)
+        self.assertIn("11.3", svg)
+
+    def test_empty_input_is_safe(self):
+        svg = render.svg_bar_chart([], "EV")
+        self.assertTrue(svg.startswith("<svg"))
