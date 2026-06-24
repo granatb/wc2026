@@ -31,6 +31,14 @@ class JsonEnvelopeTest(unittest.TestCase):
         self.assertIn("Bruno Fernandes", s)
         self.assertIn("11.3", s)  # captain EV, one decimal
 
+    def test_summary_sentence_efficiency_mentions_value(self):
+        entries = [{"name": "Amad Diallo", "team": "CIV", "x_points": 8.55, "price": 5.5,
+                    "value": 1.55, "ownership_pct": 1.0}]
+        s = render.summary_sentence("efficiency", entries)
+        self.assertIn("Amad Diallo", s)
+        self.assertIn("8.55", s)   # xPts
+        self.assertIn("5.5", s)    # price
+
 
 class SvgChartTest(unittest.TestCase):
     def test_svg_contains_bars_and_labels(self):
@@ -109,7 +117,8 @@ class HtmlTest(unittest.TestCase):
             prose=self.prose,
             entries=self.entries, columns=["captain_ev", "x_points"],
             nav=self.nav, json_url="/api/round/3/captains.json",
-            viz_html=self.viz_html)
+            viz_html=self.viz_html,
+            generated_at="2026-06-24T12:00:00+00:00")
         self.assertIn("<!doctype html>", h.lower())
         self.assertIn("application/ld+json", h)         # JSON-LD present
         self.assertIn("Bruno Fernandes", h)
@@ -125,9 +134,14 @@ class HtmlTest(unittest.TestCase):
             prose=self.prose,
             entries=self.entries, columns=["captain_ev", "x_points"],
             nav=self.nav, json_url="/api/round/3/captains.json",
-            viz_html=self.viz_html)
+            viz_html=self.viz_html,
+            generated_at="2026-06-24T12:00:00+00:00")
         self.assertIn('"Article"', h)                           # Article JSON-LD type
         self.assertIn(self.prose["headline"], h)                # prose headline rendered
+        self.assertIn("datePublished", h)                       # datePublished in Article LD
+        self.assertIn("2026-06-24T12:00:00+00:00", h)          # generated_at value present
+        self.assertNotIn("&amp;", h.split(
+            '<script type="application/ld+json">')[1].split("</script>")[0])  # no double-escaping in LD
 
     def test_hub_page_links_all_articles(self):
         h = render.hub_page(round_no=3, nav=self.nav,

@@ -111,7 +111,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # HTML
         w(f"/round/{fantasy_round}/{slug}/index.html",
           render.article_page(fantasy_round, slug, title, prose, entries,
-                              columns, nav, json_url, viz_html))
+                              columns, nav, json_url, viz_html,
+                              generated_at=generated_at))
 
     # --- Landing page ---
     # Featured = captains article (first in ARTICLES)
@@ -137,8 +138,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         primary_col = columns[0]
         top_entry = entries[0] if entries else {}
         # stat_value: formatted primary metric of top entry
-        stat_value = _fmt_col(primary_col, top_entry)
-        stat_label = _COL_LABEL.get(primary_col, primary_col)
+        stat_value = render._fmt(primary_col, top_entry)
+        stat_label = render._COL_LABEL.get(primary_col, primary_col)
         feed.append({
             "slug": slug,
             "headline": prose["headline"],
@@ -162,27 +163,6 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
 
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles)")
-
-
-# ---------------------------------------------------------------------------
-# Formatting helpers (mirrors render._fmt / render._COL_LABEL for stat cards)
-# ---------------------------------------------------------------------------
-
-_COL_LABEL = {
-    "x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceiling",
-    "value": "xPts/£", "price": "Price", "ownership_pct": "Owned %",
-}
-
-
-def _fmt_col(col: str, row: dict) -> str:
-    v = row.get(col)
-    if v is None:
-        return "—"
-    if col == "ownership_pct":
-        return f"{v:.1f}%"
-    if col == "price":
-        return f"{v:.1f}"
-    return f"{v:.2f}" if isinstance(v, float) else str(v)
 
 
 # ---------------------------------------------------------------------------

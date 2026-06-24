@@ -34,9 +34,9 @@ def summary_sentence(article, entries):
     if article == "differentials":
         return (f"{name} ({team}) is the standout differential: {top['x_points']:.1f} xPts "
                 f"at just {top['ownership_pct']:.1f}% ownership.")
-    if article == "best-value-xi":
-        return (f"{name} ({team}) leads on value: {top['x_points']:.1f} xPts for "
-                f"{top['price']:.1f}m.")
+    if article == "efficiency":
+        return (f"{name} ({team}) is the best value: {top['x_points']:.2f} xPts "
+                f"at just {top['price']:.1f}m.")
     if article == "high-ceiling-xi":
         return (f"{name} ({team}) has the highest ceiling: up to {top['ceiling']:.1f} points.")
     if article == "blowout-transfers":
@@ -71,7 +71,7 @@ def svg_bar_chart(pairs, unit, width=520, row_h=34):
 
 
 _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceiling",
-              "value": "Value", "price": "Price", "ownership_pct": "Owned %"}
+              "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %"}
 
 
 def _fmt(col, row):
@@ -147,7 +147,7 @@ _STYLE = (
     ".art .meta .av{width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;"
     "font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}"
     ".artviz{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:18px;"
-    "margin:6px 0 26px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}"
+    "margin:6px 0 26px;display:flex;flex-direction:column;align-items:center}"
     ".prose p{font-family:var(--serif);font-size:18px;line-height:1.66;color:#23201a;margin-bottom:18px}"
     ".prose p b{color:var(--ink)}"
     ".prose h2{font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;"
@@ -171,7 +171,6 @@ _STYLE = (
     "@media(max-width:760px){"
     ".feat{grid-template-columns:1fr;gap:20px}"
     ".feed{grid-template-columns:1fr}"
-    ".artviz{grid-template-columns:1fr}"
     ".pitch-mini{width:100%;max-width:240px;margin:0 auto}"
     "}"
 )
@@ -196,6 +195,8 @@ def pitch_svg(xi_entries):
     """SVG football pitch placing an XI by position lines. Captain (rank 1) is flagged."""
     from evmax.articles import formation_of  # lazy to avoid circular at module level
     xi = list(xi_entries)
+    if not xi:
+        return '<svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg"/>'
     # group by position
     gks = [e for e in xi if e.get("position") == "GK"]
     defs = [e for e in xi if e.get("position") == "DEF"]
@@ -340,28 +341,35 @@ def _rank_table_html(entries, columns):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def article_page(round_no, article, title, prose, entries, columns, nav, json_url, viz_html):
+def article_page(round_no, article, title, prose, entries, columns, nav, json_url, viz_html,
+                 generated_at=None):
     """v2 editorial article page.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
+    generated_at: ISO-8601 timestamp string (optional)
     """
     summary = summary_sentence(article, entries)
-    dataset_ld = _json.dumps({
+    dataset_ld_raw = _json.dumps({
         "@context": "https://schema.org", "@type": "Dataset",
-        "name": _html.escape(title),
+        "name": title,
         "description": METHODOLOGY,
         "url": f"{SITE_URL}{json_url}",
         "creator": {"@type": "Organization", "name": "evmax"},
         "variableMeasured": [_COL_LABEL.get(c, c) for c in columns],
     })
-    article_ld = _json.dumps({
+    dataset_ld = dataset_ld_raw.replace("</", "<\\/")
+    article_ld_obj = {
         "@context": "https://schema.org", "@type": "Article",
-        "headline": _html.escape(prose["headline"]),
+        "headline": prose["headline"],
         "author": {"@type": "Organization", "name": "evmax"},
         "publisher": {"@type": "Organization", "name": "evmax"},
-        "description": _html.escape(prose["standfirst"]),
-    })
+        "description": prose["standfirst"],
+        "articleBody": prose["standfirst"],
+    }
+    if generated_at is not None:
+        article_ld_obj["datePublished"] = generated_at
+    article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
         _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
     table_html = _rank_table_html(entries, columns)
