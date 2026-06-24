@@ -27,6 +27,38 @@ _PLAYERS_JSON = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "players.json")
 
 
+def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
+    """Enrich the engine's per-player means with metadata into ranked-ready rows.
+
+    means:    name -> event-means dict (from engine_events.event_means)
+    samples:  name -> goal_samples list (from PlayerSample.goal_samples)
+    meta:     name -> {team, position, price, ownership_pct} (load_player_meta)
+    kickoffs: team -> ISO-8601 kickoff string for the round
+    Players missing metadata or a position are skipped.
+    """
+    rows = []
+    for name, ev in means.items():
+        m = meta.get(name)
+        if not m or not m.get("position"):
+            continue
+        xp = fifa_model.expected_points(ev)
+        ceiling = fifa_model.ceiling_points(ev, samples.get(name, []))
+        price = m.get("price")
+        rows.append({
+            "name": name,
+            "team": m.get("team"),
+            "position": m["position"],
+            "x_points": round(xp, 2),
+            "captain_ev": round(2 * xp, 2),
+            "ceiling": round(ceiling, 2),
+            "price": price,
+            "ownership_pct": m.get("ownership_pct"),
+            "value": xp / price if price else None,
+            "kickoff": kickoffs.get(m.get("team")),
+        })
+    return rows
+
+
 def load_player_meta(path: str = _PLAYERS_JSON) -> dict:
     """name (and aliases) -> {team, position, price, ownership_pct} from data/players.json."""
     with open(path, encoding="utf-8") as fh:
