@@ -94,3 +94,33 @@ class RankingTest(unittest.TestCase):
         # own<10 AND x_points>=4.0 -> B(6.0,own3) and C(4.5,own1); A excluded (own 50)
         self.assertEqual(sorted(r["name"] for r in out), ["B", "C"])
         self.assertEqual(out[0]["x_points"], 6.0)  # sorted by xpts desc -> B first
+
+
+class SelectXITest(unittest.TestCase):
+    def _pool(self):
+        rows = []
+        rows += [_row(f"GK{i}", "GK", 5 - i * 0.1) for i in range(3)]
+        rows += [_row(f"DEF{i}", "DEF", 6 - i * 0.1) for i in range(8)]
+        rows += [_row(f"MID{i}", "MID", 7 - i * 0.1) for i in range(8)]
+        rows += [_row(f"FWD{i}", "FWD", 8 - i * 0.1) for i in range(6)]
+        return rows
+
+    def test_returns_valid_xi(self):
+        xi = articles.select_xi(self._pool(), "x_points")
+        self.assertEqual(len(xi), articles.XI_SIZE)
+        counts = {}
+        for r in xi:
+            counts[r["position"]] = counts.get(r["position"], 0) + 1
+        self.assertEqual(counts["GK"], 1)
+        self.assertGreaterEqual(counts["DEF"], 3)
+        self.assertGreaterEqual(counts["MID"], 2)
+        self.assertGreaterEqual(counts["FWD"], 1)
+        for pos, mx in articles.POS_MAX.items():
+            self.assertLessEqual(counts.get(pos, 0), mx)
+
+    def test_ranks_by_the_given_key(self):
+        # high-ceiling XI should sort on ceiling, not x_points
+        pool = self._pool()
+        pool[10]["ceiling"] = 99.0  # a DEF with huge ceiling
+        xi = articles.select_xi(pool, "ceiling")
+        self.assertEqual(xi[0]["ceiling"], 99.0)

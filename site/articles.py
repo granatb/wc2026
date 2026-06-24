@@ -59,6 +59,32 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
     return rows
 
 
+def select_xi(rows: list, key: str) -> list:
+    """Greedy formation-constrained XI maximizing `key` (e.g. 'x_points' or 'ceiling').
+    Fills position minimums first, then the remaining slots by best `key` within maxima."""
+    pools = {pos: sorted([r for r in rows if r["position"] == pos and r.get(key) is not None],
+                         key=lambda r: r[key], reverse=True)
+             for pos in POS_MIN}
+    chosen, counts = [], {}
+    for pos in POS_MIN:
+        take = pools[pos][:POS_MIN[pos]]
+        chosen += take
+        counts[pos] = len(take)
+    leftovers = []
+    for pos in POS_MIN:
+        leftovers += pools[pos][POS_MIN[pos]:]
+    leftovers.sort(key=lambda r: r[key], reverse=True)
+    for r in leftovers:
+        if len(chosen) >= XI_SIZE:
+            break
+        pos = r["position"]
+        if counts.get(pos, 0) < POS_MAX[pos]:
+            chosen.append(r)
+            counts[pos] = counts.get(pos, 0) + 1
+    chosen.sort(key=lambda r: r[key], reverse=True)
+    return chosen
+
+
 def _ranked(rows, key, reverse=True):
     out = [dict(r) for r in sorted(rows, key=lambda r: r[key], reverse=reverse)]
     for i, r in enumerate(out, 1):
