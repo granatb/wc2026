@@ -63,3 +63,34 @@ class BuildRowsTest(unittest.TestCase):
         means["Ghost"] = dict(self.means["Kane"])  # no meta entry
         rows = articles.build_rows(means, {"Kane": [0, 1], "Ghost": [0]}, self.meta, self.kickoffs)
         self.assertEqual([r["name"] for r in rows], ["Kane"])
+
+
+def _row(name, pos, xp, own=20.0, price=8.0, ceiling=None):
+    return {"name": name, "team": name + "land", "position": pos, "x_points": xp,
+            "captain_ev": 2 * xp, "ceiling": ceiling if ceiling is not None else xp,
+            "price": price, "ownership_pct": own, "value": xp / price, "kickoff": None}
+
+
+class RankingTest(unittest.TestCase):
+    def setUp(self):
+        self.rows = [
+            _row("A", "FWD", 9.0, own=50.0, price=11.0),
+            _row("B", "MID", 6.0, own=3.0, price=6.0),
+            _row("C", "DEF", 4.5, own=1.0, price=4.0),
+        ]
+
+    def test_rank_captains_orders_by_captain_ev_desc_and_assigns_rank(self):
+        out = articles.rank_captains(self.rows)
+        self.assertEqual([r["name"] for r in out], ["A", "B", "C"])
+        self.assertEqual(out[0]["rank"], 1)
+
+    def test_rank_value_orders_by_value_desc(self):
+        out = articles.rank_value(self.rows)
+        # C: 4.5/4=1.125, B: 6/6=1.0, A: 9/11=0.818
+        self.assertEqual([r["name"] for r in out], ["C", "B", "A"])
+
+    def test_differentials_filter_low_owned_and_min_xpts(self):
+        out = articles.differentials(self.rows)
+        # own<10 AND x_points>=4.0 -> B(6.0,own3) and C(4.5,own1); A excluded (own 50)
+        self.assertEqual(sorted(r["name"] for r in out), ["B", "C"])
+        self.assertEqual(out[0]["x_points"], 6.0)  # sorted by xpts desc -> B first

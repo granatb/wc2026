@@ -59,6 +59,30 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
     return rows
 
 
+def _ranked(rows, key, reverse=True):
+    out = [dict(r) for r in sorted(rows, key=lambda r: r[key], reverse=reverse)]
+    for i, r in enumerate(out, 1):
+        r["rank"] = i
+    return out
+
+
+def rank_captains(rows: list) -> list:
+    return _ranked(rows, "captain_ev")
+
+
+def rank_value(rows: list) -> list:
+    return _ranked([r for r in rows if r.get("value") is not None], "value")
+
+
+def differentials(rows: list, max_ownership: float = DIFF_MAX_OWNERSHIP,
+                  min_xpts: float = DIFF_MIN_XPTS) -> list:
+    pool = [r for r in rows
+            if r.get("ownership_pct") is not None
+            and r["ownership_pct"] < max_ownership
+            and r["x_points"] >= min_xpts]
+    return _ranked(pool, "x_points")
+
+
 def load_player_meta(path: str = _PLAYERS_JSON) -> dict:
     """name (and aliases) -> {team, position, price, ownership_pct} from data/players.json."""
     with open(path, encoding="utf-8") as fh:
