@@ -74,3 +74,25 @@ class HtmlTest(unittest.TestCase):
         self.assertIn("Best captain picks", h)
         self.assertIn("/round/3/captains/", h)
         self.assertIn("Captain Bruno Fernandes", h)
+
+
+class AgentFilesTest(unittest.TestCase):
+    def setUp(self):
+        self.nav = [("captains", "Best captain picks"), ("best-xi", "Best World Cup Fantasy XI")]
+
+    def test_llms_txt_lists_articles_and_json(self):
+        t = render.llms_txt(round_no=3, nav=self.nav)
+        self.assertIn("evmax", t)
+        self.assertIn("/round/3/captains/", t)
+        self.assertIn("/api/round/3/captains.json", t)
+
+    def test_robots_allows_ai_bots(self):
+        r = render.robots_txt()
+        for bot in ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]:
+            self.assertIn(bot, r)
+        self.assertIn("Sitemap:", r)
+
+    def test_sitemap_lists_pages(self):
+        x = render.sitemap_xml(round_no=3, nav=self.nav)
+        self.assertIn("<urlset", x)
+        self.assertIn(f"{render.SITE_URL}/round/3/captains/", x)

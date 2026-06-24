@@ -160,3 +160,39 @@ def hub_page(round_no, nav, highlights):
 {"".join(cards)}
 <p class="method"><strong>Method:</strong> {METHODOLOGY}</p>
 </main></body></html>"""
+
+
+_AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web",
+            "PerplexityBot", "Google-Extended", "CCBot", "Applebot-Extended"]
+
+
+def llms_txt(round_no, nav):
+    lines = [
+        "# evmax — simulation-based World Cup Fantasy picks",
+        "",
+        "> Free, transparent fantasy picks from 50,000 Monte-Carlo simulations on "
+        "de-vigged market odds, scored on the official FIFA World Cup Fantasy table. "
+        "Numbers are machine-readable JSON; attribution to evmax is requested.",
+        "",
+        f"## Round {round_no} articles",
+    ]
+    for slug, title in nav:
+        lines.append(f"- [{title}]({SITE_URL}/round/{round_no}/{slug}/) — "
+                     f"data: {SITE_URL}/api/round/{round_no}/{slug}.json")
+    lines += ["", "## API", f"- Article index: {SITE_URL}/api/latest.json"]
+    return "\n".join(lines) + "\n"
+
+
+def robots_txt():
+    blocks = [f"User-agent: {b}\nAllow: /" for b in _AI_BOTS]
+    blocks.append("User-agent: *\nAllow: /")
+    return "\n\n".join(blocks) + f"\n\nSitemap: {SITE_URL}/sitemap.xml\n"
+
+
+def sitemap_xml(round_no, nav):
+    urls = [f"{SITE_URL}/", f"{SITE_URL}/round/{round_no}/"]
+    urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
+    items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            f'{items}</urlset>')
