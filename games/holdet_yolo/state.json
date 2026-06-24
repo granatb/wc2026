@@ -1,0 +1,32 @@
+{
+  "_comment": "FINAL R2 squad locked 2026-06-18. Holdet Guld, 'Always 2nd 2' (high-variance). Full blowout rebuild, 3-4-3.",
+  "game": "holdet_yolo",
+  "team_name": "Always 2nd 2",
+  "variant": "guld_unlimited_transfers_variance",
+  "_blend": "research_weight + ceiling objective live in config.py",
+  "formation": "3-4-3",
+  "cash": 503640,
+  "total_value": 51491000,
+  "current_round": 2,
+  "captain": "M. Oyarzabal",
+  "r2_transfers_out": ["Cesar Montes (susp)", "Alex Baena (benched)", "Raul Rangel", "Israel Reyes", "Erik Lira", "M. Ødegaard", "Antonio Nusa", "E. Haaland"],
+  "_flags": [
+    "Verify Felix Nmecha + M. Llorente are STARTING before lock (cheap = bench risk; the Baena lesson). Nmecha's +244k R1 implies he played.",
+    "Holdet positions best-guess; confirm if needed."
+  ],
+  "squad": [
+    {"name": "H. Galindez", "team": "Ecuador", "position": "GK", "price": 3506000},
+    {"name": "Pau Cubarsi", "team": "Spain", "position": "DEF", "price": 4062000},
+    {"name": "Willian Pacho", "team": "Ecuador", "position": "DEF", "price": 2991000},
+    {"name": "G. Magalhaes", "team": "Brazil", "position": "DEF", "price": 4514000},
+    {"name": "J. Bellingham", "team": "England", "position": "MID", "price": 6246000},
+    {"name": "Fabian Ruiz", "team": "Spain", "position": "MID", "price": 4522000},
+    {"name": "Felix Nmecha", "team": "Germany", "position": "MID", "price": 3244000},
+    {"name": "M. Llorente", "team": "Spain", "position": "MID", "price": 3512000},
+    {"name": "M. Oyarzabal", "team": "Spain", "position": "FWD", "price": 7522000, "is_captain": true},
+    {"name": "E. Valencia", "team": "Ecuador", "position": "FWD", "price": 3999000},
+    {"name": "Raphinha", "team": "Brazil", "position": "FWD", "price": 6524000}
+  ],
+  "watchlist": [],
+  "notes": "Blowout-stacked variance build: Ecuador x3, Spain x4 (cap), Brazil x2, England, Germany — all in 2.0+ xG routs. Cheap røverkøb Nmecha/Llorente fund Raphinha. Captain Oyarzabal (pens); Raphinha/Valencia are higher-ceiling armband options."
+}

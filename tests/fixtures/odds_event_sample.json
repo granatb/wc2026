@@ -1,0 +1,37 @@
+{
+  "id": "match_bra_srb",
+  "sport_key": "soccer_fifa_world_cup",
+  "commence_time": "2026-06-20T18:00:00Z",
+  "home_team": "Brazil",
+  "away_team": "Serbia",
+  "bookmakers": [
+    {
+      "key": "pinnacle",
+      "markets": [
+        {"key": "h2h", "outcomes": [
+          {"name": "Brazil", "price": 1.55},
+          {"name": "Serbia", "price": 7.0},
+          {"name": "Draw", "price": 4.1}
+        ]},
+        {"key": "totals", "outcomes": [
+          {"name": "Over", "price": 1.9, "point": 2.5},
+          {"name": "Under", "price": 1.95, "point": 2.5}
+        ]}
+      ]
+    },
+    {
+      "key": "bet365",
+      "markets": [
+        {"key": "h2h", "outcomes": [
+          {"name": "Brazil", "price": 1.57},
+          {"name": "Serbia", "price": 6.5},
+          {"name": "Draw", "price": 4.2}
+        ]},
+        {"key": "totals", "outcomes": [
+          {"name": "Over", "price": 1.91, "point": 2.5},
+          {"name": "Under", "price": 1.92, "point": 2.5}
+        ]}
+      ]
+    }
+  ]
+}

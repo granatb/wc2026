@@ -1,0 +1,21 @@
+{
+  "count": 3,
+  "pageCount": 1,
+  "items": [
+    {
+      "type": {"id": "36", "name": "Anytime Goalscorer"},
+      "athlete": {"$ref": "http://x/athletes/212330?lang=en"},
+      "current": {"over": {"decimal": 2.6, "american": "+160"}}
+    },
+    {
+      "type": {"id": "36", "name": "Anytime Goalscorer"},
+      "athlete": {"$ref": "http://x/athletes/257336?lang=en"},
+      "current": {"over": {"decimal": 3.15, "american": "+215"}}
+    },
+    {
+      "type": {"id": "37", "name": "First Goalscorer"},
+      "athlete": {"$ref": "http://x/athletes/212330?lang=en"},
+      "current": {"over": {"decimal": 5.25, "american": "+425"}}
+    }
+  ]
+}

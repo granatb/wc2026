@@ -1,0 +1,106 @@
+import json
+import os
+import unittest
+
+from core import espn
+
+FX = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def _load(name):
+    with open(os.path.join(FX, name), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+class TestEspnScoreboard(unittest.TestCase):
+    def setUp(self):
+        self.raw = _load("espn_scoreboard.json")
+
+    def test_parse_schedule_and_odds(self):
+        rows = espn.parse_scoreboard(self.raw, fantasy_round=2)
+        self.assertEqual(len(rows), 2)
+        m = rows[0]
+        self.assertEqual(m["home"], "Czechia")
+        self.assertEqual(m["away"], "South Africa")
+        self.assertEqual(m["fantasy_round"], 2)
+        self.assertAlmostEqual(m["h2h"]["home"], 1.8)   # -125 close
+        self.assertAlmostEqual(m["h2h"]["away"], 4.9)   # +390 close
+        self.assertEqual(m["totals"]["line"], 2.5)
+        # second match has no odds -> h2h None, engine falls back to priors
+        self.assertIsNone(rows[1]["h2h"])
+
+    def test_derive_match_dc(self):
+        rows = espn.parse_scoreboard(self.raw, fantasy_round=2)
+        d = espn.derive_match(rows[0])
+        # Czechia favourites at home (-125) so home lambda should exceed away
+        self.assertGreater(d["lam_home"], d["lam_away"])
+        self.assertIn("rho", d)
+        self.assertAlmostEqual(sum(d["p1x2"].values()), 1.0, places=6)
+
+    def test_derive_match_no_odds_returns_empty(self):
+        rows = espn.parse_scoreboard(self.raw, fantasy_round=2)
+        self.assertEqual(espn.derive_match(rows[1]), {})
+
+
+class TestMatchdays(unittest.TestCase):
+    def test_assign_group_matchdays_by_chronology(self):
+        # A 4-team group (A,B,C,D): each team's k-th match is matchday k.
+        rows = [
+            {"match_id": "m1", "home": "A", "away": "B", "kickoff_utc": "2026-06-12T18:00Z"},
+            {"match_id": "m2", "home": "C", "away": "D", "kickoff_utc": "2026-06-12T21:00Z"},
+            {"match_id": "m3", "home": "A", "away": "C", "kickoff_utc": "2026-06-18T18:00Z"},
+            {"match_id": "m4", "home": "B", "away": "D", "kickoff_utc": "2026-06-18T21:00Z"},
+            {"match_id": "m5", "home": "A", "away": "D", "kickoff_utc": "2026-06-24T18:00Z"},
+            {"match_id": "m6", "home": "B", "away": "C", "kickoff_utc": "2026-06-24T21:00Z"},
+        ]
+        tagged = {r["match_id"]: r["fantasy_round"] for r in espn.assign_group_matchdays(rows)}
+        self.assertEqual(tagged["m1"], 1)
+        self.assertEqual(tagged["m3"], 2)  # A's & C's 2nd game
+        self.assertEqual(tagged["m5"], 3)
+        # no team appears twice in any single matchday
+        for md in (1, 2, 3):
+            teams = [t for r in rows if r["fantasy_round"] == md for t in (r["home"], r["away"])]
+            self.assertEqual(len(teams), len(set(teams)))
+
+
+class TestClosingOddsPreserved(unittest.TestCase):
+    """Once ESPN drops live odds, a refresh must not erase the closing line."""
+
+    def setUp(self):
+        self.mid = "TEST_CLOSE_PRESERVE"
+        self.path = os.path.join(espn.ODDS_CACHE, f"{self.mid}.json")
+
+    def tearDown(self):
+        if os.path.exists(self.path):
+            os.remove(self.path)
+
+    def test_no_odds_pull_keeps_prior_line_and_updates_result(self):
+        espn.save_match_odds(self.mid, {"home": "A", "away": "B", "lam_home": 1.8,
+                                        "lam_away": 0.8, "rho": -0.05, "status": "scheduled"})
+        # later refresh: ESPN no longer prices the (now complete) match
+        merged = espn.save_match_odds(self.mid, {"home": "A", "away": "B",
+                                                 "status": "complete", "hs": 3, "as": 0})
+        self.assertEqual(merged["lam_home"], 1.8)        # closing line preserved
+        self.assertEqual(merged["lam_away"], 0.8)
+        self.assertEqual(merged["odds_status"], "closing")
+        self.assertEqual(merged["status"], "complete")   # result still updated
+        self.assertEqual(merged["hs"], 3)
+
+
+class TestEspnProps(unittest.TestCase):
+    def test_parse_and_goal_weights_prefers_anytime(self):
+        parsed = espn.parse_propbets(_load("espn_propbets.json"))
+        self.assertIn("anytime goalscorer", parsed)
+        self.assertIn("first goalscorer", parsed)
+        names = {
+            "http://x/athletes/212330?lang=en": "Patrik Schick",
+            "http://x/athletes/257336?lang=en": "Tomas Chory",
+        }
+        weights = espn.goal_weights(parsed, names)
+        # anytime market preferred; Schick (+160) a higher rate than Chory (+215)
+        self.assertIn("Patrik Schick", weights)
+        self.assertGreater(weights["Patrik Schick"], weights["Tomas Chory"])
+
+
+if __name__ == "__main__":
+    unittest.main()

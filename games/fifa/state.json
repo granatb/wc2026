@@ -1,0 +1,37 @@
+{
+  "_comment": "FINAL R2 squad locked 2026-06-18. FIFA WC Fantasy, team Granat65. 3-5-2.",
+  "game": "fifa",
+  "team_name": "Granat65",
+  "_blend": "research_weight + objective live in config.py",
+  "budget_remaining": 1.8,
+  "free_transfers": 1,
+  "free_transfers_note": "Used 1 (Jiménez -> Enner Valencia); 1 banked -> rolls to R3.",
+  "paid_transfers": 0,
+  "current_round": 2,
+  "formation": "3-5-2",
+  "captain": "Ruben Vargas",
+  "vice_captain": "Oyarzabal",
+  "_flags": [
+    "Captain on Ruben Vargas = chain play (he kicks off first, 18 Jun) — roll armband forward.",
+    "Kane benched (start Oyarzabal+Valencia up top); see EV note below.",
+    "GK Vargas listed as Mexico (backup to Rangel)."
+  ],
+  "squad": [
+    {"name": "Rangel", "team": "Mexico", "position": "GK", "price": 3.9, "ownership_pct": 5.5, "is_starter": true},
+    {"name": "Vargas", "team": "Colombia", "position": "GK", "price": 4.3, "ownership_pct": 4.2, "is_starter": false, "bench_order": 0},
+    {"name": "Kimmich", "team": "Germany", "position": "DEF", "price": 5.5, "ownership_pct": 33.6, "is_starter": true},
+    {"name": "Gabriel Magalhães", "team": "Brazil", "position": "DEF", "price": 5.5, "ownership_pct": 19.9, "is_starter": true},
+    {"name": "Cucurella", "team": "Spain", "position": "DEF", "price": 5.1, "ownership_pct": 25.5, "is_starter": true},
+    {"name": "Nuno Mendes", "team": "Portugal", "position": "DEF", "price": 5.8, "ownership_pct": 40.0, "is_starter": false, "bench_order": 1},
+    {"name": "Muñoz", "team": "Colombia", "position": "DEF", "price": 4.6, "ownership_pct": 7.4, "is_starter": false, "bench_order": 2},
+    {"name": "Bruno Fernandes", "team": "Portugal", "position": "MID", "price": 8.5, "ownership_pct": 47.9, "is_starter": true},
+    {"name": "Ruben Vargas", "team": "Switzerland", "position": "MID", "price": 6.8, "ownership_pct": 0.5, "is_starter": true, "is_captain": true},
+    {"name": "Musiala", "team": "Germany", "position": "MID", "price": 8.0, "ownership_pct": 12.7, "is_starter": true},
+    {"name": "Wirtz", "team": "Germany", "position": "MID", "price": 7.5, "ownership_pct": 21.6, "is_starter": true},
+    {"name": "Raphinha", "team": "Brazil", "position": "MID", "price": 8.2, "ownership_pct": 21.6, "is_starter": true},
+    {"name": "Oyarzabal", "team": "Spain", "position": "FWD", "price": 8.1, "ownership_pct": 17.4, "is_starter": true, "is_vice": true},
+    {"name": "Enner Valencia", "team": "Ecuador", "position": "FWD", "price": 5.9, "ownership_pct": 1.5, "is_starter": true},
+    {"name": "Kane", "team": "England", "position": "FWD", "price": 10.5, "ownership_pct": 36.9, "is_starter": false, "bench_order": 3}
+  ],
+  "notes": "Scouting (<5% at own kickoff): Ruben Vargas 0.5%, Enner Valencia ~1.5%, GK Vargas 4.2%."
+}

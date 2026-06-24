@@ -1,0 +1,50 @@
+{
+  "events": [
+    {
+      "id": "760438",
+      "date": "2026-06-18T16:00Z",
+      "season": {"slug": "group-stage"},
+      "competitions": [
+        {
+          "id": "760438",
+          "status": {"type": {"name": "STATUS_SCHEDULED"}},
+          "competitors": [
+            {"homeAway": "home", "team": {"displayName": "Czechia", "abbreviation": "CZE"}},
+            {"homeAway": "away", "team": {"displayName": "South Africa", "abbreviation": "RSA"}}
+          ],
+          "odds": [
+            {
+              "overUnder": 2.5,
+              "provider": {"id": "100", "name": "DraftKings"},
+              "moneyline": {
+                "home": {"open": {"odds": "+100"}, "close": {"odds": "-125"}},
+                "away": {"open": {"odds": "+300"}, "close": {"odds": "+390"}}
+              },
+              "drawOdds": {"moneyLine": 255},
+              "total": {
+                "over": {"close": {"line": "o2.5", "odds": "+115"}},
+                "under": {"close": {"line": "u2.5", "odds": "-140"}}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "760440",
+      "date": "2026-06-19T01:00Z",
+      "season": {"slug": "group-stage"},
+      "competitions": [
+        {
+          "id": "760440",
+          "status": {"type": {"name": "STATUS_SCHEDULED"}},
+          "competitors": [
+            {"homeAway": "home", "team": {"displayName": "Brazil", "abbreviation": "BRA"}},
+            {"homeAway": "away", "team": {"displayName": "Serbia", "abbreviation": "SRB"}}
+          ],
+          "odds": []
+        }
+      ]
+    }
+  ]
+}

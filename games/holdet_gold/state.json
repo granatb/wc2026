@@ -1,0 +1,31 @@
+{
+  "_comment": "FINAL R2 squad locked 2026-06-18. Holdet Guld, 'Alwaysss 2nd' (EV-max). 3 subs, 3-5-2.",
+  "game": "holdet_gold",
+  "team_name": "Alwaysss 2nd",
+  "variant": "guld_unlimited_transfers_1pct_fee",
+  "_blend": "research_weight + objective live in config.py",
+  "formation": "3-5-2",
+  "cash": 951000,
+  "total_value": 51404000,
+  "current_round": 2,
+  "captain": "Enner Valencia",
+  "r2_transfers_out": ["Cesar Montes (susp) -> Willian Pacho", "Kai Havertz -> Enner Valencia", "Alex Baena (benched) -> Fabian Ruiz"],
+  "_flags": [
+    "Holdet positions best-guess; confirm if needed."
+  ],
+  "squad": [
+    {"name": "Gregor Kobel", "team": "Switzerland", "position": "GK", "price": 4029000},
+    {"name": "R. Rodriguez", "team": "Switzerland", "position": "DEF", "price": 3022000},
+    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2809000},
+    {"name": "Willian Pacho", "team": "Ecuador", "position": "DEF", "price": 2991000},
+    {"name": "F. Wirtz", "team": "Germany", "position": "MID", "price": 7654000},
+    {"name": "Fabian Ruiz", "team": "Spain", "position": "MID", "price": 4522000},
+    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6714000},
+    {"name": "Antonio Nusa", "team": "Norway", "position": "MID", "price": 3544000},
+    {"name": "Ruben Vargas", "team": "Switzerland", "position": "MID", "price": 3532000},
+    {"name": "Enner Valencia", "team": "Ecuador", "position": "FWD", "price": 3999000},
+    {"name": "M. Oyarzabal", "team": "Spain", "position": "FWD", "price": 7522000, "is_captain": true}
+  ],
+  "watchlist": [],
+  "notes": "EV-max, w=0.10. 3 subs (Montes susp, Havertz, Baena benched) into blowout spots. Kept Nusa + Swiss trio (no fee-clearing upgrade). Captain Enner Valencia (179k > Oyarzabal 142k)."
+}

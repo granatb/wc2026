@@ -1,0 +1,36 @@
+{
+  "_comment": "Populated from R2 screenshot (2026-06-18). Holdet free tier, team 'Always 2nd' (3 contracts total).",
+  "game": "holdet_free",
+  "team_name": "Always 2nd",
+  "variant": "free_3_contracts_total",
+  "_blend": "research_weight + objective live in config.py",
+  "contracts_total": 3,
+  "contracts_used": 0,
+  "cash": 407000,
+  "team_value": 51090000,
+  "total_value": 51497000,
+  "rank": 40505,
+  "top_pct": 30,
+  "current_round": 2,
+  "captain": "E. Haaland",
+  "_flags": [
+    "Holdet positions best-guess from layout — CONFIRM.",
+    "'N. Brown' nation/position unconfirmed.",
+    "Udskiftninger showed 3/3 → all 3 contracts still available."
+  ],
+  "squad": [
+    {"name": "A. Beiranvand", "team": "Iran", "position": "GK", "price": 3046000},
+    {"name": "D. Sanchez", "team": "Colombia", "position": "DEF", "price": 3554000},
+    {"name": "David Alaba", "team": "Austria", "position": "DEF", "price": 3034000},
+    {"name": "R. Gravenberch", "team": "Netherlands", "position": "MID", "price": 3644000},
+    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2809000},
+    {"name": "Pedri", "team": "Spain", "position": "MID", "price": 6002000},
+    {"name": "Fabian Ruiz", "team": "Spain", "position": "MID", "price": 4522000},
+    {"name": "M. Sabitzer", "team": "Austria", "position": "MID", "price": 4534000},
+    {"name": "M. Oyarzabal", "team": "Spain", "position": "FWD", "price": 7522000},
+    {"name": "E. Haaland", "team": "Norway", "position": "FWD", "price": 8907000, "is_captain": true},
+    {"name": "Mehdi Taremi", "team": "Iran", "position": "FWD", "price": 3516000}
+  ],
+  "watchlist": [],
+  "notes": "Only 3 transfers for the whole tournament — hoard. Captain changes are free. w=0.25."
+}
