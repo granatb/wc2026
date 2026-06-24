@@ -125,6 +125,15 @@ class SelectXITest(unittest.TestCase):
         xi = articles.select_xi(pool, "ceiling")
         self.assertEqual(xi[0]["ceiling"], 99.0)
 
+    def test_assigns_sequential_rank_1_to_11(self):
+        xi = articles.select_xi(self._pool(), "x_points")
+        self.assertEqual([r["rank"] for r in xi], list(range(1, 12)))
+
+    def test_does_not_mutate_input_rows(self):
+        pool = self._pool()
+        articles.select_xi(pool, "x_points")
+        self.assertNotIn("rank", pool[0])  # original rows untouched
+
     def test_raises_when_position_pool_too_small(self):
         # only 2 defenders but POS_MIN["DEF"] == 3
         pool = [_row("GK0", "GK", 5.0)]

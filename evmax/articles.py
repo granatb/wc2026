@@ -87,6 +87,9 @@ def select_xi(rows: list, key: str) -> list:
             chosen.append(r)
             counts[pos] = counts.get(pos, 0) + 1
     chosen.sort(key=lambda r: r[key], reverse=True)
+    chosen = [dict(r) for r in chosen]
+    for i, r in enumerate(chosen, 1):
+        r["rank"] = i
     return chosen
 
 

@@ -24,7 +24,7 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
     return out
 
 
-# article slug -> (table columns, chart metric, builder(rows, round) -> entries)
+# article slug -> (table columns, entries). The chart uses columns[0]; entries are pre-built lists.
 def _article_entries(rows, fantasy_round):
     blow = articles.blowout_teams(fantasy_round)
     return {
