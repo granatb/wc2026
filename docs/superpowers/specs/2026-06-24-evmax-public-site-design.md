@@ -121,6 +121,18 @@ Each article emits the same envelope; `entries` holds that article's ranked rows
 - **Player coverage:** players lacking market props fall back to goal-share estimates; players lacking a known position/price/ownership in `players.json` are excluded from the affected articles. Acceptable for v1; methodology section is transparent about it.
 - **Ownership freshness:** `ownership` in `players.json` is a cached snapshot from the FIFA feed; differentials reflect when it was last synced (`generated_at` makes this explicit). A `--refresh` before build keeps it current.
 
+## 10b. v2 — editorial article redesign (supersedes the §5 card layout)
+
+After the first build, the product was reframed from "data pages with tables" to **a feed of auto-generated, reasoning-rich articles** — prose is the main product because text-with-reasoning + dense statistics is what ranks on Google and gets cited by LLMs. Approved direction (concept at `dist/design/v2.html`, "modern editorial / The Athletic", not broadsheet).
+
+- **Article prose is LLM-written at build time.** A new `evmax/writer.py` sends each article's *engine numbers* to the Claude API with a strict prompt: reason using only those figures, cite them, invent nothing. Tiered generation: (1) use a cached prose file for the round if present; (2) else call the Claude API (`ANTHROPIC_API_KEY`); (3) else a deterministic templated fallback so the build never hard-fails. Generated prose is cached to `data/articles/round-<n>/<slug>.md` (reproducible, no repeat API cost). Round 3 launch prose is seeded by hand (same model) so launch does not block on a key.
+- **Landing page = featured lead article + a feed of article cards** (headline + reasoning teaser + key stat), each linking to its full article. Replaces the §5 card-list hub.
+- **Article page** = kicker, headline, standfirst, byline ("By the evmax model · N simulations · date"), a hero viz, the **reasoning prose** (with a pull-quote + a "bottom line"), the supporting ranked table, methodology + JSON link. Adds schema.org `Article`/`NewsArticle` (on top of `Dataset`) for extra GEO.
+- **Hero viz:** the Best XI on an SVG pitch (formation auto-derived) for XI articles; a horizontal EV bar for ranked-list articles.
+- **Richer stats (user request):** every article table exposes xPts, captain EV, ceiling, price, **EV/$ (value = xPts ÷ price)**, ownership %. Plus a dedicated **efficiency / EV-per-dollar** article (extends `best-value-xi`).
+- **Design system:** light editorial surfaces, Hanken Grotesk (headlines/UI) + Newsreader (serif body), green primary accent + red for "differential". Defined once in `render.py`.
+- **Tools tab (build-a-team / analyse-a-substitution / multi-sub) is PHASE 2** — interactive, exposes the engine's probe-a-change EV tool. Reserved as `soon` nav items; not in the static v2 build.
+
 ## 11. Out of scope (later specs)
 
 Backtesting/track-record harness; Holdet sibling site; FPL; accounts/payments/freemium API tiers; social graphics auto-posting; live in-match updates; Polymarket/event pages; LLM-citation testing + GEO iteration; automated per-round rebuild/scheduling.
