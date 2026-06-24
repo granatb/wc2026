@@ -12,14 +12,14 @@ XI_SIZE = 11
 DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
-ARTICLES = ["best-xi", "captains", "high-ceiling-xi", "differentials",
-            "best-value-xi", "blowout-transfers"]
+ARTICLES = ["captains", "best-xi", "differentials", "efficiency",
+            "high-ceiling-xi", "blowout-transfers"]
 ARTICLE_TITLES = {
     "best-xi": "Best World Cup Fantasy XI",
     "captains": "Best captain picks",
     "high-ceiling-xi": "High-ceiling / differential XI",
     "differentials": "Best differentials (low-owned)",
-    "best-value-xi": "Best value XI",
+    "efficiency": "Best value — most points per million",
     "blowout-transfers": "Best transfers for the blowout fixtures",
 }
 
