@@ -93,7 +93,6 @@ def _parse_cache_md(path: str) -> dict:
     headline = ""
     standfirst = ""
     bottom_line = ""
-    body_lines: list[str] = []
 
     i = 0
     # H1 → headline
@@ -165,12 +164,9 @@ def _fmt_price(v) -> str:
         return str(v)
 
 
-def _fmt_ev(v) -> str:
-    """Format captain_ev (shown in body text) to 1 decimal."""
-    try:
-        return f"{float(v):.1f}"
-    except (TypeError, ValueError):
-        return str(v)
+# _fmt_ev is kept as an alias so external callers don't break, but EV is
+# now formatted with _fmt_pts (2 dp) everywhere inside this module.
+_fmt_ev = _fmt_pts
 
 
 # ---------------------------------------------------------------------------
@@ -179,12 +175,12 @@ def _fmt_ev(v) -> str:
 
 _TEMPLATES = {
     "captains": {
-        "headline": lambda e: f"{e[0]['name']} leads the armband race in Round {e[0].get('round_no', '')}",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"{e[0]['name']} leads the armband race in Round {r}",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} tops captain EV at {_fmt_ev(e[0]['captain_ev'])} pts"
             + (f", ahead of {e[1]['name']} ({_fmt_ev(e[1]['captain_ev'])})." if len(e) > 1 else ".")
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>{html.escape(e[0]['name'])} is the standout captain option this round, "
             f"posting a captain EV of {_fmt_pts(e[0]['captain_ev'])} pts and an xPts of "
             f"{_fmt_pts(e[0]['x_points'])}. "
@@ -198,17 +194,17 @@ _TEMPLATES = {
             f"the pick. Priced at £{_fmt_price(e[0]['price'])}m, {html.escape(e[0]['name'])} "
             f"offers value at {_fmt_pts(e[0].get('value', 0))} xPts/£.</p>"
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"Back {e[0]['name']} — {_fmt_pts(e[0]['captain_ev'])} captain EV is the best "
             f"available this round."
         ),
     },
     "best-xi": {
-        "headline": lambda e: f"The optimal Fantasy XI for Round {e[0].get('round_no', '')}",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"The optimal Fantasy XI for Round {r}",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} leads the best XI at {_fmt_pts(e[0]['x_points'])} xPts."
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>The highest-expected-points XI this round is anchored by "
             f"{html.escape(e[0]['name'])} ({_fmt_pts(e[0]['x_points'])} xPts, "
             f"£{_fmt_price(e[0]['price'])}m)"
@@ -219,18 +215,18 @@ _TEMPLATES = {
                f"{_fmt_pts(e[0]['ceiling'])} makes them the must-have pick.</p></blockquote>"
                if e[0].get('ceiling') is not None else "")
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"Start {e[0]['name']} — the {_fmt_pts(e[0]['x_points'])} xPts projection "
             f"is the highest in the XI."
         ),
     },
     "differentials": {
-        "headline": lambda e: f"Differential gems: low-owned, high-upside picks for Round {e[0].get('round_no', '')}",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"Differential gems: low-owned, high-upside picks for Round {r}",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} tops the differential list at {_fmt_own(e[0]['ownership_pct'])} ownership "
             f"and {_fmt_pts(e[0]['x_points'])} xPts."
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>{html.escape(e[0]['name'])} is the standout differential this round — "
             f"owned by just {_fmt_own(e[0]['ownership_pct'])} of managers while projecting "
             f"{_fmt_pts(e[0]['x_points'])} xPts"
@@ -240,17 +236,17 @@ _TEMPLATES = {
             + f"<blockquote><p>The biggest rank-gain opportunity comes from punting on "
             f"{html.escape(e[0]['name'])} while the field ignores them.</p></blockquote>"
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"{e[0]['name']} at {_fmt_own(e[0]['ownership_pct'])} ownership is the best "
             f"way to differentiate your team this round."
         ),
     },
     "efficiency": {
-        "headline": lambda e: f"Best value picks: EV per £ this round",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"Best value picks: EV per £ this round",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} leads on value at {_fmt_pts(e[0].get('value', 0))} xPts/£."
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>{html.escape(e[0]['name'])} tops the efficiency table at "
             f"{_fmt_pts(e[0].get('value', 0))} xPts/£ — "
             f"{_fmt_pts(e[0]['x_points'])} xPts from a £{_fmt_price(e[0]['price'])}m price tag"
@@ -260,17 +256,17 @@ _TEMPLATES = {
             + f"<blockquote><p>Value picks compound over a tournament — "
             f"a 0.1 xPts/£ edge across 11 players adds up fast.</p></blockquote>"
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"Prioritise {e[0]['name']} — {_fmt_pts(e[0].get('value', 0))} xPts/£ is the best "
             f"efficiency in the pool."
         ),
     },
     "high-ceiling-xi": {
-        "headline": lambda e: f"High-ceiling XI: chase the big haul this round",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"High-ceiling XI: chase the big haul this round",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} leads ceiling at {_fmt_pts(e[0]['ceiling'])} pts."
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>For managers chasing a big week, {html.escape(e[0]['name'])} offers the "
             f"highest ceiling at {_fmt_pts(e[0]['ceiling'])} pts while projecting "
             f"{_fmt_pts(e[0]['x_points'])} xPts"
@@ -280,18 +276,18 @@ _TEMPLATES = {
             + f"<blockquote><p>The high-ceiling XI is built for rank-jumps — "
             f"accept the variance, target the upside.</p></blockquote>"
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"Back {e[0]['name']} for ceiling — {_fmt_pts(e[0]['ceiling'])} best-case "
             f"is the round's highest projection."
         ),
     },
     "blowout-transfers": {
-        "headline": lambda e: f"Blowout fixture targets: attackers to buy now",
-        "standfirst": lambda e: (
+        "headline": lambda e, r: f"Blowout fixture targets: attackers to buy now",
+        "standfirst": lambda e, r: (
             f"{e[0]['name']} is the top transfer target at {_fmt_pts(e[0]['x_points'])} xPts "
             f"from a blowout fixture."
         ),
-        "body": lambda e: (
+        "body": lambda e, r: (
             f"<p>With the blowout fixture incoming, {html.escape(e[0]['name'])} "
             f"({_fmt_pts(e[0]['x_points'])} xPts, £{_fmt_price(e[0]['price'])}m) is the "
             f"priority transfer"
@@ -301,7 +297,7 @@ _TEMPLATES = {
             + f"<blockquote><p>Fixtures drive points at a World Cup — "
             f"get the best attackers from the biggest mismatches.</p></blockquote>"
         ),
-        "bottom_line": lambda e: (
+        "bottom_line": lambda e, r: (
             f"Bring in {e[0]['name']} before the deadline — "
             f"{_fmt_pts(e[0]['x_points'])} xPts from the blowout fixture."
         ),
@@ -309,24 +305,25 @@ _TEMPLATES = {
 }
 
 _GENERIC_TEMPLATE = {
-    "headline": lambda e, slug: f"Round analysis: {slug.replace('-', ' ').title()}",
-    "standfirst": lambda e: (
+    "headline": lambda e, r, slug: f"Round analysis: {slug.replace('-', ' ').title()}",
+    "standfirst": lambda e, r: (
         f"{e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
     ),
-    "body": lambda e: (
+    "body": lambda e, r: (
         f"<p>{html.escape(e[0]['name'])} tops this list with {_fmt_pts(e[0]['x_points'])} xPts "
         f"and a captain EV of {_fmt_pts(e[0]['captain_ev'])}"
         + (f". {html.escape(e[1]['name'])} is close behind at {_fmt_pts(e[1]['x_points'])} xPts."
            if len(e) > 1 else ".")
         + "</p>"
     ),
-    "bottom_line": lambda e: (
+    "bottom_line": lambda e, r: (
         f"Target {e[0]['name']} — {_fmt_pts(e[0]['x_points'])} xPts is the best projection available."
     ),
 }
 
 
-def _template_prose(article: str, entries: list, columns: list) -> dict:
+def _template_prose(article: str, entries: list, columns: list,
+                    round_no: int = 0) -> dict:
     """Build deterministic template prose from entries."""
     if not entries:
         return {
@@ -339,15 +336,15 @@ def _template_prose(article: str, entries: list, columns: list) -> dict:
 
     tmpl = _TEMPLATES.get(article)
     if tmpl:
-        headline = tmpl["headline"](entries)
-        standfirst = tmpl["standfirst"](entries)
-        body_html = tmpl["body"](entries)
-        bottom_line = tmpl["bottom_line"](entries)
+        headline = tmpl["headline"](entries, round_no)
+        standfirst = tmpl["standfirst"](entries, round_no)
+        body_html = tmpl["body"](entries, round_no)
+        bottom_line = tmpl["bottom_line"](entries, round_no)
     else:
-        headline = _GENERIC_TEMPLATE["headline"](entries, article)
-        standfirst = _GENERIC_TEMPLATE["standfirst"](entries)
-        body_html = _GENERIC_TEMPLATE["body"](entries)
-        bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries)
+        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article)
+        standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no)
+        body_html = _GENERIC_TEMPLATE["body"](entries, round_no)
+        bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no)
 
     return {
         "headline": headline,
@@ -386,12 +383,12 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
     except Exception:
         return None
 
-    # Parse JSON response
+    # Parse JSON response — find the JSON object even with preamble or code fences.
     try:
-        # Strip markdown code fences if present
-        json_text = re.sub(r"^```(?:json)?\s*", "", raw)
-        json_text = re.sub(r"\s*```$", "", json_text)
-        data = json.loads(json_text)
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not m:
+            return None
+        data = json.loads(m.group(0))
     except (json.JSONDecodeError, ValueError):
         return None
 
@@ -400,22 +397,58 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
         return None
 
     # --- Grounding validation ---
-    # Collect all values from entries as strings for number/name checks
-    all_entry_values: set[str] = set()
-    all_player_names: set[str] = set()
+    # Build the exact set of number strings that the rest of this module would
+    # produce for these entries.  Using ONLY the canonical formatters keeps the
+    # allowed set tight: "9.2" is NOT a valid proxy for 9.16, so a model that
+    # fabricates 9.2 will be caught.
+    #
+    # Known limitation: this verifies each number/name is drawn from the real
+    # entry data, but does NOT bind a specific number to the correct player.
+    # Cross-player attribution (e.g. Kane's ceiling attributed to Salah) could
+    # still pass.  That is acceptable because the prompt forbids it and the
+    # cache/template tiers are the primary launch path.
+    allowed_numbers: set[str] = set()
+    # round_no itself is a legitimate integer in the text (e.g. "Round 3")
+    allowed_numbers.add(str(round_no))
+    # Collect proper-noun tokens from every entry field (names, teams, positions)
+    allowed_nouns: set[str] = set()
     for entry in entries:
         for k, v in entry.items():
-            all_entry_values.add(str(v))
-            if k == "name":
-                all_player_names.add(str(v))
-        # Also add partial numeric representations
-        for k, v in entry.items():
             if isinstance(v, (int, float)):
-                # Add various formatted forms
-                all_entry_values.add(f"{v:.1f}")
-                all_entry_values.add(f"{v:.2f}")
-                all_entry_values.add(f"{v:.3f}")
-                all_entry_values.add(str(int(v)) if v == int(v) else str(v))
+                fv = float(v)
+                # points / EV / ceiling at 2dp
+                allowed_numbers.add(f"{fv:.2f}")
+                # ownership at 1dp (bare number, without the % sign)
+                allowed_numbers.add(f"{fv:.1f}")
+                # price at 1dp
+                allowed_numbers.add(f"{fv:.1f}")
+                # integer ranks / bare integers
+                if fv == int(fv):
+                    allowed_numbers.add(str(int(fv)))
+            # Proper nouns: name, team, position
+            if k in ("name", "team", "position") and isinstance(v, str):
+                for word in v.split():
+                    if word:
+                        allowed_nouns.add(word)
+
+    # Small structural stopwords that are never fabricated player/team names.
+    # These are English sentence-start words and domain terms that legitimately
+    # appear capitalised in prose but are not player/team names.
+    _STOPWORDS = {
+        "Round", "Bottom", "World", "Cup", "Fantasy", "The", "With", "From",
+        "This", "These", "Their", "There", "While", "When", "Where", "Which",
+        "Line", "Best", "High", "Ceiling", "Back", "Start", "Target",
+        "Bring", "Priced", "Owned", "Pick", "Picks", "Rank", "Value",
+        "Upside", "Variance", "Blowout", "Fixture", "Transfer",
+        # Common sentence-opening / domain words
+        "Ownership", "Captain", "Captains", "Managers", "Manager",
+        "Differential", "Differentials", "Points", "Projection", "Priority",
+        "With", "Also", "Note", "Even", "Both", "Only", "Just", "Most",
+        "More", "Some", "Each", "Every", "Another", "Other", "Same",
+        "Game", "Match", "Week", "Season", "Tournament", "Group",
+        "Half", "Full", "Late", "Early", "Last", "Next", "First", "Second",
+        "Third", "Fourth", "Fifth", "Final", "Semi",
+    }
 
     combined_output = (
         data.get("headline", "") + " " +
@@ -424,27 +457,23 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
         data.get("bottom_line", "")
     )
 
-    # Check every numeric token in the output appears in entry values
-    numeric_tokens = re.findall(r"\d+\.?\d*", combined_output)
+    # Check every numeric token: must appear in the exact-format allowed set.
+    numeric_tokens = re.findall(r"\d+(?:\.\d+)?", combined_output)
     for token in numeric_tokens:
-        if token not in all_entry_values:
-            # Fall through to template
+        if token not in allowed_numbers:
             return None
 
-    # Check every player name in output is in the entries
-    # Extract capitalized words (potential player names) — simple heuristic
+    # Check capitalised proper-noun tokens that look like names/teams.
     output_words = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", combined_output)
     for word in output_words:
-        # Only flag if it looks like a proper name (not article/sentence-start)
-        # and is long enough to be a surname or full name
-        if len(word) > 3 and word not in {
-            "Round", "Bottom", "World", "Cup", "Fantasy", "The", "With", "From",
-            "This", "These", "Their", "There", "While", "When", "Where", "Which",
-        }:
-            # Check if it matches any part of any player name
-            matches = any(word in name or name in word for name in all_player_names)
-            if not matches:
-                return None
+        if len(word) <= 3:
+            continue
+        if word in _STOPWORDS:
+            continue
+        # Accept if the word (or any sub-word) matches an allowed noun
+        sub_words = word.split()
+        if not any(sw in allowed_nouns for sw in sub_words):
+            return None
 
     # Convert body_markdown to HTML
     body_html = _md_to_html(data["body_markdown"])
@@ -511,4 +540,4 @@ def article_prose(
             return result
 
     # Tier 3: template
-    return _template_prose(article, entries, columns)
+    return _template_prose(article, entries, columns, round_no=round_no)
