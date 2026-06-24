@@ -171,6 +171,59 @@ class EfficiencyTest(unittest.TestCase):
         self.assertEqual(out[0]["rank"], 1)
 
 
+class ByPositionTest(unittest.TestCase):
+    def test_by_position_filters_and_ranks_by_xpoints(self):
+        rows = [
+            _row("Trippier", "DEF", 6.0),
+            _row("Kane",     "FWD", 9.0),
+            _row("Mazraoui", "DEF", 5.5),
+            _row("Foden",    "MID", 7.0),
+        ]
+        out = articles.by_position(rows, "DEF")
+        self.assertEqual([r["name"] for r in out], ["Trippier", "Mazraoui"])
+        self.assertEqual(out[0]["rank"], 1)
+        self.assertEqual(out[1]["rank"], 2)
+
+    def test_by_position_empty_when_no_match(self):
+        rows = [_row("Kane", "FWD", 9.0)]
+        out = articles.by_position(rows, "GK")
+        self.assertEqual(out, [])
+
+
+class RiskyTest(unittest.TestCase):
+    def test_risky_filters_by_ownership_and_ranks_by_ceiling(self):
+        rows = [
+            _row("Diallo",  "FWD", 5.0, own=1.0,  ceiling=18.0),
+            _row("Kane",    "FWD", 9.0, own=40.0, ceiling=14.0),   # excluded: own >= 25
+            _row("Wirtz",   "MID", 7.0, own=12.0, ceiling=11.0),
+        ]
+        out = articles.risky(rows)
+        names = [r["name"] for r in out]
+        self.assertIn("Diallo", names)
+        self.assertIn("Wirtz", names)
+        self.assertNotIn("Kane", names)  # own 40% >= 25
+        self.assertEqual(out[0]["name"], "Diallo")  # highest ceiling first
+        self.assertEqual(out[0]["rank"], 1)
+
+    def test_risky_excludes_none_ownership(self):
+        rows = [_row("Ghost", "MID", 5.0, own=None, ceiling=20.0)]
+        rows[0]["ownership_pct"] = None
+        out = articles.risky(rows)
+        self.assertEqual(out, [])
+
+
+class ArticleSetTest(unittest.TestCase):
+    def test_articles_list_has_correct_slugs(self):
+        expected = ["captains", "best-xi", "defenders", "risky", "efficiency",
+                    "blowout-transfers"]
+        self.assertEqual(articles.ARTICLES, expected)
+
+    def test_article_titles_match_articles(self):
+        for slug in articles.ARTICLES:
+            self.assertIn(slug, articles.ARTICLE_TITLES,
+                          f"ARTICLE_TITLES missing slug '{slug}'")
+
+
 class FormationTest(unittest.TestCase):
     def test_formation_string(self):
         xi = ([_row("g", "GK", 1)] + [_row(f"d{i}", "DEF", 1) for i in range(3)]

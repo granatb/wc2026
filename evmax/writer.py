@@ -173,158 +173,222 @@ _fmt_ev = _fmt_pts
 # Template tier: deterministic per-article prose.
 # ---------------------------------------------------------------------------
 
+def _subject_entry(entries, subject):
+    """Return the entry for `subject`, or entries[0] if subject is None or not found."""
+    if subject is None:
+        return entries[0] if entries else {}
+    for e in entries:
+        if e.get("name") == subject:
+            return e
+    return entries[0] if entries else {}
+
+
 _TEMPLATES = {
     "captains": {
-        "headline": lambda e, r: f"{e[0]['name']} leads the armband race in Round {r}",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} tops captain EV at {_fmt_ev(e[0]['captain_ev'])} pts"
-            + (f", ahead of {e[1]['name']} ({_fmt_ev(e[1]['captain_ev'])})." if len(e) > 1 else ".")
+        "headline": lambda e, r, subj: f"{subj} leads the armband race in Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} tops captain EV at {_fmt_ev(_subject_entry(e, subj)['captain_ev'])} pts"
+            + (f", ahead of {e[1]['name']} ({_fmt_ev(e[1]['captain_ev'])})."
+               if len(e) > 1 and e[1]['name'] != subj else ".")
         ),
-        "body": lambda e, r: (
-            f"<p>{html.escape(e[0]['name'])} is the standout captain option this round, "
-            f"posting a captain EV of {_fmt_pts(e[0]['captain_ev'])} pts and an xPts of "
-            f"{_fmt_pts(e[0]['x_points'])}. "
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} is the standout captain option this round, "
+            f"posting a captain EV of {_fmt_pts(_subject_entry(e, subj)['captain_ev'])} pts and an xPts of "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])}. "
             + (f"{html.escape(e[1]['name'])} is a credible alternative at "
-               f"{_fmt_pts(e[1]['captain_ev'])} EV." if len(e) > 1 else "")
+               f"{_fmt_pts(e[1]['captain_ev'])} EV." if len(e) > 1 and e[1]['name'] != subj else "")
             + "</p>\n"
-            + (f"<blockquote><p>{html.escape(e[0]['name'])}'s ownership sits at "
-               f"{_fmt_own(e[0]['ownership_pct'])}, making them a high-upside, "
-               f"manageable captaincy.</p></blockquote>\n" if e[0].get('ownership_pct') is not None else "")
-            + f"<p>With a ceiling of {_fmt_pts(e[0]['ceiling'])}, the upside justifies "
-            f"the pick. Priced at £{_fmt_price(e[0]['price'])}m, {html.escape(e[0]['name'])} "
-            f"offers value at {_fmt_pts(e[0].get('value', 0))} xPts/£.</p>"
+            + (f"<blockquote><p>{html.escape(subj)}'s ownership sits at "
+               f"{_fmt_own(_subject_entry(e, subj)['ownership_pct'])}, making them a high-upside, "
+               f"manageable captaincy.</p></blockquote>\n"
+               if _subject_entry(e, subj).get('ownership_pct') is not None else "")
+            + f"<p>With a ceiling of {_fmt_pts(_subject_entry(e, subj)['ceiling'])}, the upside justifies "
+            f"the pick. Priced at £{_fmt_price(_subject_entry(e, subj)['price'])}m, {html.escape(subj)} "
+            f"offers value at {_fmt_pts(_subject_entry(e, subj).get('value', 0))} xPts/£.</p>"
         ),
-        "bottom_line": lambda e, r: (
-            f"Back {e[0]['name']} — {_fmt_pts(e[0]['captain_ev'])} captain EV is the best "
+        "bottom_line": lambda e, r, subj: (
+            f"Back {subj} — {_fmt_pts(_subject_entry(e, subj)['captain_ev'])} captain EV is the best "
             f"available this round."
         ),
     },
     "best-xi": {
-        "headline": lambda e, r: f"The optimal Fantasy XI for Round {r}",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} leads the best XI at {_fmt_pts(e[0]['x_points'])} xPts."
+        # best-xi is always team-framed (subject=None)
+        "headline": lambda e, r, subj: f"The optimal Fantasy XI for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"A {sum(x.get('x_points', 0) for x in e):.1f}-xPts XI built for Round {r}."
+            if e else f"The optimal XI for Round {r}."
         ),
-        "body": lambda e, r: (
-            f"<p>The highest-expected-points XI this round is anchored by "
-            f"{html.escape(e[0]['name'])} ({_fmt_pts(e[0]['x_points'])} xPts, "
-            f"£{_fmt_price(e[0]['price'])}m)"
-            + (f" and {html.escape(e[1]['name'])} ({_fmt_pts(e[1]['x_points'])} xPts)."
-               if len(e) > 1 else ".")
+        "body": lambda e, r, subj: (
+            (
+                f"<p>The highest-expected-points XI this round totals "
+                f"{sum(x.get('x_points', 0) for x in e):.1f} xPts across all positions. "
+                f"{html.escape(e[0]['name'])} ({_fmt_pts(e[0]['x_points'])} xPts) "
+                f"and {html.escape(e[1]['name'])} ({_fmt_pts(e[1]['x_points'])} xPts) "
+                f"anchor the attacking line."
+                if len(e) > 1 else
+                f"<p>The optimal XI for this round projects {e[0].get('x_points', 0):.1f} xPts."
+            ) + "</p>\n"
+            + "<blockquote><p>Balance beats stars — a well-rounded XI from the best fixtures "
+            "consistently outperforms a lopsided squad.</p></blockquote>"
+        ),
+        "bottom_line": lambda e, r, subj: (
+            f"Field this XI — {sum(x.get('x_points', 0) for x in e):.1f} total xPts "
+            f"is the model's best-fit combination for Round {r}."
+        ),
+    },
+    "defenders": {
+        "headline": lambda e, r, subj: f"{subj} heads the defensive picks for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} leads defenders at {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts"
+            + (f", ahead of {e[1]['name']} ({_fmt_pts(e[1]['x_points'])})."
+               if len(e) > 1 and e[1]['name'] != subj else ".")
+        ),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} tops the defensive rankings this round at "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts, "
+            f"priced at £{_fmt_price(_subject_entry(e, subj)['price'])}m"
+            + (f". {html.escape(e[1]['name'])} ({_fmt_pts(e[1]['x_points'])} xPts) "
+               f"is the next-best option."
+               if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
-            + (f"<blockquote><p>{html.escape(e[0]['name'])}'s ceiling of "
-               f"{_fmt_pts(e[0]['ceiling'])} makes them the must-have pick.</p></blockquote>"
-               if e[0].get('ceiling') is not None else "")
+            + f"<blockquote><p>Defenders from high-scoring expected fixtures offer "
+            f"attacking returns on top of clean-sheet potential — the best of both worlds.</p></blockquote>"
         ),
-        "bottom_line": lambda e, r: (
-            f"Start {e[0]['name']} — the {_fmt_pts(e[0]['x_points'])} xPts projection "
-            f"is the highest in the XI."
+        "bottom_line": lambda e, r, subj: (
+            f"Start {subj} — {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts "
+            f"at £{_fmt_price(_subject_entry(e, subj)['price'])}m is the best defensive value this round."
+        ),
+    },
+    "risky": {
+        "headline": lambda e, r, subj: f"{subj} — the highest-ceiling punt in Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} tops the ceiling chart at {_fmt_pts(_subject_entry(e, subj)['ceiling'])} pts "
+            f"with just {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} ownership."
+        ),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} carries a ceiling of {_fmt_pts(_subject_entry(e, subj)['ceiling'])} pts "
+            f"— the highest boom-or-bust upside among low-owned players this round. "
+            f"At just {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} ownership, a big haul here "
+            f"moves the needle on the rank table.</p>\n"
+            + (f"<p>{html.escape(e[1]['name'])} ({_fmt_pts(e[1]['ceiling'])} ceiling, "
+               f"{_fmt_own(e[1]['ownership_pct'])} owned) is the next most tempting gamble.</p>\n"
+               if len(e) > 1 and e[1]['name'] != subj else "")
+            + f"<blockquote><p>Ceiling picks are leverage plays — "
+            f"the expected value is lower, but the rank-jump potential is outsized.</p></blockquote>"
+        ),
+        "bottom_line": lambda e, r, subj: (
+            f"If you want differentiation, {subj} — {_fmt_pts(_subject_entry(e, subj)['ceiling'])} ceiling "
+            f"at {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} ownership is the sharpest punt available."
         ),
     },
     "differentials": {
-        "headline": lambda e, r: f"Differential gems: low-owned, high-upside picks for Round {r}",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} tops the differential list at {_fmt_own(e[0]['ownership_pct'])} ownership "
-            f"and {_fmt_pts(e[0]['x_points'])} xPts."
+        "headline": lambda e, r, subj: f"Differential gems: low-owned, high-upside picks for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} tops the differential list at {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} ownership "
+            f"and {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts."
         ),
-        "body": lambda e, r: (
-            f"<p>{html.escape(e[0]['name'])} is the standout differential this round — "
-            f"owned by just {_fmt_own(e[0]['ownership_pct'])} of managers while projecting "
-            f"{_fmt_pts(e[0]['x_points'])} xPts"
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} is the standout differential this round — "
+            f"owned by just {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} of managers while projecting "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts"
             + (f" ahead of {html.escape(e[1]['name'])} ({_fmt_own(e[1]['ownership_pct'])}, "
-               f"{_fmt_pts(e[1]['x_points'])} xPts)." if len(e) > 1 else ".")
+               f"{_fmt_pts(e[1]['x_points'])} xPts)." if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>The biggest rank-gain opportunity comes from punting on "
-            f"{html.escape(e[0]['name'])} while the field ignores them.</p></blockquote>"
+            f"{html.escape(subj)} while the field ignores them.</p></blockquote>"
         ),
-        "bottom_line": lambda e, r: (
-            f"{e[0]['name']} at {_fmt_own(e[0]['ownership_pct'])} ownership is the best "
+        "bottom_line": lambda e, r, subj: (
+            f"{subj} at {_fmt_own(_subject_entry(e, subj)['ownership_pct'])} ownership is the best "
             f"way to differentiate your team this round."
         ),
     },
     "efficiency": {
-        "headline": lambda e, r: f"Best value picks: EV per £ this round",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} leads on value at {_fmt_pts(e[0].get('value', 0))} xPts/£."
+        "headline": lambda e, r, subj: f"{subj} leads the value table in Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} leads on value at {_fmt_pts(_subject_entry(e, subj).get('value', 0))} xPts/£."
         ),
-        "body": lambda e, r: (
-            f"<p>{html.escape(e[0]['name'])} tops the efficiency table at "
-            f"{_fmt_pts(e[0].get('value', 0))} xPts/£ — "
-            f"{_fmt_pts(e[0]['x_points'])} xPts from a £{_fmt_price(e[0]['price'])}m price tag"
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} tops the efficiency table at "
+            f"{_fmt_pts(_subject_entry(e, subj).get('value', 0))} xPts/£ — "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts from a £{_fmt_price(_subject_entry(e, subj)['price'])}m price tag"
             + (f", beating {html.escape(e[1]['name'])} ({_fmt_pts(e[1].get('value', 0))} xPts/£)."
-               if len(e) > 1 else ".")
+               if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>Value picks compound over a tournament — "
             f"a 0.1 xPts/£ edge across 11 players adds up fast.</p></blockquote>"
         ),
-        "bottom_line": lambda e, r: (
-            f"Prioritise {e[0]['name']} — {_fmt_pts(e[0].get('value', 0))} xPts/£ is the best "
+        "bottom_line": lambda e, r, subj: (
+            f"Prioritise {subj} — {_fmt_pts(_subject_entry(e, subj).get('value', 0))} xPts/£ is the best "
             f"efficiency in the pool."
         ),
     },
     "high-ceiling-xi": {
-        "headline": lambda e, r: f"High-ceiling XI: chase the big haul this round",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} leads ceiling at {_fmt_pts(e[0]['ceiling'])} pts."
+        "headline": lambda e, r, subj: f"High-ceiling XI: chase the big haul this round",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} leads ceiling at {_fmt_pts(_subject_entry(e, subj)['ceiling'])} pts."
         ),
-        "body": lambda e, r: (
-            f"<p>For managers chasing a big week, {html.escape(e[0]['name'])} offers the "
-            f"highest ceiling at {_fmt_pts(e[0]['ceiling'])} pts while projecting "
-            f"{_fmt_pts(e[0]['x_points'])} xPts"
+        "body": lambda e, r, subj: (
+            f"<p>For managers chasing a big week, {html.escape(subj)} offers the "
+            f"highest ceiling at {_fmt_pts(_subject_entry(e, subj)['ceiling'])} pts while projecting "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts"
             + (f". {html.escape(e[1]['name'])} follows with a {_fmt_pts(e[1]['ceiling'])} ceiling."
-               if len(e) > 1 else ".")
+               if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>The high-ceiling XI is built for rank-jumps — "
             f"accept the variance, target the upside.</p></blockquote>"
         ),
-        "bottom_line": lambda e, r: (
-            f"Back {e[0]['name']} for ceiling — {_fmt_pts(e[0]['ceiling'])} best-case "
+        "bottom_line": lambda e, r, subj: (
+            f"Back {subj} for ceiling — {_fmt_pts(_subject_entry(e, subj)['ceiling'])} best-case "
             f"is the round's highest projection."
         ),
     },
     "blowout-transfers": {
-        "headline": lambda e, r: f"Blowout fixture targets: attackers to buy now",
-        "standfirst": lambda e, r: (
-            f"{e[0]['name']} is the top transfer target at {_fmt_pts(e[0]['x_points'])} xPts "
+        "headline": lambda e, r, subj: f"{subj} — top blowout target for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} is the top transfer target at {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts "
             f"from a blowout fixture."
         ),
-        "body": lambda e, r: (
-            f"<p>With the blowout fixture incoming, {html.escape(e[0]['name'])} "
-            f"({_fmt_pts(e[0]['x_points'])} xPts, £{_fmt_price(e[0]['price'])}m) is the "
+        "body": lambda e, r, subj: (
+            f"<p>With the blowout fixture incoming, {html.escape(subj)} "
+            f"({_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts, £{_fmt_price(_subject_entry(e, subj)['price'])}m) is the "
             f"priority transfer"
             + (f" alongside {html.escape(e[1]['name'])} ({_fmt_pts(e[1]['x_points'])} xPts)."
-               if len(e) > 1 else ".")
+               if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>Fixtures drive points at a World Cup — "
             f"get the best attackers from the biggest mismatches.</p></blockquote>"
         ),
-        "bottom_line": lambda e, r: (
-            f"Bring in {e[0]['name']} before the deadline — "
-            f"{_fmt_pts(e[0]['x_points'])} xPts from the blowout fixture."
+        "bottom_line": lambda e, r, subj: (
+            f"Bring in {subj} before the deadline — "
+            f"{_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts from the blowout fixture."
         ),
     },
 }
 
 _GENERIC_TEMPLATE = {
-    "headline": lambda e, r, slug: f"Round analysis: {slug.replace('-', ' ').title()}",
-    "standfirst": lambda e, r: (
-        f"{e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
+    "headline": lambda e, r, slug, subj: f"Round analysis: {slug.replace('-', ' ').title()}",
+    "standfirst": lambda e, r, subj: (
+        f"{subj or e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
     ),
-    "body": lambda e, r: (
-        f"<p>{html.escape(e[0]['name'])} tops this list with {_fmt_pts(e[0]['x_points'])} xPts "
+    "body": lambda e, r, subj: (
+        f"<p>{html.escape(subj or e[0]['name'])} tops this list with {_fmt_pts(e[0]['x_points'])} xPts "
         f"and a captain EV of {_fmt_pts(e[0]['captain_ev'])}"
         + (f". {html.escape(e[1]['name'])} is close behind at {_fmt_pts(e[1]['x_points'])} xPts."
            if len(e) > 1 else ".")
         + "</p>"
     ),
-    "bottom_line": lambda e, r: (
-        f"Target {e[0]['name']} — {_fmt_pts(e[0]['x_points'])} xPts is the best projection available."
+    "bottom_line": lambda e, r, subj: (
+        f"Target {subj or e[0]['name']} — {_fmt_pts(e[0]['x_points'])} xPts is the best projection available."
     ),
 }
 
 
 def _template_prose(article: str, entries: list, columns: list,
-                    round_no: int = 0) -> dict:
-    """Build deterministic template prose from entries."""
+                    round_no: int = 0, subject=None) -> dict:
+    """Build deterministic template prose from entries.
+
+    subject: the player to centre the prose on (or None for team-framing in best-xi).
+    """
     if not entries:
         return {
             "headline": f"Round analysis: {article}",
@@ -334,17 +398,20 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
+    # For best-xi with no subject, derive a useful team-level standfirst
+    subj = subject if subject is not None else (entries[0]["name"] if article != "best-xi" else None)
+
     tmpl = _TEMPLATES.get(article)
     if tmpl:
-        headline = tmpl["headline"](entries, round_no)
-        standfirst = tmpl["standfirst"](entries, round_no)
-        body_html = tmpl["body"](entries, round_no)
-        bottom_line = tmpl["bottom_line"](entries, round_no)
+        headline = tmpl["headline"](entries, round_no, subj)
+        standfirst = tmpl["standfirst"](entries, round_no, subj)
+        body_html = tmpl["body"](entries, round_no, subj)
+        bottom_line = tmpl["bottom_line"](entries, round_no, subj)
     else:
-        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article)
-        standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no)
-        body_html = _GENERIC_TEMPLATE["body"](entries, round_no)
-        bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no)
+        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj)
+        standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no, subj)
+        body_html = _GENERIC_TEMPLATE["body"](entries, round_no, subj)
+        bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no, subj)
 
     return {
         "headline": headline,
@@ -360,7 +427,7 @@ def _template_prose(article: str, entries: list, columns: list,
 # ---------------------------------------------------------------------------
 
 def _llm_prose(article: str, round_no: int, entries: list, columns: list,
-               cache_dir: str):
+               cache_dir: str, subject=None):
     """Call the Claude API and return prose dict, or None if we should fall through."""
     if not _ANTHROPIC_AVAILABLE:
         return None
@@ -369,7 +436,7 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     from evmax.prompts import build_prompt
 
-    prompt = build_prompt(article, round_no, entries)
+    prompt = build_prompt(article, round_no, entries, subject=subject)
 
     try:
         client = _anthropic.Anthropic()
@@ -420,11 +487,13 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
         if not any(abs(val - rv) <= 0.05 for rv in real_values):
             return None
 
-    # Names: require the article's subject (the top entry) to actually appear,
+    # Names: require the article's subject (passed in, or top entry) to actually appear,
     # rather than policing every capitalised word (which false-rejects country
     # names, "World Cup", sentence starts). Catches wholesale off-topic output.
-    subject = entries[0].get("name", "") if entries else ""
-    if subject and not any(w in combined_output for w in subject.split() if len(w) > 2):
+    grounding_subject = subject if subject else (entries[0].get("name", "") if entries else "")
+    if grounding_subject and not any(
+        w in combined_output for w in grounding_subject.split() if len(w) > 2
+    ):
         return None
 
     # Convert body_markdown to HTML
@@ -464,6 +533,7 @@ def article_prose(
     columns: list,
     cache_dir: str = "data/articles",
     use_llm: bool = True,
+    subject=None,
 ) -> dict:
     """Generate prose for an article using tiered resolution: cache → LLM → template.
 
@@ -475,6 +545,7 @@ def article_prose(
     columns   : list of column keys to feature in prose
     cache_dir : base directory for cached markdown files
     use_llm   : whether to attempt the LLM tier (default True)
+    subject   : player name to centre prose on, or None for team-framing (best-xi)
 
     Returns
     -------
@@ -487,9 +558,9 @@ def article_prose(
 
     # Tier 2: LLM (optional)
     if use_llm:
-        result = _llm_prose(article, round_no, entries, columns, cache_dir)
+        result = _llm_prose(article, round_no, entries, columns, cache_dir, subject=subject)
         if result is not None:
             return result
 
     # Tier 3: template
-    return _template_prose(article, entries, columns, round_no=round_no)
+    return _template_prose(article, entries, columns, round_no=round_no, subject=subject)

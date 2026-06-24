@@ -7,7 +7,7 @@ You are a tight, data-driven fantasy football analyst writing for evmax.pages.de
 
 Article slug : {slug}
 Round        : {round_no}
-
+{subject_instruction}
 Below is the EXACT dataset for this article. These are the ONLY numbers and player names
 you may reference. Do not invent statistics. Do not mention any player not in this list.
 Every figure you cite must appear verbatim in the data below.
@@ -49,10 +49,25 @@ Return STRICT JSON with exactly these keys and no others:
 """
 
 
-def build_prompt(slug: str, round_no: int, entries: list) -> str:
-    """Return a filled ARTICLE_PROMPT ready to send to the API."""
+def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
+    """Return a filled ARTICLE_PROMPT ready to send to the API.
+
+    subject: player name to centre prose on, or None for team-framing (best-xi).
+    """
+    if subject is not None:
+        subject_instruction = (
+            f"Focus      : Center this article on {subject}. You may reference other "
+            f"players in the data, but {subject} must be the main subject — lead with "
+            f"their numbers and anchor the headline and recommendation on them.\n"
+        )
+    else:
+        subject_instruction = (
+            "Focus      : Write about the XI as a unit (formation, balance, total xPts). "
+            "Do not center on a single player; spread references across the squad.\n"
+        )
     return ARTICLE_PROMPT.format(
         slug=slug,
         round_no=round_no,
+        subject_instruction=subject_instruction,
         entries_json=json.dumps(entries, ensure_ascii=False, indent=2),
     )

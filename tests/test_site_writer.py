@@ -14,7 +14,7 @@ ENTRIES = [{"rank": 1, "name": "Kane", "team": "England", "position": "FWD", "x_
 class WriterTest(unittest.TestCase):
     def test_template_fallback_is_grounded_and_safe(self):
         p = writer.article_prose("captains", 3, ENTRIES, ["captain_ev", "x_points", "ownership_pct"],
-                                 cache_dir="/nonexistent", use_llm=False)
+                                 cache_dir="/nonexistent", use_llm=False, subject="Kane")
         self.assertEqual(p["source"], "template")
         self.assertIn("Kane", p["headline"] + p["standfirst"] + p["body_html"])
         self.assertIn("18.31", p["body_html"])               # real number woven in (2dp)
@@ -23,8 +23,59 @@ class WriterTest(unittest.TestCase):
     def test_template_round_no_in_headline(self):
         """round_no must appear in the headline, not render as blank."""
         p = writer.article_prose("captains", 7, ENTRIES, ["captain_ev"],
-                                 cache_dir="/nonexistent", use_llm=False)
+                                 cache_dir="/nonexistent", use_llm=False, subject="Kane")
         self.assertIn("Round 7", p["headline"])
+
+    def test_subject_appears_in_prose(self):
+        """When subject is set, the subject name should appear in headline/body."""
+        p = writer.article_prose("captains", 3, ENTRIES, ["captain_ev"],
+                                 cache_dir="/nonexistent", use_llm=False, subject="Kane")
+        combined = p["headline"] + p["standfirst"] + p["body_html"]
+        self.assertIn("Kane", combined)
+
+    def test_best_xi_is_team_framed(self):
+        """best-xi with subject=None should not centre on a single player in headline."""
+        entries = [
+            {"rank": i+1, "name": f"Player{i}", "team": "ENG", "position": pos,
+             "x_points": 5.0 - i*0.1, "captain_ev": 10.0, "ceiling": 8.0,
+             "price": 7.0, "value": 0.7, "ownership_pct": 20.0}
+            for i, pos in enumerate(
+                ["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"]
+            )
+        ]
+        p = writer.article_prose("best-xi", 3, entries, ["x_points"],
+                                 cache_dir="/nonexistent", use_llm=False, subject=None)
+        self.assertEqual(p["source"], "template")
+        # Team-framed: headline should mention "XI" or "Round", not a single player name
+        self.assertIn("XI", p["headline"])
+
+    def test_defenders_template(self):
+        """defenders template should work and include subject in headline."""
+        entries = [
+            {"rank": 1, "name": "Trippier", "team": "ENG", "position": "DEF",
+             "x_points": 6.0, "captain_ev": 12.0, "ceiling": 9.0,
+             "price": 6.5, "value": 0.92, "ownership_pct": 14.0},
+            {"rank": 2, "name": "Mazraoui", "team": "MAR", "position": "DEF",
+             "x_points": 5.5, "captain_ev": 11.0, "ceiling": 8.0,
+             "price": 6.0, "value": 0.92, "ownership_pct": 8.0},
+        ]
+        p = writer.article_prose("defenders", 3, entries, ["x_points"],
+                                 cache_dir="/nonexistent", use_llm=False, subject="Trippier")
+        self.assertEqual(p["source"], "template")
+        self.assertIn("Trippier", p["headline"])
+
+    def test_risky_template(self):
+        """risky template should mention ceiling and subject."""
+        entries = [
+            {"rank": 1, "name": "Diallo", "team": "CIV", "position": "FWD",
+             "x_points": 5.0, "captain_ev": 10.0, "ceiling": 18.0,
+             "price": 5.5, "value": 0.91, "ownership_pct": 1.2},
+        ]
+        p = writer.article_prose("risky", 3, entries, ["ceiling"],
+                                 cache_dir="/nonexistent", use_llm=False, subject="Diallo")
+        self.assertEqual(p["source"], "template")
+        self.assertIn("Diallo", p["headline"])
+        self.assertIn("18.00", p["body_html"])
 
     def test_cache_tier_wins_when_present(self):
         d = tempfile.mkdtemp()
@@ -83,6 +134,7 @@ class WriterTest(unittest.TestCase):
                             ["captain_ev", "x_points"],
                             cache_dir="/nonexistent",
                             use_llm=True,
+                            subject="Kane",
                         )
         self.assertEqual(p["source"], "template",
                          "Fabricated number should cause grounding rejection")
@@ -116,6 +168,7 @@ class WriterTest(unittest.TestCase):
                                 ["captain_ev", "x_points"],
                                 cache_dir=tmpdir,
                                 use_llm=True,
+                                subject="Kane",
                             )
         self.assertEqual(p["source"], "llm",
                          "Fully grounded LLM output should be accepted")

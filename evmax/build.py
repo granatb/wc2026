@@ -21,14 +21,17 @@ from evmax import articles, render, writer
 _COLUMNS = {
     "captains":          ["captain_ev", "x_points", "ceiling", "price", "value", "ownership_pct"],
     "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
-    "high-ceiling-xi":   ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
-    "differentials":     ["x_points", "ceiling", "captain_ev", "price", "value", "ownership_pct"],
+    "defenders":         ["x_points", "price", "value", "ceiling", "ownership_pct"],
+    "risky":             ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
     "efficiency":        ["value", "x_points", "price", "captain_ev", "ownership_pct"],
     "blowout-transfers": ["x_points", "captain_ev", "ceiling", "price", "ownership_pct"],
+    # Legacy columns kept for back-compat but not featured in ARTICLES
+    "high-ceiling-xi":   ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
+    "differentials":     ["x_points", "ceiling", "captain_ev", "price", "value", "ownership_pct"],
 }
 
 # XI articles get pitch SVG; others get an EV bar
-_XI_ARTICLES = {"best-xi", "high-ceiling-xi"}
+_XI_ARTICLES = {"best-xi"}
 
 
 def _kickoffs_for_round(fantasy_round: int) -> dict:
@@ -47,17 +50,28 @@ def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
     return {
         "captains":          articles.rank_captains(rows)[:20],
         "best-xi":           articles.select_xi(rows, "x_points"),
-        "differentials":     articles.differentials(rows)[:20],
+        "defenders":         articles.by_position(rows, "DEF")[:15],
+        "risky":             articles.risky(rows)[:20],
         "efficiency":        articles.efficiency(rows)[:20],
-        "high-ceiling-xi":   articles.select_xi(rows, "ceiling"),
         "blowout-transfers": articles.blowout_transfers(rows, blow)[:20],
     }
+
+
+def _format_date(generated_at: str) -> str:
+    """Format an ISO-8601 timestamp as a human date, e.g. '24 June 2026'."""
+    dt = datetime.fromisoformat(generated_at)
+    try:
+        return dt.strftime("%-d %B %Y")
+    except ValueError:
+        # Windows / some platforms don't support %-d — strip leading zero manually
+        return dt.strftime("%d %B %Y").lstrip("0")
 
 
 def build(fantasy_round: int, sims: int, out: str, url: str,
           use_llm: bool = True) -> None:
     render.SITE_URL = url
     generated_at = datetime.now(timezone.utc).isoformat()
+    date_str = _format_date(generated_at)
 
     # --- Simulate ---
     players, _matches = engine_events.simulate_round(
@@ -84,6 +98,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # --- Render each article ---
     prose_map: dict[str, dict] = {}
     latest_index: dict[str, str] = {}
+    used_leads: set = set()
 
     for slug in articles.ARTICLES:
         entries = entries_map[slug]
@@ -91,9 +106,20 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         title = f"{articles.ARTICLE_TITLES[slug]} — Round {fantasy_round}"
         json_url = f"/api/round/{fantasy_round}/{slug}.json"
 
+        # Determine the subject (lead player) for prose focus
+        if slug == "best-xi":
+            subject = None  # team-framed, no single player centred
+        else:
+            subject = next(
+                (e["name"] for e in entries if e["name"] not in used_leads),
+                entries[0]["name"] if entries else None,
+            )
+            if subject:
+                used_leads.add(subject)
+
         # Prose
         prose = writer.article_prose(slug, fantasy_round, entries, columns,
-                                     use_llm=use_llm)
+                                     use_llm=use_llm, subject=subject)
         prose_map[slug] = prose
 
         # Viz
@@ -111,8 +137,11 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # HTML
         w(f"/round/{fantasy_round}/{slug}/index.html",
           render.article_page(fantasy_round, slug, title, prose, entries,
-                              columns, nav, json_url, viz_html,
-                              generated_at=generated_at))
+                              columns, json_url, viz_html,
+                              generated_at=generated_at, date_str=date_str))
+
+    # --- About page ---
+    w("/about/index.html", render.about_page())
 
     # --- Landing page ---
     # Featured = captains article (first in ARTICLES)
@@ -148,7 +177,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             "stat_label": stat_label,
         })
 
-    landing_html = render.landing_page(fantasy_round, featured, feed, nav)
+    landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 

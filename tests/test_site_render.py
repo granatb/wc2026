@@ -116,7 +116,7 @@ class HtmlTest(unittest.TestCase):
             title="Best captain picks — Round 3",
             prose=self.prose,
             entries=self.entries, columns=["captain_ev", "x_points"],
-            nav=self.nav, json_url="/api/round/3/captains.json",
+            json_url="/api/round/3/captains.json",
             viz_html=self.viz_html,
             generated_at="2026-06-24T12:00:00+00:00")
         self.assertIn("<!doctype html>", h.lower())
@@ -124,8 +124,12 @@ class HtmlTest(unittest.TestCase):
         self.assertIn("Bruno Fernandes", h)
         self.assertIn("11.3", h)                         # captain EV appears in table
         self.assertIn('rel="alternate"', h)              # link to JSON
-        self.assertIn("Best World Cup Fantasy XI", h)    # cross-link nav
         self.assertIn("Monte-Carlo", h)                  # methodology
+        # Fixed nav: Home and About links
+        self.assertIn('href="/"', h)
+        self.assertIn('href="/about/"', h)
+        # No per-article nav links (old nav parameter removed)
+        self.assertNotIn("/round/3/captains/", h.split('<nav>')[1].split('</nav>')[0])
 
     def test_article_page_has_article_schema_and_prose_headline(self):
         h = render.article_page(
@@ -133,13 +137,15 @@ class HtmlTest(unittest.TestCase):
             title="Best captain picks — Round 3",
             prose=self.prose,
             entries=self.entries, columns=["captain_ev", "x_points"],
-            nav=self.nav, json_url="/api/round/3/captains.json",
+            json_url="/api/round/3/captains.json",
             viz_html=self.viz_html,
-            generated_at="2026-06-24T12:00:00+00:00")
+            generated_at="2026-06-24T12:00:00+00:00",
+            date_str="24 June 2026")
         self.assertIn('"Article"', h)                           # Article JSON-LD type
         self.assertIn(self.prose["headline"], h)                # prose headline rendered
         self.assertIn("datePublished", h)                       # datePublished in Article LD
         self.assertIn("2026-06-24T12:00:00+00:00", h)          # generated_at value present
+        self.assertIn("24 June 2026", h)                        # date_str in byline
         self.assertNotIn("&amp;", h.split(
             '<script type="application/ld+json">')[1].split("</script>")[0])  # no double-escaping in LD
 
@@ -155,10 +161,10 @@ class HtmlTest(unittest.TestCase):
             {"slug": "best-xi", "headline": "The model's Round 3 XI",
              "teaser": "A 3-4-3 built around Kane.", "stat_value": "58.7",
              "stat_label": "total xPts"},
-            {"slug": "differentials", "headline": "Three low-owned forwards worth picking",
-             "teaser": "Diallo leads the differential board.",
+            {"slug": "risky", "headline": "Three low-owned forwards worth picking",
+             "teaser": "Diallo leads the ceiling board.",
              "stat_value": "1.0%", "stat_label": "top pick owned"},
-            {"slug": "best-value-xi", "headline": "Best value XI this round",
+            {"slug": "efficiency", "headline": "Best value picks this round",
              "teaser": "Diallo at 1.45 xPts/million.",
              "stat_value": "1.45", "stat_label": "xPts / million"},
         ]
@@ -167,14 +173,18 @@ class HtmlTest(unittest.TestCase):
             "prose": _SAMPLE_PROSE,
             "viz_html": self.viz_html,
         }
-        h = render.landing_page(round_no=3, featured=featured, feed=feed, nav=self.nav)
+        h = render.landing_page(round_no=3, featured=featured, feed=feed, date_str="24 June 2026")
         self.assertIn(_SAMPLE_PROSE["headline"], h)             # featured headline
         self.assertIn("Round 3 XI", h)                          # feed card 1 (apostrophe escaped)
         self.assertIn("Three low-owned forwards worth picking", h)  # feed card 2
-        self.assertIn("Best value XI this round", h)            # feed card 3
+        self.assertIn("Best value picks this round", h)         # feed card 3
         self.assertIn("/round/3/best-xi/", h)                   # feed card links
-        self.assertIn("/round/3/differentials/", h)
+        self.assertIn("/round/3/risky/", h)
         self.assertIn("/round/3/captains/", h)                  # featured link
+        self.assertIn("24 June 2026", h)                        # date_str in byline
+        # Fixed nav has Home and About
+        self.assertIn('href="/"', h)
+        self.assertIn('href="/about/"', h)
 
 
 class PitchSvgTest(unittest.TestCase):
@@ -240,3 +250,13 @@ class AgentFilesTest(unittest.TestCase):
         x = render.sitemap_xml(round_no=3, nav=self.nav)
         self.assertIn("<urlset", x)
         self.assertIn(f"{render.SITE_URL}/round/3/captains/", x)
+        self.assertIn(f"{render.SITE_URL}/about/", x)
+
+    def test_about_page_has_expected_content(self):
+        h = render.about_page()
+        self.assertIn("<!doctype html>", h.lower())
+        self.assertIn("evmax", h)
+        self.assertIn("Monte-Carlo", h)
+        self.assertIn("Dixon-Coles", h)
+        self.assertIn("50,000", h)
+        self.assertIn('href="/about/"', h)  # nav active on about

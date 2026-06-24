@@ -37,8 +37,10 @@ def summary_sentence(article, entries):
     if article == "efficiency":
         return (f"{name} ({team}) is the best value: {top['x_points']:.2f} xPts "
                 f"at just {top['price']:.1f}m.")
-    if article == "high-ceiling-xi":
+    if article in ("high-ceiling-xi", "risky"):
         return (f"{name} ({team}) has the highest ceiling: up to {top['ceiling']:.1f} points.")
+    if article == "defenders":
+        return (f"{name} ({team}) is the top defensive pick at {top['x_points']:.1f} xPts.")
     if article == "blowout-transfers":
         return (f"{name} ({team}) is the top attacker in this round's most lopsided fixtures "
                 f"at {top['x_points']:.1f} xPts.")
@@ -176,18 +178,16 @@ _STYLE = (
 )
 
 
-def _nav_html(nav, round_no, active=None):
+def _nav_html(active=None):
+    """Fixed site nav, identical on every page. active ∈ {'home','about',None}."""
+    home_cls = ' class="on"' if active == "home" else ""
+    about_cls = ' class="on"' if active == "about" else ""
     items = [
+        f'<a href="/"{home_cls}>Home</a>',
         '<a class="soon">Build a team</a>',
         '<a class="soon">Analyse a sub</a>',
+        f'<a href="/about/"{about_cls}>About</a>',
     ]
-    for slug, title in nav:
-        if slug == active:
-            items.append(
-                f'<a class="on" href="/round/{round_no}/{slug}/">{_html.escape(title)}</a>')
-        else:
-            items.append(
-                f'<a href="/round/{round_no}/{slug}/">{_html.escape(title)}</a>')
     return "<nav>" + "".join(items) + "</nav>"
 
 
@@ -341,13 +341,14 @@ def _rank_table_html(entries, columns):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def article_page(round_no, article, title, prose, entries, columns, nav, json_url, viz_html,
-                 generated_at=None):
+def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
+                 generated_at=None, date_str=None):
     """v2 editorial article page.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
     generated_at: ISO-8601 timestamp string (optional)
+    date_str: human-readable date string, e.g. "24 June 2026" (optional)
     """
     summary = summary_sentence(article, entries)
     dataset_ld_raw = _json.dumps({
@@ -374,6 +375,7 @@ def article_page(round_no, article, title, prose, entries, columns, nav, json_ur
         _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
     table_html = _rank_table_html(entries, columns)
     bottom_line = _html.escape(prose.get("bottom_line", ""))
+    byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -386,14 +388,14 @@ def article_page(round_no, article, title, prose, entries, columns, nav, json_ur
 <script type="application/ld+json">{article_ld}</script>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
-<a class="logo" href="/">ev<b>max</b></a>{_nav_html(nav, round_no, active=article)}
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html()}
 </div></header>
 <div class="wrap">
 <article class="art">
 <div class="kick">{kicker_label}</div>
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
-<div class="meta"><span class="av">e</span><span>By the evmax model</span></div>
+<div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
 <div class="artviz">{viz_html}</div>
 <div class="prose">{prose["body_html"]}
 <h2>The data</h2>
@@ -425,7 +427,7 @@ def hub_page(round_no, nav, highlights):
 <style>{_STYLE}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
-<a class="logo" href="/">ev<b>max</b></a>{_nav_html(nav, round_no)}
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
 </div></header>
 <div class="wrap">
 <div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
@@ -434,13 +436,16 @@ def hub_page(round_no, nav, highlights):
 </div></body></html>"""
 
 
-def feed_card(slug, round_no, headline, teaser, stat_value, stat_label):
+def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None):
     """A single v2 feed card linking to /round/{round_no}/{slug}/."""
     kicker = _html.escape(slug.replace("-", " ").title())
+    date_html = (f'<span style="font-size:11px;color:var(--ink3);margin-top:-4px">'
+                 f'{_html.escape(date_str)}</span>' if date_str else "")
     return (
         f'<a class="card" href="/round/{round_no}/{slug}/">'
         f'<span class="ck">{kicker}</span>'
         f'<h3>{_html.escape(headline)}</h3>'
+        f'{date_html}'
         f'<p>{_html.escape(teaser)}</p>'
         f'<div class="stat"><b>{_html.escape(str(stat_value))}</b>'
         f'<span>{_html.escape(stat_label)}</span></div>'
@@ -448,11 +453,12 @@ def feed_card(slug, round_no, headline, teaser, stat_value, stat_label):
     )
 
 
-def landing_page(round_no, featured, feed, nav):
+def landing_page(round_no, featured, feed, date_str=None):
     """v2 landing page — featured block + feed grid.
 
     featured: {slug, prose: {headline, standfirst, ...}, viz_html}
     feed: list of {slug, headline, teaser, stat_value, stat_label}
+    date_str: human-readable date string, e.g. "24 June 2026" (optional)
     """
     feat_slug = featured["slug"]
     feat_prose = featured["prose"]
@@ -460,11 +466,12 @@ def landing_page(round_no, featured, feed, nav):
     feat_kicker = "Featured · " + _html.escape(
         feat_slug.replace("-", " ").title())
     feat_url = f"/round/{round_no}/{feat_slug}/"
+    byline_date = f" · {_html.escape(date_str)}" if date_str else ""
 
     feed_cards = "".join(
         feed_card(
             f["slug"], round_no, f["headline"], f["teaser"],
-            f["stat_value"], f["stat_label"])
+            f["stat_value"], f["stat_label"], date_str=date_str)
         for f in feed)
 
     return f"""<!doctype html>
@@ -476,7 +483,7 @@ def landing_page(round_no, featured, feed, nav):
 <style>{_STYLE}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
-<a class="logo" href="/">ev<b>max</b></a>{_nav_html(nav, round_no)}
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
 </div></header>
 <div class="wrap">
 <div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
@@ -485,7 +492,7 @@ def landing_page(round_no, featured, feed, nav):
   <div class="kick">{feat_kicker}</div>
   <h1>{_html.escape(feat_prose["headline"])}</h1>
   <p class="stand">{_html.escape(feat_prose["standfirst"])}</p>
-  <div class="byline"><span class="av">e</span><span>By the evmax model</span></div>
+  <div class="byline"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
   <p style="margin-top:16px"><a href="{feat_url}" style="color:var(--green);font-weight:600;font-size:14px">Read the full analysis →</a></p>
 </div>
 <div class="viz">{feat_viz}</div>
@@ -524,9 +531,64 @@ def robots_txt():
 
 
 def sitemap_xml(round_no, nav):
-    urls = [f"{SITE_URL}/", f"{SITE_URL}/round/{round_no}/"]
+    urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/round/{round_no}/"]
     urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
     items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
             f'{items}</urlset>')
+
+
+def about_page():
+    """Editorial About page explaining evmax methodology."""
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About evmax — simulation-based World Cup Fantasy analysis</title>
+<meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
+{_FONTS}
+<style>{_STYLE}
+.about-body{{max-width:680px;margin:40px auto 80px}}
+.about-body h1{{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;letter-spacing:-1px;margin-bottom:16px}}
+.about-body .lead{{font-family:var(--serif);font-size:20px;color:var(--ink2);line-height:1.5;margin-bottom:32px}}
+.about-body h2{{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin:34px 0 12px}}
+.about-body p{{font-family:var(--serif);font-size:17px;line-height:1.7;color:#23201a;margin-bottom:16px}}
+.about-body ul{{font-family:var(--serif);font-size:17px;line-height:1.7;color:#23201a;margin:0 0 16px 24px}}
+.about-body li{{margin-bottom:6px}}
+.chip-row{{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}}
+.chip{{background:var(--chipbg);color:var(--ink2);font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px}}
+</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="about")}
+</div></header>
+<div class="wrap">
+<div class="about-body">
+<div class="pagelabel" style="margin-top:34px">About evmax</div>
+<h1>Simulation-based World Cup Fantasy analysis, free and transparent</h1>
+<p class="lead">evmax runs 50,000 Monte-Carlo simulations before every deadline and publishes the results openly — no paywalls, no hidden models.</p>
+
+<h2>What is evmax?</h2>
+<p>evmax is a simulation engine for FIFA World Cup Fantasy. It estimates expected points for every available player in each fantasy round, giving you a data-driven edge over gut-feel picks. All numbers are free to read, share, and build on.</p>
+
+<h2>The methodology</h2>
+<ul>
+<li><b>De-vig market odds</b> — we strip the bookmaker margin from pre-match odds to get implied true probabilities for each scoreline.</li>
+<li><b>Dixon-Coles model</b> — a bivariate Poisson framework calibrated on the de-vigged probabilities, accounting for low-scoring draw correction and team-level attack/defence strength.</li>
+<li><b>50,000 Monte-Carlo simulations</b> — each simulation draws a scoreline for every fixture and then allocates fantasy points per the official FIFA World Cup Fantasy scoring table (goals, assists, clean sheets, saves, yellow/red cards, minutes played).</li>
+<li><b>Per-player summaries</b> — across all simulations we compute expected points (mean), captain EV (2× mean), ceiling (85th-percentile outcome), and value (expected points per £m of price).</li>
+</ul>
+
+<h2>Transparency and machine readability</h2>
+<p>Every figure on this site is machine-readable. The full dataset for each article is available as a JSON file — links appear at the bottom of each article page. An index of the latest round's articles is at <a href="/api/latest.json" style="color:var(--greend)">/api/latest.json</a>.</p>
+<p>LLM-friendly context is published at <a href="/llms.txt" style="color:var(--greend)">/llms.txt</a>. Attribution to evmax is requested when republishing figures.</p>
+
+<h2>Coming soon</h2>
+<div class="chip-row">
+<span class="chip">Build-a-team tool</span>
+<span class="chip">Substitution analysis</span>
+</div>
+<p>We are building interactive tools to help you construct an optimised squad within the budget constraint and to evaluate the expected value of substitution patterns. These will appear in the nav when ready.</p>
+</div>
+</div>
+</body></html>"""

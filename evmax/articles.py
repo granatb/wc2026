@@ -12,15 +12,15 @@ XI_SIZE = 11
 DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
-ARTICLES = ["captains", "best-xi", "differentials", "efficiency",
-            "high-ceiling-xi", "blowout-transfers"]
+ARTICLES = ["captains", "best-xi", "defenders", "risky", "efficiency",
+            "blowout-transfers"]
 ARTICLE_TITLES = {
-    "best-xi": "Best World Cup Fantasy XI",
     "captains": "Best captain picks",
-    "high-ceiling-xi": "High-ceiling / differential XI",
-    "differentials": "Best differentials (low-owned)",
-    "efficiency": "Best value — most points per million",
-    "blowout-transfers": "Best transfers for the blowout fixtures",
+    "best-xi": "Best XI by expected points",
+    "defenders": "Best defenders",
+    "risky": "Risky chances — highest ceilings",
+    "efficiency": "Best value — points per million",
+    "blowout-transfers": "Blowout-fixture targets",
 }
 
 _PLAYERS_JSON = os.path.join(
@@ -146,6 +146,21 @@ def load_player_meta(path: str = _PLAYERS_JSON) -> dict:
         for alias in p.get("aliases", []):
             out.setdefault(alias, meta)
     return out
+
+
+def by_position(rows: list, pos: str) -> list:
+    """Rows where position == pos, ranked by x_points desc with rank."""
+    pool = [r for r in rows if r.get("position") == pos]
+    return _ranked(pool, "x_points")
+
+
+def risky(rows: list, max_ownership: float = 25.0) -> list:
+    """Rows with ownership_pct not None and < max_ownership, ranked by ceiling desc with rank.
+    Boom-or-bust upside picks."""
+    pool = [r for r in rows
+            if r.get("ownership_pct") is not None
+            and r["ownership_pct"] < max_ownership]
+    return _ranked(pool, "ceiling")
 
 
 def blowout_teams(fantasy_round: int, top_n: int = BLOWOUT_FIXTURES) -> set:
