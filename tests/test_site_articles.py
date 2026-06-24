@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from site import articles
+from evmax import articles
 
 
 class LoadPlayerMetaTest(unittest.TestCase):
