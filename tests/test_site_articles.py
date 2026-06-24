@@ -124,3 +124,21 @@ class SelectXITest(unittest.TestCase):
         pool[10]["ceiling"] = 99.0  # a DEF with huge ceiling
         xi = articles.select_xi(pool, "ceiling")
         self.assertEqual(xi[0]["ceiling"], 99.0)
+
+
+class BlowoutTest(unittest.TestCase):
+    def test_blowout_transfers_picks_attackers_from_highest_lambda_fixtures(self):
+        # two fixtures; (Spain vs Malta) has the biggest combined lambda
+        fixture_totals = {("Spain", "Malta"): 4.2, ("Iran", "Qatar"): 2.1}
+        teams_in_blowout = {"Spain", "Malta"}
+        rows = [
+            _row("Oyarzabal", "FWD", 7.0), _row("Pedri", "MID", 5.5),
+            _row("Cucurella", "DEF", 3.0),       # defender -> excluded (attackers only)
+            _row("IranFwd", "FWD", 6.0),         # not in a blowout fixture
+        ]
+        for r in rows:
+            r["team"] = {"Oyarzabal": "Spain", "Pedri": "Spain", "Cucurella": "Spain",
+                         "IranFwd": "Iran"}[r["name"]]
+        out = articles.blowout_transfers(rows, teams_in_blowout)
+        self.assertEqual([r["name"] for r in out], ["Oyarzabal", "Pedri"])
+        self.assertEqual(out[0]["rank"], 1)

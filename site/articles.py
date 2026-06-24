@@ -125,3 +125,25 @@ def load_player_meta(path: str = _PLAYERS_JSON) -> dict:
         for alias in p.get("aliases", []):
             out.setdefault(alias, meta)
     return out
+
+
+def blowout_teams(fantasy_round: int, top_n: int = BLOWOUT_FIXTURES) -> set:
+    """Teams playing in the round's highest combined-lambda (most lopsided/high-scoring)
+    fixtures. Uses core.fixtures lambdas (odds-derived where present)."""
+    fx = fixtures.by_round(fantasy_round)
+    scored = []
+    for f in fx:
+        lh, la = f.lambdas()
+        scored.append((lh + la, f))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    teams = set()
+    for _total, f in scored[:top_n]:
+        teams.add(f.home)
+        teams.add(f.away)
+    return teams
+
+
+def blowout_transfers(rows: list, teams: set) -> list:
+    """Attackers (FWD/MID) from the blowout fixtures, ranked by x_points."""
+    pool = [r for r in rows if r["team"] in teams and r["position"] in ("FWD", "MID")]
+    return _ranked(pool, "x_points")
