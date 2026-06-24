@@ -108,6 +108,19 @@ def rank_value(rows: list) -> list:
     return _ranked([r for r in rows if r.get("value") is not None], "value")
 
 
+def efficiency(rows: list) -> list:
+    """The EV-per-dollar article: rows ranked by value (xPts / price). Public alias."""
+    return rank_value(rows)
+
+
+def formation_of(xi: list) -> str:
+    """Formation string like '3-4-3' from an XI (outfield only, GK omitted by convention)."""
+    counts = {}
+    for r in xi:
+        counts[r.get("position")] = counts.get(r.get("position"), 0) + 1
+    return f"{counts.get('DEF', 0)}-{counts.get('MID', 0)}-{counts.get('FWD', 0)}"
+
+
 def differentials(rows: list, max_ownership: float = DIFF_MAX_OWNERSHIP,
                   min_xpts: float = DIFF_MIN_XPTS) -> list:
     pool = [r for r in rows

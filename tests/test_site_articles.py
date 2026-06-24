@@ -160,3 +160,20 @@ class BlowoutTest(unittest.TestCase):
         out = articles.blowout_transfers(rows, teams_in_blowout)
         self.assertEqual([r["name"] for r in out], ["Oyarzabal", "Pedri"])
         self.assertEqual(out[0]["rank"], 1)
+
+
+class EfficiencyTest(unittest.TestCase):
+    def test_efficiency_ranks_by_value_desc(self):
+        rows = [_row("A", "FWD", 9.0, price=11.0), _row("B", "MID", 6.0, price=6.0),
+                _row("C", "DEF", 4.5, price=4.0)]
+        out = articles.efficiency(rows)
+        self.assertEqual([r["name"] for r in out], ["C", "B", "A"])  # 1.125 > 1.0 > 0.818
+        self.assertEqual(out[0]["rank"], 1)
+
+
+class FormationTest(unittest.TestCase):
+    def test_formation_string(self):
+        xi = ([_row("g", "GK", 1)] + [_row(f"d{i}", "DEF", 1) for i in range(3)]
+              + [_row(f"m{i}", "MID", 1) for i in range(4)]
+              + [_row(f"f{i}", "FWD", 1) for i in range(3)])
+        self.assertEqual(articles.formation_of(xi), "3-4-3")
