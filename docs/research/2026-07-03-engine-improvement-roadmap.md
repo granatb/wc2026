@@ -1,6 +1,6 @@
 # Engine improvement roadmap — from the SOTA research program
 
-*Synthesized 2026-06-24 from 99 methods / 9 research domains (full evidence + source URLs in [2026-06-24-engine-sota-corpus.json](2026-06-24-engine-sota-corpus.json)). Two gap domains (platform market microstructure; intra-match awards/BPS/MOTM) and an independent synthesis pass hit the session limit — re-run after reset to append.*
+*Synthesized 2026-07-03 from 99 methods / 9 research domains (full evidence + source URLs in [2026-07-03-engine-sota-corpus.json](2026-07-03-engine-sota-corpus.json)). Two gap domains (platform market microstructure; intra-match awards/BPS/MOTM) and an independent synthesis pass hit the session limit — re-run after reset to append.*
 
 ## The headline finding: our −2.3 xPts gap has a likely *mechanical* cause
 

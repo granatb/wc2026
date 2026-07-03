@@ -1,6 +1,6 @@
 # evmax — strategy & roadmap
 
-*Canonical strategy file. Started 2026-06-24 (day of launch). Update as decisions land.*
+*Canonical strategy file. Site launched 2026-06-24; strategy consolidated 2026-07-03. Update as decisions land.*
 
 ## 1. Thesis
 
@@ -30,12 +30,12 @@ One odds/simulation engine feeding two flywheels:
 | 06-24 | Articles are the product (one query intent per page); landing = featured + feed |
 | 06-24 | LLM-written prose at build time, grounded in engine numbers; authorship stated openly |
 | 06-24 | No player headlines >1 article per round (subject de-dup) |
-| 06-24 | Focus: turn odds into stat analysis for betting-minded people at popular events |
-| 06-24 | Odds source: ESPN free feed; The Odds API (~$30/mo) as fallback only if ESPN breaks and revenue justifies |
-| 06-24 | Comparison content: reference pundit/site picks vs our EVs (citation bait + accountability) |
-| 06-24 | Backtesting: build now — trust layer, premium unlock, comparison-article fuel |
-| 06-24 | Reddit: disclosed human-in-the-loop account, model-generated content, 90/10 rule; NO covert automation |
-| 06-24 | FPL pivot in August (empirically de-risked: decade of tolerated commercial FPL tooling); Holdet gated on ToS check |
+| 07-03 | Focus: turn odds into stat analysis for betting-minded people at popular events |
+| 07-03 | Odds source: ESPN free feed; The Odds API (~$30/mo) as fallback only if ESPN breaks and revenue justifies |
+| 07-03 | Comparison content: reference pundit/site picks vs our EVs (citation bait + accountability) |
+| 07-03 | Backtesting: build now — trust layer, premium unlock, comparison-article fuel |
+| 07-03 | Reddit: disclosed human-in-the-loop account, model-generated content, 90/10 rule; NO covert automation |
+| 07-03 | FPL pivot in August (empirically de-risked: decade of tolerated commercial FPL tooling); Holdet gated on ToS check |
 
 ## 4. Legal / ToU guardrails (standing policy)
 
@@ -46,7 +46,7 @@ One odds/simulation engine feeding two flywheels:
 5. **Polite fetching:** cached, a handful of requests per round (de minimis).
 6. **Holdet ToS review before monetizing the Danish site.**
 7. **Bookmaker affiliate = last monetization rung**, only after jurisdiction-scoped compliance review (UK CAP/BCAP, 25% under-18 audience rule).
-8. Legal posture (researched 06-24): scraping public unauthenticated endpoints ≠ CFAA violation (hiQ); facts/odds not copyrightable (Feist, NBA v. Motorola); EU sui generis database right fails for single-source *created* sports data (BHB v. William Hill, Fixtures Marketing). Residual risk = contract (ToU) + technical blocking; zero observed enforcement in the ESPN-API and commercial-FPL-tool ecosystems. Derived analytics ≈ safest position in the industry.
+8. Legal posture (researched 07-03): scraping public unauthenticated endpoints ≠ CFAA violation (hiQ); facts/odds not copyrightable (Feist, NBA v. Motorola); EU sui generis database right fails for single-source *created* sports data (BHB v. William Hill, Fixtures Marketing). Residual risk = contract (ToU) + technical blocking; zero observed enforcement in the ESPN-API and commercial-FPL-tool ecosystems. Derived analytics ≈ safest position in the industry.
 
 ## 5. GEO playbook
 
@@ -91,7 +91,7 @@ One odds/simulation engine feeding two flywheels:
 
 Principle: **the engine is the product; everything else is distribution.**
 - Measurement first: backtesting harness (§7) + proper scoring rules, so every model change is judged on evidence.
-- Deep-research program COMPLETED 2026-06-24: 99 methods / 9 domains → roadmap at `docs/research/2026-06-24-engine-improvement-roadmap.md` (corpus JSON alongside). Headline: the −2.3 xPts gap likely traces to proportional de-vig + 1X2-only λ inversion (documented −0.10–0.15 goals/team under-recovery; AH probabilities are unbiased). Domains covered: score models beyond Dixon-Coles, de-vig methods (Shin), minutes projection, player event rates (xG/xA-based), joint simulation/correlation, portfolio+ownership game theory, Bayesian in-tournament updating, ML benchmarks, validation/calibration.
+- Deep-research program completed 2026-07-03: 99 methods / 9 domains → roadmap at `docs/research/2026-07-03-engine-improvement-roadmap.md` (corpus JSON alongside). Headline: the −2.3 xPts gap likely traces to proportional de-vig + 1X2-only λ inversion (documented −0.10–0.15 goals/team under-recovery; AH probabilities are unbiased). Domains covered: score models beyond Dixon-Coles, de-vig methods (Shin), minutes projection, player event rates (xG/xA-based), joint simulation/correlation, portfolio+ownership game theory, Bayesian in-tournament updating, ML benchmarks, validation/calibration.
 - Known weaknesses to attack: xPts run low vs Rotowire (~2.3 pts, R2 audit); minutes model is crude (starters=60'); MID defensive contribution is an estimate; blend weights hand-set; no ownership/rank game theory in public picks.
 
 ## 10. Build backlog (priority order)
