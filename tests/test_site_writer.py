@@ -175,5 +175,36 @@ class WriterTest(unittest.TestCase):
         self.assertIn("Kane", p["headline"])
 
 
+TRANSFER_ENTRIES = [
+    {"rank": 1, "name": "Amad Diallo", "team": "Ivory Coast", "position": "FWD",
+     "x_points": 8.55, "vor": 2.5, "p_advance": 15.0, "priority_score": 2.875,
+     "price": 5.9, "ownership_pct": 1.3},
+    {"rank": 2, "name": "Harry Kane", "team": "England", "position": "FWD",
+     "x_points": 9.16, "vor": 1.8, "p_advance": 90.0, "priority_score": 3.42,
+     "price": 10.5, "ownership_pct": 38.6},
+]
+
+
+class TransferTemplateTest(unittest.TestCase):
+    def test_template_mentions_vor_and_advancement_risk(self):
+        p = writer.article_prose("transfers", 5, TRANSFER_ENTRIES, ["priority_score", "vor"],
+                                 cache_dir="/nonexistent", use_llm=False, subject="Amad Diallo")
+        self.assertEqual(p["source"], "template")
+        self.assertIn("Amad Diallo", p["headline"])
+        # the +2.50 VOR figure and the 15.0% advance probability must appear grounded
+        self.assertIn("2.50", p["body_html"] + p["standfirst"] + p["bottom_line"])
+        self.assertIn("15.0%", p["body_html"] + p["standfirst"] + p["bottom_line"])
+
+    def test_template_omits_advancement_mention_when_p_advance_is_neutral_default(self):
+        """A group-round transfer entry (p_advance=100, the no-discount default)
+        should not falsely claim a 'chance of advancing' caveat."""
+        entries = [{"rank": 1, "name": "Someone", "team": "Spain", "position": "MID",
+                    "x_points": 6.0, "vor": 1.0, "p_advance": 100.0, "priority_score": 2.0,
+                    "price": 7.0, "ownership_pct": 20.0}]
+        p = writer.article_prose("transfers", 3, entries, ["priority_score", "vor"],
+                                 cache_dir="/nonexistent", use_llm=False, subject="Someone")
+        self.assertNotIn("chance of advancing", p["standfirst"])
+
+
 if __name__ == "__main__":
     unittest.main()

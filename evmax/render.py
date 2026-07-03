@@ -3,7 +3,17 @@
 import html as _html
 import json as _json
 
-SITE_URL = "https://evmax.pages.dev"
+SITE_URL = "https://evmax.ai"
+BRAND_SUFFIX = "evmax — fantasy football simulations"
+GSC_META_TAG = (
+    '<meta name="google-site-verification" '
+    'content="TSaQglsr4AcaNMorvb7CgaHcSLkNhdt4xiaawRluLkQ" />')
+# Our model outputs are licensed CC BY 4.0: anyone (humans or AI systems) may reuse
+# the numbers WITH attribution to evmax — reuse-with-credit is the growth strategy,
+# and a formal license both invites it and satisfies schema.org Dataset validation.
+DATA_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
+DATA_LICENSE_TEXT = ("CC BY 4.0 — free to reuse with attribution to evmax "
+                     "(https://evmax.ai)")
 METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
                "simulations, scored on the official FIFA World Cup Fantasy points table.")
 
@@ -19,7 +29,8 @@ def article_json(competition, fantasy_round, article, title, generated_at, sims,
         "methodology": METHODOLOGY,
         "entries": entries,
         "source": SITE_URL,
-        "license": "Attribution requested: evmax",
+        "license": DATA_LICENSE_URL,
+        "license_text": DATA_LICENSE_TEXT,
     }
 
 
@@ -31,6 +42,11 @@ def summary_sentence(article, entries):
         return (f"Match predictions for {len(entries)} fixtures this round; "
                 f"{close} close game(s) to watch.")
     top = entries[0]
+    if article == "transfers" and "name" in top:
+        return (f"{top['name']} ({top.get('team', '')}) is the top priority transfer: "
+                f"{top['vor']:+.2f} value over replacement"
+                + (f", {top['p_advance']:.0f}% chance of advancing" if "p_advance" in top
+                   and top['p_advance'] < 100 else "") + ".")
     if "name" not in top:
         return f"Round {article} analysis."
     name, team = top["name"], top.get("team", "")
@@ -79,25 +95,32 @@ def svg_bar_chart(pairs, unit, width=520, row_h=34):
 
 
 _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceiling",
-              "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %"}
+              "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %",
+              "priority_score": "Priority", "vor": "VOR", "p_advance": "Advance %"}
 
 
 def _fmt(col, row):
     v = row.get(col)
     if v is None:
         return "—"
-    if col == "ownership_pct":
+    if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
     if col == "price":
         return f"{v:.1f}"
     return f"{v:.2f}" if isinstance(v, float) else str(v)
 
 
-_FONTS = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
-          '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-          '<link href="https://fonts.googleapis.com/css2?'
-          'family=Hanken+Grotesk:wght@400;500;600;700;800&'
-          'family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">')
+# Fonts are SELF-HOSTED (variable woff2 under /fonts/, shipped by build.py from
+# evmax/assets/fonts/). Deliberately NOT loaded from fonts.googleapis.com: remote
+# Google Fonts transmits visitor IPs to Google, which an EU court (LG München,
+# 3 O 17493/20, Jan 2022) held violates the GDPR absent consent. Self-hosting keeps
+# the site zero-third-party / zero-cookie, so no consent banner is required.
+_FONTS = ("<style>"
+          "@font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:400 800;"
+          "font-display:swap;src:url(/fonts/hanken-grotesk-var.woff2) format('woff2')}"
+          "@font-face{font-family:'Newsreader';font-style:normal;font-weight:400 600;"
+          "font-display:swap;src:url(/fonts/newsreader-var.woff2) format('woff2')}"
+          "</style>")
 
 _STYLE = (
     ":root{"
@@ -172,9 +195,15 @@ _STYLE = (
     "table.rank .big{font-weight:800;color:var(--green)}"
     ".tag{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
     "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;padding:2px 7px;margin-left:6px}"
+    ".tag-floor{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
+    "letter-spacing:.5px;color:var(--ink3);background:var(--chipbg);border-radius:6px;"
+    "padding:2px 7px;margin-left:6px}"
     ".method{font-size:13.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--line);"
     "margin-top:34px;padding-top:18px}"
     ".method b{color:var(--green)}"
+    ".sitefoot{border-top:1px solid var(--line);margin-top:56px;padding:26px 0 40px;background:var(--surf)}"
+    ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;max-width:76ch;margin-bottom:10px}"
+    ".sitefoot a{color:var(--greend);text-decoration:underline}"
     ".pitch-mini{width:200px}"
     "@media(max-width:760px){"
     ".feat{grid-template-columns:1fr;gap:20px}"
@@ -196,6 +225,26 @@ def _nav_html(active=None):
     ]
     return "<nav>" + "".join(items) + "</nav>"
 
+
+
+def _footer_html():
+    """Site-wide footer: legal disclaimer + privacy/about links, on every page."""
+    return (
+        '<footer class="sitefoot"><div class="wrap">'
+        '<p><b>evmax</b> is an independent statistical-analysis project. It is not '
+        'affiliated with, endorsed by, or connected to FIFA, any football federation, '
+        'league, club, or fantasy game operator. All player and team names are used in '
+        'a purely descriptive, informational context.</p>'
+        '<p>All projections are our own model estimates (Monte-Carlo simulations on '
+        'publicly available market information) and carry no guarantee of accuracy. '
+        'Nothing on this site is betting or financial advice. If you choose to bet, '
+        'you must be of legal gambling age in your jurisdiction \u2014 please gamble '
+        'responsibly.</p>'
+        f'<p>Data license: <a href="{DATA_LICENSE_URL}">CC BY 4.0</a> \u2014 reuse our '
+        'numbers freely with attribution to evmax. '
+        '<a href="/about/">About</a> \u00b7 <a href="/privacy/">Privacy</a> \u00b7 '
+        '<a href="/llms.txt">llms.txt</a></p>'
+        '</div></footer>')
 
 def pitch_svg(xi_entries):
     """SVG football pitch placing an XI by position lines. Captain (rank 1) is flagged."""
@@ -332,10 +381,16 @@ def _rank_table_html(entries, columns):
         own = r.get("ownership_pct")
         diff_tag = (f'<span class="tag">Differential</span>'
                     if own is not None and own < 10.0 else "")
+        ceil_ratio = r.get("ceiling_ratio")
+        floor_tag = (f'<span class="tag-floor">Safe floor</span>'
+                     if ceil_ratio is not None and ceil_ratio < 1.15 else "")
+        p_adv = r.get("p_advance")
+        risk_tag = (f'<span class="tag">Advance risk</span>'
+                    if p_adv is not None and p_adv < 60.0 else "")
         player_cell = (
             f'<td class="l"><span class="nm">{_html.escape(r["name"])}</span> '
             f'<span class="tm">{_html.escape(r.get("team") or "")}</span>'
-            f'{diff_tag}</td>'
+            f'{diff_tag}{floor_tag}{risk_tag}</td>'
         )
         col_vals = "".join(
             f'<td class="big">{_fmt(c, r)}</td>' for c in columns)
@@ -461,6 +516,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
         "url": f"{SITE_URL}{json_url}",
         "creator": {"@type": "Organization", "name": "evmax"},
         "variableMeasured": [_COL_LABEL.get(c, c) for c in columns],
+        "license": DATA_LICENSE_URL,
+        "isAccessibleForFree": True,
     })
     dataset_ld = dataset_ld_raw.replace("</", "<\\/")
     article_ld_obj = {
@@ -483,9 +540,10 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{_html.escape(title)} | evmax</title>
+<title>{_html.escape(title)} | {BRAND_SUFFIX}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
+{GSC_META_TAG}
 {_FONTS}
 <style>{_STYLE}</style>
 <script type="application/ld+json">{dataset_ld}</script>
@@ -509,7 +567,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
 </article>
-</div></body></html>"""
+</div>
+{_footer_html()}</body></html>"""
 
 
 def hub_page(round_no, nav, highlights):
@@ -524,8 +583,9 @@ def hub_page(round_no, nav, highlights):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | evmax</title>
+<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
 <meta name="description" content="Simulation-based World Cup Fantasy picks for Round {round_no}: best XI, captains, differentials, value and blowout-fixture transfers from 50,000 Monte-Carlo runs.">
+{GSC_META_TAG}
 {_FONTS}
 <style>{_STYLE}</style>
 </head><body>
@@ -536,7 +596,8 @@ def hub_page(round_no, nav, highlights):
 <div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 <div class="feed">{"".join(cards)}</div>
 <p class="method"><b>Method.</b> {METHODOLOGY}</p>
-</div></body></html>"""
+</div>
+{_footer_html()}</body></html>"""
 
 
 def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None):
@@ -580,8 +641,9 @@ def landing_page(round_no, featured, feed, date_str=None):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | evmax</title>
+<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
 <meta name="description" content="Simulation-based World Cup Fantasy analysis for Round {round_no} from 50,000 Monte-Carlo runs.">
+{GSC_META_TAG}
 {_FONTS}
 <style>{_STYLE}</style>
 </head><body>
@@ -603,7 +665,8 @@ def landing_page(round_no, featured, feed, date_str=None):
 <div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 <p class="method"><b>Method.</b> {METHODOLOGY}</p>
-</div></body></html>"""
+</div>
+{_footer_html()}</body></html>"""
 
 
 _AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web",
@@ -634,7 +697,8 @@ def robots_txt():
 
 
 def sitemap_xml(round_no, nav):
-    urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/round/{round_no}/"]
+    urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
+            f"{SITE_URL}/round/{round_no}/"]
     urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
     items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
@@ -647,8 +711,9 @@ def about_page():
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About evmax — simulation-based World Cup Fantasy analysis</title>
+<title>About | {BRAND_SUFFIX}</title>
 <meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
+{GSC_META_TAG}
 {_FONTS}
 <style>{_STYLE}
 .about-body{{max-width:680px;margin:40px auto 80px}}
@@ -686,6 +751,19 @@ def about_page():
 <p>Every figure on this site is machine-readable. The full dataset for each article is available as a JSON file — links appear at the bottom of each article page. An index of the latest round's articles is at <a href="/api/latest.json" style="color:var(--greend)">/api/latest.json</a>.</p>
 <p>LLM-friendly context is published at <a href="/llms.txt" style="color:var(--greend)">/llms.txt</a>. Attribution to evmax is requested when republishing figures.</p>
 
+<h2>Independence &amp; disclaimer</h2>
+<p>evmax is an independent statistical-analysis project. It is <b>not affiliated with,
+endorsed by, or connected to FIFA</b>, any football federation, league, club, or fantasy
+game operator. Player and team names appear in a purely descriptive, informational
+context, as in any statistics publication.</p>
+<p>Every number on this site is our own model output — Monte-Carlo simulations computed
+from publicly available market information. We do not republish any third-party data
+feed. Projections are estimates, not promises: they carry no guarantee of accuracy, and
+nothing here is betting or financial advice. If you bet, you must be of legal gambling
+age in your jurisdiction — please gamble responsibly.</p>
+<p>Our outputs are licensed <a href="https://creativecommons.org/licenses/by/4.0/"
+style="color:var(--greend)">CC BY 4.0</a>: reuse them freely, with attribution to evmax.</p>
+
 <h2>Coming soon</h2>
 <div class="chip-row">
 <span class="chip">Build-a-team tool</span>
@@ -694,4 +772,45 @@ def about_page():
 <p>We are building interactive tools to help you construct an optimised squad within the budget constraint and to evaluate the expected value of substitution patterns. These will appear in the nav when ready.</p>
 </div>
 </div>
-</body></html>"""
+{_footer_html()}</body></html>"""
+
+def privacy_page():
+    """Privacy notice: static site, zero cookies, zero third-party requests."""
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy | {BRAND_SUFFIX}</title>
+<meta name="description" content="evmax sets no cookies, runs no analytics or trackers, and makes no third-party requests. What little processing exists is described here.">
+{GSC_META_TAG}
+{_FONTS}
+<style>{_STYLE}
+.legal h2{{font-size:16px;font-weight:700;margin:28px 0 8px}}
+.legal p{{font-family:var(--serif);font-size:17px;line-height:1.6;color:#23201a;margin-bottom:12px;max-width:72ch}}
+</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html()}
+</div></header>
+<div class="wrap legal" style="padding-bottom:40px">
+<div class="pagelabel">Privacy notice</div>
+<h1 style="font-size:clamp(26px,4vw,38px);font-weight:800">Privacy</h1>
+<h2>The short version</h2>
+<p>This site sets <b>no cookies</b>, runs <b>no analytics or trackers</b>, requires no
+account, and makes <b>no requests to third-party services</b> from your browser — fonts
+and all assets are served from this domain. We do not collect, store, or process any
+personal data ourselves. That is why there is no cookie banner: there is nothing to
+consent to.</p>
+<h2>Hosting</h2>
+<p>The site is served as static files via Cloudflare Pages (Cloudflare, Inc.), which —
+like any web host — technically processes visitor IP addresses in transit to deliver
+pages and protect against abuse. Cloudflare acts as a hosting provider/CDN; see
+<a href="https://www.cloudflare.com/privacypolicy/" style="color:var(--greend)">Cloudflare's
+privacy policy</a>. We do not receive or retain this data.</p>
+<h2>External links</h2>
+<p>Articles may link to external sites; their privacy practices are their own.</p>
+<h2>Changes &amp; contact</h2>
+<p>If our practices ever change (for example, if we add an email newsletter), this page
+will describe exactly what is collected and why, before it happens.</p>
+</div>
+{_footer_html()}</body></html>"""
+

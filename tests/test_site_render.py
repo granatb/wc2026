@@ -22,7 +22,7 @@ class JsonEnvelopeTest(unittest.TestCase):
         self.assertEqual(env["sims"], 50000)
         self.assertEqual(env["entries"][0]["name"], "Bruno Fernandes")
         self.assertIn("methodology", env)
-        self.assertEqual(env["source"], "https://evmax.pages.dev")
+        self.assertEqual(env["source"], "https://evmax.ai")
         # must be JSON-serializable
         json.dumps(env)
 
@@ -148,6 +148,45 @@ class HtmlTest(unittest.TestCase):
         self.assertIn("24 June 2026", h)                        # date_str in byline
         self.assertNotIn("&amp;", h.split(
             '<script type="application/ld+json">')[1].split("</script>")[0])  # no double-escaping in LD
+
+    def test_low_ceiling_captain_gets_safe_floor_chip(self):
+        entries = [
+            {"rank": 1, "name": "Boring Keeper", "team": "France", "position": "GK",
+             "x_points": 5.16, "captain_ev": 10.32, "ceiling": 5.16,
+             "ceiling_ratio": 1.0, "price": 5.0, "ownership_pct": 8.9,
+             "value": 1.0, "kickoff": None},
+        ]
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html)
+        self.assertIn("Safe floor", h)
+
+    def test_high_ceiling_player_has_no_safe_floor_chip(self):
+        entries = [
+            {"rank": 1, "name": "Boom Striker", "team": "Brazil", "position": "FWD",
+             "x_points": 5.0, "captain_ev": 10.0, "ceiling": 12.0,
+             "ceiling_ratio": 2.4, "price": 9.0, "ownership_pct": 30.0,
+             "value": 0.55, "kickoff": None},
+        ]
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html)
+        self.assertNotIn("Safe floor", h)
+
+    def test_low_advance_probability_gets_advance_risk_chip(self):
+        entries = [
+            {"rank": 1, "name": "Risky Pick", "team": "Coinflip FC", "position": "FWD",
+             "x_points": 6.0, "priority_score": 1.2, "vor": 0.8, "p_advance": 45.0,
+             "price": 7.0, "ownership_pct": 12.0, "kickoff": None},
+        ]
+        h = render.article_page(
+            round_no=5, article="transfers", title="Priority transfers — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["priority_score", "vor", "p_advance"],
+            json_url="/api/round/5/transfers.json", viz_html=self.viz_html)
+        self.assertIn("Advance risk", h)
 
     def test_hub_page_links_all_articles(self):
         h = render.hub_page(round_no=3, nav=self.nav,

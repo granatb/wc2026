@@ -12,11 +12,20 @@ XI_SIZE = 11
 DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
-ARTICLES = ["captains", "matches", "best-xi", "defenders", "risky", "efficiency",
-            "blowout-transfers"]
+LOW_CEILING_RATIO = 1.15    # ceiling/xPts below this = "safe floor, no haul upside"
+# 2026 World Cup fixed format: fantasy rounds 1-3 are group matchdays (a draw is just
+# a draw — both teams keep playing); round 4 onward is straight knockout (R32, R16,
+# QF, SF, Bronze, Final), where a 90' draw resolves via extra time/penalties. This is
+# NOT derivable from data/schedule.json's `stage` field, which carries ESPN's raw
+# match-status string (e.g. "STATUS_SCHEDULED"), not the tournament stage — so we
+# hardcode the known threshold for this one tournament rather than infer it.
+KNOCKOUT_ROUND_START = 4
+ARTICLES = ["captains", "matches", "transfers", "best-xi", "defenders", "risky",
+            "efficiency", "blowout-transfers"]
 ARTICLE_TITLES = {
     "captains": "Best captain picks",
     "matches": "Match predictions & games to watch",
+    "transfers": "Priority transfers this round",
     "best-xi": "Best XI by expected points",
     "defenders": "Best defenders",
     "risky": "Risky chances — highest ceilings",
@@ -52,6 +61,10 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
             "x_points": round(xp, 2),
             "captain_ev": round(2 * xp, 2),
             "ceiling": round(ceiling, 2),
+            # ceiling/xPts: close to 1.0 means "no big-haul scenario" (structurally
+            # true for goalkeepers, who can't score outfield-style points) — a real
+            # signal for captaincy, where the x2 multiplier is meant to buy upside.
+            "ceiling_ratio": round(ceiling / xp, 3) if xp > 0 else 1.0,
             "price": price,
             "ownership_pct": m.get("ownership_pct"),
             "value": round(xp / price, 3) if price else None,
@@ -260,7 +273,7 @@ def match_predictions(match_samples: dict, fantasy_round: int) -> list:
 
         close = max(p_home, p_draw, p_away) < 0.45
 
-        results.append({
+        entry = {
             "match": f"{f.home} vs {f.away}",
             "home": f.home,
             "away": f.away,
@@ -273,7 +286,71 @@ def match_predictions(match_samples: dict, fantasy_round: int) -> list:
             "p_draw": round(p_draw, 2),
             "p_away": round(p_away, 2),
             "close": close,
-        })
+        }
+
+        if fantasy_round >= KNOCKOUT_ROUND_START:
+            # Straight knockout: a 90' draw goes to extra time/penalties. We don't
+            # simulate ET separately, so approximate its winner by splitting the
+            # drawn-match probability in proportion to each side's attacking
+            # strength (lambda share) rather than assuming a 50/50 coin flip —
+            # a lightweight stand-in for a full ET model (on the engine roadmap).
+            lam_h, lam_a = f.lambdas()
+            total_lam = lam_h + lam_a
+            strength_h = (lam_h / total_lam) if total_lam > 0 else 0.5
+            entry["p_advance_home"] = round(p_home + p_draw * strength_h, 3)
+            entry["p_advance_away"] = round(p_away + p_draw * (1 - strength_h), 3)
+
+        results.append(entry)
 
     results.sort(key=lambda r: r["kickoff"])
     return results
+
+
+def advancement_map(match_entries: list) -> dict:
+    """team -> P(advance past this round), from match_predictions() output.
+
+    Only populated for knockout rounds (match_predictions only emits p_advance_*
+    fields when fantasy_round >= KNOCKOUT_ROUND_START); empty in group rounds,
+    where transfer_priorities() correctly falls back to no elimination discount.
+    """
+    out = {}
+    for m in match_entries:
+        if "p_advance_home" in m:
+            out[m["home"]] = m["p_advance_home"]
+            out[m["away"]] = m["p_advance_away"]
+    return out
+
+
+def _replacement_level(rows: list) -> dict:
+    """Median xPts per position — the 'replacement level' a transfer is judged against."""
+    from statistics import median
+    out = {}
+    for pos in POS_MIN:
+        vals = [r["x_points"] for r in rows if r.get("position") == pos]
+        out[pos] = median(vals) if vals else 0.0
+    return out
+
+
+def transfer_priorities(rows: list, adv_map: dict, top_n: int = 20) -> list:
+    """Rank transfer targets by value-over-replacement, boosted by the probability
+    their team survives to contribute again next round (knockout rounds only —
+    adv_map is empty in group rounds, so this degrades to pure VOR ranking there).
+
+    priority_score = vor * (1 + p_advance). A player with excellent value this round
+    but a coin-flip knockout tie ranks below an equally good one on a near-certain
+    advancer, because the risky one may be dead weight next round.
+    """
+    repl = _replacement_level(rows)
+    out = []
+    for r in rows:
+        pos = r.get("position")
+        if pos not in repl:
+            continue
+        vor = round(r["x_points"] - repl[pos], 3)
+        p_adv = adv_map.get(r.get("team"), 1.0)
+        row = dict(r)
+        row["vor"] = vor
+        row["p_advance"] = round(p_adv * 100, 1)  # percent-scale, matches ownership_pct
+        row["priority_score"] = round(vor * (1 + p_adv), 3)
+        out.append(row)
+    return _ranked(out, "priority_score")[:top_n]

@@ -2,7 +2,7 @@
 
 Usage:
     python3 -m evmax.build --round 3 [--sims 50000] [--out dist]
-                           [--url https://evmax.pages.dev] [--no-llm]
+                           [--url https://evmax.ai] [--no-llm]
 Run from the repo root.
 """
 from __future__ import annotations
@@ -15,12 +15,19 @@ from datetime import datetime, timezone
 from core import engine_events, espn, fixtures, research
 from evmax import articles, render, writer
 
+# Google Search Console site-verification file (HTML-file method). Regenerated on
+# every build so it survives a dist/ wipe rather than relying on a one-off manual
+# file. Format fixed by Google: https://support.google.com/webmasters/answer/9008080
+_GSC_VERIFICATION_FILE = "google8d25fd2122a8aadd.html"
+_GSC_VERIFICATION_CONTENT = "google-site-verification: google8d25fd2122a8aadd.html"
+
 # ---------------------------------------------------------------------------
 # Per-article column specs (primary metric first, then richer set)
 # ---------------------------------------------------------------------------
 _COLUMNS = {
     "captains":          ["captain_ev", "x_points", "ceiling", "price", "value", "ownership_pct"],
     "matches":           [],  # no player table; fixture cards rendered by match_predictions_html
+    "transfers":         ["priority_score", "vor", "x_points", "p_advance", "price", "ownership_pct"],
     "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
     "defenders":         ["x_points", "price", "value", "ceiling", "ownership_pct"],
     "risky":             ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
@@ -89,6 +96,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # --- Build per-article data ---
     entries_map = _article_entries(rows, fantasy_round)
     entries_map["matches"] = articles.match_predictions(match_samples, fantasy_round)
+    # Transfer priorities need each team's advancement probability from the matches
+    # article, so it's computed after — and only knockout rounds populate adv_map,
+    # so transfer_priorities degrades gracefully to pure value-over-replacement
+    # ranking during the group stage.
+    adv_map = articles.advancement_map(entries_map["matches"])
+    entries_map["transfers"] = articles.transfer_priorities(rows, adv_map)
     nav = [(slug, articles.ARTICLE_TITLES[slug]) for slug in articles.ARTICLES]
 
     def w(path: str, text: str) -> None:
@@ -148,8 +161,18 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                               generated_at=generated_at, date_str=date_str,
                               show_table=not is_matches))
 
-    # --- About page ---
+    # --- About + Privacy pages ---
     w("/about/index.html", render.about_page())
+    w("/privacy/index.html", render.privacy_page())
+
+    # --- Self-hosted fonts (see render._FONTS: no third-party requests, GDPR) ---
+    import shutil
+    fonts_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
+    fonts_dst = os.path.join(out, "fonts")
+    os.makedirs(fonts_dst, exist_ok=True)
+    for fname in os.listdir(fonts_src):
+        if fname.endswith(".woff2"):
+            shutil.copy2(os.path.join(fonts_src, fname), os.path.join(fonts_dst, fname))
 
     # --- Landing page ---
     # Featured = captains article (first in ARTICLES)
@@ -201,6 +224,10 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/llms.txt", render.llms_txt(fantasy_round, nav))
     w("/robots.txt", render.robots_txt())
     w("/sitemap.xml", render.sitemap_xml(fantasy_round, nav))
+    w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
+    # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks Google's
+    # exact-path verification check. Force this one path to serve as-is.
+    w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n")
 
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles)")
@@ -219,8 +246,8 @@ def main() -> None:
                     help="Monte-Carlo simulation count (default 50 000)")
     ap.add_argument("--out", default="dist",
                     help="Output directory (default dist/)")
-    ap.add_argument("--url", default="https://evmax.pages.dev",
-                    help="Canonical site URL (default https://evmax.pages.dev)")
+    ap.add_argument("--url", default="https://evmax.ai",
+                    help="Canonical site URL (default https://evmax.ai)")
     ap.add_argument("--no-llm", dest="no_llm", action="store_true",
                     help="Skip the LLM tier; use cache-or-template only")
     a = ap.parse_args()

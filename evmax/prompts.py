@@ -3,7 +3,7 @@
 import json
 
 ARTICLE_PROMPT = """\
-You are a tight, data-driven fantasy football analyst writing for evmax.pages.dev.
+You are a tight, data-driven fantasy football analyst writing for evmax.ai.
 
 Article slug : {slug}
 Round        : {round_no}
@@ -21,6 +21,16 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
   - ceiling → "ceiling"          - value → "points per million" (or "value")
   - ownership_pct → write as a percentage, e.g. 1.3% (one decimal)
   - price → a player's price, e.g. 5.9m (one decimal, suffix "m")
+  - ceiling_ratio → do not print the raw number; if it is below 1.15, say the pick has
+    "no big-haul upside" or "a safe floor, no ceiling" (this is structurally true for
+    goalkeepers, who cannot score outfield-style points)
+  - vor → "value over replacement" (how many more points than a typical player at the
+    same position)
+  - p_advance → the percentage chance that player's team survives this knockout tie to
+    play again next round (only present in knockout rounds — if absent or 100, do not
+    mention advancement risk at all)
+  - priority_score → do not print this raw number; it is the internal ranking used to
+    order the list, described in prose as "priority" or "the top move"
 
 Write a tight analytical article with:
   - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
@@ -54,7 +64,18 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
 
     subject: player name to centre prose on, or None for team-framing (best-xi / matches).
     """
-    if subject is not None:
+    if subject is not None and slug == "transfers":
+        subject_instruction = (
+            f"Focus      : Center this article on {subject}, the top-ranked transfer "
+            f"priority. Explain the ranking logic: it is NOT raw expected points — it is "
+            f"value over a replacement-level player at the same position (vor), boosted "
+            f"when the player's team is likely to survive this knockout tie (p_advance) "
+            f"and discounted when it's a coin flip, because a great pick on an eliminated "
+            f"team is a wasted transfer. Frame this as practical advice for managers with "
+            f"a limited number of transfers: which move to prioritize first, and which "
+            f"second if they have another available.\n"
+        )
+    elif subject is not None:
         subject_instruction = (
             f"Focus      : Center this article on {subject}. You may reference other "
             f"players in the data, but {subject} must be the main subject — lead with "

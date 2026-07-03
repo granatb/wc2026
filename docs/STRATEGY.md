@@ -42,7 +42,7 @@ One odds/simulation engine feeding two flywheels:
 
 1. **Derived-only rule:** public pages + API expose *model outputs* (xPts, EV, probabilities, scorelines). Raw upstream numbers (bookmaker prices) never appear. Prices/ownership% appear only as per-player context columns, never as a standalone feed/endpoint.
 2. **Never name upstream sources** on the public site (generic "market odds"). No bookmaker names, no endpoint names.
-3. **No FIFA/PL trademarks in branding**; game names as plain description only. About page carries: *"evmax is not affiliated with or endorsed by FIFA or any fantasy game operator. All projections are our own model output."* (TODO: add.)
+3. **No FIFA/PL trademarks in branding**; game names as plain description only. DONE 07-03: site-wide footer disclaimer (independence, model-estimates, not-betting-advice, 18+/gamble-responsibly) + About "Independence & disclaimer" section + /privacy/ page. Site is zero-cookie/zero-third-party (fonts self-hosted after LG München GDPR ruling on remote Google Fonts) so NO consent banner needed. Data licensed CC BY 4.0 (attribution = the growth strategy, formalized).
 4. **News = model-delta journalism only:** write "what changed in our projections and why," link outlets, never reproduce their text.
 5. **Polite fetching:** cached, a handful of requests per round (de minimis).
 6. **Holdet ToS review before monetizing the Danish site.**

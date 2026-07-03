@@ -169,6 +169,14 @@ def _fmt_price(v) -> str:
 _fmt_ev = _fmt_pts
 
 
+def _fmt_vor(v) -> str:
+    """Format value-over-replacement with an explicit sign, 2 decimal places."""
+    try:
+        return f"{float(v):+.2f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
 # ---------------------------------------------------------------------------
 # Template tier: deterministic per-article prose.
 # ---------------------------------------------------------------------------
@@ -381,6 +389,38 @@ _TEMPLATES = {
                 if close else
                 f"No fixture is marked as close this round — the model has clear favourites across all {len(e)} games."
             ))([c for c in e if c.get("close")])
+        ),
+    },
+    "transfers": {
+        "headline": lambda e, r, subj: f"{subj} tops the priority transfer list for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{subj} offers {_fmt_vor(_subject_entry(e, subj)['vor'])} value over a replacement "
+            f"at their position"
+            + (f", with a {_fmt_own(_subject_entry(e, subj)['p_advance'])} chance of advancing "
+               f"to feed a future round." if _subject_entry(e, subj).get('p_advance', 100) < 100
+               else ".")
+        ),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(subj)} tops the priority list at "
+            f"{_fmt_vor(_subject_entry(e, subj)['vor'])} value over a replacement-level player "
+            f"at their position, projecting {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts "
+            f"this round.</p>\n"
+            + (f"<blockquote><p>Ranking by value alone isn't enough in a knockout: "
+               f"{html.escape(subj)}'s team has a {_fmt_own(_subject_entry(e, subj)['p_advance'])} "
+               f"chance of advancing, so that's weighed into the priority score — a great pick on a "
+               f"team about to be eliminated is a wasted transfer.</p></blockquote>\n"
+               if _subject_entry(e, subj).get('p_advance', 100) < 100 else
+               "<blockquote><p>This round's transfer priorities, ranked by value over a "
+               "replacement-level player at each position.</p></blockquote>\n")
+            + (f"<p>{html.escape(e[1]['name'])} ({_fmt_vor(e[1]['vor'])} VOR) is the next priority "
+               f"if you have a second move available.</p>"
+               if len(e) > 1 and e[1]['name'] != subj else "")
+        ),
+        "bottom_line": lambda e, r, subj: (
+            f"If you can only make one move this round, make it {subj} — "
+            f"{_fmt_vor(_subject_entry(e, subj)['vor'])} value over replacement"
+            + (f" from a team {_fmt_own(_subject_entry(e, subj)['p_advance'])} likely to advance."
+               if _subject_entry(e, subj).get('p_advance', 100) < 100 else ".")
         ),
     },
     "blowout-transfers": {

@@ -57,6 +57,21 @@ class BuildRowsTest(unittest.TestCase):
         self.assertGreaterEqual(r["ceiling"], r["x_points"])  # P85 goals >= mean goals
         self.assertAlmostEqual(r["value"], round(r["x_points"] / 11.0, 3), places=6)
         self.assertEqual(r["kickoff"], "2026-06-26T19:00:00+00:00")
+        self.assertGreaterEqual(r["ceiling_ratio"], 1.0)
+
+    def test_a_keeper_with_no_goal_upside_gets_ceiling_ratio_of_one(self):
+        """Goalkeepers can't score outfield-style points, so with zero goal upside
+        their ceiling equals their mean — ceiling_ratio should be exactly 1.0, the
+        signal that flags 'safe floor, no big-haul scenario' captains."""
+        means = {"Keeper": {"position": "GK", "goals": 0.0, "assists": 0.0,
+                            "clean_sheet": 0.4, "played": 1.0, "yellow": 0.0, "red": 0.0,
+                            "sot": 0.0, "saves": 2.0, "conc_beyond": 0.1, "minutes": 90.0,
+                            "goal_share": 0.0, "assist_share": 0.0}}
+        samples = {"Keeper": [0, 0, 0, 0, 0]}  # never scores -> no ceiling upside
+        meta = {"Keeper": {"team": "England", "position": "GK", "price": 5.0,
+                           "ownership_pct": 10.0}}
+        rows = articles.build_rows(means, samples, meta, {})
+        self.assertAlmostEqual(rows[0]["ceiling_ratio"], 1.0, places=3)
 
     def test_players_without_meta_or_position_are_skipped(self):
         means = dict(self.means)
@@ -214,8 +229,8 @@ class RiskyTest(unittest.TestCase):
 
 class ArticleSetTest(unittest.TestCase):
     def test_articles_list_has_correct_slugs(self):
-        expected = ["captains", "matches", "best-xi", "defenders", "risky", "efficiency",
-                    "blowout-transfers"]
+        expected = ["captains", "matches", "transfers", "best-xi", "defenders", "risky",
+                    "efficiency", "blowout-transfers"]
         self.assertEqual(articles.ARTICLES, expected)
 
     def test_matches_is_second(self):
@@ -387,3 +402,93 @@ class MatchPredictionsTest(unittest.TestCase):
         for entry in result:
             self.assertIn("top_scoreline", entry)
             self.assertIsInstance(entry["close"], bool)
+
+    def test_group_round_has_no_advance_fields(self):
+        """Round 3 is a group matchday — a draw doesn't eliminate anyone, so
+        advancement probability isn't meaningful and must not be emitted."""
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        for entry in result:
+            self.assertNotIn("p_advance_home", entry)
+            self.assertNotIn("p_advance_away", entry)
+
+    def test_knockout_round_has_advance_fields_summing_to_one(self):
+        """Round 5 (>= KNOCKOUT_ROUND_START) is straight knockout: every fixture
+        must carry p_advance_home + p_advance_away == 1 (someone always advances)."""
+        result = articles.match_predictions(self._ms, fantasy_round=5)
+        for entry in result:
+            self.assertIn("p_advance_home", entry)
+            self.assertIn("p_advance_away", entry)
+            self.assertAlmostEqual(
+                entry["p_advance_home"] + entry["p_advance_away"], 1.0, places=2)
+
+    def test_knockout_advance_favours_the_stronger_lambda_side_on_a_draw(self):
+        """England (lam_home=1.5) is stronger than Senegal (lam_away=0.8) in the
+        fixture stub, so England's advance probability should exceed its raw
+        90-minute win probability once the drawn share is split by strength."""
+        result = articles.match_predictions(self._ms, fantasy_round=5)
+        england = next(e for e in result if e["home"] == "England")
+        self.assertGreater(england["p_advance_home"], england["p_home"])
+
+
+class AdvancementMapTest(unittest.TestCase):
+    def test_maps_home_and_away_teams_to_advance_probability(self):
+        matches = [
+            {"home": "England", "away": "Senegal",
+             "p_advance_home": 0.7, "p_advance_away": 0.3},
+            {"home": "Spain", "away": "Germany",
+             "p_advance_home": 0.4, "p_advance_away": 0.6},
+        ]
+        out = articles.advancement_map(matches)
+        self.assertEqual(out, {"England": 0.7, "Senegal": 0.3,
+                               "Spain": 0.4, "Germany": 0.6})
+
+    def test_empty_when_group_round_matches_lack_advance_fields(self):
+        matches = [{"home": "England", "away": "Senegal"}]
+        self.assertEqual(articles.advancement_map(matches), {})
+
+
+class TransferPrioritiesTest(unittest.TestCase):
+    def _rows(self):
+        return [
+            _row("StarFWD", "FWD", 9.0, price=10.0),
+            _row("MidFWD", "FWD", 6.0, price=8.0),
+            _row("BackupFWD", "FWD", 3.0, price=5.0),
+        ]
+
+    def test_ranks_by_value_over_replacement_with_no_advance_data(self):
+        """Empty adv_map (group round) -> p_advance defaults to 1.0 for everyone,
+        so the ranking degrades to pure value-over-replacement."""
+        out = articles.transfer_priorities(self._rows(), adv_map={})
+        # median xPts among the 3 FWDs is 6.0 -> StarFWD vor=+3.0, BackupFWD vor=-3.0
+        self.assertEqual(out[0]["name"], "StarFWD")
+        self.assertAlmostEqual(out[0]["vor"], 3.0)
+        self.assertEqual(out[0]["p_advance"], 100.0)
+        self.assertEqual(out[0]["rank"], 1)
+
+    def test_low_advance_probability_can_drop_a_higher_xpts_player_below_a_safer_one(self):
+        """On a CLOSE call (small value-over-replacement gap), a team facing a
+        near-certain elimination should rank below a slightly-smaller edge on a
+        team that's almost certainly through — the advancement discount decides
+        the tie-break exactly where it matters most."""
+        rows = [
+            _row("RiskyStar", "FWD", 7.0, price=10.0),   # bigger raw edge...
+            _row("SaferPick", "FWD", 6.9, price=8.0),     # ...but only marginally
+            _row("Filler1", "FWD", 6.0, price=7.0),
+            _row("Filler2", "FWD", 5.0, price=6.0),
+        ]
+        rows[0]["team"], rows[1]["team"] = "CoinflipTeam", "SafeTeam"
+        adv_map = {"CoinflipTeam": 0.05, "SafeTeam": 0.95}
+        out = articles.transfer_priorities(rows, adv_map)
+        # median xPts of [7.0, 6.9, 6.0, 5.0] = (6.0+6.9)/2 = 6.45
+        risky = next(r for r in out if r["name"] == "RiskyStar")
+        safer = next(r for r in out if r["name"] == "SaferPick")
+        self.assertAlmostEqual(risky["vor"], 0.55, places=2)
+        self.assertAlmostEqual(safer["vor"], 0.45, places=2)
+        self.assertGreater(risky["vor"], safer["vor"])          # bigger raw edge...
+        self.assertGreater(safer["priority_score"], risky["priority_score"])  # ...but ranks lower
+        self.assertLess(out.index(safer), out.index(risky))     # safer transfer is the higher priority
+
+    def test_respects_top_n(self):
+        rows = self._rows() * 5  # 15 rows across positions, still all FWD
+        out = articles.transfer_priorities(rows, adv_map={}, top_n=3)
+        self.assertEqual(len(out), 3)
