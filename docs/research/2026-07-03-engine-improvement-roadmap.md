@@ -70,6 +70,6 @@ No model change ships without evidence. The backtest harness must provide:
 | Score everything vs the odds baseline; measure before believing | validation, ml-benchmarks, score-models |
 | In-tournament updates must be tiny (~5–10% after 1–3 games) | bayesian, score-models, odds-processing |
 
-## Pending
+## Superseded note (07-03, later same day)
 
-- Re-run after limit reset: `platform-market-microstructure`, `intra-match-awards-bps-motm` gap agents + independent synthesis cross-check (workflow resume: run ID `wf_93267a43-13d`).
+The workflow's independent synthesis completed after the limit reset and CONFIRMS this document's top-5 priority order. The fuller version — including the two gap domains (fantasy-platform market microstructure; MOTM/bonus settlement) and 15 ranked quick wins — is at [2026-07-03-engine-roadmap-full-synthesis.md](2026-07-03-engine-roadmap-full-synthesis.md). Treat that file as canonical for implementation.

@@ -1440,12 +1440,279 @@
  },
  {
   "angle": "platform-market-microstructure",
-  "angle_summary": "FAILED",
-  "methods": []
+  "angle_summary": "Fantasy-platform market microstructure is a genuinely scoreable channel this engine ignores: Holdet literally ranks managers by total team-value growth (games/holdet_gold/rules.md: \"rank = total value\"), and in FPL price rises compound budget worth ~£2-4m/season. The sweep found that (a) the FPL price rule has been empirically cracked to F1≈0.89 with a fixed ~200-240k cumulative net-transfer threshold plus a daily-flow gate, giving a proven recipe for reconstructing Holdet's rule from the cached stats_rN.json/players.json history; (b) Holdet growth is largely a deterministic function of match events already inside the 50k sims, so expected-growth and growth-variance can be emitted per player with almost no new machinery; (c) production solvers (FPL Review, sertalpbilal's open-source MILP) already monetize bank value (~0.10 pts/£1m) and time-decay (0.85), providing calibrated priors for adding price-delta and terminal-budget terms to the planner — with the LP budget dual as a principled exchange rate; (d) FIFA/UEFA matchday substitution+captain windows are a textbook two-stage stochastic program with recourse over day-conditioned sim slices, directly analogous to DFS late-swap practice and worth real points now; (e) deadline timing (buy early for the rise vs wait for confirmed XIs) is an optimal-stopping problem for which FPL Core's day-level hazard features (days_since_last_rise, rises-beget-rises momentum) supply the price side and the minutes domain's two-stage snap supplies the information side. The academic anchor is Matthews & Ramchurn (AAAI 2012), who hit top-percentile vs 2.5M humans by treating fantasy as a sequential belief-state decision problem — validating budget/price as state, not a per-round constant. Everything below is fittable offline from FPL bootstrap-static, Holdet feeds, and vaastav's archive within the stdlib constraint.",
+  "methods": [
+   {
+    "name": "Empirical reconstruction of the platform price-update rule (threshold-model identification)",
+    "what": "Reverse-engineer each platform's price-change function from telemetry, following the FPL Core methodology: hypothesis-test candidate rules (cumulative net-transfer thresholds, ownership scaling, daily-flow gates, counter resets after a change, unique-manager counting, chip-transfer exclusion) against observed round-over-round price deltas, and fit a day-level rise/fall classifier. For Holdet, first subtract the DETERMINISTIC component (the kr scoring table maps match events to growth, per games/holdet_gold/rules.md) and model the residual as the demand/popularity component.",
+    "evidence": "FPL Core's 7-part series (4 seasons + live 2025-26 data, 7.2M manager histories) found a fixed ~200,000-240,000 cumulative net-transfer threshold universal across players (price-level beta -0.005, i.e. negligible), a daily-flow gate of ~30-60k, counter reset on change, unique-manager counting (wildcard transfers only ~1.4% of pressure), and momentum ('rises beget rises': 2.01% day-1 post-rise hazard climbing to 6% by day 5; falls suppress rises to 0% day-1); final F1 0.89 on 2025-26 with days_since_last_rise as #1 feature; code public. LiveFPL self-reports 98-99% accuracy on rises and defines honest true-alarm metrics (~60-70% ceiling for falls). Holdet's own materials confirm prices change automatically after each round, driven by match actions plus popularity/trading. Holdet residual-demand share is unquantified — that part is speculative until fitted.",
+    "sources": [
+     "https://www.fplcore.com/blog/one-threshold-to-rule-them-all-cracking-the-fpl-price-algorithm-part-3-of-7",
+     "https://github.com/olbauday/FPL-Core-Insights",
+     "https://www.livefpl.net/prices",
+     "https://www.tipmaster.de/en-gb/guide/fpl-price-changes-explained-how-the-algorithm-actually-works/",
+     "https://fantasyleague.gg/guides/holdet-dk-guide/",
+     "https://blog.holdet.dk/premier-manager/"
+    ],
+    "apply": "New core/market.py. Stage: a post-hoc fit, upstream of the MILP planner. Ingest cached stats_rN.json (event IDs already decoded per memory) + players.json price history; compute per-player realized kr growth from the scoring table, regress observed price delta = table_growth + f(ownership, net-trade proxy, price bracket) and identify f. For FPL next season, port the FPL Core threshold model onto bootstrap-static's transfers_in_event/transfers_out_event fields (poll once daily, cache to JSON — stays offline-runnable). Output: P(rise), P(fall), E[Δprice] per player per round, consumed by the planner (method 4) and deadline policy (method 7).",
+    "difficulty": "M",
+    "impact": "high"
+   },
+   {
+    "name": "Simulate Holdet kr-growth distributions inside the existing 50k Monte Carlo",
+    "what": "Treat team-value growth as a first-class simulated output, not a side effect. Because Holdet growth IS the kr scoring table applied to match events (goals, assists, cards, clean sheets, decisive goals), every one of the 50k sims already implies a per-player kr-growth realization. Emit E[growth], P85 growth, growth covariance across players, and captain-growth EV (captain = ×2 growth in Gold) exactly the way xPts is emitted today — then add the fitted residual-demand component from method 1 as a mean shift.",
+    "evidence": "Holdet rules confirmed: 'Spillere får værdi ud fra konkrete handlinger i kampene' — goals/assists positive, cards/goals-conceded negative, clean-sheet bonuses for GK/DEF, decisive-goal bonuses for forwards; prices update automatically after each round; rank = total value (confirmed in the repo's own games/holdet_gold/rules.md: 'Kroner-growth game... rank = total value', captain = ×2 growth). BetXpert's VM 2026 Manager expert strategy piece confirms winners compound value via low transfer fees + captain growth. The engine's cheap-boomer blindness (memory: holdet-price-prior-bias) was a symptom of scoring xPts while the game scores kr. Effect size on Holdet rank is structural (it's the objective), though no third-party benchmark exists — marked as reasoning, not measured benchmark.",
+    "sources": [
+     "https://fantasyleague.gg/guides/holdet-dk-guide/",
+     "https://www.betxpert.com/artikel/vm-2026-manager",
+     "https://blog.holdet.dk/talknuser-er-dine-handler-pengene-vaerd/"
+    ],
+    "apply": "Stage: per-player event simulation → scoring. In games/holdet_*/model.py, map each simulated event vector through the kr table (already encoded for expected growth) but PER SIM, retaining the full growth distribution alongside points. Adds ~one array per player; pure stdlib. Downstream: captain pick by E[growth] with variance-aware tiebreaks; trade rule upgraded from point-estimate 'delta > 1% × incoming price' to P(delta > fee) with covariance between the sold and bought player's growth (shared-fixture correlation comes free from the shared team-goal sims).",
+    "difficulty": "S",
+    "impact": "high"
+   },
+   {
+    "name": "Net-transfer demand model (predicting the crowd's flows with the Dirichlet-multinomial machinery)",
+    "what": "Predict each player's net transfers (and hence price pressure) for the coming days from: projected xPts rank, current ownership, price bracket, recent hauls (last-round points), fixture attractiveness, and price-move momentum features. Reuse the existing Dirichlet-multinomial ownership machinery: model the population's transfer-in shares as a Dirichlet-weighted softmax over a public-salience score, and transfer-out shares over negative signals (injury flags, blanks). Feed the outputs into method 1's threshold rule to get P(rise)/P(fall) horizons.",
+    "evidence": "Directional but strong practitioner evidence: LiveFPL and FPL Statistics achieve ~98-99% (rises) day-ahead accuracy purely from observed transfer velocity, proving flows are smooth/extrapolable at day horizon; FPL Core found behavioral autocorrelation (rises beget rises, day-5 hazard 6%) and that hauls/news drive step changes — i.e., flows are predictable from public signals days ahead, not just hours. No published academic model of FPL net-transfer prediction was found (the ML literature, e.g. OpenFPL and CNN forecasting papers, predicts points, and uses transfer_balance only as an input feature) — so multi-day-ahead accuracy achievable from xPts-rank/haul features is SPECULATIVE and must be validated on vaastav's per-GW transfers_balance history.",
+    "evidence_note_ignore": "",
+    "sources": [
+     "https://www.livefpl.net/prices",
+     "https://www.fplcore.com/blog/one-threshold-to-rule-them-all-cracking-the-fpl-price-algorithm-part-3-of-7",
+     "https://arxiv.org/abs/2508.09992",
+     "https://github.com/vaastav/Fantasy-Premier-League",
+     "https://www.thickaccent.com/2025/11/06/twp-fpl-price-change-predictor-websites-every-serious-manager-should-know-about/"
+    ],
+    "apply": "New core/demand.py, sitting between the projection output and core/market.py. Inputs it already has: engine xPts ranks, ownership snapshots (Holdet feeds carry ownership; FPL bootstrap-static has selected_by_percent + daily transfer counts), stats_rN hauls. Fit offline: for Holdet, regress observed residual price moves (method 1) on these features across cached rounds; for FPL, fit on vaastav's 6+ seasons of per-GW value/transfers_balance. Output: E[net transfers] → E[Δprice] with uncertainty, consumed by methods 4 and 7.",
+    "difficulty": "M",
+    "impact": "medium"
+   },
+   {
+    "name": "Price-delta and terminal-budget terms in the MILP planner (with the budget dual as exchange rate)",
+    "what": "Extend the transfer-planning MILP objective with: (i) Σ_players E[Δprice_p] × hold_p × λ_budget (early-buy option value and hold-vs-sell), (ii) a terminal bank/team-value term converting end-of-horizon budget into future xPts, and (iii) time-decay on future-round points. Crucially, derive λ_budget (points per unit currency) from the LP relaxation's budget-constraint dual/shadow price at the current solve — the optimizer itself tells you what a marginal million buys in xPts — rather than hand-setting it.",
+    "evidence": "Production practice: FPL Review's solver exposes exactly these knobs — 'Bank Value per £1M' default 0.10 pts (recommended 0.00-0.20), time-decay default 0.85 (GW+3 ≈ 72% weight), FT value 1.75 pts — i.e., the strongest public FPL optimization stack already prices money and flexibility in points. sertalpbilal's open-source FPL-Optimization-Tools (multi_period.py, HiGHS) implements ITB value and decay and is the community-standard multi-period solver. Outcome evidence that value matters but is second-order: Full90FPL found team-value↔rank correlation 0.49 (top-25 global) to 0.7 (small league), top-25 averaging +£3.0m over casual managers, while cautioning causality and noting 80% of top-25 took zero early hits. The budget-dual calibration trick is my synthesis (standard LP duality) — no source implements it; speculative but low-risk.",
+    "sources": [
+     "https://docs.fplreview.com/the-model/solvers/settings/",
+     "https://github.com/sertalpbilal/FPL-Optimization-Tools/blob/main/src/multi_period.py",
+     "https://full90fpl.com/does-team-value-matter-in-fpl/",
+     "https://arxiv.org/abs/2505.02170"
+    ],
+    "apply": "Stage: the MILP planner (Holdet trade rule in games/holdet_*/model.py and the FIFA transfer planner). Replace the static trade rule 'growth delta > 1% × incoming price' with objective terms: E[Δprice] from methods 1-3, fee (1% incoming, Holdet) and 1% bank interest as explicit cash flows, decay ≈0.85 on future rounds, terminal value = bank × λ_budget where λ_budget = budget-constraint dual from a relaxed solve over the remaining horizon. Pure-stdlib feasible: the engine already solves selection; duals obtainable from a simple simplex or estimated by finite-differencing the budget (±0.5M resolve).",
+    "difficulty": "M",
+    "impact": "medium"
+   },
+   {
+    "name": "Two-stage stochastic program for FIFA/UEFA matchday substitution and captain-switch windows",
+    "what": "Model each round as a stochastic program with recourse: Stage 1 (before Day 1) picks XI, bench order, and captain; Stage 2 (after Day 1 results, before Day 2 kickoffs) swaps not-yet-played players and moves the armband, subject to the platform's no-switch-back rules. Solve by consuming day-conditioned slices of the existing 50k sims: for each Day-1 scenario, the optimal Stage-2 recourse is a cheap deterministic re-solve over Day-2 players; Stage-1 choice maximizes E[stage1 + best recourse]. The captain choice becomes an exchange-option valuation: prefer a Day-1 captain because a bad draw can be re-optimized onto Day 2 — E[max(2×C_day1 kept, switch)] > naive max E[2×points].",
+    "evidence": "Rules confirmed: UEFA/FIFA fantasy allows subs and captain changes between matchdays; captain cannot move to a player who already played and cannot switch back (UEFA help center). Practitioner consensus codifies the option logic qualitatively: 'select a captain who will be playing on Tuesday... so you can switch to Wednesday if you need to' (UEFA rules article); Fantasy Football Scout and allaboutfpl publish the same day-ordering heuristics for WC 2026. Academic/DFS precedent for scenario-based lineup recourse: Newell's 'Optimizing daily fantasy sports contests through stochastic integer programming' and Hunter-Vielma-Zaman 'Picking Winners' (integer programming over correlated scenarios); commercial DFS late-swap re-optimizers (DraftEdge, SaberSim-class tools) do exactly this conditional re-solve in production. No public quantification of points gained from optimal (vs heuristic) window play — effect size speculative, but it is pure upside on scored money in the live FIFA game.",
+    "sources": [
+     "https://www.uefa.com/uefachampionsleague/news/02a2-1fe84ad2ccea-e0022a7c2fdd-1000--what-are-the-champions-league-fantasy-football-rules-for-mat/",
+     "https://helpcenter.uefa.com/hc/en-gb/articles/7065474204050-Can-I-change-my-captain-once-a-matchday-has-started",
+     "https://www.fantasyfootballscout.co.uk/2026/06/12/fantasy-fifa-world-cup-2026-captaincy-how-when-to-change",
+     "https://arxiv.org/abs/1604.01455",
+     "https://draftedge.com/",
+     "https://allaboutfpl.com/2026/06/world-cup-fantasy-2026-comprehensive-booster-strategy-guide/"
+    ],
+    "apply": "Stage: downstream of the 50k Monte Carlo, inside games/fifa/model.py. Tag each sim with per-match outcomes; partition each round's fixtures into Day-1/Day-2 sets from core/fixtures.py; for Stage-2, precompute conditional xPts of Day-2 players given Day-1 scenario buckets (coarse-grain Day-1 outcomes into ~50-200 buckets to keep it tractable); Stage-1 solved by enumerating captain/bench-order candidates against bucketed recourse values. Couples to the minutes domain's two-stage snap for Day-2 confirmed XIs. Output: 'captain now / plan-to-switch-if' policy card per round.",
+    "difficulty": "L",
+    "impact": "high"
+   },
+   {
+    "name": "Sell-price ledger and cash-flow-exact transfer accounting",
+    "what": "Make the planner's budget dynamics exact per platform. FPL: sell price = purchase price + floor(price rises since purchase / 2) in £0.1 steps (the 50% sell-on rule), so the optimizer must carry a per-player purchase-price ledger — future squads' budgets depend on WHEN each player was bought. Holdet: 1% fee on incoming player value, 1% interest per round on bank, round-1 fee exemption, contract limits (3 for Free, unlimited Gold) — model as explicit cash flows over the horizon rather than folding into a one-shot threshold.",
+    "evidence": "FPL sell-price mechanics are official (premierleague.com price-change explainer) and implemented in sertalpbilal's multi_period.py (sell-price/ITB handling), so this is settled practice among serious solvers, not speculation. Holdet: 1% transfer fee, 1% bank interest, and contract system confirmed by fantasyleague.gg's guide and Holdet's own blog/FAQ; the repo's rules.md already encodes the fee but not interest compounding or multi-round fee amortization (a knockout-phase winner profiled by BetXpert explicitly won on 'lav transfergebyr' — minimizing cumulative fees by holding through rounds). Effect: bounded but certain — fee/interest asymmetries of ~1-2% of a 50M budget per round, and FPL ledger errors compound over a season.",
+    "sources": [
+     "https://www.premierleague.com/en/news/2858775",
+     "https://github.com/sertalpbilal/FPL-Optimization-Tools/blob/main/src/multi_period.py",
+     "https://fantasyleague.gg/guides/holdet-dk-guide/",
+     "https://www.betxpert.com/artikel/vm-2026-manager"
+    ],
+    "apply": "Stage: planner state. Add purchase_price to the per-player squad state in each games/*/state.json; budget-evolution constraints in the MILP become b_{t+1} = 1.01×(b_t + Σ sells×sell_price − Σ buys×(1.01×price)) for Holdet, and FPL's floor-divide sell rule as precomputed sell-price constants per candidate transfer week. Small, mechanical, and a prerequisite for methods 4 and 7 to be trustworthy.",
+    "difficulty": "S",
+    "impact": "medium"
+   },
+   {
+    "name": "Deadline-timing policy as optimal stopping (price hazard vs confirmed-XI information value)",
+    "what": "A per-transfer 'execute now vs wait' policy: each day before the deadline, compare the expected cost of waiting (P(price rises tonight) × 0.1 × λ_budget, from methods 1-3's day-level hazard) against the expected value of information still to arrive (probability that press conferences / confirmed XIs flip the transfer decision × the xPts regret of a wrong early commit, from the minutes domain's two-stage snap). Execute early only when hazard-weighted price loss exceeds the option value of waiting; formally a finite-horizon optimal-stopping problem with 2-5 decision epochs (days).",
+    "evidence": "The trade-off is well documented qualitatively — 'Early transfers are a gamble; many managers prefer to accept a loss and wait until press conferences' (tipmaster explainer) — and both inputs are now quantifiable: FPL Core supplies day-level rise hazards conditioned on days_since_last_rise and flow (F1 0.89), and Full90's finding that 80% of top-25 finishers took ZERO early hits warns that the price side usually loses to the information side, i.e., the policy's main value is vetoing bad early buys with numbers instead of vibes. No published formal optimal-stopping treatment of fantasy transfer timing was found — the framing is novel/speculative; the inputs are not.",
+    "sources": [
+     "https://www.tipmaster.de/en-gb/guide/fpl-price-changes-explained-how-the-algorithm-actually-works/",
+     "https://www.fplcore.com/blog/one-threshold-to-rule-them-all-cracking-the-fpl-price-algorithm-part-3-of-7",
+     "https://full90fpl.com/does-team-value-matter-in-fpl/",
+     "https://www.fantasyfanzone.com/understanding-fpl-price-changes/"
+    ],
+    "apply": "Stage: a thin decision layer above the planner, output as a line in the round research report: for each recommended transfer, print 'buy now' or 'wait until day X' with the two EV legs. Inputs: hazard from core/market.py + core/demand.py; info value = Δ(planner objective) between committing now vs re-solving under the minutes model's start-probability posterior after team news. For Holdet (prices move only between rounds) this reduces to which ROUND to book a transfer; for FPL (nightly moves) it is a genuine daily policy.",
+    "difficulty": "M",
+    "impact": "medium"
+   },
+   {
+    "name": "Approximate-DP / belief-state MDP wrapper: budget and prices as state across the tournament",
+    "what": "Replace myopic round-by-round planning with a sequential decision process whose state is (squad, bank, current prices, beliefs about player rates), inspired by Matthews-Ramchurn-Chalkiadakis: they formalized season-long fantasy as a belief-state MDP over a multi-dimensional knapsack and solved it with tractable Bayesian Q-learning. Pragmatic version for this engine: approximate dynamic programming where the per-round MILP is the policy step and a learned/simulated value function V(bank, team_value, rounds_remaining) — fitted by rolling the engine forward on cached sims across remaining tournament brackets — replaces the terminal term of method 4.",
+    "evidence": "Matthews et al. (AAAI 2012) is the strongest academic datapoint in the entire domain: their sequential agent ranked around the top percentile against 2.5M human FPL managers over a full season — direct evidence that sequential optimization with budget-as-state beats repeated static solves at scale. The 2025 data-driven FPL framework (arXiv:2505.02170) confirms the field still mostly does rolling-horizon LP, i.e., the DP gap remains open. Caveat: their game had no knockout structure and the WC's 7-round horizon is short, so the marginal gain over method 4's terminal term on a 3-4 round knockout is unproven (speculative for this setting); payoff is larger for the full FPL season (38 GWs) next.",
+    "sources": [
+     "https://eprints.soton.ac.uk/340382/1/fantasyFootball2012cr.pdf",
+     "https://ojs.aaai.org/index.php/AAAI/article/view/8259",
+     "https://arxiv.org/abs/2505.02170"
+    ],
+    "apply": "Stage: wraps the planner. Build V by backward induction over rounds: sample bracket continuations from the existing team-strength sims (who advances → which players exist next round), run the round-MILP under each, regress achieved future growth/xPts on (bank, team_value, contracts_left); use V as the terminal objective in today's solve. Pure stdlib (tabular/linear V, no ML deps). Fits the R32-plan memory: knockout rebuilds are exactly where a value function beats myopia.",
+    "difficulty": "XL",
+    "impact": "medium"
+   },
+   {
+    "name": "Offline market-telemetry corpus + price/backtest harness (vaastav archive + daily API snapshots)",
+    "what": "Stand up the data layer everything above fits on: (a) vaastav's Fantasy-Premier-League archive — per-gameweek player value, transfers_balance, selected(ownership), points for every player since 2016-17 — as the historical corpus for fitting the demand model and validating the price-rule reconstruction out-of-sample by season; (b) a once-daily cron snapshot of FPL bootstrap-static (transfers_in_event, transfers_out_event, cost_change_event, selected_by_percent) and the Holdet tournament feed, cached to versioned JSON so all fitting stays reproducible/offline per the stack constraint; (c) extend the nascent backtesting harness to score price predictions (Brier on rise/fall) and budget-augmented planner decisions (realized team value vs baseline planner) — the same audit style that caught the 2.3-pt xPts gap.",
+    "evidence": "vaastav's repo is the de-facto standard FPL research dataset (used by OpenFPL and most academic FPL papers as ground truth) and contains exactly the per-GW value/transfer fields needed; FPL Core demonstrated that multi-season telemetry suffices to identify the price rule (F1 0.89) — i.e., the corpus provably supports the fitting task. LiveFPL's published accuracy definitions (progress-at-change, true-alarm rate with a 60-70% realistic ceiling on falls) provide ready-made honest evaluation metrics for the harness. This is an enabler: its impact is realized through methods 1, 3, 4, 7.",
+    "sources": [
+     "https://github.com/vaastav/Fantasy-Premier-League",
+     "https://arxiv.org/abs/2508.09992",
+     "https://www.livefpl.net/prices",
+     "https://www.fplcore.com/blog/one-threshold-to-rule-them-all-cracking-the-fpl-price-algorithm-part-3-of-7"
+    ],
+    "apply": "Stage: data/caching layer beside stats_rN.json. Add a fetch-and-freeze script (stdlib urllib + json) writing dated snapshots; a loader normalizing vaastav CSVs to the engine's player schema keyed by stable IDs (respecting the fifaId-not-name reconciliation lesson from memory); and backtest entrypoints in tests/ scoring price-move predictions and planner-with-price-terms vs planner-without on past rounds/seasons. Do this FIRST — it de-risks every other method in this domain.",
+    "difficulty": "S",
+    "impact": "medium"
+   }
+  ]
  },
  {
   "angle": "intra-match-awards-bps-motm",
-  "angle_summary": "FAILED",
-  "methods": []
+  "angle_summary": "Awards (Holdet MOTM now, FPL 3/2/1 bonus next) are rank-order events inside a match — exactly the structure the engine's 50k joint sims already produce but never consume. The sweep found (a) a mature deterministic path for FPL bonus: compute the published Opta-fed BPS formula per simulated match from already-simulated events plus fitted count models for unsimulated volume stats (passes, tackles, CBIT/recoveries — which now also pay directly via FPL's 2025/26 defensive-contribution points), rank in-sim and award 3/2/1 with official tie rules — this is what commercial services (FPL Review) already do inside their 1,000-sim engine, and OpenFPL shows the hauler-category gap it closes; (b) a well-trodden statistical family for MOTM: conditional-logit / Plackett-Luce (exploded-logit) models over competitors within an event, proven since Bolton & Chapman's horse-racing work and recent rank-ordered-logit sports papers, trainable on cached Holdet event-513 history and on full within-match rating rankings from WhoScored/Sofascore archives (data-efficient via rank explosion); (c) a key forensic shortcut: many \"MOTM\" products (Betfair's Opta Player of the Match) are settled by a deterministic event-linear rating (Opta Points: goal ≈ up to 600, pass ≈ 10), so if Holdet's 513 mirrors a public rating provider, MOTM becomes a deterministic-function prediction like BPS, not a subjective award; and (d) bookmaker MOTM props exist as one more free odds anchor but carry documented goalscorer bias and inter-book disagreement, so they calibrate rather than define. Highest-upside items: in-sim BPS with match-state-conditional volume-stat draws, latent-rating (Gumbel/Plackett-Luce) MOTM simulated per draw so captain EV and P85 inherit award variance, and correlated residual-BPS to fix the same haulers-underprojected shape as the audited xPts-low bias.",
+  "methods": [
+   {
+    "name": "In-sim deterministic BPS computation with official rank/tie rules (bonus as a pure sim consumer)",
+    "what": "Inside each of the 50k simulated matches, compute every player's BPS from the published, deterministic Opta-fed BPS formula: event-driven components come straight from already-simulated events (goals by position, assists, clean sheets, saves, cards, minutes bands 1-60/60+), plus a drawn 'residual BPS' term for unsimulated components (pass volume, key passes, tackles, recoveries, being tackled/fouled). Rank all 22+ players within the simulated match and award 3/2/1 with FPL's official tie-breaking (ties at first give 3-3-1 etc.). Bonus xPts, bonus distribution, and captain-doubled bonus fall out for free.",
+    "evidence": "The BPS formula and tie rules are fully public (premierleague.com, updated for 2025/26). FPL Review — the commercial benchmark OpenFPL was measured against — explicitly simulates each match 1,000x per gameweek 'with players scoring goals, winning clean sheets, being substituted and even being awarded bonus points', i.e. bonus is awarded inside the sims, not added as an average. FPL Optimized's public scenario tool does the same downstream (3/2/1 within simulated matches). Effect size: bonus is ~10-15% of a premium attacker's season points (Haaland 2022-23 ~40 of 272) and doubles under captaincy; OpenFPL's category-stratified benchmark shows the accuracy battle is won/lost on 'haulers' (RMSE ~5.14-5.17), which is exactly where bonus concentrates. Per-match historical bps for fitting residuals is in the FPL API / vaastav open dataset (fpl-ai and similar repos already use per-match BPS as features).",
+    "sources": [
+     "https://www.premierleague.com/en/news/106533",
+     "https://www.premierleague.com/en/news/4059044",
+     "https://docs.fplreview.com/the-model/projections/massive-data-model/",
+     "https://fploptimized.com/scenarios.html",
+     "https://arxiv.org/html/2508.09992v1"
+    ],
+    "apply": "New module core/awards.py consuming the existing per-sim event record right after per-player event simulation and before fantasy-table scoring — same pattern as the scenario-matrix export. Encode the BPS table as a stdlib dict; per sim: bps_i = event_bps(simulated events) + residual_bps_i (drawn); sort, apply tie rules, add bonus to that sim's player score. Residual-BPS per-player distributions are fit offline from cached historical per-match BPS minus event-attributable BPS (FPL API bootstrap-static + fixtures live data, cacheable). Nothing upstream changes; validation harness scores 'bonus' as a separate event stream.",
+    "difficulty": "M",
+    "impact": "high"
+   },
+   {
+    "name": "Match-state-conditional count models (negative binomial) for unsimulated volume stats: passes, tackles, CBIT/CBIRT",
+    "what": "Rather than a static positional prior, model each player's per-90 pass volume, tackles, clearances/blocks/interceptions and recoveries as negative-binomial counts whose means shift with the simulated match state: possession share implied by the (lambda_home, lambda_away) solve, winning/losing game state, and opponent style. Draw these counts per sim; they feed (a) the residual-BPS term in the bonus ranking and (b) FPL's new 2025/26 defensive-contribution points directly (2 pts for 10+ CBIT for defenders, 12+ CBIRT for mids/fwds, a threshold event that NEEDS a count distribution, not a mean).",
+    "evidence": "Negative binomial is the standard fix for overdispersed football count data (Reep et al. 1971 onward; Bayesian sports-modelling literature). Opta Analyst's own analysis of the new DC rule shows team possession share strongly predicts qualifying CBIT/CBIRT performances — i.e. the covariate the engine already implicitly has (relative lambdas) is the main driver. Effect size for the FPL port: Tarkowski would have earned 44 pts from DC in 2024/25 ('equivalent of 11 extra clean sheets'), and all top-10 DC earners were centre-backs — a whole scoring stream the engine currently cannot see, same omission shape as bonus. Threshold structure (10/12 cutoff, capped at 2 pts) makes the distribution's right tail, not the mean, the quantity that matters — Jensen's inequality bites hard here.",
+    "sources": [
+     "https://theanalyst.com/articles/fpl-defensive-contributions-2025-26-best-picks",
+     "https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions",
+     "https://rchan26.github.io/pdfs/talks/bayesian_sports_modelling_handout.pdf",
+     "https://arxiv.org/pdf/2508.05891"
+    ],
+    "evidence_note": "",
+    "apply": "Extends the per-player event simulation stage: alongside goals/assists/SoT, draw NB counts per player per sim with mu = per90_rate * minutes/90 * f(team possession proxy from lambda ratio, simulated game state). Rates fit offline from cached FBref/Opta-derived per-match logs (or FPL API DC fields once the FPL port lands); stdlib NB sampling via Poisson-Gamma mixture. Consumers: residual BPS (method 1), DC points (FPL port), and MOTM features (methods 3-4). Replaces the 'cheap position/role priors' floor in the brief with a real conditional model.",
+    "difficulty": "M",
+    "impact": "high"
+   },
+   {
+    "name": "MOTM as Bolton-Chapman conditional logit over all players in a match, trained on cached Holdet 513 history",
+    "what": "Model P(player i wins MOTM | match) with a conditional (multinomial) logit where the choice set is the 22+ players in that match — the exact structure Bolton & Chapman used for horses within a race. Covariates per player per simulated draw: simulated goals/assists, winning-team indicator and margin, GK save count x losing/draw indicator (upset channel), position, minutes, penalty/set-piece roles, and a hierarchical player-quality intercept. At scoring time, evaluate the logit within each of the 50k sims on that sim's realized event lines and average — so MOTM probability is conditionally coherent with scorelines the engine already prices.",
+    "evidence": "Bolton & Chapman (1986, Management Science) is the canonical within-event multinomial logit and spawned a whole racing literature (Ali 1998, Lo & Bacon-Shone 1994, Johnson et al. 2010); rank-ordered logit remains state of practice for sports rank outcomes (2024 NHL-draft rank-ordered logit paper, ScienceDirect). Cricket MOTM ML studies confirm the award is dominated by a few interpretable drivers (top batsmen ~ goalscorers analogue; ODI studies find 'top three batsmen are hot candidates'). Training data exists in-house: event 513 decoded across cached Holdet rounds. Effect size: MOTM's kr value in Holdet is large relative to a goal per the user's own settlement data, and the engine currently projects it at exactly zero — pure signed bias on premium players, same shape as the audited ~2.3-pt-low xPts.",
+    "sources": [
+     "https://gwern.net/doc/statistics/decision/1986-bolton.pdf",
+     "https://www.sciencedirect.com/science/article/abs/pii/S0169207024000086",
+     "https://link.springer.com/chapter/10.1007/978-981-15-6318-8_48"
+    ],
+    "apply": "Offline fit: stdlib Newton/IRLS on the conditional-logit likelihood over cached (round, match, 513-winner) rows with features rebuilt from cached stats feeds — few dozen coefficients, no new dependencies. Online: a scorer that runs inside the existing per-sim loop after event simulation, adds E[MOTM points] per player, and exports MOTM probability alongside xPts/captain EV. Because Holdet history is thin (1 winner per match), regularize with the ratings-derived prior of method 4 and the hierarchical intercepts of method 6.",
+    "difficulty": "M",
+    "impact": "high"
+   },
+   {
+    "name": "Latent match-rating simulation with Gumbel noise (Plackett-Luce) — awards as argmax of a simulated rating, trained on FULL rating rankings via rank explosion",
+    "what": "The hardest, most-real version: give every player a latent per-sim match rating r_i = w·x_i + Gumbel noise, where x_i are that sim's event lines plus drawn volume stats. Argmax of Gumbel-perturbed scores IS Plackett-Luce/conditional logit (mathematically identical winner probabilities), but simulating the rating itself buys three things the pure logit cannot: (a) joint award outcomes correlated with everything else in the sim, so captain EV and P85 ceilings inherit award variance; (b) one model serving MOTM, any FIFA-game star-man mechanic, and future top-k awards; (c) training on FAR more data than winner-only history, because WhoScored/Sofascore archives give the full within-match ranking every match, and the Chapman-Staelin 'explosion' decomposes a ranking into independent choice sets — orders of magnitude more effective sample than one 513 winner per match.",
+    "evidence": "Plackett-Luce/Gumbel-max equivalence and Bayesian fitting are standard (Guiver & Snelson ICML 2009; generalized PL with ties, arXiv 2212.08543; truncated/time-weighted PL for multi-competitor sports, Bayesian Analysis 2018). The linear-in-events rating assumption is faithful to how the proxies are actually built: Opta Points is a transparent event-linear score (goal worth up to 600 points, a short own-half pass 10, foul -50; top score = Opta man-of-the-match), and WhoScored/Sofascore are deterministic event-weighted algorithms starting from 6.0/6.5 with goals/SoT/key passes carrying the highest weights (2025 Journal of Sports Sciences comparison of rating systems finds offensive metrics dominate). SPECULATIVE: no public benchmark of PL-on-ratings for MOTM hit-rate exists — this would be novel engineering, though each component is proven.",
+    "sources": [
+     "https://icml.cc/Conferences/2009/papers/347.pdf",
+     "https://arxiv.org/pdf/2212.08543",
+     "https://opta-points.statsperform.com/explainer",
+     "https://www.whoscored.com/explanations",
+     "https://www.tandfonline.com/doi/full/10.1080/02640414.2025.2471208"
+    ],
+    "apply": "Same insertion point as method 3, but instead of evaluating a logit, draw g_i ~ Gumbel (stdlib: -log(-log(U))) and take argmax(w·x_i + g_i) per sim; the empirical winner frequency over 50k sims is the MOTM probability, and the winner identity is stored in the sim record so scenario-matrix exports, captain EV and P85 include award points natively. Fit w offline by exploded-logit MLE on scraped/cached WhoScored or Sofascore per-match rating rankings (public archives), then calibrate an offset on Holdet 513 winners so the argmax reproduces Holdet's settlement, not the raw rating.",
+    "difficulty": "L",
+    "impact": "high"
+   },
+   {
+    "name": "Holdet settlement forensics: identify the deterministic generator behind event 513 before modeling it as random",
+    "what": "Before fitting any probabilistic MOTM model, test whether Holdet's MOTM is settled by a deterministic public rating (the way Betfair's 'Opta Player of the Match' market is settled purely by the Opta Points algorithm, not by pundits). Cross-match every cached 513 winner against the top-rated player per match from WhoScored, Sofascore, FotMob and Opta Points archives. If one provider matches at 90%+, MOTM stops being a subjective award and becomes prediction of a deterministic event-linear function — the same problem class as BPS, with correspondingly higher achievable accuracy.",
+    "evidence": "Precedent is direct: Betfair's Opta POTM market 'is settled from Opta's own website and rankings, and not related to who is selected via broadcasters, pundits or sponsors' — award markets increasingly settle on algorithmic ratings. Sofascore and WhoScored both publish that their ratings are deterministic event-driven algorithms (Sofascore: 5 action categories, baseline 6.5; WhoScored: 200+ stats, baseline 6.0, live-updated). Danish media/fantasy products typically license one of these feeds. SPECULATIVE: whether Holdet specifically mirrors one is unverified — that is exactly what this cheap experiment determines from data already cached.",
+    "sources": [
+     "https://opta-points.statsperform.com/explainer",
+     "https://www.statsperform.com/opta-points/",
+     "https://corporate.sofascore.com/about/rating",
+     "https://www.whoscored.com/explanations"
+    ],
+    "apply": "A one-off offline audit script over cached stats_rN.json (513 winners already decoded) plus scraped historical ratings for the same fixtures. Outcome branches: (a) deterministic match found -> method 4's rating weights are fit to reproduce that provider's rating directly (regression on events, no award data needed) and MOTM becomes argmax-of-simulated-rating with near-zero label noise; (b) no match -> stay with methods 3/4 trained on 513 history. Either way it fixes the target definition before weeks of model fitting — highest information-per-effort item in this list.",
+    "difficulty": "S",
+    "impact": "high"
+   },
+   {
+    "name": "Correlated residual-BPS via copula/conditional-mean coupling to simulated events (fixes hauler underprojection)",
+    "what": "Do not draw residual (non-event) BPS independently of the player's simulated events. On big attacking days a player's pass/dribble/foul-drawn volume BPS is also elevated (more touches in dangerous areas, game flows through them), and team winning inflates everyone's volume stats on that side. Couple the residual-BPS draw to (a) the player's own simulated goal+assist count and (b) team result, via a Gaussian copula or a simple estimated conditional-mean shift. Without this, the bonus model systematically under-ranks haulers in exactly the sims where captaincy pays — reproducing the engine's audited under-projection of premium players in a new stream.",
+    "evidence": "PARTLY SPECULATIVE (mechanism is estimable, no published effect size): jphelps13's open BPS analysis shows the BPS->bonus relationship is strongly position-dependent with highest variance for forwards, and season-level fits underfit badly (residual deviance 2015 on 966 df) precisely because per-match dependence structure is lost — evidence that independence assumptions break. OpenFPL's benchmark shows hauler-category RMSE is where models separate. The correlation itself is directly measurable from vaastav per-match data: regress per-match (bps - event_bps) on same-match goals/assists/result before choosing copula strength.",
+    "sources": [
+     "https://rdrr.io/github/jphelps13/fpl.analytics/f/vignettes/bps_tutorial.md",
+     "https://arxiv.org/html/2508.09992v1"
+    ],
+    "apply": "Modifies method 1's residual draw: residual_i = base_i + beta_pos * (sim goals_i + assists_i) + gamma * win_i + eps_i, with beta/gamma fit offline from historical per-match BPS decompositions. Zero architectural change — one extra line in the per-sim BPS computation. Validate by comparing simulated vs historical joint distribution of (returns, bonus): the diagnostic is P(bonus=3 | goal scored) by position.",
+    "difficulty": "M",
+    "impact": "medium"
+   },
+   {
+    "name": "Bookmaker MOTM/POTM props as a calibration anchor — with documented goalscorer-bias correction and power de-vig",
+    "what": "Where a book quotes MOTM/POTM (Betfair Opta POTM on PL; Sky Bet and others quote MOTM on big matches/tournaments), de-vig and use as an external anchor for the MOTM model — consistent with the engine's odds-first design. Two twists the literature demands: (1) MOTM fields are 22+ runner longshot markets, where proportional de-vig is known-bad — use power/Shin de-vig for the field; (2) documented recreational bias: books shade star strikers short 'regardless of whether their overall game warrants favourite status', so calibrate the model to beat, not match, the prop on defenders/GKs.",
+    "evidence": "Betfair launched an algorithmically-settled Opta POTM market (April 2023) — machine-settleable, hence quoted more widely than pundit-voted MOTM. Betting guides note 'MOTM pricing varies significantly between books because it is a relatively new market without the competitive efficiency of match results' and that pricing is 'heavily biased toward likely goalscorers' — i.e. it is an anchor with exploitable slack, unlike 1X2. FPL Review's public research shows a fitted goalscoring model can be MORE predictive than bookmaker-odds implications, supporting calibrate-then-deviate rather than pure anchoring. SPECULATIVE: WC2026 MOTM prop coverage by the engine's single free book is unverified.",
+    "sources": [
+     "https://www.bettingodds.com/news/man-of-the-match-betting-guide",
+     "https://championsleaguefinalbet.com/articles/man-of-the-match-ucl/",
+     "https://fplreview.com/a-goalscoring-model-more-predictive-than-inferrences-from-bookmakers/",
+     "https://www.statsperform.com/opta-points/"
+    ],
+    "apply": "Extends the odds-ingestion stage with an optional motm_props.json per match; a small calibration step (offline) fits a logistic map from model MOTM probability to de-vigged prop probability, reporting bias by position. Where props exist they become a validation baseline in the harness ('MOTM hit-rate vs props') and a soft prior; where absent, the model runs standalone. Also add power de-vig as an option for ALL many-runner player props (anytime scorer included) — proportional de-vig on longshot fields is a known weakness already flagged in the engine.",
+    "difficulty": "S",
+    "impact": "medium"
+   },
+   {
+    "name": "Hierarchical Bayesian player-rating priors with explicit missing-data handling (Egidi & Gabry) for sparse tournament data",
+    "what": "Fit each player's latent 'award propensity' (intercept in methods 3/4) as a hierarchical Bayesian model over historical match ratings — partial pooling across position, team and league — with explicit modeling of missing observations (DNPs, players from low-coverage leagues). Critical at a World Cup where most players have 3-7 observed matches and Holdet 513 history gives at most a handful of winners: unpooled MLE intercepts would be garbage, and ignoring missingness biases toward players who only play when in form.",
+    "evidence": "Egidi & Gabry (JQAS 2018) built exactly this for Italian fantacalcio newspaper ratings — the closest published analogue to Holdet MOTM settlement — comparing hierarchical models on hold-out predictive accuracy and finding that modeling the missing-observation mechanism materially matters; they validated with posterior predictive checks on out-of-sample second-half-of-season ratings. Follow-up Bayesian performance-prediction case studies (Frontiers 2025) extend the approach. Their headline: even 'a few variables from a freely available dataset' supports useful player-level rating prediction when pooling is done right.",
+    "sources": [
+     "https://www.degruyter.com/document/doi/10.1515/jqas-2017-0066/html",
+     "https://arts.units.it/bitstream/11368/2929586/1/jqas-2017-0066.pdf",
+     "https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2025.1486928/full"
+    ],
+    "apply": "Offline fit (can be simple empirical-Bayes / ridge shrinkage to stay stdlib: player intercept = league-position mean + shrunken residual weighted by matches observed) producing a per-player prior table cached as JSON; consumed as the intercept term by the MOTM logit/rating models. Also reusable by the existing research-overlay blend as a principled replacement for hand-set w on 'form' multipliers.",
+    "difficulty": "M",
+    "impact": "medium"
+   },
+   {
+    "name": "Sub-time hazard minutes model as the award-eligibility gate (upgrade from 'starters = 60+')",
+    "what": "Awards sharpen the cost of the crude minutes model: bonus and MOTM go overwhelmingly to players on the pitch 60+ minutes (BPS itself pays 6/3 for >60/1-60, and rating baselines accrue with time), so 'starters treated as 60+' overstates award odds for early-hook attackers and understates super-sub scenarios. Replace with a discrete sub-time distribution per player (e.g., P(off at 60-75), P(off 75-90), P(full 90), P(sub on at t)) drawn per sim, conditioned on game state (winning teams sub attackers earlier) and player role, fit from cached minutes history (Holdet 224/562/342 events already decode starts/DNP).",
+    "evidence": "OpenFPL's benchmark localizes the commercial edge in exactly this input: FPL Review beats OpenFPL only on zeros/blanks 'likely due to proprietary expected-minutes data', while OpenFPL wins on haulers — i.e. minutes modeling is the single input where paid services still dominate open models. FPL Optimized publicly flags 'players either play 90 or 0' as its main sim limitation. The engine's own realized-minutes priors work (core/realized.py, per user memory) already fixed a price-prior bias — this extends the same data to within-match timing. Effect size on awards specifically: SPECULATIVE, but BPS minute-band points alone are 3 vs 6 and every count stat in methods 1-2 scales with minutes.",
+    "sources": [
+     "https://arxiv.org/html/2508.09992v1",
+     "https://fploptimized.com/scenarios.html"
+    ],
+    "apply": "Upgrades the minutes stage of the per-player event simulation: draw a sub-off/sub-on time per player per sim from a small categorical hazard table (fit offline from cached started/benched/DNP feeds plus realized minutes), then scale all count rates and BPS/DC/MOTM eligibility by simulated minutes. This is a shared prerequisite that method 1/2/3/4 all consume, and it directly attacks the engine's listed 'CRUDE minutes' weakness with the same cached data.",
+    "difficulty": "M",
+    "impact": "high"
+   },
+   {
+    "name": "Category-stratified award validation in the backtesting harness: MOTM hit-rate vs props/ratings baselines, bonus as a separate event stream",
+    "what": "Adopt OpenFPL's stratified evaluation design for the new award streams: score bonus and MOTM separately from base points, stratified by return category (zeros/blanks/tickers/haulers) and position, with three baselines per stream — (a) naive (bonus: historical per-player bonus/90; MOTM: highest-priced/goal-favorite player), (b) de-vigged bookmaker prop where quoted, (c) top-rated-player-by-provider. Report MOTM top-1 hit-rate and top-3 (for FPL bonus, exact 3/2/1 allocation accuracy), plus calibration curves of predicted vs realized award probability.",
+    "evidence": "OpenFPL demonstrates that aggregate RMSE hides where models differ — its stratified tables show the open model beating a commercial service on haulers while losing on zeros, invisible in pooled metrics; award points are maximally concentrated in the hauler stratum so pooled validation would mask exactly the improvement being bought. FPL Review's own 'Ultimate Truth' article benchmarks models against a 'perfect model' upper bound — the same idea gives an award-stream noise ceiling (MOTM is 1-of-22; even the perfect model has bounded hit-rate, estimable from the entropy of the fitted logit).",
+    "sources": [
+     "https://arxiv.org/html/2508.09992v1",
+     "https://docs.fplreview.com/articles/ultimate-truth/"
+    ],
+    "apply": "Drops into the category-stratified harness now being built: awards register as independent event streams keyed to the same cached settlement feeds (Holdet 513 for MOTM; FPL API bonus/bps fields for the port). Round-over-round, log hit-rates vs the three baselines; promotion rule: ship the MOTM model to production xPts only when it beats the goal-favorite baseline out of sample for two consecutive rounds.",
+    "difficulty": "S",
+    "impact": "medium"
+   }
+  ]
  }
 ]
