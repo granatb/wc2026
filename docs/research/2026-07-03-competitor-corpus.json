@@ -1,0 +1,546 @@
+{
+ "fpl": {
+  "summary": "The FPL analytics market splits into four tiers: (1) content giants (Fantasy Football Scout ~2.1M visits/mo, Fantasy Football Hub ~1.8M) that monetize daily editorial + licensed Opta/StatsBomb data but have shallow, opaque models; (2) tool/app products (Fantasy Football Fix ~970K visits, 230K Android downloads) selling black-box 'AI' projections at £4-8/mo; (3) free utility sites with enormous event-driven traffic (LiveFPL ~3.5M visits/mo — bigger than Scout — built on live rank + price predictions, free with ads, run by one academic); and (4) the quant niche (FPL Review ~24K visits, Patreon from ~$4.50/mo; FPL Optimized's open-source solver; AIrsenal; the 2025 OpenFPL paper which explicitly attacks FPL Review's paywalled irreproducibility). Key market events: FPL Statistics — once the default price-change site — is now DEFUNCT, and its traffic migrated to LiveFPL, proving free single-utility tools can capture millions of visits when an incumbent dies. Biggest exploitable gaps for evmax: (a) NOBODY combines rigorous probabilistic modeling with public methodology — FPL Review is the only serious model and it is paywalled/opaque (OpenFPL's academic critique validates evmax's transparency positioning); (b) nobody publishes distributions/ceilings/captain EV — everyone ships point-estimate xPts tables; (c) nobody offers a free JSON API, llms.txt, or any agent/LLM-citation optimization — the entire ecosystem is invisible-by-design to AI crawlers (JS-heavy dashboards, paywalls), so the LLM-answer channel is uncontested; (d) odds-based inputs are used naively (Fantasy Football Pundit just converts bookmaker odds to percentages, no de-vigging, no simulation) yet its free odds tables rank well in search — evmax's de-vigged Monte Carlo is a strict upgrade on a proven-demand content format; (e) accuracy accountability is absent — whatthef.pl exists solely to score other predictors, showing demand for verifiable track records that evmax can satisfy natively by publishing calibration. Pricing anchor for premium: £3.95-£10/mo (Fix £3.95-7.95, Scout £4.17-10, FPL Review ~$4.50+); free tier must be genuinely useful (LiveFPL/FPL Optimized set that expectation). Threat watch: Fix's ChatFPL and fpl.team/Hub 'AI' features show incumbents bolting LLMs onto their data, but none ground the LLM in transparent simulation output the way evmax does.",
+  "competitors": [
+   {
+    "name": "Fantasy Football Scout",
+    "url": "https://www.fantasyfootballscout.co.uk/",
+    "what": "The category-leading FPL content site: daily articles (Scout Notes, team news, captain picks), fixture ticker, Rate My Team, transfer planners, Match Centre, Opta + StatsBomb member data, podcast, Pro Pundits network; covers FPL, UCL, Bundesliga, Serie A, MLS.",
+    "pricing": "Free 'Assistant Scout' tier; Chief Scout £10/mo or £50/yr (£4.17/mo); annual-only bundles (Premier Fantasy Tools, Mini League Mate, LiveFPL ad-free, Fantasy Newsletter; Mega Bundle saves £33.80/26%).",
+    "strengths": "Largest editorial brand and community (~2.1M visits/mo, #3 UK Fantasy Sports category per Similarweb); daily multi-article cadence; licensed Opta/StatsBomb data; credibility signals (150+ top-10k finishes, 4 former FPL champions); now bundles LiveFPL, extending into tools.",
+    "weaknesses": "No real predictive model of its own — 'model sophistication' is licensed data display plus a bolt-on 'AI Rating'; opinion-driven, not math-driven; key stats paywalled; site is ad-heavy and JS-heavy (poor agent/LLM accessibility); no API; methodology entirely opaque because there is no methodology to publish.",
+    "model_sophistication": "Low. Enterprise data feeds (Opta, StatsBomb) presented as tables/tickers; no projections engine, no solver, no simulation; PlanFPL integration and a 'Rate My Team AI Rating' are the only algorithmic features.",
+    "content_cadence": "Very high — multiple articles daily year-round, podcast, newsletters.",
+    "traffic_signals": "~2.1M monthly visits (Similarweb, Nov 2024); global rank ~30k, #3 in Fantasy Sports (Feb 2026); large forum community and podcast audience."
+   },
+   {
+    "name": "Fantasy Football Hub",
+    "url": "https://www.fantasyfootballhub.co.uk/",
+    "what": "Content + tools hybrid: AI transfer suggestions and team rating, player points predictions, Opta stats, fixture analyser, price-change tracking, Ben Crellin's and Jossy's planners, ~20 expert team reveals, Discord/WhatsApp communities, Green Arrow podcast, mobile app.",
+    "pricing": "Three tiers billed yearly — Starter (AI transfers, point predictions), Pro 'most popular' (expert/AI team reveals, 10+ pro tools, WhatsApp community), Ultra (monthly personal expert review, elite WhatsApp group, Zoom masterminds). Exact prices hidden behind trial flow; heavy perpetual discounting (currently '50% off for 2025/26'). Free trial on all tiers.",
+    "strengths": "~1.8M visits/mo; ~200K registered users (Linknovate); strongest expert-reveal roster (FPL Salah, BigManBakar, FPL Matthew); odds-informed points model (goal/assist/CS odds inputs); Crellin planner is a community-standard tool; community moat via WhatsApp/Discord.",
+    "weaknesses": "'AI' is a marketing label — no published methodology, no accuracy track record; pricing deliberately obscured and discount-gimmicky; predictions locked behind paywall; upsell-heavy UX; no API, no agent accessibility; personality-dependent (expert reveals are the product more than the model).",
+    "model_sophistication": "Medium-low. Points prediction model factoring bookmaker goal/assist/clean-sheet odds (no de-vigging or simulation disclosed), AI transfer suggester, optimal wildcard teams; no user-facing solver, zero transparency.",
+    "content_cadence": "High — daily articles in season, weekly expert team reveals, podcast, chip/blank-DGW guides.",
+    "traffic_signals": "~1.8M monthly visits (Similarweb Nov 2024); ~200K registered users; Android app on Google Play; active Discord + WhatsApp groups."
+   },
+   {
+    "name": "Fantasy Football Fix",
+    "url": "https://www.fantasyfootballfix.com/",
+    "what": "The most productized FPL toolset: AI 'Assistant Manager' transfer recommendations, projected points, ChatFPL (LLM chatbot over Opta + projections), price-change predictor with push alerts, Elite XI live team reveals of top managers, future gameweek planner (5 draft teams), rotation planner, Opta sandbox, iOS/Android apps + Chrome extension.",
+    "pricing": "Free tier (basic tools, ChatFPL Lite ~250 questions/yr); Premium £6.95/mo or £3.95/mo annual; Premium Plus £7.95/mo or £3.95/mo annual (Elite XI reveals, transfer alerts, ChatFPL Pro, captain data); Lifetime £295; frequent '£1 trial' and 50%-off promos.",
+    "strengths": "Best-in-class productization: apps, extension, notifications, LLM chatbot shipped before rivals; ~970K visits/mo; 230K Android downloads; claims '89% of users won their main mini-league'; Elite XI (what top 1k managers actually do) is a sticky differentiator; aggressive funnel (£1 trials).",
+    "weaknesses": "Fully black-box 'algorithm' — no methodology, no published accuracy; Android rating only 3.19/5 (1.6K ratings) suggests app quality issues; marketing claims unverifiable; dark-pattern-ish discount churn; projections are point estimates only (no distributions/ceilings); no API; ChatFPL is credit-limited and grounded in opaque numbers.",
+    "model_sophistication": "Medium. Proprietary ML projections + price-change predictor + LLM chat layer; no solver in the optimization sense, no transparency, no reproducibility.",
+    "content_cadence": "Weekly gameweek guides plus multiple price-change/transfer posts per day in season; product-led rather than editorial-led.",
+    "traffic_signals": "~971.6K monthly visits (Similarweb Nov 2024); 230K Google Play downloads (~2.5K/30 days), 3.19★ from 1.6K ratings; iOS app + Chrome extension."
+   },
+   {
+    "name": "FPL Review",
+    "url": "https://fplreview.com/",
+    "what": "The quant community's reference product: ML 'Massive Data Model' projections up to 14 GWs ahead (odds, team strength/style, player roles, penalties, rotation), premium Massive Data Planner, two solvers (MILP 'Linear Optimiser' + chess-engine-style Transfer Solver), Elite Data (top-1,000 manager ownership/captaincy), Season Review analytics, free planner with basic model.",
+    "pricing": "Patreon subscription from ~$4.50/mo (link Patreon account to unlock premium tools); free planner and limited projections without paying.",
+    "strengths": "Deepest genuine modeling in the market — the model top solvers and content creators cite; real optimization (MILP); docs site + video guides; Elite Data is unique; the de facto standard 'EV' source for the analytics community.",
+    "weaknesses": "Tiny reach (~24.4K visits/mo, rank #125 in category — 1% of LiveFPL); paywalled model explicitly criticized in the 2025 OpenFPL arXiv paper for impeding reproducibility and independent benchmarking; dated UX; Patreon friction; no public API; projections are means, with limited distributional output; minimal content/SEO presence; effectively invisible to LLMs and casual managers.",
+    "model_sophistication": "High — the benchmark. ML projections + true MILP solver + heuristic multi-week solver; methodology partially documented (docs.fplreview.com) but model itself closed and accuracy not independently auditable.",
+    "content_cadence": "Low — occasional blog posts (e.g. 'Ultimate Truth' model-vs-perfect analysis); tool updates rather than content.",
+    "traffic_signals": "~24.4K monthly visits (Similarweb Nov 2025), #125 Fantasy Sports — small but extremely influential among elite/solver-community managers; Patreon subscriber base undisclosed."
+   },
+   {
+    "name": "LiveFPL",
+    "url": "https://www.livefpl.net/",
+    "what": "Free real-time utility suite by 'Ragabolly' (Mohamed Ragab, physics professor, ex-MIT/UChicago): live overall rank, live bonus/league tables, effective ownership by rank tier, tier expected-points averages, autosubs, transfer planner, and the now-default price-change predictor (98-99% claimed accuracy on rises).",
+    "pricing": "Free with ads; ad-free access sold via Fantasy Football Scout's annual 'LiveFPL Bundle'; no standalone premium model of note.",
+    "strengths": "Traffic monster: ~3.5M visits/mo (Nov 2025) — more than Scout; became the default price predictor after FPL Statistics died; deadline/matchday habit loop drives extreme repeat usage; free + fast + clear; trusted individual creator brand.",
+    "weaknesses": "One-man project with no monetization ambition beyond ads/bundle; JS-rendered pages that fail for crawlers/agents (our fetch of the homepage returned nothing — invisible to LLMs); no projections/solver — descriptive not predictive; no API, no content, no SEO articles; keyperson risk; UX is utilitarian and ad-cluttered.",
+    "model_sophistication": "Low-medium. Excellent live data engineering and a well-calibrated price-change heuristic; effective-ownership math; no player projection model, no optimization.",
+    "content_cadence": "None (pure tool; updates in real time during matches).",
+    "traffic_signals": "~3.5M monthly visits (Similarweb Nov 2025), #18 Fantasy Sports category; distributed across livefpl.net, www2 and plan subdomains; large Twitter following."
+   },
+   {
+    "name": "FPL Statistics",
+    "url": "https://www.fplstatistics.com/",
+    "what": "Formerly the default price-change prediction site (the 'wildcard code' era institution). Both fplstatistics.co.uk and .com now refuse connections; third-party reviews (fplpredictionrater.co.uk, ThickAccent Nov 2025) describe it as defunct.",
+    "pricing": "Was free with ads (historically had a small premium tier for extra columns).",
+    "strengths": "None remaining — historical brand recognition only.",
+    "weaknesses": "Dead. Its demise is the ecosystem's clearest lesson: a single-utility free tool owned massive habitual traffic, failed to modernize, and LiveFPL absorbed its entire audience within a season. Also spawned whatthef.pl, a meta-site that F1-scores the surviving predictors — evidence users want verifiable accuracy tracking.",
+    "model_sophistication": "N/A (was a net-transfers heuristic model, opaque thresholds).",
+    "content_cadence": "None (site down).",
+    "traffic_signals": "Similarweb last profiled it June 2025; both domains unreachable July 2026 (ECONNREFUSED)."
+   },
+   {
+    "name": "FPL Form",
+    "url": "https://fplform.com/",
+    "what": "Solo project by Nicholas Hope (since 2020): predicted points per player per future GW ('complex algorithm' + xG data), predicted team goals, single/double transfer suggestions, wildcard/free-hit optimizer, fixture difficulty from xG, price-change predictions, live rank, top-manager rankings.",
+    "pricing": "Entirely free; donation-supported.",
+    "strengths": "Free full predicted-points table (huge SEO asset — ranks for 'FPL predicted points'); breadth for a solo project; transfer suggestion tools compare predicted-point deltas; ~116K visits/mo with zero marketing.",
+    "weaknesses": "Methodology is a black box ('I use a complex algorithm') despite free access; predicted-points page is so bloated it exceeds 10MB (our fetch failed on size — terrible for crawlers and mobile); no distributions, no solver-grade optimization, no API; single-maintainer risk; dated design.",
+    "model_sophistication": "Medium-low. Statistical model with xG inputs, point estimates only; simple optimization for wildcard/FH; no transparency, no calibration reporting.",
+    "content_cadence": "None — pure tool site, data refreshed per gameweek.",
+    "traffic_signals": "~116.1K monthly visits (Similarweb Nov 2024); donation model implies modest but loyal usage."
+   },
+   {
+    "name": "Fantasy Football Pundit",
+    "url": "https://www.fantasyfootballpundit.com/",
+    "what": "Free odds-centric content/tools site: FPL Points Predictor built from bookmaker clean-sheet/goalscorer/assist odds converted to percentages, captain picks analyser, xG/xA per-90 tables, DEFCON defensive stats, penalty takers, mini-league analyser, predicted lineups; also covers UCL Fantasy and World Cup Fantasy (direct evmax competitor NOW).",
+    "pricing": "Free; monetized via traffic (odds content is affiliate/SEO adjacent).",
+    "strengths": "Proves evmax's exact content thesis: free odds-derived predicted points + odds tables updated every GW rank well and draw traffic (#139 Fantasy Sports); fast, no paywall, covers tournament fantasy (WC/UCL) not just FPL; simple and crawlable.",
+    "weaknesses": "Analytically naive: raw bookmaker odds converted to percentages with no de-vigging, no simulation, no minutes model — evmax's pipeline is a strict superset; no planner/solver/app; no API; thin editorial authority vs Scout; anonymous team.",
+    "model_sophistication": "Low. Odds-to-percentage conversion and a spreadsheet-grade points predictor; no Monte Carlo, no optimization, no stated vig handling.",
+    "content_cadence": "Weekly per-gameweek updates of odds tables and predictor plus regular articles during season and tournaments.",
+    "traffic_signals": "Ranked ~#139 in Fantasy Sports (Similarweb); active Facebook/Twitter presence; exact visits undisclosed but material search visibility on odds keywords."
+   },
+   {
+    "name": "AIrsenal (Alan Turing Institute)",
+    "url": "https://github.com/alan-turing-institute/AIrsenal",
+    "what": "Open-source Python ML pipeline that runs an FPL team autonomously: Bayesian team-level scoreline model + player-level goal-involvement model, multi-gameweek transfer optimization, CLI-driven.",
+    "pricing": "Free, MIT-licensed open source.",
+    "strengths": "Only institutionally-backed open codebase (Turing Institute REG); actively maintained ('End of 25/26 Season' release June 8, 2026, 2,347 commits); full methodological transparency; credible academic pedigree; 343 stars/101 forks.",
+    "weaknesses": "Not a product: no website, no UI, requires Python/WSL/Docker (PyPI install currently broken, issue #733); no chip optimization in transfer command; small reach (hundreds of technical users); no odds inputs — purely historical-data Bayesian model, weaker than odds-based approaches; no content or community for normal managers.",
+    "model_sophistication": "High transparency, medium performance. Bayesian scoreline + player models with multi-GW optimizer; fully reproducible but not benchmarked as market-leading (OpenFPL paper is the stronger academic result).",
+    "content_cadence": "Code releases per season; no content.",
+    "traffic_signals": "343 GitHub stars, 101 forks, 22 watchers, 81 open issues — developer-community scale only."
+   },
+   {
+    "name": "FPL Optimized (Solio Analytics / Sertalp B. Cay)",
+    "url": "https://fploptimized.com/",
+    "what": "Free analytics hub from the person who popularized FPL solver methodology: live GW tracker with expected vs actual points, EV distribution calculator, ownership trends, season highlights, open-source Python MILP solver on GitHub + Google Colab notebooks, educational blog ('A Friendly Introduction to FPL Analytics') and API documentation.",
+    "pricing": "Entirely free and open source.",
+    "strengths": "The transparency benchmark evmax should study: open solver, educational content, expected-points-distribution thinking (closest existing thing to evmax's ceilings/EV framing); highly credible in the analytics community (FPL Wire ecosystem); links API docs.",
+    "weaknesses": "Doesn't produce its own projections (solver consumes FPL Review EV data — dependency on a paywalled source); niche audience, minimal SEO; several features 'upcoming'; no monetization, hobby cadence; no simulation-grounded articles; raw tables not narrative content.",
+    "model_sophistication": "High on optimization (reference open-source MILP solver), none on projections (bring-your-own-EV).",
+    "content_cadence": "Low — occasional blog posts and tool updates; YouTube/stream presence via the solver community.",
+    "traffic_signals": "Niche but influential: the GitHub solver is the community standard taught in FPL analytics circles; site traffic small (not in top category ranks)."
+   },
+   {
+    "name": "fpl.team",
+    "url": "https://fpl.team/",
+    "what": "Freemium modern toolset: multi-week transfer planner with optimization solver, live rank tracker, 'AI-powered' squad analysis, player predictions, predicted lineups for all 20 clubs, mini-league tracking, native iOS/Android apps.",
+    "pricing": "Free, no login required for basics; premium subscription removes ads and unlocks advanced features (prices not surfaced pre-signup).",
+    "strengths": "Clean modern UX ('Free. No login. Instant results'); full stack (planner + live rank + apps) closing the gap between LiveFPL utility and Fix productization; appears in LiveFPL's Similarweb competitor set, indicating real traffic growth.",
+    "weaknesses": "Anonymous operators, zero methodology disclosure, 'AI-powered' unexplained; no track record or community trust yet; me-too feature set with no distinctive data edge; no API.",
+    "model_sophistication": "Unverifiable — claims historical data + form + fixtures + 'advanced models'; nothing published.",
+    "content_cadence": "Tool-first; minimal editorial.",
+    "traffic_signals": "Compared against livefpl.net on Similarweb (suggesting six-figure visits); app-store presence; 'thousands of managers' self-claim; 5-star review widgets."
+   },
+   {
+    "name": "OpenFPL (academic open source)",
+    "url": "https://arxiv.org/html/2508.09992v1",
+    "what": "Aug 2025 arXiv paper + open-source forecasting method explicitly built to rival FPL Review's Massive Data Model, prospectively benchmarked on 2024-25 gameweeks; positions itself against subscription models that 'impede reproducibility, hinder independent benchmarking, and exclude much of the global player base'.",
+    "pricing": "Free, open source.",
+    "strengths": "Peer-reviewed-grade evidence that (a) open transparent models can match the best commercial FPL projections and (b) the community resents paywalled opacity — direct academic validation of evmax's core positioning; publishes honest accuracy ceilings (even a 'perfect' model: RMSE 2.81, R² 0.15).",
+    "weaknesses": "Research artifact, not a product: no site, no UI, no cadence, no audience beyond the paper; static model without weekly odds inputs; nobody has productized it yet — which is itself the opportunity.",
+    "model_sophistication": "High and fully transparent (published features, code, prospective evaluation).",
+    "content_cadence": "One-off publication.",
+    "traffic_signals": "arXiv/ResearchGate readership only; cited in FPL analytics discussions."
+   },
+   {
+    "name": "Long-tail dashboards (FPL Copilot, fpl.page/FPL Focal, Premier Fantasy Tools, livefpl.com, whatthef.pl)",
+    "url": "https://fplcopilot.com/",
+    "what": "A crowded free long tail: FPL Copilot (free xPts table with xG/xA/FDR + solver + chip strategies + Discord), fpl.page 'FPL Focal' (real-time dashboard: projections, predicted lineups, odds, top-10k data — several features 'not yet available'), Premier Fantasy Tools (live rank, bundled by Scout), livefpl.com (unrelated newer clone of livefpl.net trading on its name), whatthef.pl (F1-score accuracy leaderboard of price predictors).",
+    "pricing": "All free / donation / ad-supported.",
+    "strengths": "Shows low barrier to entry and steady demand for free xPts tables and dashboards; whatthef.pl proves appetite for independent accuracy verification; livefpl.com's name-squatting shows SEO value of the space.",
+    "weaknesses": "All undifferentiated: point-estimate tables, no methodology, no simulation, no API, solo maintainers, half-finished features; none has editorial or LLM-visibility strategy; churn risk high (FPL Statistics precedent).",
+    "model_sophistication": "Low across the board — derived stats and simple predictors.",
+    "content_cadence": "Minimal; tool refreshes per gameweek.",
+    "traffic_signals": "Individually small (low tens of thousands of visits at best); collectively they fragment the free-tool audience below LiveFPL."
+   }
+  ]
+ },
+ "tourn": {
+  "summary": "Competitive audit of WC2026 tournament-fantasy + simulation content (July 2026, R32 done, R16 imminent). The field splits into four camps, and none of them combines what evmax does. (1) Fantasy-tips incumbents (Fantasy Football Scout ~2-3M visits/mo, Fantasy Football Hub) have the audience and SEO authority but their models are opaque, paywalled (£50/yr, annual-only), editorial-first, and have zero API/agent surface. (2) Prediction-model brands (Opta supercomputer 25k sims, Nate Silver's PELE 100k sims at $10/mo) have transparent-ish, credible simulation math and dominate media/LLM citations — but do NO fantasy layer at all: no xPts, no captain EV, no price-value. (3) Interactive simulator sites (WC2026Sim, Football Meets Data's simulator, ESPN's predictor, plus a long tail of ~10 thin clones) capture event-peak SEO with free Monte Carlo toys, but most use crude FIFA-rankings inputs, publish no analysis, and monetize weakly. (4) Social sim-graphics accounts — Football Meets Data is the biggest independent (126K X, 91K IG, built in ~2.5 years purely on daily probability graphics linking back to its simulator), plus We Global Football and TikTok bracket-sim creators; static probability tables/brackets and bubble-race animations are the winning formats, with link-in-bio → free tool as the standard funnel. The closest direct competitor is FantaLens (WC fantasy xPts for 1300+ players, Poisson+odds model, €9.99 one-time pass) — but it's tiny (~880 active managers), has no API, no articles, and no distribution. KEY GAPS FOR EVMAX: (a) nobody pairs credible de-vigged-odds simulation with fantasy xPts/captain EV AND transparent methodology — FantaLens is closest but subscale; (b) nobody offers a free JSON API or any agent/LLM optimization — Opta wins LLM citations today purely on domain authority, so evmax's llms.txt + per-article JSON is genuinely unique and attacks Opta's citation moat where it's structurally lazy; (c) proven growth channel is daily probability graphics on X/IG (FMD playbook) — evmax currently lacks this social distribution layer and should clone the format with fantasy-EV graphics (captain EV tables, xPts-per-price scatters) that no sim account posts; (d) the round-window cadence matters: Opta and FFS publish per-match previews daily during knockouts — evmax must match that tempo through R16→final, then pivot the same engine to FPL in August where Hub/Fix/Scout charge £30-70/yr for opaque xPts, leaving the same transparency+API gap open year-round.",
+  "competitors": [
+   {
+    "name": "Fantasy Football Scout (World Cup vertical)",
+    "url": "https://www.fantasyfootballscout.co.uk/world-cup",
+    "what": "The dominant UK fantasy-football content site, running a dedicated WC2026 vertical: ultimate guides per round (currently Round-of-32/knockouts), Scout Picks, 48-team previews, predicted lineups, mini-leagues with prizes, and a paid 'World Cup Fantasy Toolkit' (ownership widgets, fixture ticker, StatsBomb player/team data, xPts-based captaincy/differential/bargain widgets, AI Team Ratings, draft/AI-rating tool).",
+    "pricing": "Chief Scout membership £50/yr or £10/mo ('lowest 2026 prices'); monthly option marketed specifically for WC-only subscribers; core articles free and ad-supported.",
+    "strengths": "Massive brand and community; #2 UK fantasy-sports site with huge SEO domain authority; StatsBomb data partnership; full editorial machine (multiple posts/day, big-name manager team reveals); established monetization ladder already tuned for event traffic.",
+    "weaknesses": "Methodology completely opaque — xPts are a black-box widget behind the paywall; editorial-first, numbers-second; no public API, no JSON, no llms.txt or agent optimization; toolkit is widgets not simulations (no Monte Carlo, no captain EV distributions/ceilings); WC vertical is a sideline to FPL, so knockout-specific modeling (extra time, pens, advancement-conditional minutes) is thin.",
+    "traffic_signals": "Similarweb: ~2.1M visits/mo (Nov 2024 datapoint), 3.2M in Sep 2024 peaks; ranked #2 UK fantasy-sports website (Apr 2026); global rank ~30k; 78% male, 25-34 core.",
+    "content_cadence": "Multiple articles daily during the World Cup; per-round mega-guides, Scout Picks per round, team news and lineup posts around every matchday.",
+    "model_sophistication": "Low-medium: StatsBomb event data and proprietary xPts projections, but no visible simulation layer, no de-vigged market inputs disclosed, no uncertainty/ceiling outputs; 'AI Team Ratings' marketed without methodology."
+   },
+   {
+    "name": "Fantasy Football Hub",
+    "url": "https://www.fantasyfootballhub.co.uk/",
+    "what": "FPL-first tips site with ML positioning ('Hub AI' predicted points, team rating, transfer suggestions) running a WC2026 side-vertical: Ultimate Round-of-32 guide, £500 WC Fantasy prize league, app-based tools.",
+    "pricing": "Three membership tiers, all billed annually (roughly £30-70/yr range historically); 7-day free trial; frequent 30% discount codes; WC prize league free to enter as acquisition funnel.",
+    "strengths": "Strongest 'AI' branding in the fantasy-tips space; polished iOS/Android app; expert roster (top-1k FPL managers); prize leagues drive email capture; established paying subscriber base to cross-sell WC content to.",
+    "weaknesses": "WC coverage is clearly a bolt-on to FPL — far thinner than Scout's; Hub AI is fully opaque (no methodology page, no probabilities, no simulations); annual-only billing is a poor fit for a 5-week tournament; no API, no agent/LLM surface; predicted points shown without uncertainty.",
+    "traffic_signals": "Materially smaller than Scout (Scout comparison pages list it among followers, not leaders); app-led audience; no public visit figures found — order of magnitude below FFS.",
+    "content_cadence": "Per-round WC guides plus regular FPL drumbeat; daily app updates in-season.",
+    "model_sophistication": "Medium claimed, unverifiable: ML predicted-points model ('Hub AI') exists and rates teams/transfers, but zero transparency on inputs, no market-odds grounding disclosed, no Monte Carlo outputs."
+   },
+   {
+    "name": "FantaLens",
+    "url": "https://fantalens.com/",
+    "what": "Closest direct competitor: independent, fan-made WC2026 fantasy analytics tool — live xPts projections for 1300+ players, AI Squad Coach (one-tap squad rebuild, captain/booster planning, differential hunting with the low-ownership scouting bonus modeled), Player Explorer, fixture difficulty from Poisson model blended with live betting odds, start-probability/rotation model.",
+    "pricing": "Freemium: rankings, fixture ratings and basic squad building free; 'World Cup Pass' €9.99 one-time (not subscription) unlocks numeric xPts, AI coach, 150 AI credits, optimizer through the final.",
+    "strengths": "Right product shape (xPts + odds-blended fixtures + optimizer, refreshed daily); smart one-time-payment pricing for a tournament; models game-specific scoring quirks (scouting bonus); free tier as funnel; Telegram community.",
+    "weaknesses": "Tiny — claims only ~880 active managers; no content/SEO layer (no articles, so no search or citation surface); no public API or data export; anonymous team, no brand trust; no social distribution; methodology described only at a high level (no de-vig detail, no sim counts, no ceilings/variance); dies after the final unless it pivots.",
+    "traffic_signals": "~880 active managers self-reported; negligible search presence beyond its own name; live Telegram chat.",
+    "content_cadence": "Data refreshed daily during the tournament (stats, lineups, FIFA prices, market odds); no editorial cadence.",
+    "model_sophistication": "Medium: Poisson match model + live odds blend + start-probability model + xPts with game-rule modeling — conceptually similar to evmax but point-estimate oriented (no visible Monte Carlo distributions, captain EV curves or ceiling percentiles) and undocumented."
+   },
+   {
+    "name": "Opta Analyst (Opta supercomputer / The Analyst)",
+    "url": "https://theanalyst.com/articles/who-will-win-2026-fifa-world-cup-predictions-opta-supercomputer",
+    "what": "Stats Perform's free content arm. WC2026 coverage: supercomputer tournament forecasts from 25,000 simulations, a live knockout bracket page whose percentages 'update with every goal and full-time result', plus an individual data-driven match preview article for every WC fixture (win probs, key stats).",
+    "pricing": "Entirely free — it is B2B content marketing for Stats Perform's data business; no consumer paywall, no ads to speak of.",
+    "strengths": "The default citation for 'X simulated the World Cup N times' across world media (Al Jazeera, broadcasters, aggregators) — dominant share of LLM/press citations; Opta brand authority; genuine per-match cadence at scale; live-updating bracket is a strong repeat-visit product.",
+    "weaknesses": "Zero fantasy layer (no xPts, captain, price-value — irrelevant to fantasy managers directly); methodology only loosely described (team ratings + betting-market flavored, but no de-vig transparency, no downloadable probabilities); no API, no JSON, no llms.txt — its citation moat is pure domain authority, structurally lazy and attackable by machine-readable alternatives; corporate tone, no community or email product; no interactivity beyond the bracket page.",
+    "traffic_signals": "Syndicated into major outlets (Al Jazeera daily WC schedule/prediction posts embed its numbers); theanalyst.com rides tournament peaks hard; exact visits not public but clearly the highest-reach model brand in this audit.",
+    "content_cadence": "Daily during the WC: one preview article per match plus bracket/forecast refresh after every result; weekly supercomputer roundups.",
+    "model_sophistication": "High: 25k tournament simulations over market-informed team ratings, stage-conditional probabilities, live in-tournament updating — but presented as authority ('the supercomputer says') rather than transparent math."
+   },
+   {
+    "name": "WC2026Sim (SimuMatch network)",
+    "url": "https://wc2026sim.com/",
+    "what": "Pure-SEO interactive simulator: full 48-team/12-group/R32 official-format tournament sim, 10,000 Monte Carlo runs off FIFA rankings (April 2026 baseline), editable team strengths, forced-result scenarios, shareable outputs, friend prediction pools, bubble-animation visual mode, plus programmatic pages (FIFA-ranking page etc.).",
+    "pricing": "Free, no signup; no visible subscription; presumably display-ad/affiliate monetization; part of the broader SimuMatch sports-sim platform.",
+    "strengths": "Ranks on high-intent 'world cup 2026 simulator' queries; instant-gratification interactivity and shareable scenarios; prediction pools add light retention; format-accurate (best-3rd-place logic).",
+    "weaknesses": "Crude model — FIFA rankings with an April baseline, no odds, no Elo blend, unclear in-tournament updating; zero analysis/editorial so no citation value; anonymous operator, no brand; no fantasy content whatsoever; no API/data; traffic evaporates after July 19.",
+    "traffic_signals": "Multiple top-10 organic slots for simulator queries (main page, /simulate, /ranking all indexed); no audience metrics public; one of ~10 near-identical long-tail sim sites (sim2026.com, wc26.org, cupsimulator.com, worldcup2026-simulator.com, fifaschedule.com, ESPN's own free predictor + bracket challenge).",
+    "content_cadence": "Static tool; rankings baseline updated seasonally (April 2026); no editorial output.",
+    "model_sophistication": "Low: 10k Monte Carlo runs but inputs are FIFA rankings only — a toy next to odds- or Elo-based engines."
+   },
+   {
+    "name": "Football Meets Data",
+    "url": "https://football-md.com/",
+    "what": "Independent analytics brand spanning a free simulator platform (WC2026 + all 54 European top divisions: 10k/20k/50k Monte Carlo runs on Elo blended with de facto live betting-market implied probabilities, covering ET and penalties, force-a-result scenario testing) and the biggest independent social sim-graphics operation (daily probability tables, qualification scenarios, 'X% to win the trophy' graphics).",
+    "pricing": "Simulator free; no visible premium tier or API pricing; monetization appears to be audience-building first (site traffic + possible future premium), making it a land-grab competitor rather than a revenue machine.",
+    "strengths": "Best methodology communication in the free tier — publishes blog posts explaining the Elo+market blend and why; social flywheel proven (grew X account from zero in Oct 2023 to 126K by 2026 purely on probability graphics); scenario interactivity; covers the exact 'transparent math' lane evmax claims, at the match/tournament level.",
+    "weaknesses": "No fantasy layer at all — no xPts, prices, captaincy, EV-per-price; no public API or data downloads; site is thin relative to the social presence (the product is really the X account); no email/premium ladder visible; probabilities without written analysis articles at depth, so weak on long-form SEO and LLM citation vs Opta.",
+    "traffic_signals": "X @fmeetsdata 126.1K followers (account created Oct 2023 — fastest riser in the niche); Instagram @football.meets.data 91K followers / 6,800+ posts; Facebook + Threads presence; simulator page ranks top-5 for WC-simulator queries.",
+    "content_cadence": "Multiple graphics/posts daily on X/IG; simulator probabilities refreshed as results come in; occasional methodology blog posts.",
+    "model_sophistication": "Medium-high: Elo + live-betting-market blend feeding 10k-50k Monte Carlo tournament sims including ET/penalties — closest public analogue to evmax's de-vigged-odds engine, minus the fantasy translation."
+   },
+   {
+    "name": "We Global Football",
+    "url": "https://www.weglobalfootball.com/",
+    "what": "Long-running international-football analytics/journalism site: Monte Carlo-style qualification and tournament probabilities across all confederations (WC qualifiers, Nations League, AFCON 2027), rankings, watch-lists, plus purchasable tournament trackers (spreadsheet products), a merch store and consulting services; distribution via X @We_Global probability graphics.",
+    "pricing": "Site content free; sells one-off tournament trackers and merch; offers consulting; no subscription found.",
+    "strengths": "Rare full-confederation coverage (deep on CONCACAF/CAF/AFC qualifiers where nobody else models); years of continuity and a niche-respected brand among international-football nerds; tracker products prove willingness-to-pay for structured data files.",
+    "weaknesses": "Almost invisible in WC2026 search results this cycle — outcompeted by Opta/FMD/simulator sites; methodology undisclosed on site; dated web presence, no interactive tools; small social footprint (@We_Global follower count not even surfaced in search); no fantasy content, no API; publishing gaps suggest limited resources.",
+    "traffic_signals": "Weak: did not appear organically in any WC2026-prediction search in this audit; X account active but modest; homepage article dates show irregular output.",
+    "content_cadence": "Irregular; qualifier-window driven historically; not matching daily knockout tempo this tournament.",
+    "model_sophistication": "Medium historically (Monte Carlo qualification probabilities) but unverifiable this cycle — methodology not published."
+   },
+   {
+    "name": "Silver Bulletin — PELE model (Nate Silver)",
+    "url": "https://www.natesilver.net/p/world-cup-2026-odds-predictions",
+    "what": "The FiveThirtyEight successor for this niche: Nate Silver's new PELE model ('Predictive Elo with Lineup Equilibria' — Elo variant incorporating player market values/ages, match results, economic/geographic priors) running 100,000 tournament simulations, updated after every WC match with knockout-stage prediction posts; full ratings suite for paid subscribers; notes/commentary comparing PELE to betting markets (e.g., docking France to 11.7% vs market 17% pre-tournament).",
+    "pricing": "Substack: $10/mo or $95/yr (grandfathered $8/$80 pre-June-2025); headline WC posts partially free, full PELE ratings paywalled.",
+    "strengths": "Strongest personal brand in prediction media; genuinely transparent methodology posts (dedicated PELE-methodology article); 100k sims with performance-updating priors; large existing newsletter audience to funnel; media pickup (RealClearMarkets etc.); explicitly frames edges vs the betting market — closest philosophical neighbor to evmax's de-vig framing.",
+    "weaknesses": "No fantasy application at all; no interactive tools, no API, no data downloads (a step back from 538's famous CSV repos); international-only so far (club/FPL extension only 'under consideration'); newsletter cadence not per-match; paywall blocks LLM/citation flow of the full numbers; one-man-brand risk and US-politics-first audience.",
+    "traffic_signals": "Silver Bulletin is one of Substack's largest paid publications (hundreds of thousands of free subscribers, tens of thousands paid — exact figures unpublished); WC posts circulate widely on X/Substack Notes.",
+    "content_cadence": "Model updates after every match; written knockout-round prediction posts roughly weekly-to-biweekly plus live notes.",
+    "model_sophistication": "High: 100k Monte Carlo tournament sims, Elo + player-market-value hybrid, tiebreaker-exact group modeling, in-tournament form updating, explicit market-vs-model comparisons — but closed data."
+   },
+   {
+    "name": "Social simulation-graphics ecosystem (X/IG/TikTok bracket-odds accounts)",
+    "url": "https://x.com/fmeetsdata",
+    "what": "The distribution layer for simulation content. Biggest independent: Football Meets Data (X 126K, IG 91K) posting daily probability tables, 'chance to win the trophy' bars, and scenario graphics linking to its simulator. Second tier: We Global Football (@We_Global) qualification-probability graphics; xG-adjacent giants like @xGPhilosophy (xG scorelines, ~600K-class reach) that occasionally amplify tournament odds; corporate accounts (OptaJoe/OptaAnalyst, millions of followers) pushing supercomputer graphics; EA SPORTS' official 'FC predicts the World Cup' PR sim (mass-media pickup). TikTok is dominated not by stats accounts but by bracket-predictor gameplay videos, eFootball/FC26 'simulated the final' clips and AI-edit trends under #worldcup2026 (billions of views); TikTok is FIFA's official video partner for 2026.",
+    "pricing": "Free content; monetization via link-in-bio to tools/sites, occasional sponsored posts and affiliate links; We Global sells tracker files; no paywalls on the graphics themselves.",
+    "strengths": "Proven, fast audience compounding (FMD: 0→126K in ~2.5 years off pure probability graphics); static tables/brackets and bubble/marble-race animations are endlessly repeatable formats; graphics get screenshot-syndicated into group chats and media, building brand beyond follower counts.",
+    "weaknesses": "Nobody in the sim-graphics niche posts FANTASY-EV graphics (captain EV tables, xPts-per-price scatters, ceiling distributions) — the format is unclaimed; most accounts have no product behind the link (or a free toy), so conversion ladders are weak; TikTok sim content is entertainment (game-engine sims), leaving the data-sim lane nearly empty there; graphics are un-cited/un-linkable by LLMs (images, no structured data).",
+    "traffic_signals": "FMD: 126.1K X / 91K IG / 6.8K+ IG posts. OptaJoe: multi-million (corporate). #worldcup2026 TikTok: billions of views, >10B total WC social posts projected. Independent data-sim accounts on TikTok: effectively absent (gap).",
+    "content_cadence": "Daily to multiple-times-daily during the tournament; graphics within minutes-to-hours of full-time results perform best.",
+    "model_sophistication": "Varies: FMD medium-high (its own Elo+market engine), We Global medium, most TikTok 'sims' zero (video-game simulations); presentation sophistication matters more than model depth for reach."
+   }
+  ]
+ },
+ "betting": {
+  "summary": "The betting-stats/odds-content landscape splits into three clusters, and none occupies evmax's position of free + transparent + machine-readable. (1) PRO EV TOOLS (OddsJam, Unabated): methodologically honest — they openly de-vig sharp lines, exactly evmax's core math — but they are $99–$999/mo paywalled software, US-sport-centric, prop/arb-scanner shaped, produce no narrative content, no soccer/fantasy depth, and are invisible to LLM citation because their value lives behind login. (2) US BETTING MEDIA (Action Network, Covers, Pickswise, Dimers, SBR): high traffic (1.9M–6M visits/mo) monetized via sportsbook affiliate CPA plus subscriptions, but every model is a black box — 'proprietary power ratings', 'AI-powered simulations', 'expert blends' — with no published methodology, no de-vig details, no calibration/Brier scores, no public backtests, and clear affiliate conflicts of interest. Soccer/World Cup is an afterthought for all of them. (3) SOCCER PREDICTION/STATS SITES (Forebet 10–18M visits/mo, WinDrawWin, SofaScore 105M visits/mo, FootyStats): enormous organic traffic proving demand for quantitative soccer predictions, but universally opaque algorithms (Forebet admits Poisson but publishes no weights, backtests or calibration; independent audits peg it at ~62% 1X2 vs marketed 75%+), ad-cluttered 2005-era UX, zero fantasy-points layer, no APIs for content, and no agent/LLM optimization whatsoever. THE GAP EVMAX CAN OWN: (a) transparency itself — literally no content site publishes de-vig method, sim counts, calibration curves or honest error tracking; evmax's 'show the math' stance is unoccupied; (b) the odds→fantasy-xPts translation — EV tools stop at bet EV, prediction sites stop at 1X2/correct-score, nobody converts market odds into player xPts/captain EV/ceilings; (c) machine-readability — no competitor has llms.txt, per-article JSON, or an AI-crawler strategy, so LLM answers about 'best World Cup captain picks' have no quantitative source to cite; (d) free tier of what OddsJam charges $199/mo for, monetized later via the email→premium→API ladder; (e) event-peak soccer — US sites under-serve World Cup/FPL, soccer sites under-serve EV thinking. Biggest threats: Dimers (closest analogue: sims + free content + cheap Pro at $29.99/mo, but US-focused and still opaque) and Forebet's entrenched SEO for soccer-prediction queries. Attack vector: out-transparent everyone, publish calibration receipts, and be the citable source when agents answer betting/fantasy questions during the Round of 16 and the August FPL launch.",
+  "competitors": [
+   {
+    "name": "Oddschecker (editorial)",
+    "url": "https://www.oddschecker.com",
+    "what": "UK's #1 odds-comparison grid plus editorial layer: daily tips, horse-racing naps, football accas, free-bet/offer pages, 'Oddschecker Endorsed' operator promos. Owned by FairPlay Sports Media.",
+    "pricing": "Free to users; monetized via bookmaker affiliate/CPA, CPM display ads, and operator brand deals (~$70M annual revenue reported).",
+    "content_cadence": "Daily, high volume — tips for every major race/match day, offer pages refreshed constantly.",
+    "model_sophistication": "None. Editorial tips are human tipster opinion; the odds grid is raw prices with no de-vig, no probabilities, no EV. Insight = 'odds movement' at best.",
+    "traffic_signals": "~5.7–7.4M visits/month (Similarweb/Semrush, spring 2026); 55M+ annual UK sessions; very strong direct + brand SEO.",
+    "strengths": "Massive brand trust in UK, real-time price coverage of 100M+ live prices, huge distribution, deep bookmaker relationships, soccer-native audience.",
+    "weaknesses": "Zero model transparency because there is zero model — tips are vibes with affiliate links; conflicted incentives (paid 'Endorsed' operators); no probabilities, no fantasy layer, no API, no LLM optimization. A reader who wants 'why is this a good bet, numerically' gets nothing."
+   },
+   {
+    "name": "OddsJam",
+    "url": "https://oddsjam.com",
+    "what": "Positive-EV/arbitrage/middles scanner across 100+ US sportsbooks: real-time odds screen, +EV bet feed, promo converters, bet tracker. Tool, not content site.",
+    "pricing": "Tiered subs ~$39–49/mo entry (odds screen) up to $199/mo standard +EV and ~$500–999/mo Platinum/Global; 7-day free trial; annual saves 20–30%.",
+    "content_cadence": "Continuous tool data; thin SEO blog/education layer, minimal narrative analysis.",
+    "model_sophistication": "High and honest about mechanism: de-vigs sharp reference books to compute fair value and flags +EV lines — the same math evmax uses. But it outputs bet lists, not analysis.",
+    "traffic_signals": "Niche pro/semi-pro audience; growth via YouTube/affiliate reviewers; acquired traffic far smaller than media sites but high-LTV subscribers.",
+    "strengths": "Genuinely quantitative, real-time, per-book coverage; trusted by serious bettors; proven willingness-to-pay validates the 'EV from de-vigged odds' product at $199+/mo.",
+    "weaknesses": "Expensive paywall excludes casual bettors; US-sport and promo-farming centric, weak soccer and zero fantasy; no explanatory content — it tells you WHAT is +EV, never WHY; nothing public for LLMs to cite; books limit winners, capping the addressable market."
+   },
+   {
+    "name": "Unabated",
+    "url": "https://unabated.com",
+    "what": "Sharp-bettor toolkit by Rufus Peabody/Jack Andrews: 'Unabated Line' (vig-free consensus of market-making books), props simulator, calculators, alt-line pricing, betting education podcast/articles.",
+    "pricing": "Props+ $99/mo; Premium $199/mo; NBA projections add-on $249/mo. Some free calculators and education content.",
+    "content_cadence": "Tool is real-time; editorial/education is occasional (articles, podcast), not daily picks.",
+    "model_sophistication": "Highest in the space — explicitly explains de-vigging, market-making book weighting, and simulation logic; respected as 'the gold standard' for fair lines.",
+    "traffic_signals": "Small but elite audience of sharps; influence far exceeds traffic; commonly cited in betting-Twitter discourse.",
+    "strengths": "Credibility and methodological transparency at the tool level; education content is best-in-class; proof that 'de-vigged fair line' is a sellable primitive.",
+    "weaknesses": "$199/mo gate, US-major-sport focus (NFL/NBA/MLB props), effectively no soccer and no fantasy-points translation; produces almost no indexable analysis per event, so it wins zero SEO/LLM-citation traffic; intimidating to non-sharps."
+   },
+   {
+    "name": "Pickswise",
+    "url": "https://www.pickswise.com",
+    "what": "Free expert picks, props, parlays and same-game parlays across US sports plus soccer; app-first; 'expert analyst' write-ups per game.",
+    "pricing": "100% free to users; pure sportsbook affiliate model (FanDuel etc. sign-up CPA).",
+    "content_cadence": "Very high — daily picks across every major sport/slate, templated match previews.",
+    "model_sophistication": "None disclosed. Human handicapper narrative ('form, dynamics, factors'); no probabilities, no EV, no track-record ledger; Reddit users report best-bets hitting ~25% in bad stretches with no accountability.",
+    "traffic_signals": "~1.9M visits/month (Semrush, late 2025), declining month-over-month in tracked periods; strong app presence.",
+    "strengths": "Free removes friction; huge content volume ranks for '[game] prediction' queries; clean modern UX; parlay/SGP content matches casual demand.",
+    "weaknesses": "Textbook opaque-picks site: zero math shown, zero verified records, affiliate conflict baked into every page. This is exactly the credibility vacuum a transparent-methodology site attacks; its soccer previews are shallow and stat-light."
+   },
+   {
+    "name": "Covers.com",
+    "url": "https://www.covers.com",
+    "what": "Legacy (since 1995) betting media hub: odds, matchup pages, free + paid expert picks, public-consensus data, contests (Streak Survivor, King of Covers), forum, sportsbook reviews.",
+    "pricing": "Free core; premium handicapper picks $10–$99; affiliate CPA on sportsbook reviews/Sportsbook Matcher; ads.",
+    "content_cadence": "Daily across all US sports + World Cup odds pages; contests refresh daily.",
+    "model_sophistication": "Low. Consensus = crowd pick percentages, not probabilities; paid picks are unaudited human handicappers; no de-vig, no simulations, no published methodology.",
+    "traffic_signals": "~6M visits/month, growing ~14% MoM recently, global rank ~8,650 (Similarweb); 58% direct traffic = strong loyal community.",
+    "strengths": "25-year brand, sticky community/contests, consensus data is a unique (if crude) dataset, ranks well for odds queries including World Cup.",
+    "weaknesses": "Selling $10–99 unverified handicapper picks is the anti-transparency model; consensus percentages get misread as edges; dated UX; soccer coverage is odds-listing, not analysis; no API, no agent-readiness."
+   },
+   {
+    "name": "Action Network",
+    "url": "https://www.actionnetwork.com",
+    "what": "Premium US betting media: news, expert picks, PRO Report (sharp-money signals, betting systems), projections pages per sport, bet tracking app. Owned by Better Collective ($240M, 2021).",
+    "pricing": "PRO ~$19.99/week with heavily discounted annual; Action Labs $249/mo or ~$125/mo annual; plus affiliate revenue. Revenue ~$35M/yr.",
+    "content_cadence": "High — daily articles, projections updated per slate, podcasts, breaking news.",
+    "model_sophistication": "Medium but opaque: 'proprietary power ratings' and 'projection blends of key experts' with letter-graded edges. Method, inputs and weights undisclosed; no calibration or public backtests; sharp-action signals unverifiable.",
+    "traffic_signals": "~3.2M visits/month, US rank ~4,400 (Similarweb Feb 2026); 52% bounce; strong brand among US bettors.",
+    "strengths": "Best-funded editorial in the space, real data assets (public betting %, sharp signals), strong app and bet-sync retention loop, credible expert brands.",
+    "weaknesses": "'Trust our proprietary blend' is the exact opposite of showing the math; expert-blend projections are subjective; expensive; almost entirely US sports — World Cup/FPL coverage thin; affiliate owner (Better Collective) deepens conflict; no public API/JSON, no LLM optimization."
+   },
+   {
+    "name": "Dimers",
+    "url": "https://www.dimers.com",
+    "what": "Closest analogue to evmax: AI/simulation-driven predictions site (Cipher Sports) — 10,000+ sims per game, win probabilities, best bets, props, parlays, Dimebot conversational assistant, free tier + Pro.",
+    "pricing": "Freemium: core predictions free (affiliate-monetized); Dimers Pro $14.99/wk, $29.99/mo, $199.99/yr; 3-day trial.",
+    "content_cadence": "Very high — every US slate simulated daily, templated pick articles per game, news posts.",
+    "model_sophistication": "Medium-high mechanics, low transparency: claims 10k simulations, 100k+ data points/sport, 15 yrs modeling — but publishes no methodology doc, no de-vig detail, no calibration curves or verified ROI ledger. 'AI-powered' is marketing surface.",
+    "traffic_signals": "US rank ~15,000, global ~64,000 (Similarweb); roughly ~1M visits/mo scale; claims '10M+ fans'; pages/visit 3.6.",
+    "strengths": "Proves the exact evmax content shape works commercially (sims → probabilities → free articles → cheap sub); Dimebot shows appetite for conversational/agent access to model output; strong pick-page SEO templates.",
+    "weaknesses": "Simulations are a black box — no method page, no error tracking, no downloadable data; US-centric (NFL/NBA/MLB/CBB), soccer and World Cup are shallow add-ons, no fantasy-points layer at all; affiliate links throughout free tier; no llms.txt/JSON API — its model output is not agent-citable."
+   },
+   {
+    "name": "Sportsbook Review (SBR)",
+    "url": "https://www.sportsbookreview.com",
+    "what": "1999-era industry watchdog turned betting media: sportsbook ratings/reviews, odds board, free picks across sports, large legacy forum, community contests.",
+    "pricing": "Free; monetized via sportsbook affiliate placements and ads (now US-books-focused after change of ownership).",
+    "content_cadence": "Daily picks/news; forum continuous but aging.",
+    "model_sophistication": "None. Picks are staff write-ups; odds board is raw lines; no modeling claims at all.",
+    "traffic_signals": "Diminished from its 2000s peak; community complains of censorship and decline post-acquisition; still ranks for sportsbook-review queries.",
+    "strengths": "Deep trust legacy as a watchdog, long-running forum knowledge base, strong review-query SEO.",
+    "weaknesses": "Strategically adrift — neither a real tool nor a real model; watchdog credibility eroded by affiliate ownership; zero quantitative content; effectively no threat on analysis, only on 'best sportsbook' queries."
+   },
+   {
+    "name": "Forebet",
+    "url": "https://www.forebet.com",
+    "what": "The dominant mathematical football-prediction site: Poisson-based 1X2/correct-score/O-U probabilities, 'Value' section (Kelly vs bookie odds), standings/trends for hundreds of leagues worldwide, World Cup pages.",
+    "pricing": "Free, ad-supported (heavy display ads); no premium tier of note.",
+    "content_cadence": "Automated daily — every fixture in hundreds of leagues gets a probability row; no real editorial.",
+    "model_sophistication": "Medium mechanics, poor transparency: admits Poisson + Kelly-vs-odds framing but publishes no variable weights, no backtests, no Brier/calibration; marketing claims 75%+ accuracy while independent 2025 audits measured ~62% 1X2. Odds used as calibration input (so partly circular).",
+    "traffic_signals": "Huge: ~10.1M visits/mo (Semrush April 2026) to ~18.2M (Similarweb), 12+ min sessions; top competitor Predictz ~3.5M, WinDrawWin ~2.2M. Global-south heavy audience.",
+    "strengths": "Owns global SEO for 'football predictions today'; total-fixture coverage; probability-per-match format users clearly want; long-session engagement.",
+    "weaknesses": "The most attackable incumbent: black-box model with accuracy claims contradicted by audits, brutal ad-cluttered UX, no de-vigging discipline, no fantasy layer, no API/llms.txt, no articles explaining reasoning, English-language editorial nearly nonexistent. A transparent, calibrated, well-designed alternative with published error tracking directly undercuts its credibility."
+   },
+   {
+    "name": "WinDrawWin",
+    "url": "https://www.windrawwin.com",
+    "what": "Free football tips/predictions since 2003: 1X2 predictions with stake-size labels, acca tips, BTTS/over-under/corners/HT stats tables across dozens of leagues.",
+    "pricing": "Free; ad + bookmaker affiliate monetized ('free bet offers'); sells ad slots directly.",
+    "content_cadence": "Automated daily prediction tables for all covered leagues.",
+    "model_sophistication": "Low: vague 'historical data + form + trends' methodology, never documented; outputs picks and scorelines, not probabilities; no accuracy ledger.",
+    "traffic_signals": "~1.2–2.2M visits/month (Semrush/Similarweb), ~8 min sessions; solid legacy SEO.",
+    "strengths": "20+ year domain authority, useful raw stat tables (BTTS/corners) that rank well, simple format casual punters like.",
+    "weaknesses": "No probabilities at all (just W/D/W calls), no methodology, dated design, no EV concept, no fantasy angle, no machine-readable output. Vulnerable to any site pairing its stat-table SEO shape with real math."
+   },
+   {
+    "name": "SofaScore (predictions/betting layer)",
+    "url": "https://www.sofascore.com",
+    "what": "Massive live-score/stats platform (2000+ leagues, player ratings, heatmaps) with a betting layer: 'Who will win?' crowd votes, dropping-odds pages, betting-tips section, bookmaker integrations.",
+    "pricing": "Free; monetized via advertising (bookmaker-heavy) and B2B data/media partnerships; app IAP for ad removal.",
+    "content_cadence": "Real-time, fully automated; no editorial analysis.",
+    "model_sophistication": "Low for predictions: crowd-vote percentages and raw odds, explicitly no AI/model predictions (cited as a 2026 weakness vs newer apps); its xG/player-rating data is sophisticated but not turned into forecasts.",
+    "traffic_signals": "Enormous: ~104.7M visits/month, 15+ min sessions (Semrush May 2026); global audience led by Brazil/Nigeria/Indonesia.",
+    "strengths": "Unmatched reach and data depth, real-time xG and ratings, the default second-screen app worldwide — any 'stats for this match' query funnels here.",
+    "weaknesses": "Deliberately stops short of analysis: no probabilities from its own data, no EV, no written reasoning, no fantasy xPts; crowd votes are noise. Its scale is a distribution moat, not an analysis moat — it leaves the 'so what should I do with these stats' layer completely open."
+   },
+   {
+    "name": "FootyStats",
+    "url": "https://footystats.org",
+    "what": "Betting-oriented football stats database: O/U, BTTS%, corners, cards, form and H2H splits for 1,500+ competitions; per-league/team/player pages; data API.",
+    "pricing": "Freemium: free tier limited; Premium ~£10–15/mo (top-30 leagues); Pro ~£20–25/mo (150+ leagues, history, API access).",
+    "content_cadence": "Automated stat updates; minimal editorial; some templated prediction pages.",
+    "model_sophistication": "Low-medium: rich descriptive stats but predictions are trend extrapolation, not modeled probabilities; users flag prediction accuracy and odds misalignment; no de-vig or EV framework.",
+    "traffic_signals": "~3.4M visits/month, 12+ min sessions, +14% MoM (Semrush March 2026).",
+    "strengths": "Best breadth of betting-relevant soccer stats (corners/cards/BTTS) at low price; existing paid API proves demand for machine-readable soccer data; strong niche-league coverage.",
+    "weaknesses": "Descriptive, not predictive — stats without a model, EV, or simulation; trend stats invite base-rate errors; no narrative analysis, no calibration, no fantasy layer; API is data-out only, not analysis. Complements rather than substitutes for what evmax does — and shows an API monetization path."
+   }
+  ]
+ },
+ "agentSurface": {
+  "summary": "Agent-surface audit of 11 competitor domains (fetched 2026-07-03): only ONE domain (theanalyst.com) actively blocks AI crawlers (GPTBot, ClaudeBot, Claude-Web, anthropic-ai, CCBot, Google-Extended all Disallow: /), and only ONE domain (dimers.com) has an llms.txt — a full LLM-oriented site guide, making it the single competitor deliberately courting agent traffic. footystats.org goes the other way on crawling (explicit Crawl-delay rules that WELCOME ClaudeBot at delay 1 and PerplexityBot at delay 10) and is the only one with a public, documented (paid) JSON API — but it firewalls its /api/* paths from crawlers. Everything else (fplreview, fantasyfootballscout, fantasyfootballhub, fantasyfootballfix, livefpl, oddschecker, actionnetwork, forebet) has generic or absent robots.txt, no llms.txt, and no public API — their numbers live behind Patreon/premium paywalls or unstructured HTML, i.e. invisible or unusable to agents. Net: the fantasy-football vertical's agent surface is essentially unclaimed; evmax's llms.txt + free per-article JSON + AI-crawler allow-list has no direct FPL/fantasy competitor, and its only llms.txt rival (dimers) is a US-betting affiliate site, not a fantasy-EV site. The premium data brand (Opta/theanalyst) actively opting OUT of LLM ingestion means agents seeking \"the stats behind the pick\" cannot cite the biggest authority — a citation vacuum evmax can fill during the World Cup window.",
+  "findings": [
+   {
+    "item": "fplreview.com",
+    "detail": "robots.txt: WordPress default (User-agent: *, Disallow: /wp-admin/ only) — no AI-bot rules, so GPTBot/ClaudeBot/PerplexityBot/Google-Extended are allowed by default but not courted. No llms.txt (404). No public API: projections (Massive Data Planner) are Patreon-gated; docs.fplreview.com documents the models/tools but no data endpoints. Structured data: standard WP sitemap only. Verdict: the strongest FPL-projection competitor is completely dark to agents — its xPts numbers are paywalled and uncitable.",
+    "evidence": "https://fplreview.com/robots.txt ; https://fplreview.com/llms.txt (404) ; https://docs.fplreview.com/ ; fplreview.com/access-the-massive-data-planner (Patreon required)"
+   },
+   {
+    "item": "fantasyfootballscout.co.uk",
+    "detail": "robots.txt: fully permissive (User-agent: *, empty Disallow), no AI-bot rules, sitemap_index.xml present. No llms.txt (404). No API; core content (Season Ticket, projections) is membership-paywalled. Verdict: allows AI crawling passively but offers agents nothing structured — articles only, numbers behind login.",
+    "evidence": "https://www.fantasyfootballscout.co.uk/robots.txt ; /llms.txt 404"
+   },
+   {
+    "item": "fantasyfootballhub.co.uk",
+    "detail": "robots.txt: Allow: / with only /login, /author and a post-param path blocked; no AI-bot rules; 4 sitemaps incl. news-sitemap. No llms.txt (404). No developer API found (search confirmed no developer program); predictions/Opta-powered tools are premium. Verdict: open to crawlers, zero agent-specific surface.",
+    "evidence": "https://www.fantasyfootballhub.co.uk/robots.txt ; /llms.txt 404 ; web search: no Hub API"
+   },
+   {
+    "item": "fantasyfootballfix.com",
+    "detail": "robots.txt: 404 on both www and apex (no robots.txt at all → everything allowed by default, but also signals zero SEO/agent attention on that layer). No llms.txt (404). No public API; Fix Algorithm predictions are premium-gated. Verdict: entirely passive; agent traffic not on their radar.",
+    "evidence": "https://www.fantasyfootballfix.com/robots.txt 404 ; https://fantasyfootballfix.com/robots.txt 404 ; /llms.txt 404"
+   },
+   {
+    "item": "livefpl.net",
+    "detail": "www.livefpl.net 302-redirects to plan.livefpl.net, where /robots.txt and /llms.txt are both 404 — no crawl policy at all, no AI rules, no sitemap. No documented API (site is known for live rank/EO tools rendered in-page; community scrapes it). Verdict: hugely popular during FPL season yet has literally no agent/crawler surface — a big open flank for the August FPL pivot.",
+    "evidence": "https://www.livefpl.net/robots.txt → 302 → https://plan.livefpl.net//robots.txt 404 ; llms.txt 404"
+   },
+   {
+    "item": "theanalyst.com (Opta Analyst)",
+    "detail": "THE ONLY ACTIVE BLOCKER: robots.txt explicitly lists GPTBot, ClaudeBot, Claude-Web, anthropic-ai, CCBot, Google-Extended each with Disallow: / (a later Yoast 'Disallow:' block for * doesn't rescue named AI agents — specific UA groups take precedence). No llms.txt (404). No public API on theanalyst.com; underlying Opta/Stats Perform data is commercial-contract only (developer.stats.com, key+secret, sales-mediated). Verdict: the highest-authority stats brand has deliberately opted OUT of LLM ingestion — agents cannot legally crawl/cite its analysis, leaving a citation vacuum for transparent-math alternatives like evmax.",
+    "evidence": "https://theanalyst.com/robots.txt (named UA blocks quoted by fetch) ; /llms.txt 404 ; statsperform.com/opta-feeds (commercial API only)"
+   },
+   {
+    "item": "oddschecker.com",
+    "detail": "robots.txt: long path-level blocklist (bet-history, clickouts, search, view-all-markets) but NO AI-bot rules — AI crawlers treated like any bot; 18 regional sitemaps. No llms.txt (404). No public API (search confirms 'Oddschecker has no public API'); odds data is licensed B2B only. Caveat: site sits behind aggressive bot protection, so de-facto agent access may be worse than robots.txt suggests. Verdict: the de-vigged-odds incumbent leaves agent traffic unaddressed — evmax's free de-vigged probabilities per article are directly citable where oddschecker is not.",
+    "evidence": "https://www.oddschecker.com/robots.txt ; /llms.txt 404 ; the-odds-api.com et al. positioned as the developer alternative"
+   },
+   {
+    "item": "dimers.com",
+    "detail": "THE ONLY llms.txt IN THE SET: a real LLM-consumption guide describing Dimers as a data-driven betting platform (Cipher Sports Technology Group), its tools, picks, projections, sportsbook reviews and affiliate disclosures. robots.txt: Allow: / with minor blocks (/news/preview/, /go/ affiliate links, /pro/finalize), no AI-bot blocks, EN+ES sitemaps. No public API (predictions are on-site/Pro). Verdict: the one competitor consciously optimizing for agent citation — but in US sports betting, not fantasy football; it validates evmax's llms.txt strategy and shows the affiliate-monetization endgame.",
+    "evidence": "https://www.dimers.com/llms.txt (live, content quoted) ; https://www.dimers.com/robots.txt"
+   },
+   {
+    "item": "actionnetwork.com",
+    "detail": "robots.txt: blocks /health, /redirect, /*?* query URLs, /content/ — no AI-bot rules; news/latest/author sitemaps. No llms.txt (404). No official API: api.actionnetwork.com exists but is unofficial/undocumented and defended by DataDome + Cloudflare + fingerprinting (community scrapers on GitHub/Apify fight it). Verdict: valuable data (public-betting %, sharp action) actively hardened AGAINST programmatic access — the opposite of agent-friendly.",
+    "evidence": "https://www.actionnetwork.com/robots.txt ; /llms.txt 404 ; github.com/nkasmanoff/scrape_action, automatio.ai anti-bot notes"
+   },
+   {
+    "item": "forebet.com",
+    "detail": "robots.txt: maximally permissive (User-agent: *, empty Disallow, no sitemap). No llms.txt (404). No official API — third parties sell Apify scrapers of its 1X2/O-U/BTTS/corners predictions, proving demand for machine-readable prediction feeds that Forebet itself doesn't serve. Verdict: closest product analogue to evmax's match-prediction page (math-model predictions, free) but zero agent packaging; its predictions are only reachable by scraping HTML.",
+    "evidence": "https://www.forebet.com/robots.txt ; /llms.txt 404 ; apify.com/rikunk/forebet-scraper (third-party scraper API)"
+   },
+   {
+    "item": "footystats.org",
+    "detail": "Most sophisticated crawler policy in the set: explicit per-AI-bot Crawl-delay rules — ClaudeBot delay 1 (effectively welcomed), PerplexityBot 10, meta-externalagent 10, Applebot 20 — no blocks on GPTBot/Google-Extended/CCBot either. BUT User-agent:* Disallows /api/club*, /api/team*, /api/match* — protecting its business: the only PUBLIC, DOCUMENTED API in the set (footystats.org/api, paid subscription, per-league selection; JSON for leagues/matches/teams/players/referees, BTTS/O2.5/corners/cards). No llms.txt (404). Massive multilingual sitemap farm (h2h, predictions, players). Verdict: competing for AI-crawl visibility of its HTML pages while monetizing data via paid API — the closest strategic competitor on the 'API rung' of evmax's ladder, but no free tier and no llms.txt.",
+    "evidence": "https://footystats.org/robots.txt (ClaudeBot Crawl-delay: 1 quoted) ; https://footystats.org/api/documentations/ (paid JSON API docs) ; /llms.txt 404"
+   },
+   {
+    "item": "CONCLUSION — competitive gap",
+    "detail": "Scoreboard: llms.txt 1/11 (dimers only); active AI-crawler blocking 1/11 (theanalyst only); public documented API 1/11 (footystats, paid only); the remaining 8 are passively open but structurally useless to agents (paywalled numbers, no JSON, no llms.txt). Nobody in the FPL/fantasy vertical (fplreview, scout, hub, fix, livefpl) has ANY agent surface — evmax's combination (llms.txt + free per-article JSON + crawler allow-list + transparent methodology) is unique in its direct category today. Biggest opportunities: (1) World Cup NOW — theanalyst's AI-block + oddschecker/actionnetwork's bot-hardening mean agents answering 'who wins X vs Y / best captain' have almost no citable quantitative source; (2) August FPL pivot — livefpl's and fplreview's total absence of agent surface is the whitespace; (3) API rung — footystats proves paid-JSON demand and Apify's Forebet scrapers prove free-prediction-feed demand; a free-tier JSON API undercuts both. Watch-list: dimers (only competitor thinking about LLM optimization — monitor if Cipher Sports extends it to soccer/fantasy) and footystats (already ClaudeBot-friendly; could add llms.txt cheaply).",
+    "evidence": "Aggregate of all robots.txt/llms.txt fetches above, 2026-07-03"
+   }
+  ]
+ },
+ "retrieval": {
+  "summary": "Retrieval-share test across 13 live queries (July 2026): evmax.pages.dev appears in ZERO result sets, including a direct brand search (the \"evmax\" namespace is polluted by EV-charger companies). Retrieval is dominated by four fantasy-content incumbents (allaboutfpl.com, rotowire.com, fantasyfootballscout.co.uk, fantasyfootballhub.co.uk), the official premierleague.com (total monopoly on captain queries), and big media (yahoo/fox/espn) on predictions/betting queries. However, evmax's exact core competency — simulation/xPts/Monte-Carlo queries — has the WEAKEST incumbents: hobby one-page simulators, substacks, GitHub repos, arxiv papers and even PBN spam occupy top slots, and young low-authority sites (fplcopilot.com, thefantasytool.com, fantalens.com) already rank #1 there, proving these queries are winnable without domain authority. Biggest gaps to attack now: \"world cup fantasy expected points simulation\", \"world cup 2026 simulation odds\", \"monte carlo simulation fantasy football\", \"fpl expected points model\", \"football match predictions statistical model\". Hardest to win: captain-pick and best-team queries (premierleague.com / rotowire / allaboutfpl entrenched) and match-prediction/betting queries (big media + sportsbooks).",
+  "findings": [
+   {
+    "item": "Q1: world cup fantasy round of 16 captain picks",
+    "detail": "Domain order: rotowire.com, allaboutfpl.com (4 slots), fantasyfootballscout.co.uk, thefantasytool.com. Two-horse race: RotoWire #1, AllAboutFPL owns volume. Medium difficulty — no simulation-based content in top slots, all editorial opinion.",
+    "evidence": "https://www.rotowire.com/soccer/article/world-cup-fantasy-round-of-16-best-players-differentials-120715; https://allaboutfpl.com/2026/07/world-cup-fantasy-2026-best-differentials-for-md5-round-of-16/"
+   },
+   {
+    "item": "Q2: world cup fantasy best team round of 16",
+    "detail": "Domain order: rotowire.com, allaboutfpl.com (2), play.fifa.com (official game), fantasyfootballhub.co.uk (still ranking its stale R32 guide for an R16 query — freshness gap), fantasyfootballscout.co.uk. Same incumbents as Q1.",
+    "evidence": "fantasyfootballhub.co.uk/world-cup-fantasy-tips-ultimate-guide is a Round-of-32 article ranking for a Round-of-16 query"
+   },
+   {
+    "item": "Q3: world cup round of 16 predictions",
+    "detail": "Domain order: sports.yahoo.com (3 slots), foxsports.com (2), defirate.com, si.com. Big-media lockout — NOT winnable head-on; only angle is the statistical/model-based long-tail variant of the query.",
+    "evidence": "https://sports.yahoo.com/soccer/betting/article/world-cup-round-of-16-picks-predictions-best-bets-...; https://www.foxsports.com/stories/soccer/2026-world-cup-round-16-odds"
+   },
+   {
+    "item": "Q4: world cup 2026 simulation odds — WINNABLE",
+    "detail": "Domain order: natesilver.net (substack), neilpaine.substack.com, espn.com, football-md.com, worldcup26simulator.slowdownindustries.com, wc2026sim.com, profootballnetwork.com, defirate.com, 2026worldcupsim.com. Besides ESPN, the top 10 is substacks and single-purpose hobby domains registered for this event. Exactly evmax's core competency (50k Monte-Carlo sims) and the incumbents have near-zero authority.",
+    "evidence": "wc2026sim.com and worldcup26simulator.slowdownindustries.com — throwaway hobby domains — hold top-6 slots"
+   },
+   {
+    "item": "Q5: best fpl captain this gameweek — LOCKED",
+    "detail": "premierleague.com holds ALL 9 result slots (its weekly 'Who is the best FPL captain for Gameweek N' series). Official-site monopoly; do not target the head term for August FPL pivot — target modifier variants ('captain EV', 'captain expected points', 'data-driven captain pick') instead.",
+    "evidence": "9/9 results = premierleague.com/en/news/... captain articles"
+   },
+   {
+    "item": "Q6: fpl expected points model — WINNABLE, proof of concept exists",
+    "detail": "Domain order: fplcopilot.com (2 slots incl. #1), attackingfootball.com, github.com, fploptimized.com, fantasyfootballpundit.com, medium.com, arxiv.org (3 filler slots). A young tool site (FPL Copilot) outranks everyone, and a third of the top 10 is arxiv PDFs/Medium posts — direct evidence a low-authority site with a good explainer + live xPts table wins this class of query. This is the August battleground for evmax.",
+    "evidence": "https://fplcopilot.com/blog/expected-points-explained ranks #1; arxiv.org PDFs occupy 3 of 10 slots"
+   },
+   {
+    "item": "Q7: fantasy premier league best value players",
+    "detail": "Domain order: fantasyfootballpundit.com, premierleague.com (3), allaboutfpl.com, fantasy.premierleague.com, rotowire.com, fantasyfootballhub.co.uk. Official + incumbents, but fantasyfootballpundit (mid-size) is #1 with a points-per-million table — a data-table format evmax's EV-per-price output directly matches/beats. Moderately winnable with a live-updating value table.",
+    "evidence": "https://www.fantasyfootballpundit.com/fpl-best-value-players-points-per-million/ at #1"
+   },
+   {
+    "item": "Q8: world cup fantasy differentials",
+    "detail": "Domain order: allaboutfpl.com (3), rotowire.com (3), play.fifa.com, fantasyfootballscout.co.uk. Duopoly (AllAboutFPL + RotoWire). Note: the game's <5% scouting bonus makes differential EV a genuinely quantitative question that neither incumbent computes — evmax's sims can answer it with actual numbers (P(4+ pts | ownership<5%)).",
+    "evidence": "Top-8 slots split entirely between allaboutfpl.com and rotowire.com plus official FIFA pages"
+   },
+   {
+    "item": "Q9: football match predictions statistical model — WEAK/SPAMMY",
+    "detail": "Domain order: thedatabetics.com, ncbi.nlm.nih.gov (2), mas.ncl.ac.uk, arxiv.org (2), cherwellcricketleague.com (a cricket-league site hosting an SEO parasite page — literal PBN spam in top 5), frontiersin.org. No real commercial incumbent; academic PDFs + one small blog + spam. A transparent methodology page ('how our Poisson/Monte-Carlo model works') is highly winnable and is prime LLM-citation material.",
+    "evidence": "cherwellcricketleague.com/img/pgs/how-to-predict-the-results-of-football-matches-using-statistical-models.html — parasite SEO page ranking top-5"
+   },
+   {
+    "item": "Q10: expected goals predictions this week",
+    "detail": "Domain order: betshoot.com, xgscore.io (2), squawka.com, oddalerts.com, expectedscore.com, footystats.org, scoresahead.com, understat.com, allaboutfpl.com. Fragmented xG-tools niche, no dominant player, several thin sites (expectedscore.com, scoresahead.com). Winnable with a weekly auto-generated xG-predictions page; understat (the best-known brand) ranks only 9th.",
+    "evidence": "Nine different domains in 10 slots; no domain holds more than 2"
+   },
+   {
+    "item": "Q11: world cup fantasy expected points simulation — MOST WINNABLE, direct competitors identified",
+    "detail": "Domain order: thefantasytool.com (3 slots incl. #1), fantalens.com (#2), fantasysportscentral.com, profootballnetwork.com, play.fifa.com, fantasyfootballscout.co.uk, cupsimulator.com, fantasyfootballhub.co.uk. This is evmax's EXACT product query and the winners are two small, young tool sites (TheFantasyTool, FantaLens) with no big-brand competition. These are the true head-to-head competitors — study their pages; outranking them is the clearest near-term goal.",
+    "evidence": "https://thefantasytool.com/fifa-world-cup-fantasy and https://fantalens.com/ hold the top slots with xPts-per-round tables"
+   },
+   {
+    "item": "Q12: fpl differentials (next season)",
+    "detail": "Domain order: nevermanagealone.com, allaboutfpl.com (5 slots), fantasyfootballscout.co.uk, sports.yahoo.com, premierleague.com. AllAboutFPL saturates via weekly GW-templated posts — their moat is publishing cadence, not quality. To compete in August, evmax needs per-gameweek templated URLs published on a fixed schedule.",
+    "evidence": "allaboutfpl.com holds 5 of 9 slots with 'Top FPL GWnn Differential Picks' template pages"
+   },
+   {
+    "item": "Q13: monte carlo simulation fantasy football captain — WIDE OPEN",
+    "detail": "Domain order: github.com (3), papers.ssrn.com, srome.github.io, isaactpetersen.github.io, medium.com, richabdill.com. ZERO commercial products rank; entirely code repos, academic papers and personal blogs. Any polished consumer page pairing 'Monte Carlo' + captain EV would own this cluster — and this is precisely the query shape LLM agents emit when a user asks for simulation-based fantasy advice.",
+    "evidence": "Top 8 = GitHub repos, SSRN, personal .github.io pages; no product site at all"
+   },
+   {
+    "item": "Q14: fpl points projection tool free",
+    "detail": "Domain order: fantasyfootballpundit.com, fplreview.com, fplform.com, fantasyfootballhub.co.uk, fploptimized.com, fplcopilot.com, sportsdunia.com, fpl.team. Crowded tool niche but ALL are small/indie (fplreview is the community standard). Differentiators none of them have: de-vigged market odds as input, transparent methodology, free JSON API, ceilings/distributions rather than point estimates.",
+    "evidence": "Eight indie tool domains; no incumbent with major authority"
+   },
+   {
+    "item": "Q15: world cup round of 16 best bets odds analysis",
+    "detail": "Domain order: foxsports.com (3), sports.yahoo.com, espn.com, vegasinsider.com, covers.com, draftkings.com, cbssports.com, totalfootballanalysis.com. Sportsbook/media lockout — not winnable directly, but relevant as the affiliate end of the monetization ladder; evmax's angle is 'model vs market' content, not 'best bets'.",
+    "evidence": "7 of 10 slots are national media or sportsbooks"
+   },
+   {
+    "item": "evmax visibility: ZERO, plus a brand-collision problem",
+    "detail": "evmax.pages.dev appeared in none of the 15 result sets. An exact-phrase search for \"evmax.pages.dev\" returns only EV-charger companies (evmax.maxlite.com, evmax.us), an EV-dealership GitHub project, and evmax.com (parked). Implications: (1) the site is likely barely indexed — verify Google/Bing indexing and submit sitemaps immediately; (2) the brand name has heavy existing-entity collision in search/LLM knowledge, which suppresses brand-query retrieval — consider whether the agent-facing identity should always be written as a fuller distinctive phrase (e.g. 'evmax fantasy simulations') in titles/llms.txt/structured data, since bare 'evmax' resolves to electric-vehicle entities.",
+    "evidence": "Search \"evmax.pages.dev\" top results: github.com/nathan-dinh-dev/EVMax (EV dealership app), evmax.us, evmax.maxlite.com — zero fantasy-football results"
+   },
+   {
+    "item": "Aggregate retrieval-share leaderboard (appearances across 15 queries)",
+    "detail": "allaboutfpl.com: 6 queries (~17 slots, cadence-driven). rotowire.com: 5 queries (usually #1 for WC fantasy). fantasyfootballscout.co.uk: 5. fantasyfootballhub.co.uk: 4. premierleague.com: 3 queries but 100% of the captain query. Big media (yahoo/fox/espn/cbs): own all betting/prediction queries. thefantasytool.com: 3 (closest direct competitor). fplcopilot.com, fantalens.com: young xPts sites already winning model-queries. Strategic read: evmax cannot beat cadence-incumbents on opinion content or media on news, but the simulation/model/methodology query cluster (Q4, Q6, Q9, Q11, Q13, Q14) has low-authority or non-commercial incumbents across the board — that cluster is the beachhead, it matches evmax's product exactly, and it is the query shape LLMs use when users ask for data-driven picks. Two immediate actions: fix indexing/brand entity now during World Cup peak, and pre-build templated per-gameweek xPts/captain-EV pages before the August FPL launch to compete on AllAboutFPL's cadence with FPL Copilot's format.",
+    "evidence": "Tally across the 15 query result sets above"
+   }
+  ]
+ }
+}

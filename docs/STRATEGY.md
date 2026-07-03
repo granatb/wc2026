@@ -36,6 +36,7 @@ One odds/simulation engine feeding two flywheels:
 | 07-03 | Backtesting: build now — trust layer, premium unlock, comparison-article fuel |
 | 07-03 | Reddit: disclosed human-in-the-loop account, model-generated content, 90/10 rule; NO covert automation |
 | 07-03 | FPL pivot in August (empirically de-risked: decade of tolerated commercial FPL tooling); Holdet gated on ToS check |
+| 07-03 | Competitor landscape done: agent surface unclaimed (1/11 has llms.txt, Opta BLOCKS AI crawlers = citation vacuum); beachhead = simulation/methodology query cluster; wedges = R16-now, FPL-templated-Aug, fantasy-EV social graphics |
 
 ## 4. Legal / ToU guardrails (standing policy)
 
@@ -54,8 +55,8 @@ One odds/simulation engine feeding two flywheels:
 
 **Done:** per-intent article pages, JSON per article, `llms.txt`, robots allow-list (GPTBot/ClaudeBot/PerplexityBot/…), schema.org Dataset+Article, stat-dense LLM prose, dates.
 
-**To do (priority order):**
-1. **Buy real domain** (evmax.com/.io) and attach — `*.pages.dev` subdomain caps trust/brand equity. ~$10/yr.
+**To do (priority order):** *(competitor landscape 07-03: `docs/research/2026-07-03-competitor-landscape.md` — evmax had ZERO retrieval presence across 15 target queries and the "evmax" entity collides with EV-charger brands; items 1-2 gate everything else)*
+1. **Buy real domain + entity disambiguation** — evmax.com is parked (EV-charger collision on the name); attach owned domain, and phrase titles/llms.txt/schema as "evmax fantasy simulations"-style to disambiguate the entity.
 2. **Bing Webmaster + IndexNow** (Perplexity/Copilot ride Bing; near-zero competition) + **Google Search Console**.
 3. **Track-record page** (see §7) — the authority asset.
 4. **Comparison articles** ("our EV vs consensus picks; who was right") each round.
