@@ -91,7 +91,7 @@ One odds/simulation engine feeding two flywheels:
 
 Principle: **the engine is the product; everything else is distribution.**
 - Measurement first: backtesting harness (§7) + proper scoring rules, so every model change is judged on evidence.
-- Deep-research program into state-of-the-art improvements launched 2026-06-24 (results → `docs/research/`): score models beyond Dixon-Coles, de-vig methods (Shin), minutes projection, player event rates (xG/xA-based), joint simulation/correlation, portfolio+ownership game theory, Bayesian in-tournament updating, ML benchmarks, validation/calibration.
+- Deep-research program COMPLETED 2026-06-24: 99 methods / 9 domains → roadmap at `docs/research/2026-06-24-engine-improvement-roadmap.md` (corpus JSON alongside). Headline: the −2.3 xPts gap likely traces to proportional de-vig + 1X2-only λ inversion (documented −0.10–0.15 goals/team under-recovery; AH probabilities are unbiased). Domains covered: score models beyond Dixon-Coles, de-vig methods (Shin), minutes projection, player event rates (xG/xA-based), joint simulation/correlation, portfolio+ownership game theory, Bayesian in-tournament updating, ML benchmarks, validation/calibration.
 - Known weaknesses to attack: xPts run low vs Rotowire (~2.3 pts, R2 audit); minutes model is crude (starters=60'); MID defensive contribution is an estimate; blend weights hand-set; no ownership/rank game theory in public picks.
 
 ## 10. Build backlog (priority order)
