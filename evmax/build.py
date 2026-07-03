@@ -151,8 +151,22 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # JSON
         env = render.article_json("fifa_world_cup_fantasy", fantasy_round, slug,
                                   title, generated_at, sims, entries)
-        w(json_url, json.dumps(env, ensure_ascii=False, indent=2))
+        env_json = json.dumps(env, ensure_ascii=False, indent=2)
+        w(json_url, env_json)
         latest_index[slug] = json_url
+
+        # Point-in-time projection archive (track-record ground truth). Only
+        # written while the round is still open: once the first match kicks off,
+        # the published snapshot is frozen so post-hoc rebuilds can never
+        # contaminate the record we grade ourselves against.
+        lock = fixtures.round_lock_time(fantasy_round)
+        if lock is None or datetime.now(timezone.utc) < lock:
+            snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "assets", "projections", f"round-{fantasy_round}")
+            os.makedirs(snap_dir, exist_ok=True)
+            with open(os.path.join(snap_dir, f"{slug}.json"), "w",
+                      encoding="utf-8") as fh:
+                fh.write(env_json)
 
         # HTML
         w(f"/round/{fantasy_round}/{slug}/index.html",
