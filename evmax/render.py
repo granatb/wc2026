@@ -214,11 +214,14 @@ _STYLE = (
 
 
 def _nav_html(active=None):
-    """Fixed site nav, identical on every page. active ∈ {'home','about',None}."""
+    """Fixed site nav, identical on every page.
+    active ∈ {'home','about','track-record',None}."""
     home_cls = ' class="on"' if active == "home" else ""
+    track_cls = ' class="on"' if active == "track-record" else ""
     about_cls = ' class="on"' if active == "about" else ""
     items = [
         f'<a href="/"{home_cls}>Home</a>',
+        f'<a href="/track-record/"{track_cls}>Track record</a>',
         '<a class="soon">Build a team</a>',
         '<a class="soon">Analyse a sub</a>',
         f'<a href="/about/"{about_cls}>About</a>',
@@ -499,6 +502,210 @@ def match_predictions_html(entries: list) -> str:
     return f'<style>{_MATCH_CSS}</style>' + "".join(lead_parts) + grid
 
 
+_TRACK_RECORD_CSS = (
+    ".tr-badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;"
+    "letter-spacing:.6px;padding:3px 10px;border-radius:20px}"
+    ".tr-badge.final{background:#eaf5ee;color:var(--greend)}"
+    ".tr-badge.pending{background:var(--chipbg);color:var(--ink3)}"
+    ".tr-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:24px 26px;margin-bottom:24px}"
+    ".tr-card h2{font-size:20px;font-weight:800;letter-spacing:-.3px;margin:0}"
+    ".tr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;"
+    "flex-wrap:wrap;margin-bottom:14px}"
+    ".tr-claim{font-family:var(--serif);font-size:16.5px;color:var(--ink2);line-height:1.55;"
+    "margin-bottom:16px}"
+    ".tr-claim b{color:var(--ink)}"
+    ".tr-table-wrap{overflow-x:auto}"
+    "table.tr-metrics{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}"
+    "table.tr-metrics th{text-align:right;font-size:10.5px;font-weight:700;letter-spacing:.8px;"
+    "text-transform:uppercase;color:var(--ink3);padding:8px 8px;border-bottom:2px solid var(--ink)}"
+    "table.tr-metrics th:first-child,table.tr-metrics td:first-child{text-align:left}"
+    "table.tr-metrics td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;"
+    "font-variant-numeric:tabular-nums}"
+    "table.tr-metrics td.na{color:var(--ink3)}"
+    ".tr-misses{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px}"
+    ".tr-misses h3{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;"
+    "color:var(--acc);margin-bottom:8px}"
+    ".tr-misses li{font-size:14px;color:var(--ink2);line-height:1.55;margin-bottom:6px;"
+    "margin-left:18px}"
+    ".tr-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));"
+    "gap:14px;margin:18px 0 8px}"
+    ".tr-stat{background:var(--surf);border:1px solid var(--line);border-radius:12px;"
+    "padding:14px 16px}"
+    ".tr-stat b{display:block;font-size:24px;font-weight:800;color:var(--green)}"
+    ".tr-stat span{font-size:12px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px}"
+)
+
+
+def _tr_badge(status: str) -> str:
+    label = "Final" if status == "final" else (
+        "Results pending" if status == "pending" else "No snapshot")
+    cls = status if status in ("final", "pending") else "pending"
+    return f'<span class="tr-badge {cls}">{_html.escape(label)}</span>'
+
+
+def _tr_metrics_table(grades: dict) -> str:
+    rows = []
+    for slug in sorted(grades):
+        g = grades[slug]
+        label = _html.escape(slug.replace("-", " ").title())
+        if not g.get("graded"):
+            reason = _html.escape(g.get("reason", "not graded"))
+            rows.append(
+                f'<tr><td>{label}</td><td class="na" colspan="5">{reason}</td></tr>')
+            continue
+        mae = f'{g["mae"]:.2f}' if g.get("mae") is not None else "—"
+        rho = f'{g["spearman"]:.2f}' if g.get("spearman") is not None else "—"
+        tp = g.get("top_pick") or {}
+        bi = g.get("best_in_list") or {}
+        tp_str = (f'{_html.escape(tp.get("name",""))} '
+                  f'({tp.get("projected", 0):.1f}→{tp.get("realized", 0):.1f})') if tp else "—"
+        bi_str = (f'{_html.escape(bi.get("name",""))} '
+                  f'({bi.get("realized", 0):.1f})') if bi else "—"
+        matched = f'{g.get("matched", 0)}/{g.get("total", 0)}'
+        rows.append(
+            f'<tr><td>{label}</td><td>{mae}</td><td>{rho}</td>'
+            f'<td>{matched}</td><td>{tp_str}</td><td>{bi_str}</td></tr>')
+    return (
+        '<div class="tr-table-wrap"><table class="tr-metrics"><thead><tr>'
+        '<th>Article</th><th>MAE</th><th>Rank corr.</th><th>Matched</th>'
+        '<th>Top pick (proj.→real)</th><th>Best in list (real)</th>'
+        '</tr></thead><tbody>' + "".join(rows) + '</tbody></table></div>'
+    )
+
+
+def _tr_headline_claim(round_no: int, grades: dict) -> str:
+    """The headline claims-vs-reality line: top captain projected vs realized,
+    and best-XI projected vs realized totals, when available."""
+    parts = []
+    cap = grades.get("captains")
+    if cap and cap.get("graded") and cap.get("top_pick"):
+        tp = cap["top_pick"]
+        parts.append(
+            f'Our top captain pick, <b>{_html.escape(tp["name"])}</b>, was projected '
+            f'<b>{tp["projected"]:.1f}</b> pts and actually scored '
+            f'<b>{tp["realized"]:.1f}</b>.')
+    xi = grades.get("best-xi")
+    if xi and xi.get("graded") and xi.get("xi_projected_total") is not None:
+        parts.append(
+            f'The published best XI projected <b>{xi["xi_projected_total"]:.1f}</b> total '
+            f'points; it actually scored <b>{xi["xi_realized_total"]:.1f}</b>.')
+    if not parts:
+        parts.append("No graded headline claims for this round yet.")
+    return " ".join(parts)
+
+
+def _track_record_round_card(round_data: dict) -> str:
+    round_no = round_data["round"]
+    status = round_data["status"]
+    badge = _tr_badge(status)
+    header = (f'<div class="tr-head"><h2>Round {round_no}</h2>{badge}</div>')
+
+    if status != "final":
+        body = ('<p class="tr-claim">This round is still in progress — matches have not '
+                'all finished, so we have not graded it yet. The published prediction '
+                'snapshot is already frozen and will be graded automatically once the '
+                'round completes.</p>')
+        return f'<div class="tr-card">{header}{body}</div>'
+
+    grades = round_data.get("grades", {})
+    claim = _tr_headline_claim(round_no, grades)
+    table = _tr_metrics_table(grades)
+    coverage = round_data.get("coverage") or {}
+    cov_note = ""
+    if coverage.get("total"):
+        cov_note = (f'<p style="font-size:12px;color:var(--ink3);margin-top:10px">'
+                    f'Name-match coverage vs the official FIFA fantasy feed: '
+                    f'{coverage.get("matched", 0)}/{coverage.get("total", 0)} players.</p>')
+
+    misses = round_data.get("misses") or []
+    misses_html = ""
+    if misses:
+        items = "".join(f'<li>{_html.escape(m)}</li>' for m in misses)
+        misses_html = (f'<div class="tr-misses"><h3>Honest misses</h3>'
+                       f'<ul>{items}</ul></div>')
+
+    return (f'<div class="tr-card">{header}'
+           f'<p class="tr-claim">{claim}</p>{table}{cov_note}{misses_html}</div>')
+
+
+def track_record_page(record: dict) -> str:
+    """/track-record/ — the site's credibility layer. Deterministic text only:
+    every number here comes straight from evmax.backtest, no LLM prose, because
+    trust requires that this specific page never has room for a model to shade
+    the truth."""
+    rounds = record.get("rounds", [])
+    summary = record.get("summary", {})
+
+    cards = "".join(_track_record_round_card(r) for r in rounds)
+
+    mae = summary.get("mean_captain_mae")
+    rho = summary.get("mean_spearman")
+    graded_n = summary.get("rounds_graded", 0)
+    summary_stats = (
+        '<div class="tr-summary">'
+        f'<div class="tr-stat"><b>{graded_n}</b><span>Rounds graded</span></div>'
+        f'<div class="tr-stat"><b>{f"{mae:.2f}" if mae is not None else "—"}</b>'
+        f'<span>Mean captain MAE</span></div>'
+        f'<div class="tr-stat"><b>{f"{rho:.2f}" if rho is not None else "—"}</b>'
+        f'<span>Mean rank correlation</span></div>'
+        '</div>'
+    )
+
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Every prediction, graded | {BRAND_SUFFIX}</title>
+<meta name="description" content="evmax grades its own published World Cup Fantasy predictions against official FIFA fantasy points, misses included. No cherry-picking — every round, every article.">
+{GSC_META_TAG}
+{_FONTS}
+<style>{_STYLE}{_TRACK_RECORD_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
+</div></header>
+<div class="wrap">
+<article class="art" style="max-width:820px">
+<div class="kick">Accountability</div>
+<h1>Every prediction, graded</h1>
+<p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
+snapshot. Once the round finishes, we grade that exact snapshot against the official FIFA
+World Cup Fantasy points — no do-overs, no rebuilding the model after the fact. Misses are
+shown alongside hits.</p>
+{summary_stats}
+<div class="pagelabel" style="margin-top:8px">By round, newest first</div>
+{cards}
+<p class="method"><b>Method.</b> {METHODOLOGY} Grading: MAE compares our projected
+expected points to realized official points across matched entries; rank correlation
+(Spearman) checks whether our ordering matched reality, not just our top pick; captain
+regret is the gap between the best-scoring player in our own published list and the one we
+actually named captain. A round is graded only once every one of its fixtures has finished.</p>
+</article>
+</div>
+{_footer_html()}</body></html>"""
+
+
+def track_record_json(record: dict) -> dict:
+    """/api/track-record.json — machine-readable grading history."""
+    return {
+        "competition": "fifa_world_cup_fantasy",
+        "title": "evmax track record — graded predictions",
+        "methodology": METHODOLOGY,
+        "grading_methodology": (
+            "Predictions are frozen at round lock as point-in-time JSON snapshots. Once "
+            "every fixture in a round reaches a final status, each snapshot is graded "
+            "against official FIFA World Cup Fantasy points: MAE (projected vs realized), "
+            "Spearman rank correlation (our order vs realized order), top-pick vs "
+            "best-in-list, and (captains) captain regret. Fixture 1X2 grading for the "
+            "matches article is not yet implemented."),
+        "rounds": record.get("rounds", []),
+        "summary": record.get("summary", {}),
+        "source": SITE_URL,
+        "license": DATA_LICENSE_URL,
+        "license_text": DATA_LICENSE_TEXT,
+    }
+
+
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
                  generated_at=None, date_str=None, show_table=True):
     """v2 editorial article page.
@@ -686,7 +893,17 @@ def llms_txt(round_no, nav):
     for slug, title in nav:
         lines.append(f"- [{title}]({SITE_URL}/round/{round_no}/{slug}/) — "
                      f"data: {SITE_URL}/api/round/{round_no}/{slug}.json")
-    lines += ["", "## API", f"- Article index: {SITE_URL}/api/latest.json"]
+    lines += [
+        "",
+        "## Track record",
+        f"- [Every prediction, graded]({SITE_URL}/track-record/) — our published "
+        "predictions graded against official FIFA fantasy points, misses included. "
+        f"data: {SITE_URL}/api/track-record.json",
+        "",
+        "## API",
+        f"- Article index: {SITE_URL}/api/latest.json",
+        f"- Graded prediction accuracy: {SITE_URL}/api/track-record.json",
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -698,7 +915,7 @@ def robots_txt():
 
 def sitemap_xml(round_no, nav):
     urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
-            f"{SITE_URL}/round/{round_no}/"]
+            f"{SITE_URL}/track-record/", f"{SITE_URL}/round/{round_no}/"]
     urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
     items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'

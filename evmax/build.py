@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timezone
 
 from core import engine_events, espn, fixtures, research
-from evmax import articles, render, writer
+from evmax import articles, backtest, render, writer
 
 # Google Search Console site-verification file (HTML-file method). Regenerated on
 # every build so it survives a dist/ wipe rather than relying on a one-off manual
@@ -179,6 +179,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/about/index.html", render.about_page())
     w("/privacy/index.html", render.privacy_page())
 
+    # --- Track record (backtest our own published predictions vs reality) ---
+    record = backtest.build_track_record()
+    w("/track-record/index.html", render.track_record_page(record))
+    w("/api/track-record.json", json.dumps(
+        render.track_record_json(record), ensure_ascii=False, indent=2))
+
     # --- Self-hosted fonts (see render._FONTS: no third-party requests, GDPR) ---
     import shutil
     fonts_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
@@ -242,6 +248,15 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks Google's
     # exact-path verification check. Force this one path to serve as-is.
     w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n")
+
+    # --- IndexNow key file (see scripts/deploy.sh) ---
+    # IndexNow requires a plaintext file at /<key>.txt containing exactly the key,
+    # proving control of the domain before search engines accept push notifications.
+    indexnow_key_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "assets", "indexnow_key.txt")
+    with open(indexnow_key_path, encoding="utf-8") as fh:
+        indexnow_key = fh.read().strip()
+    w(f"/{indexnow_key}.txt", indexnow_key + "\n")
 
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles)")
