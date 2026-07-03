@@ -155,12 +155,14 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         w(json_url, env_json)
         latest_index[slug] = json_url
 
-        # Point-in-time projection archive (track-record ground truth). Only
-        # written while the round is still open: once the first match kicks off,
-        # the published snapshot is frozen so post-hoc rebuilds can never
-        # contaminate the record we grade ourselves against.
+        # Point-in-time projection archive (track-record ground truth). Two guards:
+        # (1) production builds only (out == "dist") — test/verification builds to
+        #     /tmp must never touch the published record (a subagent caught a real
+        #     overwrite this way); (2) round still open — once the first match kicks
+        #     off, the snapshot freezes so post-hoc rebuilds can't contaminate it.
         lock = fixtures.round_lock_time(fantasy_round)
-        if lock is None or datetime.now(timezone.utc) < lock:
+        is_production = os.path.basename(os.path.normpath(out)) == "dist"
+        if is_production and (lock is None or datetime.now(timezone.utc) < lock):
             snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "assets", "projections", f"round-{fantasy_round}")
             os.makedirs(snap_dir, exist_ok=True)
