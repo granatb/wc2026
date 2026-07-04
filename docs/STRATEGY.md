@@ -36,6 +36,11 @@ One odds/simulation engine feeding two flywheels:
 | 07-03 | Backtesting: build now — trust layer, premium unlock, comparison-article fuel |
 | 07-03 | Reddit: disclosed human-in-the-loop account, model-generated content, 90/10 rule; NO covert automation |
 | 07-03 | FPL pivot in August (empirically de-risked: decade of tolerated commercial FPL tooling); Holdet gated on ToS check |
+| 07-04 | Domain: evmax.ai bought (rename options rejected — collision judged minor vs. momentum; entity-qualified titles instead) |
+| 07-04 | Data license: CC BY 4.0 (reuse-with-attribution = the growth strategy, formalized) |
+| 07-04 | Zero-cookie/zero-third-party posture locked in (self-hosted fonts; no analytics until a cookieless one is chosen) |
+| 07-04 | Newsletter: Buttondown, no-JS form (account registration pending) |
+| 07-04 | Engine changes are evidence-gated: Shin/power de-vig implemented but default held (bake-off n=0 — cache bug found+fixed; gate opens with accumulated closing lines, realistically FPL season) |
 | 07-03 | Competitor landscape done: agent surface unclaimed (1/11 has llms.txt, Opta BLOCKS AI crawlers = citation vacuum); beachhead = simulation/methodology query cluster; wedges = R16-now, FPL-templated-Aug, fantasy-EV social graphics |
 
 ## 4. Legal / ToU guardrails (standing policy)
@@ -94,6 +99,19 @@ Principle: **the engine is the product; everything else is distribution.**
 - Measurement first: backtesting harness (§7) + proper scoring rules, so every model change is judged on evidence.
 - Deep-research program completed 2026-07-03: 99 methods / 9 domains → roadmap at `docs/research/2026-07-03-engine-improvement-roadmap.md` (corpus JSON alongside). Headline: the −2.3 xPts gap likely traces to proportional de-vig + 1X2-only λ inversion (documented −0.10–0.15 goals/team under-recovery; AH probabilities are unbiased). Domains covered: score models beyond Dixon-Coles, de-vig methods (Shin), minutes projection, player event rates (xG/xA-based), joint simulation/correlation, portfolio+ownership game theory, Bayesian in-tournament updating, ML benchmarks, validation/calibration.
 - Known weaknesses to attack: xPts run low vs Rotowire (~2.3 pts, R2 audit); minutes model is crude (starters=60'); MID defensive contribution is an estimate; blend weights hand-set; no ownership/rank game theory in public picks.
+
+### §9 status — research → action (as of 07-04)
+| Roadmap item (research) | Status |
+|---|---|
+| Phase 0: measurement first (backtest harness, frozen snapshots) | ✅ SHIPPED — /track-record/ live, R3 graded (captain regret 16, XI 72.8→72.0), snapshots freeze at lock |
+| Quick win #1: Shin/power de-vig | ✅ code + tests + bake-off script; ⏸ default held by n≥40 evidence gate (n=0) |
+| Closing-line preservation (enables CLV/bake-offs) | ✅ FIXED — raw h2h/totals were being clobbered post-kickoff; now frozen |
+| AH-anchored λ (quick win #2) | ❌ blocked — ESPN feed has no Asian handicap; needs multi-book source (The Odds API/Betfair) |
+| Minutes model (quick win, highest impact) | ⬜ not started — top engine priority |
+| Scenario-matrix export (portfolio layer) | ⬜ not started |
+| ET/pens knockout correction | 🟡 lightweight version only (p_advance λ-share split in match predictions/transfers) |
+| Distributions-over-rankings philosophy | 🟡 partial — ceiling_ratio/"Safe floor" chips; validated by R3 grades (aggregates calibrated, rankings noisy) |
+| Bayesian in-tournament updating / hierarchical player priors / DR minute-sim | ⬜ backlog (L-sized) |
 
 ## 10. Build backlog (priority order)
 
