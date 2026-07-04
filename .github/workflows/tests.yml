@@ -1,0 +1,17 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run test suite
+        # Engine + site are stdlib-only; the anthropic SDK is optional (guarded import).
+        # Tests needing live cached data (data/ is gitignored) self-skip in CI.
+        run: python3 -m unittest discover -s tests -t . -v 2>&1 | tail -30
