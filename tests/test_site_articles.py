@@ -186,32 +186,6 @@ class EfficiencyTest(unittest.TestCase):
         self.assertEqual(out[0]["rank"], 1)
 
 
-class UpcomingRowsTest(unittest.TestCase):
-    def test_filters_to_rows_with_future_kickoff(self):
-        now = "2026-07-04T12:00:00+00:00"
-        rows = [
-            _row("NotYet", "FWD", 8.0),
-            _row("AlreadyPlaying", "MID", 7.0),
-            _row("NoKickoff", "DEF", 6.0),
-        ]
-        rows[0]["kickoff"] = "2026-07-04T18:00:00+00:00"   # future -> upcoming
-        rows[1]["kickoff"] = "2026-07-04T08:00:00+00:00"   # past -> excluded
-        rows[2]["kickoff"] = None                          # unknown -> excluded
-        out = articles.upcoming_rows(rows, now)
-        self.assertEqual([r["name"] for r in out], ["NotYet"])
-
-    def test_iso_string_comparison_is_safe_across_utc_strings(self):
-        """Both sides are UTC ISO-8601, so plain string comparison must agree with
-        real datetime ordering (no parsing needed)."""
-        now = "2026-07-04T17:00:00+00:00"
-        rows = [_row("Exact", "FWD", 5.0)]
-        rows[0]["kickoff"] = "2026-07-04T17:00:00+00:00"  # equal to now -> not upcoming
-        self.assertEqual(articles.upcoming_rows(rows, now), [])
-
-    def test_empty_input_returns_empty(self):
-        self.assertEqual(articles.upcoming_rows([], "2026-07-04T12:00:00+00:00"), [])
-
-
 class ByPositionTest(unittest.TestCase):
     def test_by_position_filters_and_ranks_by_xpoints(self):
         rows = [
@@ -255,12 +229,15 @@ class RiskyTest(unittest.TestCase):
 
 class ArticleSetTest(unittest.TestCase):
     def test_articles_list_has_correct_slugs(self):
-        expected = ["captains", "matches", "transfers", "best-xi", "defenders", "risky",
-                    "efficiency", "blowout-transfers"]
+        expected = ["captains", "matches", "fixtures", "transfers", "best-xi", "defenders",
+                    "risky", "efficiency", "blowout-transfers"]
         self.assertEqual(articles.ARTICLES, expected)
 
     def test_matches_is_second(self):
         self.assertEqual(articles.ARTICLES[1], "matches")
+
+    def test_fixtures_is_third(self):
+        self.assertEqual(articles.ARTICLES[2], "fixtures")
 
     def test_article_titles_match_articles(self):
         for slug in articles.ARTICLES:
@@ -382,10 +359,30 @@ class MatchPredictionsTest(unittest.TestCase):
         result = articles.match_predictions(self._ms, fantasy_round=3)
         required = {"match", "home", "away", "kickoff",
                     "exp_home_goals", "exp_away_goals", "exp_total",
-                    "top_scoreline", "p_home", "p_draw", "p_away", "close"}
+                    "top_scoreline", "p_home", "p_draw", "p_away", "close",
+                    "p_cs_home", "p_cs_away"}
         for entry in result:
             self.assertTrue(required.issubset(entry.keys()),
                             f"Missing keys: {required - entry.keys()}")
+
+    def test_p_cs_from_simulated_marginals(self):
+        """England (home) keeps a clean sheet whenever Senegal (away) is held to
+        0: (2,0)+(1,0) = 500... plus (0,0) with away=0 too -> (2,0)+(1,0)+(0,0)
+        = 300+200+100 = 600/1000 = 0.6. Senegal's clean sheet (England held to 0)
+        is (0,0)+(0,1)+(0,2) = 100+100+100 = 300/1000 = 0.3."""
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        england = next(e for e in result if e["home"] == "England")
+        self.assertAlmostEqual(england["p_cs_home"], 0.6, places=2)
+        self.assertAlmostEqual(england["p_cs_away"], 0.3, places=2)
+
+    def test_p_cs_fallback_uses_poisson_from_lambdas(self):
+        """When match_samples is empty, p_cs falls back to exp(-lam_opponent)."""
+        import math
+        result = articles.match_predictions({}, fantasy_round=3)
+        england = next(e for e in result if e["home"] == "England")
+        # fixture stub default lambdas: lam_home=1.5, lam_away=0.8
+        self.assertAlmostEqual(england["p_cs_home"], math.exp(-0.8), places=3)
+        self.assertAlmostEqual(england["p_cs_away"], math.exp(-1.5), places=3)
 
     def test_top_scoreline_format(self):
         result = articles.match_predictions(self._ms, fantasy_round=3)
@@ -559,6 +556,79 @@ class AdvancementMapTest(unittest.TestCase):
     def test_empty_when_group_round_matches_lack_advance_fields(self):
         matches = [{"home": "England", "away": "Senegal"}]
         self.assertEqual(articles.advancement_map(matches), {})
+
+
+class FixtureGuideTest(unittest.TestCase):
+    """articles.fixture_guide: one entry per team, ranked by clean-sheet prob,
+    tagged with a blowout/avoid/balanced goal environment."""
+
+    def _match_entries(self):
+        return [
+            {"home": "England", "away": "Senegal", "exp_home_goals": 2.5,
+             "exp_away_goals": 0.3, "exp_total": 2.8, "p_cs_home": 0.6, "p_cs_away": 0.05},
+            {"home": "Spain", "away": "Germany", "exp_home_goals": 1.0,
+             "exp_away_goals": 0.9, "exp_total": 1.9, "p_cs_home": 0.35, "p_cs_away": 0.3},
+        ]
+
+    def _rows(self):
+        return [
+            {"name": "Trippier", "team": "England", "position": "DEF", "x_points": 5.2},
+            {"name": "Walker", "team": "England", "position": "DEF", "x_points": 4.1},
+            {"name": "Pickford", "team": "England", "position": "GK", "x_points": 5.7},
+            {"name": "Mendy", "team": "Senegal", "position": "GK", "x_points": 3.0},
+        ]
+
+    def test_one_entry_per_team(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        names = {e["name"] for e in out}
+        self.assertEqual(names, {"England", "Senegal", "Spain", "Germany"})
+        self.assertEqual(len(out), 4)
+
+    def test_team_and_opponent_fields(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        england = next(e for e in out if e["name"] == "England")
+        self.assertEqual(england["team"], "vs Senegal")
+        self.assertEqual(england["position"], "—")
+
+    def test_sorted_by_clean_sheet_desc_with_rank(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        cs_values = [e["p_clean_sheet"] for e in out]
+        self.assertEqual(cs_values, sorted(cs_values, reverse=True))
+        self.assertEqual(out[0]["rank"], 1)
+        self.assertEqual(out[0]["name"], "England")  # p_cs_home=0.6, the max
+
+    def test_env_blowout_avoid_balanced_classification(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        # England/Senegal fixture: exp_total=2.8 -> balanced (< 3.0 blowout threshold)
+        england = next(e for e in out if e["name"] == "England")
+        self.assertEqual(england["env"], "balanced")
+        # Spain/Germany: exp_total=1.9 <= 2.1 -> avoid
+        spain = next(e for e in out if e["name"] == "Spain")
+        self.assertEqual(spain["env"], "avoid")
+
+    def test_blowout_env_when_exp_total_at_or_above_threshold(self):
+        matches = [{"home": "France", "away": "Panama", "exp_home_goals": 2.8,
+                    "exp_away_goals": 0.4, "exp_total": 3.2, "p_cs_home": 0.6, "p_cs_away": 0.05}]
+        out = articles.fixture_guide(matches, [])
+        self.assertEqual(out[0]["env"], "blowout")
+
+    def test_top_def_and_top_gk_are_best_by_xpoints(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        england = next(e for e in out if e["name"] == "England")
+        self.assertEqual(england["top_def"], "Trippier (5.2)")
+        self.assertEqual(england["top_gk"], "Pickford (5.7)")
+
+    def test_missing_position_renders_as_dash(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        spain = next(e for e in out if e["name"] == "Spain")
+        self.assertEqual(spain["top_def"], "—")
+        self.assertEqual(spain["top_gk"], "—")
+
+    def test_exp_goals_for_against_are_from_the_teams_own_perspective(self):
+        out = articles.fixture_guide(self._match_entries(), self._rows())
+        senegal = next(e for e in out if e["name"] == "Senegal")
+        self.assertEqual(senegal["exp_goals_for"], 0.3)
+        self.assertEqual(senegal["exp_goals_against"], 2.5)
 
 
 class TransferPrioritiesTest(unittest.TestCase):

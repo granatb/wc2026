@@ -39,6 +39,15 @@ class JsonEnvelopeTest(unittest.TestCase):
         self.assertIn("8.55", s)   # xPts
         self.assertIn("5.5", s)    # price
 
+    def test_summary_sentence_fixtures_mentions_clean_sheet_pct(self):
+        """fixtures entries have no x_points key -- summary_sentence must not fall
+        through to the generic branch, which would KeyError on x_points."""
+        entries = [{"name": "England", "team": "vs Senegal", "p_clean_sheet": 0.62,
+                    "exp_goals_for": 2.5, "exp_goals_against": 0.3, "env": "balanced"}]
+        s = render.summary_sentence("fixtures", entries)
+        self.assertIn("England", s)
+        self.assertIn("62%", s)
+
 
 class SvgChartTest(unittest.TestCase):
     def test_svg_contains_bars_and_labels(self):
@@ -187,6 +196,65 @@ class HtmlTest(unittest.TestCase):
             columns=["priority_score", "vor", "p_advance"],
             json_url="/api/round/5/transfers.json", viz_html=self.viz_html)
         self.assertIn("Advance risk", h)
+
+    def test_fixture_guide_columns_render_formatted_values(self):
+        entries = [
+            {"rank": 1, "name": "England", "team": "vs Senegal", "position": "—",
+             "p_clean_sheet": 0.62, "exp_goals_for": 2.5, "exp_goals_against": 0.3,
+             "env": "balanced", "top_def": "Trippier (5.2)", "top_gk": "Pickford (5.7)"},
+        ]
+        h = render.article_page(
+            round_no=5, article="fixtures", title="Fixture guide — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
+            json_url="/api/round/5/fixtures.json", viz_html=self.viz_html)
+        self.assertIn("62%", h)                # p_clean_sheet formatted as a percent
+        self.assertIn("Trippier (5.2)", h)     # top_def passthrough
+        self.assertIn("Pickford (5.7)", h)     # top_gk passthrough
+        self.assertIn("CS %", h)               # column header label
+        self.assertIn("Best DEF", h)
+        self.assertIn("Best GK", h)
+
+    def test_blowout_env_gets_blowout_chip(self):
+        entries = [
+            {"rank": 1, "name": "France", "team": "vs Panama", "position": "—",
+             "p_clean_sheet": 0.55, "exp_goals_for": 2.9, "exp_goals_against": 0.4,
+             "env": "blowout", "top_def": "—", "top_gk": "—"},
+        ]
+        h = render.article_page(
+            round_no=5, article="fixtures", title="Fixture guide — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
+            json_url="/api/round/5/fixtures.json", viz_html=self.viz_html)
+        self.assertIn("Blowout", h)
+
+    def test_avoid_env_gets_fade_forwards_chip(self):
+        entries = [
+            {"rank": 1, "name": "Belgium", "team": "vs Iran", "position": "—",
+             "p_clean_sheet": 0.5, "exp_goals_for": 1.0, "exp_goals_against": 0.8,
+             "env": "avoid", "top_def": "—", "top_gk": "—"},
+        ]
+        h = render.article_page(
+            round_no=5, article="fixtures", title="Fixture guide — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
+            json_url="/api/round/5/fixtures.json", viz_html=self.viz_html)
+        self.assertIn("Low-goal", h)
+        self.assertIn("fade forwards", h)
+
+    def test_balanced_env_gets_no_env_chip(self):
+        entries = [
+            {"rank": 1, "name": "Japan", "team": "vs Croatia", "position": "—",
+             "p_clean_sheet": 0.4, "exp_goals_for": 1.3, "exp_goals_against": 1.2,
+             "env": "balanced", "top_def": "—", "top_gk": "—"},
+        ]
+        h = render.article_page(
+            round_no=5, article="fixtures", title="Fixture guide — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
+            json_url="/api/round/5/fixtures.json", viz_html=self.viz_html)
+        self.assertNotIn("Blowout", h)
+        self.assertNotIn("Low-goal", h)
 
     def test_hub_page_links_all_articles(self):
         h = render.hub_page(round_no=3, nav=self.nav,
@@ -410,67 +478,6 @@ class MatchPredictionsHtmlTest(unittest.TestCase):
         h = render.match_predictions_html([entry])
         self.assertIn("Final", h)
         self.assertNotIn("Close — one to watch", h)
-
-
-class LiveModeLabelTest(unittest.TestCase):
-    """Round 4 spec section 3: live-mode labeling on article/landing pages."""
-
-    def setUp(self):
-        self.entries = [
-            {"rank": 1, "name": "Bruno Fernandes", "team": "Portugal", "position": "MID",
-             "x_points": 5.67, "captain_ev": 11.34, "ceiling": 9.1, "price": 9.5,
-             "ownership_pct": 18.0, "value": 0.6, "kickoff": "2026-07-05T23:30:00+00:00"},
-        ]
-        self.prose = {
-            "headline": "Bruno Fernandes leads the captain board",
-            "standfirst": "Portugal's midfielder tops this round's captain EV at 11.34.",
-            "body_html": "<p>Bruno Fernandes projects <b>11.34 captain EV</b> this round.</p>",
-            "bottom_line": "Captain Bruno Fernandes.",
-            "source": "template",
-        }
-        self.viz_html = '<svg viewBox="0 0 100 40"><rect width="80" height="20" fill="#0f7a45"/></svg>'
-
-    def test_live_true_shows_live_label_in_kicker(self):
-        h = render.article_page(
-            round_no=5, article="captains", title="Best captain picks — Round 5",
-            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
-            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=True)
-        self.assertIn("LIVE", h)
-        self.assertIn("remaining fixtures", h)
-
-    def test_live_false_shows_no_live_label(self):
-        h = render.article_page(
-            round_no=5, article="captains", title="Best captain picks — Round 5",
-            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
-            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=False)
-        self.assertNotIn("LIVE", h)
-        self.assertNotIn("remaining fixtures", h)
-
-    def test_live_title_tag_is_unchanged_for_seo(self):
-        """<title> must not carry the live suffix -- SEO stability requirement."""
-        title = "Best captain picks — Round 5"
-        h = render.article_page(
-            round_no=5, article="captains", title=title,
-            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
-            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=True)
-        self.assertIn(f"<title>{title} | {render.BRAND_SUFFIX}</title>", h)
-
-    def test_live_true_landing_page_shows_label_on_featured_block(self):
-        feed = [
-            {"slug": "best-xi", "headline": "The model's Round 5 XI",
-             "teaser": "A 3-4-3 built around Kane.", "stat_value": "58.7",
-             "stat_label": "total xPts"},
-        ]
-        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
-        h = render.landing_page(round_no=5, featured=featured, feed=feed, live=True)
-        self.assertIn("LIVE", h)
-        self.assertIn("remaining fixtures", h)
-
-    def test_live_false_landing_page_shows_no_label(self):
-        feed = []
-        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
-        h = render.landing_page(round_no=5, featured=featured, feed=feed, live=False)
-        self.assertNotIn("LIVE", h)
 
 
 class UtilityAndOgTest(unittest.TestCase):

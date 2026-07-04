@@ -106,6 +106,9 @@ def summary_sentence(article, entries):
     if article == "blowout-transfers":
         return (f"{name} ({team}) is the top attacker in this round's most lopsided fixtures "
                 f"at {top['x_points']:.1f} xPts.")
+    if article == "fixtures":
+        return (f"{name} ({team}) has the best clean-sheet odds this round: "
+                f"{top['p_clean_sheet'] * 100:.0f}%.")
     return f"{name} ({team}) tops the list at {top['x_points']:.1f} expected points."
 
 
@@ -136,15 +139,24 @@ def svg_bar_chart(pairs, unit, width=520, row_h=34):
 
 _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceiling",
               "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %",
-              "priority_score": "Priority", "vor": "VOR", "p_advance": "Advance %"}
+              "priority_score": "Priority", "vor": "VOR", "p_advance": "Advance %",
+              "p_clean_sheet": "CS %", "exp_goals_for": "xGF", "exp_goals_against": "xGA",
+              "top_def": "Best DEF", "top_gk": "Best GK"}
+
+# Columns whose value is already a display-ready string (not a number to format).
+_STRING_COLS = {"top_def", "top_gk"}
 
 
 def _fmt(col, row):
     v = row.get(col)
     if v is None:
         return "—"
+    if col in _STRING_COLS:
+        return str(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
+    if col == "p_clean_sheet":
+        return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
     return f"{v:.2f}" if isinstance(v, float) else str(v)
@@ -239,6 +251,9 @@ _STYLE = (
     "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;padding:2px 7px;margin-left:6px}"
     ".tag-floor{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
     "letter-spacing:.5px;color:var(--ink3);background:var(--chipbg);border-radius:6px;"
+    "padding:2px 7px;margin-left:6px}"
+    ".tag-go{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
+    "letter-spacing:.5px;color:var(--green);background:#eaf5ee;border-radius:6px;"
     "padding:2px 7px;margin-left:6px}"
     ".method{font-size:13.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--line);"
     "margin-top:34px;padding-top:18px}"
@@ -465,10 +480,14 @@ def _rank_table_html(entries, columns):
         p_adv = r.get("p_advance")
         risk_tag = (f'<span class="tag">Advance risk</span>'
                     if p_adv is not None and p_adv < 60.0 else "")
+        env = r.get("env")
+        blowout_tag = f'<span class="tag-go">Blowout</span>' if env == "blowout" else ""
+        avoid_tag = (f'<span class="tag-floor">Low-goal — fade forwards</span>'
+                    if env == "avoid" else "")
         player_cell = (
             f'<td class="l"><span class="nm">{_html.escape(r["name"])}</span> '
             f'<span class="tm">{_html.escape(r.get("team") or "")}</span>'
-            f'{diff_tag}{floor_tag}{risk_tag}</td>'
+            f'{diff_tag}{floor_tag}{risk_tag}{blowout_tag}{avoid_tag}</td>'
         )
         col_vals = "".join(
             f'<td class="big">{_fmt(c, r)}</td>' for c in columns)
@@ -805,17 +824,19 @@ def track_record_json(record: dict) -> dict:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True, live=False):
+                 generated_at=None, date_str=None, show_table=True):
     """v2 editorial article page.
+
+    Published articles are frozen claims: this page always renders the exact
+    pre-lock projection, with no live/in-progress mutation. The one place
+    reality shows up post-lock is the matches article's predicted-vs-actual
+    panel (see match_predictions_html), which is driven entirely by data on
+    each entry (finished/final_score), not by a flag here.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
     generated_at: ISO-8601 timestamp string (optional)
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
-    live: when True, the kicker shows a "LIVE" note (small, --acc colored) and
-          the H1 gets " (remaining fixtures)" appended -- callers only pass True
-          for the filtered remaining-fixture list articles, never best-xi/matches/
-          track-record. <title> is left untouched for SEO stability.
     """
     summary = summary_sentence(article, entries)
     dataset_ld_raw = _json.dumps({
@@ -842,9 +863,6 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
         _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
-    live_html = (' <span class="live-tag">· LIVE — updated as the round plays out</span>'
-                if live else "")
-    h1_suffix = " (remaining fixtures)" if live else ""
     table_html = _rank_table_html(entries, columns) if show_table else ""
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
@@ -868,8 +886,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 </div></header>
 <div class="wrap">
 <article class="art">
-<div class="kick">{kicker_label}{live_html}</div>
-<h1>{_html.escape(prose["headline"])}{_html.escape(h1_suffix)}</h1>
+<div class="kick">{kicker_label}</div>
+<h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
 <div class="artviz">{viz_html}</div>
@@ -933,15 +951,12 @@ def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str
     )
 
 
-def landing_page(round_no, featured, feed, date_str=None, live=False):
+def landing_page(round_no, featured, feed, date_str=None):
     """v2 landing page — featured block + feed grid.
 
     featured: {slug, prose: {headline, standfirst, ...}, viz_html}
     feed: list of {slug, headline, teaser, stat_value, stat_label}
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
-    live: when True (and the featured slug is one of the filtered remaining-
-          fixture articles), shows the "LIVE" kicker note and appends
-          " (remaining fixtures)" to the featured H1, matching article_page.
     """
     og_block = _og_meta(
         f"World Cup Fantasy Round {round_no} — simulation-based picks",
@@ -962,9 +977,6 @@ def landing_page(round_no, featured, feed, date_str=None, live=False):
     feat_viz = featured.get("viz_html", "")
     feat_kicker = "Featured · " + _html.escape(
         feat_slug.replace("-", " ").title())
-    live_html = (' <span class="live-tag">· LIVE — updated as the round plays out</span>'
-                if live else "")
-    h1_suffix = " (remaining fixtures)" if live else ""
     feat_url = f"/round/{round_no}/{feat_slug}/"
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
 
@@ -994,8 +1006,8 @@ def landing_page(round_no, featured, feed, date_str=None, live=False):
 <div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 <section class="feat">
 <div>
-  <div class="kick">{feat_kicker}{live_html}</div>
-  <h1>{_html.escape(feat_prose["headline"])}{_html.escape(h1_suffix)}</h1>
+  <div class="kick">{feat_kicker}</div>
+  <h1>{_html.escape(feat_prose["headline"])}</h1>
   <p class="stand">{_html.escape(feat_prose["standfirst"])}</p>
   <div class="byline"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
   <p style="margin-top:16px"><a href="{feat_url}" style="color:var(--green);font-weight:600;font-size:14px">Read the full analysis →</a></p>

@@ -31,6 +31,13 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
     mention advancement risk at all)
   - priority_score → do not print this raw number; it is the internal ranking used to
     order the list, described in prose as "priority" or "the top move"
+  - p_clean_sheet → write as a percentage, e.g. 42% chance of a clean sheet
+  - exp_goals_for / exp_goals_against → "expected goals for/against" for that team's fixture
+  - env → do not print the raw word; "blowout" means a high-scoring fixture worth
+    targeting attackers in, "avoid" means a low-scoring fixture where forwards should be
+    faded, "balanced" means neither extreme applies
+  - top_def / top_gk → that team's best defender/goalkeeper pick, already formatted as
+    "Name (x.x)" — quote them as-is
 
 Write a tight analytical article with:
   - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
@@ -62,7 +69,8 @@ Return STRICT JSON with exactly these keys and no others:
 def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
     """Return a filled ARTICLE_PROMPT ready to send to the API.
 
-    subject: player name to centre prose on, or None for team-framing (best-xi / matches).
+    subject: player name to centre prose on, or None for team-framing
+             (best-xi / matches / fixtures).
     """
     if subject is not None and slug == "transfers":
         subject_instruction = (
@@ -88,6 +96,15 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
             "notable games, the 1X2 probabilities (p_home/p_draw/p_away), and name the "
             "fixtures marked close=true as games to watch. Do not invent players or "
             "stats not in the data.\n"
+        )
+    elif slug == "fixtures":
+        subject_instruction = (
+            "Focus      : Cover clean-sheet probabilities per team (p_clean_sheet), "
+            "which games to target attackers in (env=\"blowout\" fixtures), and which "
+            "low-scoring games to AVOID forwards from (env=\"avoid\" fixtures). Use only "
+            "the supplied numbers — do not invent teams, players, or stats not in the "
+            "data. You may cite top_def/top_gk as the best defensive picks for a "
+            "high-clean-sheet team.\n"
         )
     else:
         subject_instruction = (

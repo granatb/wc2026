@@ -391,6 +391,46 @@ _TEMPLATES = {
             ))([c for c in e if c.get("close")])
         ),
     },
+    "fixtures": {
+        "headline": lambda e, r, subj: f"Fixture guide: clean sheets and blowouts for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"{e[0]['name']} rate highest for a clean sheet at "
+            f"{e[0]['p_clean_sheet']*100:.0f}% {html.escape(e[0]['team'])}."
+            if e else f"Fixture guide for Round {r}."
+        ),
+        "body": lambda e, r, subj: (
+            (lambda blowouts, avoids: (
+                f"<p>{html.escape(e[0]['name'])} carry the best clean-sheet odds this round at "
+                f"{e[0]['p_clean_sheet']*100:.0f}% {html.escape(e[0]['team'])}, "
+                f"conceding just {_fmt_pts(e[0]['exp_goals_against'])} expected goals."
+                + (f" {html.escape(e[1]['name'])} are next at "
+                   f"{e[1]['p_clean_sheet']*100:.0f}% {html.escape(e[1]['team'])}."
+                   if len(e) > 1 else "")
+                + "</p>\n"
+                + (f"<blockquote><p>Target attackers in the blowout fixtures — "
+                   + ", ".join(f"{html.escape(b['name'])} {html.escape(b['team'])}"
+                               for b in blowouts[:3])
+                   + f", each projecting {_fmt_pts(blowouts[0]['exp_goals_for'])}+ goals for.</p></blockquote>\n"
+                   if blowouts else "")
+                + (f"<p>On the other side, avoid forwards from the low-scoring games: "
+                   + ", ".join(f"{html.escape(a['name'])} {html.escape(a['team'])}"
+                               for a in avoids[:3])
+                   + f" — total expected goals sit at or below "
+                   f"{_fmt_pts(max(a['exp_goals_for'] + a['exp_goals_against'] for a in avoids))} "
+                   f"in these fixtures.</p>"
+                   if avoids else "")
+            ))(
+                [x for x in e if x.get("env") == "blowout"],
+                [x for x in e if x.get("env") == "avoid"],
+            )
+        ),
+        "bottom_line": lambda e, r, subj: (
+            f"Back {e[0]['name']} for a clean sheet ({e[0]['p_clean_sheet']*100:.0f}% "
+            f"{html.escape(e[0]['team'])}), target attackers in the blowouts, and fade "
+            f"forwards in the low-goal fixtures."
+            if e else f"No fixture data available for Round {r}."
+        ),
+    },
     "transfers": {
         "headline": lambda e, r, subj: f"{subj} tops the priority transfer list for Round {r}",
         "standfirst": lambda e, r, subj: (
@@ -479,10 +519,10 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi and matches (no player subject), skip per-player framing
+    # For best-xi, matches and fixtures (no player subject), skip per-player framing
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "matches"):
+    elif article in ("best-xi", "matches", "fixtures"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None

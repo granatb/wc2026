@@ -13,6 +13,12 @@ DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
 LOW_CEILING_RATIO = 1.15    # ceiling/xPts below this = "safe floor, no haul upside"
+# Fixture-guide environment thresholds (fixture_guide()): a fixture's exp_total
+# (combined expected goals) classifies it as a high-scoring "blowout" worth
+# targeting attackers in, a low-scoring "avoid" environment where forwards
+# should be faded, or "balanced" in between.
+FIXTURE_ENV_BLOWOUT_MIN = 3.0
+FIXTURE_ENV_AVOID_MAX = 2.1
 # 2026 World Cup fixed format: fantasy rounds 1-3 are group matchdays (a draw is just
 # a draw — both teams keep playing); round 4 onward is straight knockout (R32, R16,
 # QF, SF, Bronze, Final), where a 90' draw resolves via extra time/penalties. This is
@@ -20,11 +26,12 @@ LOW_CEILING_RATIO = 1.15    # ceiling/xPts below this = "safe floor, no haul ups
 # match-status string (e.g. "STATUS_SCHEDULED"), not the tournament stage — so we
 # hardcode the known threshold for this one tournament rather than infer it.
 KNOCKOUT_ROUND_START = 4
-ARTICLES = ["captains", "matches", "transfers", "best-xi", "defenders", "risky",
+ARTICLES = ["captains", "matches", "fixtures", "transfers", "best-xi", "defenders", "risky",
             "efficiency", "blowout-transfers"]
 ARTICLE_TITLES = {
     "captains": "Best captain picks",
     "matches": "Match predictions & games to watch",
+    "fixtures": "Fixture guide — clean sheets, blowouts and games to avoid",
     "transfers": "Priority transfers this round",
     "best-xi": "Best XI by expected points",
     "defenders": "Best defenders",
@@ -71,20 +78,6 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
             "kickoff": kickoffs.get(m.get("team")),
         })
     return rows
-
-
-def upcoming_rows(rows: list, now_iso: str) -> list:
-    """Rows whose kickoff is known and still in the future (ISO-8601 UTC strings,
-    which compare safely as plain strings without parsing).
-
-    Used in live-round mode: once a round's first match has kicked off, players
-    whose own match has already started can't newly become captain (FIFA's live
-    captain chain only allows the armband to move to someone who hasn't started),
-    so the ranked-list articles should only surface players from fixtures that
-    haven't kicked off yet. Rows with kickoff=None (unknown fixture) are excluded
-    -- pre-round articles never call this, so there's no ambiguity to fall back on.
-    """
-    return [r for r in rows if r.get("kickoff") is not None and r["kickoff"] > now_iso]
 
 
 def select_xi(rows: list, key: str) -> list:
@@ -213,6 +206,68 @@ def blowout_transfers(rows: list, teams: set) -> list:
     return _ranked(pool, "x_points")
 
 
+def _best_by_position(rows: list, team: str, position: str):
+    """The row with the highest x_points for `team` at `position`, or None."""
+    pool = [r for r in rows if r.get("team") == team and r.get("position") == position]
+    if not pool:
+        return None
+    return max(pool, key=lambda r: r["x_points"])
+
+
+def _fmt_best(row) -> str:
+    """'Van Dijk (5.7)' style label for the fixture-guide table, or a dash."""
+    if row is None:
+        return "—"
+    return f"{row['name']} ({row['x_points']:.1f})"
+
+
+def fixture_guide(match_entries: list, rows: list) -> list:
+    """One entry per TEAM in the round: clean-sheet probability, goal environment
+    (blowout / avoid / balanced), and that team's best defender/goalkeeper.
+
+    match_entries: output of match_predictions() (carries exp_home_goals/
+                   exp_away_goals/exp_total/p_cs_home/p_cs_away per fixture).
+    rows:          the enriched player rows (from build_rows), used to find
+                   each team's best DEF/GK by x_points.
+
+    Sorted by p_clean_sheet desc, with a 1-based rank.
+    """
+    out = []
+    for m in match_entries:
+        exp_total = m.get("exp_total", 0.0)
+        if exp_total >= FIXTURE_ENV_BLOWOUT_MIN:
+            env = "blowout"
+        elif exp_total <= FIXTURE_ENV_AVOID_MAX:
+            env = "avoid"
+        else:
+            env = "balanced"
+
+        for side, team, opponent, p_cs, goals_for, goals_against in (
+            ("home", m["home"], m["away"], m.get("p_cs_home", 0.0),
+             m.get("exp_home_goals", 0.0), m.get("exp_away_goals", 0.0)),
+            ("away", m["away"], m["home"], m.get("p_cs_away", 0.0),
+             m.get("exp_away_goals", 0.0), m.get("exp_home_goals", 0.0)),
+        ):
+            best_def = _best_by_position(rows, team, "DEF")
+            best_gk = _best_by_position(rows, team, "GK")
+            out.append({
+                "name": team,
+                "team": f"vs {opponent}",
+                "position": "—",
+                "p_clean_sheet": p_cs,
+                "exp_goals_for": goals_for,
+                "exp_goals_against": goals_against,
+                "env": env,
+                "top_def": _fmt_best(best_def),
+                "top_gk": _fmt_best(best_gk),
+            })
+
+    out.sort(key=lambda r: r["p_clean_sheet"], reverse=True)
+    for i, r in enumerate(out, 1):
+        r["rank"] = i
+    return out
+
+
 _FINISHED_STATUS_MARKERS = ("FULL_TIME", "FINAL", "COMPLETE")
 
 
@@ -264,7 +319,9 @@ def match_predictions(match_samples: dict, fantasy_round: int, results=None) -> 
 
     Each entry has:
       match, home, away, kickoff (ISO str), exp_home_goals, exp_away_goals,
-      exp_total, top_scoreline ("H-A"), p_home, p_draw, p_away, close (bool).
+      exp_total, top_scoreline ("H-A"), p_home, p_draw, p_away, close (bool),
+      p_cs_home (P(away scores 0), i.e. home keeps a clean sheet), p_cs_away
+      (P(home scores 0), i.e. away keeps a clean sheet).
 
     results: optional output of finished_results_map(fantasy_round) -- when a
     fixture's (home, away) pair (normalised via fifa_api._ckey) is present, the
@@ -319,11 +376,16 @@ def match_predictions(match_samples: dict, fantasy_round: int, results=None) -> 
             ma = ms.marginal_away()
             exp_h = sum(g * p for g, p in mh.items())
             exp_a = sum(g * p for g, p in ma.items())
+            # Clean sheet probs: home keeps a CS iff away scores 0, and vice versa.
+            p_cs_home = ma.get(0, 0.0)
+            p_cs_away = mh.get(0, 0.0)
         else:
             # Fallback: Poisson grid from lambdas
             lam_h, lam_a = f.lambdas()
             p_home, p_draw, p_away, best_sl, exp_h, exp_a = \
                 _outcome_probs_from_lambdas(lam_h, lam_a)
+            p_cs_home = math.exp(-lam_a)
+            p_cs_away = math.exp(-lam_h)
 
         # Normalise (avoid floating-point drift)
         total_p = p_home + p_draw + p_away
@@ -347,6 +409,8 @@ def match_predictions(match_samples: dict, fantasy_round: int, results=None) -> 
             "p_draw": round(p_draw, 2),
             "p_away": round(p_away, 2),
             "close": close,
+            "p_cs_home": round(p_cs_home, 3),
+            "p_cs_away": round(p_cs_away, 3),
         }
 
         if fantasy_round >= KNOCKOUT_ROUND_START:
