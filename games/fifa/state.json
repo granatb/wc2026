@@ -3,35 +3,161 @@
   "game": "fifa",
   "team_name": "Granat65",
   "_blend": "research_weight + objective live in config.py",
-  "budget_remaining": 1.8,
-  "free_transfers": 1,
+  "budget_remaining": 0.7,
+  "free_transfers": "unlimited (knockout)",
   "free_transfers_note": "Used 1 (Jiménez -> Enner Valencia); 1 banked -> rolls to R3.",
   "paid_transfers": 0,
-  "current_round": 2,
-  "formation": "3-5-2",
-  "captain": "Ruben Vargas",
-  "vice_captain": "Oyarzabal",
+  "current_round": 4,
+  "formation": "4-4-2",
+  "captain": "Mbappé",
+  "vice_captain": "Bellingham",
   "_flags": [
     "Captain on Ruben Vargas = chain play (he kicks off first, 18 Jun) — roll armband forward.",
     "Kane benched (start Oyarzabal+Valencia up top); see EV note below.",
     "GK Vargas listed as Mexico (backup to Rangel)."
   ],
   "squad": [
-    {"name": "Rangel", "team": "Mexico", "position": "GK", "price": 3.9, "ownership_pct": 5.5, "is_starter": true},
-    {"name": "Vargas", "team": "Colombia", "position": "GK", "price": 4.3, "ownership_pct": 4.2, "is_starter": false, "bench_order": 0},
-    {"name": "Kimmich", "team": "Germany", "position": "DEF", "price": 5.5, "ownership_pct": 33.6, "is_starter": true},
-    {"name": "Gabriel Magalhães", "team": "Brazil", "position": "DEF", "price": 5.5, "ownership_pct": 19.9, "is_starter": true},
-    {"name": "Cucurella", "team": "Spain", "position": "DEF", "price": 5.1, "ownership_pct": 25.5, "is_starter": true},
-    {"name": "Nuno Mendes", "team": "Portugal", "position": "DEF", "price": 5.8, "ownership_pct": 40.0, "is_starter": false, "bench_order": 1},
-    {"name": "Muñoz", "team": "Colombia", "position": "DEF", "price": 4.6, "ownership_pct": 7.4, "is_starter": false, "bench_order": 2},
-    {"name": "Bruno Fernandes", "team": "Portugal", "position": "MID", "price": 8.5, "ownership_pct": 47.9, "is_starter": true},
-    {"name": "Ruben Vargas", "team": "Switzerland", "position": "MID", "price": 6.8, "ownership_pct": 0.5, "is_starter": true, "is_captain": true},
-    {"name": "Musiala", "team": "Germany", "position": "MID", "price": 8.0, "ownership_pct": 12.7, "is_starter": true},
-    {"name": "Wirtz", "team": "Germany", "position": "MID", "price": 7.5, "ownership_pct": 21.6, "is_starter": true},
-    {"name": "Raphinha", "team": "Brazil", "position": "MID", "price": 8.2, "ownership_pct": 21.6, "is_starter": true},
-    {"name": "Oyarzabal", "team": "Spain", "position": "FWD", "price": 8.1, "ownership_pct": 17.4, "is_starter": true, "is_vice": true},
-    {"name": "Enner Valencia", "team": "Ecuador", "position": "FWD", "price": 5.9, "ownership_pct": 1.5, "is_starter": true},
-    {"name": "Kane", "team": "England", "position": "FWD", "price": 10.5, "ownership_pct": 36.9, "is_starter": false, "bench_order": 3}
+    {
+      "name": "Mostafa Oufa Shobeir",
+      "team": "Egypt",
+      "position": "GK",
+      "price": 3.5,
+      "ownership_pct": 2.7,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Emiliano Martinez",
+      "team": "Argentina",
+      "position": "GK",
+      "price": 5.0,
+      "ownership_pct": 30,
+      "is_starter": false,
+      "is_captain": false,
+      "bench_order": 0
+    },
+    {
+      "name": "Cucurella",
+      "team": "Spain",
+      "position": "DEF",
+      "price": 5.1,
+      "ownership_pct": 27,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Kimmich",
+      "team": "Germany",
+      "position": "DEF",
+      "price": 5.5,
+      "ownership_pct": 25.7,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Ezri Konsa",
+      "team": "England",
+      "position": "DEF",
+      "price": 4.8,
+      "ownership_pct": 3,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Luc De Fougerolles",
+      "team": "Canada",
+      "position": "DEF",
+      "price": 3.5,
+      "ownership_pct": 0.9,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Yasser Ibrahim",
+      "team": "Egypt",
+      "position": "DEF",
+      "price": 3.5,
+      "ownership_pct": 0.5,
+      "is_starter": false,
+      "is_captain": false,
+      "bench_order": 2
+    },
+    {
+      "name": "Bruno Fernandes",
+      "team": "Portugal",
+      "position": "MID",
+      "price": 8.5,
+      "ownership_pct": 34.9,
+      "is_starter": false,
+      "is_captain": false,
+      "bench_order": 3
+    },
+    {
+      "name": "Bellingham",
+      "team": "England",
+      "position": "MID",
+      "price": 8.3,
+      "ownership_pct": 17,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Pedri",
+      "team": "Spain",
+      "position": "MID",
+      "price": 8.1,
+      "ownership_pct": 7.8,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Wirtz",
+      "team": "Germany",
+      "position": "MID",
+      "price": 7.5,
+      "ownership_pct": 13.2,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Ousmane Dembele",
+      "team": "France",
+      "position": "MID",
+      "price": 10.0,
+      "ownership_pct": 22.9,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Mbappé",
+      "team": "France",
+      "position": "FWD",
+      "price": 10.5,
+      "ownership_pct": 59.2,
+      "is_starter": true,
+      "is_captain": true
+    },
+    {
+      "name": "Kane",
+      "team": "England",
+      "position": "FWD",
+      "price": 10.5,
+      "ownership_pct": 40.6,
+      "is_starter": true,
+      "is_captain": false
+    },
+    {
+      "name": "Lionel Messi",
+      "team": "Argentina",
+      "position": "FWD",
+      "price": 10.0,
+      "ownership_pct": 40.4,
+      "is_starter": false,
+      "is_captain": false,
+      "bench_order": 1
+    }
   ],
-  "notes": "Scouting (<5% at own kickoff): Ruben Vargas 0.5%, Enner Valencia ~1.5%, GK Vargas 4.2%."
+  "notes": "Scouting (<5% at own kickoff): Ruben Vargas 0.5%, Enner Valencia ~1.5%, GK Vargas 4.2%.",
+  "chip": "Qualification Booster",
+  "_captain_chain_note": "Mbappé(30Jun) -> Kane(1Jul) -> Messi(4Jul, sub in): hold armband if hauls, else roll to next-kickoff star"
 }

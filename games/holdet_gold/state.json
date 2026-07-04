@@ -5,26 +5,96 @@
   "variant": "guld_unlimited_transfers_1pct_fee",
   "_blend": "research_weight + objective live in config.py",
   "formation": "3-5-2",
-  "cash": 951000,
-  "total_value": 51404000,
-  "current_round": 2,
-  "captain": "Enner Valencia",
-  "r2_transfers_out": ["Cesar Montes (susp) -> Willian Pacho", "Kai Havertz -> Enner Valencia", "Alex Baena (benched) -> Fabian Ruiz"],
+  "cash": 3663642,
+  "total_value": 52995642,
+  "current_round": 3,
+  "captain": "Nicolas Jackson",
+  "r2_transfers_out": [
+    "Cesar Montes (susp) -> Willian Pacho",
+    "Kai Havertz -> Enner Valencia",
+    "Alex Baena (benched) -> Fabian Ruiz"
+  ],
   "_flags": [
     "Holdet positions best-guess; confirm if needed."
   ],
   "squad": [
-    {"name": "Gregor Kobel", "team": "Switzerland", "position": "GK", "price": 4029000},
-    {"name": "R. Rodriguez", "team": "Switzerland", "position": "DEF", "price": 3022000},
-    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2809000},
-    {"name": "Willian Pacho", "team": "Ecuador", "position": "DEF", "price": 2991000},
-    {"name": "F. Wirtz", "team": "Germany", "position": "MID", "price": 7654000},
-    {"name": "Fabian Ruiz", "team": "Spain", "position": "MID", "price": 4522000},
-    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6714000},
-    {"name": "Antonio Nusa", "team": "Norway", "position": "MID", "price": 3544000},
-    {"name": "Ruben Vargas", "team": "Switzerland", "position": "MID", "price": 3532000},
-    {"name": "Enner Valencia", "team": "Ecuador", "position": "FWD", "price": 3999000},
-    {"name": "M. Oyarzabal", "team": "Spain", "position": "FWD", "price": 7522000, "is_captain": true}
+    {
+      "name": "Bart Verbruggen",
+      "team": "Netherlands",
+      "position": "GK",
+      "price": 4630000,
+      "is_captain": false
+    },
+    {
+      "name": "Achraf Hakimi",
+      "team": "Morocco",
+      "position": "DEF",
+      "price": 4450000,
+      "is_captain": false
+    },
+    {
+      "name": "Denzel Dumfries",
+      "team": "Netherlands",
+      "position": "DEF",
+      "price": 5210000,
+      "is_captain": false
+    },
+    {
+      "name": "Maxim De Cuyper",
+      "team": "Belgium",
+      "position": "DEF",
+      "price": 4104000,
+      "is_captain": false
+    },
+    {
+      "name": "Ismael Saibari",
+      "team": "Morocco",
+      "position": "MID",
+      "price": 4115000,
+      "is_captain": false
+    },
+    {
+      "name": "Ibrahim Sangare",
+      "team": "Ivory Coast",
+      "position": "MID",
+      "price": 3043000,
+      "is_captain": false
+    },
+    {
+      "name": "Crysencio Summerville",
+      "team": "Netherlands",
+      "position": "MID",
+      "price": 3418000,
+      "is_captain": false
+    },
+    {
+      "name": "Kevin De Bruyne",
+      "team": "Belgium",
+      "position": "MID",
+      "price": 7046000,
+      "is_captain": false
+    },
+    {
+      "name": "Nicolas Jackson",
+      "team": "Senegal",
+      "position": "FWD",
+      "price": 4548000,
+      "is_captain": true
+    },
+    {
+      "name": "Amad Diallo",
+      "team": "Ivory Coast",
+      "position": "FWD",
+      "price": 3718000,
+      "is_captain": false
+    },
+    {
+      "name": "Sadio Mane",
+      "team": "Senegal",
+      "position": "FWD",
+      "price": 5050000,
+      "is_captain": false
+    }
   ],
   "watchlist": [],
   "notes": "EV-max, w=0.10. 3 subs (Montes susp, Havertz, Baena benched) into blowout spots. Kept Nusa + Swiss trio (no fee-clearing upgrade). Captain Enner Valencia (179k > Oyarzabal 142k)."

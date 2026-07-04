@@ -96,6 +96,10 @@ _SQUAD_PRIORS = [
     ("D. Sanchez", "Colombia", "DEF", 0.85, 0.05, 0.05),
     ("David Alaba", "Austria", "DEF", 0.8, 0.06, 0.10),
     ("N. Brown", "Germany", "DEF", 0.85, 0.07, 0.12),  # Nathaniel Brown, Germany LB
+    # attacking wing-backs — primary creators, far higher assist share than a stay-home CB
+    ("Denzel Dumfries", "Netherlands", "DEF", 0.85, 0.10, 0.22),
+    ("Achraf Hakimi", "Morocco", "DEF", 0.90, 0.10, 0.18),
+    ("Maxim De Cuyper", "Belgium", "DEF", 0.82, 0.06, 0.15),
     # --- midfielders ---
     ("Bruno Fernandes", "Portugal", "MID", 0.92, 0.18, 0.20),
     ("Ruben Vargas", "Switzerland", "MID", 0.82, 0.12, 0.12),
@@ -215,7 +219,10 @@ _DERIVE_GOAL = {"GK": 0.0, "DEF": 0.05, "MID": 0.10, "FWD": 0.20}
 _DERIVE_ASSIST = {"GK": 0.0, "DEF": 0.06, "MID": 0.13, "FWD": 0.11}
 _DERIVE_SOT = {"GK": 0.0, "DEF": 0.4, "MID": 0.9, "FWD": 1.6}
 _START_QUOTA = {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2}   # likely-XI shape
-_DERIVE_CAP = 16                                          # players modelled per team
+_DERIVE_CAP = 28                                          # players modelled per team — high
+                                                         # enough to keep ~full rosters
+                                                         # evaluable; realized start-prob
+                                                         # drives the depth chart, not the cap
 
 _POS_MEDIAN: dict = {}
 _TEAM_PRIORS: dict = {}
@@ -235,18 +242,29 @@ def _position_medians() -> dict:
     return _POS_MEDIAN
 
 
-def _derive_prior(rec: dict, start_prob: float) -> PlayerPrior:
+def _derive_prior(rec: dict, start_prob: float, rp: dict | None = None) -> PlayerPrior:
     pos = rec.get("fifa_pos") or rec.get("holdet_pos") or "MID"
     med = _position_medians().get(pos, 2_500_000)
     price = rec.get("holdet_price") or med
     q = min(3.0, max(0.3, price / med))   # quality vs the position's median price
     names = [rec["name"]] + rec.get("aliases", [])
+    gshare = _DERIVE_GOAL.get(pos, 0.1) * q
+    ashare = _DERIVE_ASSIST.get(pos, 0.1) * q
+    sot = _DERIVE_SOT.get(pos, 0.8) * min(2.0, q)
+    # Realized output overrides the price guess for players we've actually watched: a cheap
+    # player who has been scoring/creating is floored UP (small sample -> capped blend), so
+    # price no longer buries proven producers. Levels are re-normalised per team downstream.
+    if rp and rp.get("apps", 0) >= 1:
+        a = rp["apps"]
+        gshare = max(gshare, gshare * 0.5 + (rp["goals"] / a) * 0.35)
+        ashare = max(ashare, ashare * 0.5 + (rp["assists"] / a) * 0.35)
+        sot = max(sot, rp["sot"] / a)
     return PlayerPrior(
         name=rec["name"], team=rec.get("team"), position=pos,
         start_prob=start_prob, exp_minutes=60 + 25 * start_prob,
-        goal_share=min(0.42, _DERIVE_GOAL.get(pos, 0.1) * q),
-        assist_share=min(0.30, _DERIVE_ASSIST.get(pos, 0.1) * q),
-        sot_per90=_DERIVE_SOT.get(pos, 0.8) * min(2.0, q),
+        goal_share=min(0.42, gshare),
+        assist_share=min(0.30, ashare),
+        sot_per90=sot,
         pen_taker=any(n in PEN_TAKERS for n in names),
     )
 
@@ -271,6 +289,7 @@ def _build_team_priors(team: str) -> list:
     for r in pdb.load():
         if r.get("team") == team and (r.get("holdet_price") or 0) > 0:
             bypos.setdefault(r.get("fifa_pos") or "MID", []).append(r)
+    from . import realized
     derived = []
     for pos, rs in bypos.items():
         rs.sort(key=lambda r: -(r.get("holdet_price") or 0))
@@ -278,10 +297,18 @@ def _build_team_priors(team: str) -> list:
         for i, r in enumerate(rs):
             if r["name"] in hand or any(a in hand for a in r.get("aliases", [])):
                 continue
-            sp = 0.85 if i < quota else (0.35 if i < quota + 2 else 0.10)
-            derived.append((r.get("holdet_price") or 0, _derive_prior(r, sp)))
-    derived.sort(key=lambda x: -x[0])          # keep the most valuable to fill the cap
-    kept = [pp for _pr, pp in derived[: max(0, _DERIVE_CAP - len(hand))]]
+            rp = realized.profile(r["name"], team)
+            # Start prob from realized minutes when we've watched the player; else fall back
+            # to the price-rank depth-chart guess (the old behaviour) for unplayed/new names.
+            if rp and rp.get("start_prob") is not None:
+                sp = rp["start_prob"]
+            else:
+                sp = 0.85 if i < quota else (0.35 if i < quota + 2 else 0.10)
+            derived.append((sp, r.get("holdet_price") or 0, _derive_prior(r, sp, rp)))
+    # Fill the per-team cap by LIKELIHOOD TO START (then price), not price alone — so cheap
+    # proven starters survive instead of being dropped for expensive bench players.
+    derived.sort(key=lambda x: (-x[0], -x[1]))
+    kept = [pp for _sp, _pr, pp in derived[: max(0, _DERIVE_CAP - len(hand))]]
     # Budget-normalise: derived players fill only the residual attacking share left by
     # the hand-set priors, so adding a team's squad never over-dilutes its known stars.
     # A team with rich hand-set coverage (e.g. Spain) leaves little for derived; a team

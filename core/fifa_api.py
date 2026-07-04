@@ -55,7 +55,8 @@ def fixtures() -> list:
                 out.append({"round": rd.get("id"), "date": m.get("date"),
                             "status": m.get("status"), "home": m.get("homeSquadName"),
                             "away": m.get("awaySquadName"), "hs": m.get("homeScore"),
-                            "as": m.get("awayScore")})
+                            "as": m.get("awayScore"), "period": m.get("period"),
+                            "extraMinutes": m.get("extraMinutes") or 0})
         _MEM["fixtures"] = out
     return _MEM["fixtures"]
 
@@ -85,11 +86,30 @@ def same_team(a: str, b: str) -> bool:
 
 
 def actual_score(home: str, away: str):
-    """(home_goals, away_goals, status) for a fixture, matched by team names."""
+    """(home_goals, away_goals, status) for a fixture, matched by team names.
+
+    WARNING: in knockouts the feed's score INCLUDES extra-time goals (penalties are
+    separate). Målspillet scores the 90-minute result, so use went_to_et() to detect
+    ET games and avoid grading a 90-min bet against an after-ET score.
+    """
     for m in fixtures():
         if same_team(home, m.get("home")) and same_team(away, m.get("away")):
             return m.get("hs"), m.get("as"), m.get("status")
     return None, None, None
+
+
+_ET_PERIODS = {"extra_time", "after_extra_time", "penalties", "penalty_shootout",
+               "extra_first_half", "extra_second_half"}
+
+
+def went_to_et(home: str, away: str) -> bool:
+    """True if this knockout went beyond 90' — meaning actual_score() is NOT the
+    90-minute (regulation) score Målspillet grades against."""
+    for m in fixtures():
+        if same_team(home, m.get("home")) and same_team(away, m.get("away")):
+            return (m.get("extraMinutes") or 0) > 0 or \
+                   str(m.get("period") or "").lower() in _ET_PERIODS
+    return False
 
 
 def team_match_status(team: str, rnd: int):

@@ -3,6 +3,18 @@
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests`
 (44 tests). App: `streamlit run app.py`.
 
+## 2026-06-24 — R3 prep
+
+- **R3 news research pass** — 23-team parallel web-research workflow (qualification/rotation,
+  injuries, pens, differentials). Full findings saved under
+  [research/rounds/](research/rounds/README.md) (digest + raw JSON, 154 sources). Actionable
+  flags written to `research/players/*.md` as `round: 3`. Headline: Germany/England/Argentina/
+  Mexico/USA rotating (qualified → resting); Raphinha OUT; safe blowouts to target =
+  Morocco / Ivory Coast / Senegal / Belgium / Netherlands.
+- **YOLO anti-chalk dial** — `config.YOLO_FADE` (ownership-leverage tilt; default 0.5).
+- Confirmed chip plan (FIFA): Maximum Captain in R3 (chaotic slate); save Wildcard +
+  Qualification + Mystery for R32.
+
 ## 2026-06-22 — Pre-R3 hardening
 
 ### Scoring fidelity (confirmed from in-app tables)

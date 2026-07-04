@@ -25,7 +25,7 @@ import config
 from core import engine_events as engine, fixtures, espn, research, odds_math
 from core import players as pdb, fifa_api, holdet_api
 from games import holdet_common as hc
-from games.fifa.model import (expected_points as fifa_xpts, ceiling_points as fifa_ceil_pts,
+from games.fifa.model import (expected_points as fifa_xpts, ceiling_points_clamped as fifa_ceil_pts,
                               scouting_ev as fifa_scout_ev)
 from games.malspillet import model as mal
 
@@ -123,8 +123,23 @@ def why(team, info):
 
 
 # ----------------------------------------------------------------- sidebar
+def _current_round():
+    """Default to the active round: the earliest round still having an upcoming
+    kickoff (else the latest round with fixtures). Avoids manually switching each round."""
+    now = datetime.now(timezone.utc)
+    latest = 2
+    for r in range(1, 9):
+        fx = fixtures.by_round(r)
+        if not fx:
+            continue
+        latest = r
+        if any(f.kickoff and f.kickoff > now for f in fx):
+            return r
+    return latest
+
+
 st.sidebar.title("⚽ wc2026")
-rnd = int(st.sidebar.number_input("Round", 1, 8, 2))
+rnd = int(st.sidebar.number_input("Round", 1, 8, _current_round()))
 sims = st.sidebar.select_slider("Monte Carlo sims", [5000, 10000, 20000, 50000], 20000)
 if st.sidebar.button("🔄 Refresh ESPN odds"):
     try:
@@ -146,7 +161,7 @@ if st.sidebar.button("🔄 Sync players (FIFA + Holdet APIs)"):
         st.sidebar.error(f"Sync failed: {e}")
 page = st.sidebar.radio("View", ["Dashboard", "Players", "Planner", "FIFA", "Holdet GOLD",
                                  "Holdet YOLO", "Holdet FREE", "Målspillet",
-                                 "Schedule & Odds", "News"])
+                                 "Schedule & Odds", "News", "Pre-round vs Live"])
 st.sidebar.caption("Edit prices only on the **Players** tab. Tunables: config.py")
 
 
@@ -169,7 +184,7 @@ def game_rows(game, info):
         if is_holdet:
             ev = lookup(rec, mean) or 0
             cv = lookup(rec, ceil) or 0
-            row = {"player": p["name"], "pos": p["position"],
+            row = {"player": canon(p["name"]), "pos": p["position"],
                    "EV": round(ev), "ceiling": round(cv),
                    "actual": holdet_api.growth(p["name"], rnd, p["position"]),
                    "played": played, "C": p.get("is_captain", False),
@@ -185,7 +200,7 @@ def game_rows(game, info):
             cl = lookup(rec, fifa_ceil)
             bonus = (lookup(rec, fifa_scout) or 0) if (pdb.ownership(p["name"]) or 99) < 5 else 0
             xp = (fifa_xpts(e) if e else 0.0) + bonus
-            rows.append({"player": p["name"], "pos": p["position"], "EV": round(xp, 2),
+            rows.append({"player": canon(p["name"]), "pos": p["position"], "EV": round(xp, 2),
                          "ceiling": round(cl + bonus, 2) if cl is not None else None,
                          "actual": fifa_api.round_points(p["name"], rnd, pos),
                          "total": fifa_api.total_points(p["name"], pos),
@@ -246,19 +261,33 @@ def research_feed():
 
 
 def needs_attention(info):
-    flags = []
+    """One line per player (deduped across squads), using the round-scoped research
+    flag + its source. A player owned in several games lists them once: e.g. (GOLD/FREE)."""
+    from collections import defaultdict
+    ents = research.load_entries("players", rnd)          # round-scoped: R3 flags in R3 only
+    short = {"fifa": "FIFA", "holdet_gold": "GOLD", "holdet_yolo": "YOLO", "holdet_free": "FREE"}
+    owned = defaultdict(set)                               # canonical player -> games
+    disp = {}
     for game in GAMES:
         for p in load_state(game)["squad"]:
-            status = (pdb.resolve(p["name"]) or {}).get("status")
-            team = p.get("team")
-            link = research_ref(p["name"]) or news_link(p["name"])
-            ref = f" — [source]({link})" if link else ""
-            if status in ("out", "suspended"):
-                flags.append(f"🔴 **{p['name']}** ({LABELS[game]}) — {status}{ref}")
-            elif status in ("doubtful", "rotation_risk"):
-                flags.append(f"🟠 {p['name']} ({LABELS[game]}) — {status}{ref}")
-            if team and team not in info:
-                flags.append(f"⚪ {p['name']} ({LABELS[game]}) — no fixture this round")
+            rec = pdb.resolve(p["name"]) or {}
+            cid = rec.get("name") or p["name"]
+            owned[cid].add(game)
+            disp[cid] = rec.get("name") or p["name"]
+    flags = []
+    for cid, games in owned.items():
+        rec = pdb.resolve(cid) or {}
+        ent = next((e for e in ents.values() if pdb.name_match(cid, e.name)), None)
+        status = (ent.status if ent else None) or rec.get("status")
+        link = (ent.sources[0] if (ent and ent.sources) else None) or news_link(cid)
+        ref = f" — [source]({link})" if link else ""
+        gl = "/".join(short[g] for g in GAMES if g in games)
+        if status in ("out", "suspended"):
+            flags.append(f"🔴 **{disp[cid]}** ({gl}) — {status}{ref}")
+        elif status in ("doubtful", "rotation_risk"):
+            flags.append(f"🟠 {disp[cid]} ({gl}) — {status}{ref}")
+        elif rec.get("team") and rec["team"] not in info:
+            flags.append(f"⚪ {disp[cid]} ({gl}) — no fixture this round")
     return flags
 
 
@@ -403,7 +432,7 @@ def page_players():
     st.caption("The only editable tab. Edit FIFA/Holdet prices, ownership, status → Save. "
                "EV columns are computed live for players the model knows.")
     info = team_info(rnd)
-    means, _ = run_sim(rnd, sims, config.weight("fifa"))
+    means, _, _ = run_sim(rnd, sims, config.weight("fifa"))
     mean_g, _ = holdet_growth(rnd, sims, config.weight("holdet_gold"))
     recs = pdb.load()
     teams = ["(all)"] + sorted({r["team"] for r in recs if r.get("team")})
@@ -411,17 +440,21 @@ def page_players():
     view = [r for r in recs if pick == "(all)" or r.get("team") == pick]
     rows = []
     for r in view:
+        e = lookup(r, means); fxp = fifa_xpts(e) if e else None
+        grw = lookup(r, mean_g); fp, hp = r.get("fifa_price"), r.get("holdet_price")
         rows.append({"name": r["name"], "team": r.get("team"),
                      "fifa_pos": r.get("fifa_pos"), "holdet_pos": r.get("holdet_pos"),
-                     "fifa_price": r.get("fifa_price"), "holdet_price": r.get("holdet_price"),
+                     "fifa_price": fp, "holdet_price": hp,
                      "own%": r.get("ownership"), "status": r.get("status"),
-                     "fifa_xPts": round(fifa_xpts(lookup(r, means)), 2) if lookup(r, means) else None,
-                     "holdet_growth": round(lookup(r, mean_g)) if lookup(r, mean_g) else None,
+                     "fifa_xPts": round(fxp, 2) if fxp is not None else None,
+                     "fifa_val": round(fxp / fp, 2) if (fxp is not None and fp) else None,
+                     "holdet_growth": round(grw) if grw else None,
+                     "holdet_val%": round(100 * grw / hp, 2) if (grw and hp) else None,
                      "matchup": why(r.get("team"), info)})
     edited = st.data_editor(
         rows, width="stretch", hide_index=True, key="players_editor",
-        disabled=["name", "team", "fifa_pos", "holdet_pos", "fifa_xPts",
-                  "holdet_growth", "matchup"])
+        disabled=["name", "team", "fifa_pos", "holdet_pos", "fifa_xPts", "fifa_val",
+                  "holdet_growth", "holdet_val%", "matchup"])
     if st.button("💾 Save player edits"):
         by = {e["name"]: e for e in edited}
         for r in recs:
@@ -699,12 +732,114 @@ def page_planner():
         st.warning("⚠️ Start-risk on IN picks: "
                    + ", ".join(f"{n} ({(pdb.resolve(n) or {}).get('status')})" for n in risky)
                    + " — check predicted lineups before committing.")
+    def _val(n):
+        pr = price(n)
+        if not pr:
+            return None
+        return round(ev(n) / (pr / 1e6)) if is_holdet else round(ev(n) / pr, 2)
     st.dataframe(
         [{"move": "OUT", "player": n, "price": price(n), "EV": round(ev(n), 2),
-          "status": (pdb.resolve(n) or {}).get("status")} for n in out] +
+          "value": _val(n), "status": (pdb.resolve(n) or {}).get("status")} for n in out] +
         [{"move": "IN", "player": n, "price": price(n), "EV": round(ev(n), 2),
-          "status": (pdb.resolve(n) or {}).get("status")} for n in inp],
+          "value": _val(n), "status": (pdb.resolve(n) or {}).get("status")} for n in inp],
         width="stretch", hide_index=True)
+    st.caption("value = " + ("growth per 1M kr" if is_holdet else "xPts per $m")
+               + " — the knapsack-efficiency metric (rank candidates by this, not raw EV).")
+
+
+
+def snapshot_preround():
+    """Freeze this round's Målspillet picks + squad EVs to data/rounds/rN-preround.json."""
+    import datetime as _dt
+    means, fceil, _ = run_sim(rnd, sims, config.weight("fifa"))
+    picks = []
+    for f in sorted(fixtures.by_round(rnd), key=lambda f: f.kickoff):
+        lh, la, rho = mal.match_dc_params(f)
+        hg, ag, ev = mal.optimal_pick(odds_math.score_matrix_dc(lh, la, rho))
+        picks.append({"match": f"{f.home} v {f.away}", "pick": f"{hg}-{ag}", "EV": round(ev, 3)})
+    snap = {"round": rnd, "captured": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M") + " (in-app)",
+            "malspillet": {"picks": picks, "bamse": max(picks, key=lambda r: r["EV"])["match"] if picks else None},
+            "squads": {}}
+    gkey = {"fifa": "FIFA", "holdet_gold": "GOLD", "holdet_yolo": "YOLO", "holdet_free": "FREE"}
+    for game in GAMES:
+        rows = []
+        if game == "fifa":
+            for pl in load_state(game)["squad"]:
+                rec = pdb.resolve(pl["name"]) or {}
+                e = lookup(rec, means)
+                rows.append({"player": canon(pl["name"]),
+                             "xPts": round(fifa_xpts(e), 1) if e else None,
+                             "ceiling": round(lookup(rec, fceil), 1) if lookup(rec, fceil) is not None else None})
+        else:
+            mean, ceil = holdet_growth(rnd, sims, config.weight(game))
+            for pl in load_state(game)["squad"]:
+                rec = pdb.resolve(pl["name"]) or {}
+                rows.append({"player": canon(pl["name"]), "growth": round(lookup(rec, mean)) if lookup(rec, mean) else None,
+                             "ceiling": round(lookup(rec, ceil)) if lookup(rec, ceil) else None})
+        snap["squads"][gkey[game]] = rows
+    save_json(f"{ROOT}/data/rounds/r{rnd}-preround.json", snap)
+    return snap
+
+
+def page_preround():
+    st.header(f"📸 Pre-round vs Live — Round {rnd}")
+    path = f"{ROOT}/data/rounds/r{rnd}-preround.json"
+    c0, c1 = st.columns([1, 3])
+    if c0.button("📸 Snapshot now"):
+        with st.spinner("Freezing picks + EVs…"):
+            snapshot_preround()
+        st.success("Snapshot saved."); st.rerun()
+    c1.caption("Freezes this round's committed picks + EVs. Track them vs live actuals here; "
+               "use **Update all live data** for actuals — **Refresh ESPN odds** would recompute picks.")
+    if not os.path.exists(path):
+        st.warning(f"No snapshot for R{rnd} yet — click **Snapshot now** before the deadline."); return
+    snap = load_json(path, {})
+    st.caption(f"Captured: {snap.get('captured')}")
+    st.subheader("🎯 Målspillet — committed picks vs actual")
+    bamse = snap.get("malspillet", {}).get("bamse")
+    mrows, tev, tp, done = [], 0.0, 0, 0
+    for pk in snap.get("malspillet", {}).get("picks", []):
+        parts = pk["match"].split(" v ")
+        ah = aa = None; et = False
+        if len(parts) == 2:
+            ah, aa, _ = fifa_api.actual_score(parts[0], parts[1])
+            et = fifa_api.went_to_et(parts[0], parts[1])
+        hg, ag = (int(x) for x in pk["pick"].split("-"))
+        mult = 2 if pk["match"] == bamse else 1   # Chance Bamse doubles its match
+        tev += pk["EV"] * mult
+        # Målspillet grades the 90-MINUTE score; the feed score includes extra time, so
+        # never auto-grade an ET game — flag it for manual 90' entry instead.
+        pts = None if et else mal_points(hg, ag, ah, aa)
+        if pts is not None:
+            pts *= mult; tp += pts; done += 1
+        actual = "⚠ ET — enter 90' score" if et else (f"{ah}-{aa}" if ah is not None else "—")
+        mrows.append({"match": pk["match"] + (" ⭐" if mult == 2 else ""),
+                      "my pick": pk["pick"], "pre-EV": round(pk["EV"] * mult, 3),
+                      "actual": actual, "pts": pts})
+    st.dataframe(mrows, width="stretch", hide_index=True)
+    a, b = st.columns(2)
+    a.metric("Pre-round total EV", f"{tev:.1f}", help="Includes Bamse ×2 on the ⭐ match.")
+    b.metric(f"Actual pts ({done} played)", tp if done else "—",
+             help="Includes Bamse ×2 on the ⭐ match.")
+    for key, rows in snap.get("squads", {}).items():
+        is_fifa = key == "FIFA"
+        st.subheader(f"{key} — pre-round vs actual")
+        out, tpre, tact, npl = [], 0.0, 0, 0
+        for r in rows:
+            nm = r["player"]; rec = pdb.resolve(nm) or {}
+            if is_fifa:
+                act = fifa_api.round_points(nm, rnd, rec.get("fifa_pos") or "MID")
+                pre = r.get("xPts") or 0; tpre += pre
+                out.append({"player": nm, "pre xPts": r.get("xPts"), "ceiling": r.get("ceiling"), "actual": act})
+            else:
+                act = holdet_api.growth(nm, rnd, rec.get("holdet_pos") or "MID")
+                pre = r.get("growth") or 0; tpre += pre
+                out.append({"player": nm, "pre growth": r.get("growth"), "ceiling": r.get("ceiling"), "actual": act})
+            if act is not None:
+                tact += act; npl += 1
+        st.dataframe(out, width="stretch", hide_index=True)
+        u = "pts" if is_fifa else "kr"
+        st.caption(f"pre-round total {tpre:,.0f} {u} · actual so far {tact:,.0f} {u} ({npl} played)")
 
 
 PAGES = {
@@ -714,5 +849,6 @@ PAGES = {
     "Holdet YOLO": lambda: page_game("holdet_yolo"),
     "Holdet FREE": lambda: page_game("holdet_free"),
     "Målspillet": page_malspillet, "Schedule & Odds": page_schedule, "News": page_news,
+    "Pre-round vs Live": page_preround,
 }
 PAGES[page]()

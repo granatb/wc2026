@@ -1,8 +1,8 @@
 ---
 entity: player
-name: J. Musiala
+name: F. Wirtz
 status: rotation_risk
-start_prob_override: 0.35
+start_prob_override: 0.4
 lambda_multiplier: 1.0
 round: 3
 sources:
@@ -10,4 +10,4 @@ sources:
 updated: 2026-06-24
 ---
 
-R3: Germany wholesale changes — rested for R3. (auto from R3 news-research workflow.)
+R3: Germany wholesale changes — minutes at risk. (auto from R3 news-research workflow.)

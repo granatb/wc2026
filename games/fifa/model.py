@@ -80,6 +80,13 @@ def scouting_ev(ev: dict, goal_samples: list) -> float:
     return SCOUTING_BONUS * hits / len(goal_samples)
 
 
+def ceiling_points_clamped(ev: dict, goal_samples: list, q: float = 0.85) -> float:
+    """ceiling_points but never below the mean (a ceiling can't be < EV). The raw
+    goal-variance ceiling dips below the mean for non-scoring defenders/GKs because it
+    only models goal upside, not clean-sheet variance — clamp removes that artefact."""
+    return max(expected_points(ev), ceiling_points(ev, goal_samples, q))
+
+
 def ceiling_points(ev: dict, goal_samples: list, q: float = 0.85) -> float:
     """Goal-variance ceiling: expected points with the mean-goal contribution swapped
     for the q-percentile goal contribution. Mirrors Holdet's ceiling so the two are

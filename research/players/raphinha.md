@@ -1,13 +1,13 @@
 ---
 entity: player
 name: Raphinha
-status: doubtful
-start_prob_override: 0.2
+status: out
+start_prob_override: null
 lambda_multiplier: 1.0
+round: 3
 sources:
-  - https://www.si.com/soccer/raphinha-injury-uncertainty-distress-over-brazilian-star-world-cup-status
-updated: 2026-06-20
+  - https://www.espn.com/soccer/story/_/id/49129032/brazil-confirm-raphinha-hamstring-injury-world-cup-2026-return-uncertain-group-c
+updated: 2026-06-24
 ---
-Hamstring — subbed off ~40' vs Haiti (R2, 1 pt). Genuine doubt for R3 (vs Scotland)
-and possibly the rest of the tournament. Owned in FIFA + YOLO. Start probability cut
-to 0.2; Vinícius the safer Brazil route.
+
+R3: Hamstring/thigh tear vs Haiti — confirmed OUT for R3, no return timetable. (auto from R3 news-research workflow.)

@@ -5,27 +5,102 @@
   "variant": "guld_unlimited_transfers_variance",
   "_blend": "research_weight + ceiling objective live in config.py",
   "formation": "3-4-3",
-  "cash": 503640,
-  "total_value": 51491000,
-  "current_round": 2,
-  "captain": "M. Oyarzabal",
-  "r2_transfers_out": ["Cesar Montes (susp)", "Alex Baena (benched)", "Raul Rangel", "Israel Reyes", "Erik Lira", "M. Ødegaard", "Antonio Nusa", "E. Haaland"],
+  "cash": 1126995,
+  "total_value": 52245995,
+  "current_round": 3,
+  "captain": "Amad Diallo",
+  "r2_transfers_out": [
+    "Cesar Montes (susp)",
+    "Alex Baena (benched)",
+    "Raul Rangel",
+    "Israel Reyes",
+    "Erik Lira",
+    "M. Ødegaard",
+    "Antonio Nusa",
+    "E. Haaland"
+  ],
   "_flags": [
     "Verify Felix Nmecha + M. Llorente are STARTING before lock (cheap = bench risk; the Baena lesson). Nmecha's +244k R1 implies he played.",
     "Holdet positions best-guess; confirm if needed."
   ],
   "squad": [
-    {"name": "H. Galindez", "team": "Ecuador", "position": "GK", "price": 3506000},
-    {"name": "Pau Cubarsi", "team": "Spain", "position": "DEF", "price": 4062000},
-    {"name": "Willian Pacho", "team": "Ecuador", "position": "DEF", "price": 2991000},
-    {"name": "G. Magalhaes", "team": "Brazil", "position": "DEF", "price": 4514000},
-    {"name": "J. Bellingham", "team": "England", "position": "MID", "price": 6246000},
-    {"name": "Fabian Ruiz", "team": "Spain", "position": "MID", "price": 4522000},
-    {"name": "Felix Nmecha", "team": "Germany", "position": "MID", "price": 3244000},
-    {"name": "M. Llorente", "team": "Spain", "position": "MID", "price": 3512000},
-    {"name": "M. Oyarzabal", "team": "Spain", "position": "FWD", "price": 7522000, "is_captain": true},
-    {"name": "E. Valencia", "team": "Ecuador", "position": "FWD", "price": 3999000},
-    {"name": "Raphinha", "team": "Brazil", "position": "FWD", "price": 6524000}
+    {
+      "name": "Yahia Fofana",
+      "team": "Ivory Coast",
+      "position": "GK",
+      "price": 3140000,
+      "is_captain": false
+    },
+    {
+      "name": "Achraf Hakimi",
+      "team": "Morocco",
+      "position": "DEF",
+      "price": 4450000,
+      "is_captain": false
+    },
+    {
+      "name": "Denzel Dumfries",
+      "team": "Netherlands",
+      "position": "DEF",
+      "price": 5210000,
+      "is_captain": false
+    },
+    {
+      "name": "Ibrahim Mbaye",
+      "team": "Senegal",
+      "position": "MID",
+      "price": 4144000,
+      "is_captain": false
+    },
+    {
+      "name": "Maxim De Cuyper",
+      "team": "Belgium",
+      "position": "DEF",
+      "price": 4104000,
+      "is_captain": false
+    },
+    {
+      "name": "Kevin De Bruyne",
+      "team": "Belgium",
+      "position": "MID",
+      "price": 7046000,
+      "is_captain": false
+    },
+    {
+      "name": "Jude Bellingham",
+      "team": "England",
+      "position": "MID",
+      "price": 6291000,
+      "is_captain": false
+    },
+    {
+      "name": "Crysencio Summerville",
+      "team": "Netherlands",
+      "position": "MID",
+      "price": 3418000,
+      "is_captain": false
+    },
+    {
+      "name": "Nicolas Jackson",
+      "team": "Senegal",
+      "position": "FWD",
+      "price": 4548000,
+      "is_captain": false
+    },
+    {
+      "name": "Amad Diallo",
+      "team": "Ivory Coast",
+      "position": "FWD",
+      "price": 3718000,
+      "is_captain": true
+    },
+    {
+      "name": "Sadio Mane",
+      "team": "Senegal",
+      "position": "FWD",
+      "price": 5050000,
+      "is_captain": false
+    }
   ],
   "watchlist": [],
   "notes": "Blowout-stacked variance build: Ecuador x3, Spain x4 (cap), Brazil x2, England, Germany — all in 2.0+ xG routs. Cheap røverkøb Nmecha/Llorente fund Raphinha. Captain Oyarzabal (pens); Raphinha/Valencia are higher-ceiling armband options."
