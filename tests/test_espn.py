@@ -99,6 +99,24 @@ class TestClosingOddsPreserved(unittest.TestCase):
         self.assertEqual(merged["status"], "complete")   # result still updated
         self.assertEqual(merged["hs"], 3)
 
+    def test_no_odds_pull_keeps_raw_markets_too(self):
+        """The RAW h2h/totals/p1x2 must survive the post-kickoff odds-less refresh —
+        an explicit h2h=None in the fresh pull previously clobbered the cached line
+        (destroying the R1-R3 odds history the backtests depend on)."""
+        h2h = {"home": 2.1, "draw": 3.4, "away": 3.6}
+        totals = {"line": 2.5, "over": 1.9, "under": 1.9}
+        espn.save_match_odds(self.mid, {"home": "A", "away": "B", "lam_home": 1.5,
+                                        "lam_away": 1.1, "rho": -0.05,
+                                        "h2h": h2h, "totals": totals,
+                                        "p1x2": [0.45, 0.28, 0.27],
+                                        "status": "scheduled"})
+        merged = espn.save_match_odds(self.mid, {"home": "A", "away": "B",
+                                                 "h2h": None, "totals": None,
+                                                 "status": "complete", "hs": 1, "as": 1})
+        self.assertEqual(merged["h2h"], h2h)             # raw closing markets preserved
+        self.assertEqual(merged["totals"], totals)
+        self.assertEqual(merged["p1x2"], [0.45, 0.28, 0.27])
+
 
 class TestEspnProps(unittest.TestCase):
     def test_parse_and_goal_weights_prefers_anytime(self):

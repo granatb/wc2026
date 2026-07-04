@@ -282,6 +282,13 @@ def save_match_odds(match_id: str, data: dict) -> dict:
         merged["rho"] = prev.get("rho", 0.0)
         merged["odds_captured_at"] = prev.get("odds_captured_at")
         merged["odds_status"] = "closing"
+        # Freeze the RAW markets too (h2h/totals/p1x2), not just the derived lambdas.
+        # Without this, the fresh odds-less pull's h2h=None clobbers the cached line —
+        # which silently destroyed the R1-R3 odds history and starved every
+        # odds-vs-realized backtest (de-vig bake-off, CLV loop) of eligible matches.
+        for raw_key in ("h2h", "totals", "p1x2"):
+            if data.get(raw_key) is None and prev.get(raw_key) is not None:
+                merged[raw_key] = prev[raw_key]
     path = os.path.join(ODDS_CACHE, f"{match_id}.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(merged, fh, indent=2)
