@@ -80,6 +80,27 @@ def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
     }
 
 
+def expired_risk_flags(entries_map: dict, notes: dict, fantasy_round: int,
+                       top_n: int = 20) -> list:
+    """Names of published picks carrying an out/doubtful/suspended note pinned to a
+    PAST round. Round-pinned notes expire silently by design (core/research.py), which
+    is right for tactical reads but dangerous for injuries with no return date — the
+    2026-07-04 Raphinha near-miss shipped a whole article on a ruled-out player this
+    way. The build can't know current fitness, so it flags loudly for operator review
+    instead of guessing."""
+    expired = {n: e for n, e in notes.items()
+               if getattr(e, "status", None) in ("out", "doubtful", "suspended")
+               and getattr(e, "round", None) is not None and e.round < fantasy_round}
+    flags = []
+    for slug, entries in entries_map.items():
+        for e in entries[:top_n]:
+            name = e.get("name") if isinstance(e, dict) else None
+            if name in expired:
+                note = expired[name]
+                flags.append(f"{name} ({note.status}, round {note.round}) -> {slug} #{e.get('rank')}")
+    return sorted(set(flags))
+
+
 def _format_date(generated_at: str) -> str:
     """Format an ISO-8601 timestamp as a human date, e.g. '24 June 2026'."""
     dt = datetime.fromisoformat(generated_at)
@@ -130,6 +151,15 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # ranking during the group stage.
     adv_map = articles.advancement_map(entries_map["matches"])
     entries_map["transfers"] = articles.transfer_priorities(rows, adv_map)
+
+    # --- Expired-risk-note guard (Raphinha near-miss, 2026-07-04) ---
+    flags = expired_risk_flags(entries_map,
+                               research.load_entries("players", None), fantasy_round)
+    if flags:
+        print("\n!!! EXPIRED INJURY/RISK NOTES on published picks — VERIFY before lock:")
+        for f in flags:
+            print("    " + f)
+        print("!!! Update research/players/<name>.md (re-pin round or clear status) to silence.\n")
     nav = [(slug, articles.ARTICLE_TITLES[slug]) for slug in articles.ARTICLES]
 
     def w(path: str, text: str) -> None:

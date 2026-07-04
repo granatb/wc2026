@@ -47,3 +47,27 @@ class ArticleEntriesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExpiredRiskFlagsTest(unittest.TestCase):
+    class _Note:
+        def __init__(self, status, rnd):
+            self.status, self.round = status, rnd
+
+    def test_flags_expired_out_note_on_published_pick(self):
+        from evmax.build import expired_risk_flags
+        entries_map = {"captains": [{"name": "Raphinha", "rank": 3}]}
+        notes = {"Raphinha": self._Note("out", 3)}
+        flags = expired_risk_flags(entries_map, notes, fantasy_round=5)
+        self.assertEqual(len(flags), 1)
+        self.assertIn("Raphinha", flags[0])
+        self.assertIn("captains", flags[0])
+
+    def test_current_round_and_clean_players_not_flagged(self):
+        from evmax.build import expired_risk_flags
+        entries_map = {"captains": [{"name": "Kane", "rank": 1},
+                                    {"name": "Doubt", "rank": 2}]}
+        notes = {"Doubt": self._Note("doubtful", 5),      # current round: fine
+                 "Kane": self._Note("nailed", 3)}          # non-risk status: fine
+        self.assertEqual(expired_risk_flags(entries_map, notes, fantasy_round=5), [])
+
