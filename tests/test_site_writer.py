@@ -121,6 +121,51 @@ class WriterTest(unittest.TestCase):
         self.assertEqual(p["headline"], "Back Kane")
         self.assertIn("Bottom line", p["body_html"] + p["bottom_line"])
 
+    def test_cache_tier_body_md_is_original_markdown(self):
+        """body_md on the cache tier must be the raw markdown body text, not
+        the HTML-converted version -- e.g. no <p> tags."""
+        d = tempfile.mkdtemp()
+        os.makedirs(f"{d}/round-3", exist_ok=True)
+        with open(f"{d}/round-3/captains.md", "w") as fh:
+            fh.write(
+                "# Back Kane\n\n> Safe armband.\n\nKane leads at 18.31.\n\n"
+                "**Bottom line:** hold Kane.\n"
+            )
+        p = writer.article_prose("captains", 3, ENTRIES, ["captain_ev"], cache_dir=d, use_llm=False)
+        self.assertIn("body_md", p)
+        self.assertNotIn("<p>", p["body_md"])
+        self.assertIn("Kane leads at 18.31.", p["body_md"])
+        self.assertIn("**Bottom line:**", p["body_md"])
+
+    def test_template_tier_body_md_has_no_html_tags(self):
+        """body_md on the template tier should be a markdown-ified version of
+        body_html: no <p>/<blockquote> tags, but bold markers preserved (the
+        efficiency template's per-tier paragraph uses <b> tags)."""
+        entries = [
+            {"rank": 1, "name": "Diallo", "team": "CIV", "position": "FWD",
+             "x_points": 5.0, "captain_ev": 10.0, "ceiling": 8.0, "price": 5.0,
+             "value": 1.0, "ownership_pct": 1.2, "tier": "Budget"},
+        ]
+        p = writer.article_prose("efficiency", 3, entries, ["value"],
+                                 cache_dir="/nonexistent", use_llm=False,
+                                 subject="Diallo")
+        self.assertEqual(p["source"], "template")
+        self.assertIn("body_md", p)
+        self.assertNotIn("<p>", p["body_md"])
+        self.assertNotIn("<blockquote>", p["body_md"])
+        self.assertIn("**", p["body_md"])
+
+    def test_html_to_md_converts_supported_tags(self):
+        html_in = ("<p>Plain <b>bold</b> text.</p>\n"
+                  "<blockquote><p>A quote.</p></blockquote>\n"
+                  "<h2>Heading</h2>")
+        md = writer._html_to_md(html_in)
+        self.assertNotIn("<p>", md)
+        self.assertNotIn("<b>", md)
+        self.assertIn("**bold**", md)
+        self.assertIn("> A quote.", md)
+        self.assertIn("## Heading", md)
+
     def test_no_api_key_falls_to_template_cleanly(self):
         """With use_llm=True but ANTHROPIC_API_KEY unset, fall through to template (no crash)."""
         saved = os.environ.pop("ANTHROPIC_API_KEY", None)

@@ -602,6 +602,126 @@ def _rank_table_html(entries, columns):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
+# Max rows in the agent-facing Markdown twin's data table -- the JSON has the
+# full list; the .md file is a readable content twin, not a full data dump.
+_ARTICLE_MD_MAX_ROWS = 20
+
+# matches entries have no player "name"/"team" -- these are the columns for the
+# match-predictions table in the Markdown twin. fixtures (and everything else)
+# use the generic `columns` path via _COL_LABEL/_fmt.
+_MATCH_MD_COLUMNS = ["match", "kickoff", "top_scoreline", "p_home", "p_draw", "p_away"]
+_MATCH_MD_LABELS = {"match": "Match", "kickoff": "Kickoff", "top_scoreline": "Top scoreline",
+                    "p_home": "P(Home)", "p_draw": "P(Draw)", "p_away": "P(Away)",
+                    "final_score": "Final score"}
+
+
+def _escape_pipes(s) -> str:
+    """Escape literal '|' characters so a value can't break a Markdown table row."""
+    return str(s).replace("|", "\\|")
+
+
+def _md_fmt(col, row):
+    """Markdown-table cell formatter -- same value semantics as _fmt (HTML
+    tables), but plain text (no HTML entity escaping) with pipes escaped."""
+    if col == "match":
+        return _escape_pipes(row.get("match", ""))
+    if col == "kickoff":
+        ko = row.get("kickoff") or ""
+        return _escape_pipes(ko[:16].replace("T", " ") + " UTC") if ko else "—"
+    if col in ("p_home", "p_draw", "p_away"):
+        v = row.get(col)
+        return f"{v * 100:.0f}%" if v is not None else "—"
+    if col == "final_score":
+        return _escape_pipes(row.get("final_score") or "—")
+    v = row.get(col)
+    if v is None:
+        return "—"
+    if col in _STRING_COLS:
+        return _escape_pipes(v)
+    if col in ("ownership_pct", "p_advance"):
+        return f"{v:.1f}%"
+    if col == "p_clean_sheet":
+        return f"{v * 100:.0f}%"
+    if col == "price":
+        return f"{v:.1f}"
+    return f"{v:.2f}" if isinstance(v, float) else _escape_pipes(v)
+
+
+def _article_md_table(article: str, entries: list, columns: list) -> str:
+    """The 'The data' Markdown table for an article's .md twin.
+
+    matches has no player rows (match/kickoff/odds columns instead, with an
+    optional Final score column once fixtures complete); every other article
+    (including fixtures, whose entries already carry team-shaped columns) uses
+    the generic rank-table path: #, Player, Team, then the article's columns.
+    """
+    rows = entries[:_ARTICLE_MD_MAX_ROWS]
+    if not rows:
+        return "_No data available for this article._"
+
+    if article == "matches":
+        cols = list(_MATCH_MD_COLUMNS)
+        if any(r.get("final_score") for r in rows):
+            cols.append("final_score")
+        header = "| " + " | ".join(_MATCH_MD_LABELS[c] for c in cols) + " |"
+        sep = "|" + "|".join("---" for _ in cols) + "|"
+        lines = [header, sep]
+        for r in rows:
+            lines.append("| " + " | ".join(_md_fmt(c, r) for c in cols) + " |")
+        return "\n".join(lines)
+
+    header_cells = ["#", "Player", "Team"] + [_COL_LABEL.get(c, c) for c in columns]
+    header = "| " + " | ".join(header_cells) + " |"
+    sep = "|" + "|".join("---" for _ in header_cells) + "|"
+    lines = [header, sep]
+    for r in rows:
+        cells = [
+            str(r.get("rank", "")),
+            _escape_pipes(r.get("name", "")),
+            _escape_pipes(r.get("team") or ""),
+        ] + [_md_fmt(c, r) for c in columns]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def article_md(round_no, slug, title, prose, entries, columns, generated_at,
+               date_str, canonical_path):
+    """Content-only Markdown twin of an article, for AI agents (the llms.txt
+    convention) -- purpose-built to replace paid edge markdown-conversion.
+
+    canonical_path: the article's HTML path, e.g. "/round/5/captains/" -- used
+    to build the "By the evmax model" byline URL and the API-JSON pointer.
+    """
+    headline = prose.get("headline", title)
+    standfirst = prose.get("standfirst", "")
+    body_md = prose.get("body_md", "")
+    bottom_line = prose.get("bottom_line", "")
+    table_md = _article_md_table(slug, entries, columns)
+    json_url = f"{SITE_URL}/api/round/{round_no}/{slug}.json"
+
+    parts = [
+        f"# {headline}",
+        "",
+        f"> {standfirst}",
+        "",
+        f"By the evmax model · {date_str} · {SITE_URL}{canonical_path}",
+        "",
+        body_md,
+        "",
+        f"**Bottom line:** {bottom_line}",
+        "",
+        "## The data",
+        "",
+        table_md,
+        "",
+        "---",
+        f"Method: {METHODOLOGY}",
+        f"Data license: CC BY 4.0 (attribution: evmax, {SITE_URL}). "
+        f"Machine-readable JSON: {json_url}",
+    ]
+    return "\n".join(parts) + "\n"
+
+
 _MATCH_CSS = (
     # "Games to watch" is a single muted line of chips, not its own bordered
     # card-in-a-card box -- it sits directly above the fixture grid.
@@ -1059,6 +1179,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <title>{_html.escape(title)} | {BRAND_SUFFIX}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
+<link rel="alternate" type="text/markdown" href="/round/{round_no}/{article}.md">
 {_og_meta(prose["headline"], summary, f"/round/{round_no}/{article}/", "article")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -1348,7 +1469,8 @@ def llms_txt(round_no, nav):
     ]
     for slug, title in nav:
         lines.append(f"- [{title}]({SITE_URL}/round/{round_no}/{slug}/) — "
-                     f"data: {SITE_URL}/api/round/{round_no}/{slug}.json")
+                     f"data: {SITE_URL}/api/round/{round_no}/{slug}.json"
+                     f" · markdown: {SITE_URL}/round/{round_no}/{slug}.md")
     lines += [
         "",
         "## Track record",

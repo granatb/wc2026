@@ -4,8 +4,9 @@ Public API
 ----------
 article_prose(article, round_no, entries, columns,
               cache_dir="data/articles", use_llm=True) -> dict
-    Returns {"headline", "standfirst", "body_html", "bottom_line", "source"}
-    where source is "cache" | "llm" | "template".
+    Returns {"headline", "standfirst", "body_html", "body_md", "bottom_line", "source"}
+    where source is "cache" | "llm" | "template". body_md is the content-only
+    Markdown twin of body_html (used for the agent-facing .md article pages).
 """
 
 import html
@@ -80,6 +81,36 @@ def _md_to_html(text: str) -> str:
     return "\n".join(out_parts)
 
 
+def _html_to_md(html_text: str) -> str:
+    """Convert the small HTML subset _md_to_html produces back to Markdown.
+
+    Supported (best-effort, content fidelity over formatting):
+      <h2>x</h2>                     -> ## x
+      <blockquote><p>x</p></blockquote> -> > x
+      <b>x</b> / <strong>x</strong>  -> **x**
+      <p>x</p>                       -> paragraph, blank-line separated
+    Any other tags are stripped; entities are unescaped.
+    """
+    text = html_text
+
+    def _blockquote_sub(m):
+        inner = m.group(1)
+        inner = re.sub(r"</?p>", "", inner).strip()
+        return f"> {inner}"
+
+    text = re.sub(r"<blockquote>\s*(.*?)\s*</blockquote>", _blockquote_sub,
+                 text, flags=re.DOTALL)
+    text = re.sub(r"<h2>(.*?)</h2>", r"## \1", text, flags=re.DOTALL)
+    text = re.sub(r"<(?:b|strong)>(.*?)</(?:b|strong)>", r"**\1**", text, flags=re.DOTALL)
+    text = re.sub(r"<p>(.*?)</p>", r"\1", text, flags=re.DOTALL)
+    # Strip any remaining tags defensively
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html.unescape(text)
+    # Normalise blank lines between blocks
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    return "\n\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Cache tier: parse a .md file into prose dict.
 # ---------------------------------------------------------------------------
@@ -119,7 +150,8 @@ def _parse_cache_md(path: str) -> dict:
         m = re.match(r"\*\*Bottom line:\*\*\s*(.*)", line.strip())
         if m:
             bottom_line_text = m.group(1).strip()
-    body_html = _md_to_html("\n".join(rest_lines))
+    body_md_raw = "\n".join(rest_lines).strip()
+    body_html = _md_to_html(body_md_raw)
 
     # Extract bottom_line from the <strong>Bottom line:</strong> paragraph if present
     if not bottom_line_text:
@@ -131,6 +163,7 @@ def _parse_cache_md(path: str) -> dict:
         "headline": headline,
         "standfirst": standfirst,
         "body_html": body_html,
+        "body_md": body_md_raw,
         "bottom_line": bottom_line_text,
         "source": "cache",
     }
@@ -645,10 +678,12 @@ def _template_prose(article: str, entries: list, columns: list,
     subject: the player to centre the prose on (or None for team-framing in best-xi).
     """
     if not entries:
+        body_html = "<p>No entries available for this article.</p>"
         return {
             "headline": f"Round analysis: {article}",
             "standfirst": "No data available.",
-            "body_html": "<p>No entries available for this article.</p>",
+            "body_html": body_html,
+            "body_md": _html_to_md(body_html),
             "bottom_line": "Check back when data is available.",
             "source": "template",
         }
@@ -678,6 +713,7 @@ def _template_prose(article: str, entries: list, columns: list,
         "headline": headline,
         "standfirst": standfirst,
         "body_html": body_html,
+        "body_md": _html_to_md(body_html),
         "bottom_line": bottom_line,
         "source": "template",
     }
@@ -769,6 +805,7 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
         "headline": data["headline"],
         "standfirst": data["standfirst"],
         "body_html": body_html,
+        "body_md": data["body_markdown"],
         "bottom_line": data["bottom_line"],
         "source": "llm",
     }
@@ -815,7 +852,7 @@ def article_prose(
 
     Returns
     -------
-    dict with keys: headline, standfirst, body_html, bottom_line, source
+    dict with keys: headline, standfirst, body_html, body_md, bottom_line, source
     """
     # Tier 1: cache
     cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")

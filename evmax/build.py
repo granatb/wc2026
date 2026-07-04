@@ -320,6 +320,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                               generated_at=generated_at, date_str=date_str,
                               show_table=not is_matches))
 
+        # Markdown twin (agent-facing content-only article, llms.txt convention)
+        w(f"/round/{fantasy_round}/{slug}.md",
+          render.article_md(fantasy_round, slug, title, prose, entries, columns,
+                            generated_at, date_str,
+                            canonical_path=f"/round/{fantasy_round}/{slug}/"))
+
     # --- Reddit kit (operator posting material — NOT published to the site) ---
     # data/ is gitignored; this never lands in dist/. Written after articles/prose
     # are built so the kit can pull real captain EV / close-game numbers.

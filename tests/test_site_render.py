@@ -558,6 +558,11 @@ class AgentFilesTest(unittest.TestCase):
         self.assertIn("/round/3/captains/", t)
         self.assertIn("/api/round/3/captains.json", t)
 
+    def test_llms_txt_mentions_markdown_twin(self):
+        t = render.llms_txt(round_no=3, nav=self.nav)
+        self.assertIn(".md", t)
+        self.assertIn(f"{render.SITE_URL}/round/3/captains.md", t)
+
     def test_robots_allows_ai_bots(self):
         r = render.robots_txt()
         for bot in ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended"]:
@@ -712,6 +717,86 @@ class UtilityAndOgTest(unittest.TestCase):
         self.assertIn('property="og:title"', h)
         self.assertIn('https://evmax.ai/round/5/captains/', h)  # canonical URL
         self.assertIn("twitter:card", h)
+
+    def test_article_page_has_markdown_alternate_link(self):
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=_SAMPLE_PROSE, entries=_SAMPLE_XI[:1], columns=["captain_ev"],
+            json_url="/api/round/5/captains.json", viz_html="")
+        self.assertIn('rel="alternate" type="text/markdown" href="/round/5/captains.md"', h)
+
+
+class ArticleMdTest(unittest.TestCase):
+    """render.article_md -- the agent-facing content-only Markdown twin."""
+
+    def setUp(self):
+        self.prose = {
+            "headline": "Bruno Fernandes leads the captain board",
+            "standfirst": "Portugal's midfielder tops this round's captain EV at 11.34.",
+            "body_html": "<p>Bruno Fernandes projects <b>11.34 captain EV</b> this round.</p>",
+            "body_md": "Bruno Fernandes projects **11.34 captain EV** this round.",
+            "bottom_line": "Captain Bruno Fernandes.",
+            "source": "template",
+        }
+        self.entries = [
+            {"rank": 1, "name": "Bruno Fernandes", "team": "Portugal", "position": "MID",
+             "x_points": 5.67, "captain_ev": 11.34, "ceiling": 9.1, "price": 9.5,
+             "ownership_pct": 18.0, "value": 0.6},
+            {"rank": 2, "name": "Amad | Diallo", "team": "CIV", "position": "FWD",
+             "x_points": 5.0, "captain_ev": 10.0, "ceiling": 8.0, "price": 5.5,
+             "ownership_pct": 1.0, "value": 0.9},
+        ]
+
+    def test_article_md_has_headline_table_row_and_license_no_html(self):
+        md = render.article_md(
+            round_no=5, slug="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            generated_at="2026-07-04T12:00:00+00:00", date_str="4 July 2026",
+            canonical_path="/round/5/captains/")
+        self.assertTrue(md.startswith("# Bruno Fernandes leads the captain board"))
+        self.assertIn("Bruno Fernandes", md)
+        self.assertIn("11.34", md)
+        self.assertIn("CC BY 4.0", md)
+        self.assertIn("https://evmax.ai/api/round/5/captains.json", md)
+        self.assertNotIn("<p>", md)
+        self.assertNotIn("<b>", md)
+        self.assertNotIn("<table", md)
+
+    def test_article_md_escapes_pipe_in_names(self):
+        md = render.article_md(
+            round_no=5, slug="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev"],
+            generated_at="2026-07-04T12:00:00+00:00", date_str="4 July 2026",
+            canonical_path="/round/5/captains/")
+        self.assertIn("Amad \\| Diallo", md)
+
+    def test_article_md_matches_uses_match_columns(self):
+        entries = [
+            {"match": "France vs Paraguay", "home": "France", "away": "Paraguay",
+             "kickoff": "2026-07-04T15:00:00+00:00", "exp_home_goals": 2.1,
+             "exp_away_goals": 0.4, "exp_total": 2.5, "top_scoreline": "2-0",
+             "p_home": 0.68, "p_draw": 0.20, "p_away": 0.12, "close": False},
+        ]
+        md = render.article_md(
+            round_no=5, slug="matches", title="Match predictions — Round 5",
+            prose=self.prose, entries=entries, columns=[],
+            generated_at="2026-07-04T12:00:00+00:00", date_str="4 July 2026",
+            canonical_path="/round/5/matches/")
+        self.assertIn("France vs Paraguay", md)
+        self.assertIn("2-0", md)
+        self.assertIn("68%", md)
+
+    def test_article_md_caps_table_at_20_rows(self):
+        entries = [
+            {"rank": i + 1, "name": f"Player{i}", "team": "X", "captain_ev": 10.0 - i * 0.1}
+            for i in range(30)
+        ]
+        md = render.article_md(
+            round_no=5, slug="captains", title="t", prose=self.prose, entries=entries,
+            columns=["captain_ev"], generated_at="2026-07-04T12:00:00+00:00",
+            date_str="4 July 2026", canonical_path="/round/5/captains/")
+        self.assertIn("Player19", md)
+        self.assertNotIn("Player20", md)
 
 
 if __name__ == '__main__':
