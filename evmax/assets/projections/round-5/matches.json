@@ -3,7 +3,7 @@
   "round": 5,
   "article": "matches",
   "title": "Match predictions & games to watch — Round 5",
-  "generated_at": "2026-07-04T08:36:03.494013+00:00",
+  "generated_at": "2026-07-04T09:03:07.654136+00:00",
   "sims": 50000,
   "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
   "entries": [
@@ -20,6 +20,8 @@
       "p_draw": 0.26,
       "p_away": 0.55,
       "close": false,
+      "p_cs_home": 0.211,
+      "p_cs_away": 0.436,
       "p_advance_home": 0.287,
       "p_advance_away": 0.713
     },
@@ -36,6 +38,8 @@
       "p_draw": 0.13,
       "p_away": 0.81,
       "close": false,
+      "p_cs_home": 0.08,
+      "p_cs_away": 0.587,
       "p_advance_home": 0.082,
       "p_advance_away": 0.918
     },
@@ -52,6 +56,8 @@
       "p_draw": 0.23,
       "p_away": 0.23,
       "close": false,
+      "p_cs_home": 0.337,
+      "p_cs_away": 0.17,
       "p_advance_home": 0.677,
       "p_advance_away": 0.323
     },
@@ -68,6 +74,8 @@
       "p_draw": 0.28,
       "p_away": 0.41,
       "close": true,
+      "p_cs_home": 0.286,
+      "p_cs_away": 0.345,
       "p_advance_home": 0.444,
       "p_advance_away": 0.556
     },
@@ -84,6 +92,8 @@
       "p_draw": 0.25,
       "p_away": 0.51,
       "close": false,
+      "p_cs_home": 0.193,
+      "p_cs_away": 0.341,
       "p_advance_home": 0.344,
       "p_advance_away": 0.656
     },
@@ -100,6 +110,8 @@
       "p_draw": 0.25,
       "p_away": 0.37,
       "close": true,
+      "p_cs_home": 0.244,
+      "p_cs_away": 0.239,
       "p_advance_home": 0.506,
       "p_advance_away": 0.494
     },
@@ -116,6 +128,8 @@
       "p_draw": 0.19,
       "p_away": 0.1,
       "close": false,
+      "p_cs_home": 0.551,
+      "p_cs_away": 0.136,
       "p_advance_home": 0.854,
       "p_advance_away": 0.146
     },
@@ -132,6 +146,8 @@
       "p_draw": 0.28,
       "p_away": 0.43,
       "close": true,
+      "p_cs_home": 0.271,
+      "p_cs_away": 0.356,
       "p_advance_home": 0.415,
       "p_advance_away": 0.585
     }
