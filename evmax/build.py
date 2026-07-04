@@ -335,8 +335,33 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             "stat_label": stat_label,
         })
 
+    # Sidebar quick picks: one-glance answers, each linking into its article.
+    quick_picks = []
+    if entries_map.get("captains"):
+        c = entries_map["captains"][0]
+        quick_picks.append({"label": "Captain", "name": c["name"],
+                            "stat": f"{c['captain_ev']:.1f} EV",
+                            "href": f"/round/{fantasy_round}/captains/"})
+    diffs = articles.differentials(rows)
+    if diffs:
+        d = diffs[0]
+        quick_picks.append({"label": "Differential", "name": d["name"],
+                            "stat": f"{d['x_points']:.1f} xPts · {d['ownership_pct']:.0f}%",
+                            "href": f"/round/{fantasy_round}/risky/"})
+    budget = [e for e in entries_map.get("efficiency", []) if e.get("tier") == "Budget"]
+    if budget:
+        b = budget[0]
+        quick_picks.append({"label": "Cheap win", "name": b["name"],
+                            "stat": f"{b['price']:.1f}m · {b['value']:.2f}/m",
+                            "href": f"/round/{fantasy_round}/efficiency/"})
+    if entries_map.get("fixtures"):
+        f0 = entries_map["fixtures"][0]
+        quick_picks.append({"label": "Clean sheet", "name": f0["name"],
+                            "stat": f"{f0['p_clean_sheet']*100:.0f}% CS",
+                            "href": f"/round/{fantasy_round}/fixtures/"})
+
     landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str,
-                                       fixtures=entries_map["matches"])
+                                       fixtures=entries_map["matches"], quick_picks=quick_picks)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 

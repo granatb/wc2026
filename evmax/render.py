@@ -297,6 +297,11 @@ _STYLE = (
     ".rail{position:sticky;top:80px;align-self:start;background:var(--surf);"
     "border:1px solid var(--line);border-radius:14px;padding:18px 20px}"
     ".rail .pagelabel{margin:0 0 14px}"
+    ".qp-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}"
+    ".qp-row:hover .qp-name{color:var(--green)}"
+    ".qp-label{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);min-width:86px}"
+    ".qp-name{font-weight:700;font-size:14px;flex:1}"
+    ".qp-stat{font-size:12px;font-weight:700;color:var(--greend);white-space:nowrap}"
     ".rail-row{padding:12px 0;border-bottom:1px solid var(--line)}"
     ".rail-row:last-of-type{border-bottom:0}"
     ".rail-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;"
@@ -1052,20 +1057,33 @@ def _fixtures_rail_row(m: dict) -> str:
     return f'<div class="rail-row">{top_line}{body}</div>'
 
 
-def _fixtures_rail_html(round_no: int, fixtures: list) -> str:
+def _quick_picks_html(picks: list) -> str:
+    """Sidebar 'answers at a glance' shortcuts: [{label, name, stat, href}]. Each row
+    links into the article carrying the full reasoning."""
+    rows = "".join(
+        f'<a class="qp-row" href="{p["href"]}">'
+        f'<span class="qp-label">{_html.escape(p["label"])}</span>'
+        f'<span class="qp-name">{_html.escape(p["name"])}</span>'
+        f'<span class="qp-stat">{_html.escape(p["stat"])}</span></a>'
+        for p in picks)
+    return f'<div class="pagelabel">Quick picks</div>{rows}'
+
+
+def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
     list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
     close/top_scoreline, and possibly finished/final_score)."""
     rows = "".join(_fixtures_rail_row(m) for m in fixtures)
+    qp = _quick_picks_html(quick_picks) if quick_picks else ""
     return (
-        f'<aside class="rail"><div class="pagelabel">This round\'s ties</div>'
+        f'<aside class="rail">{qp}<div class="pagelabel">This round\'s ties</div>'
         f'{rows}'
         f'<a class="rail-link" href="/round/{round_no}/matches/">All match predictions →</a>'
         f'</aside>'
     )
 
 
-def landing_page(round_no, featured, feed, date_str=None, fixtures=None):
+def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1122,7 +1140,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None):
 <p class="method"><b>Method.</b> {METHODOLOGY}</p>"""
 
     if fixtures:
-        rail_html = _fixtures_rail_html(round_no, fixtures)
+        rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks)
         body_content = (f'<div class="landing-grid">'
                         f'<div class="main-col">{main_content}</div>'
                         f'{rail_html}'
