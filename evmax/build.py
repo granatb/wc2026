@@ -30,17 +30,22 @@ _COLUMNS = {
     "transfers":         ["priority_score", "vor", "x_points", "p_advance", "price", "ownership_pct"],
     "fixtures":          ["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
     "wildcard":          ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
-    "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
     "defenders":         ["x_points", "price", "value", "ceiling", "ownership_pct"],
     "risky":             ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
-    "efficiency":        ["value", "x_points", "price", "captain_ev", "ownership_pct"],
+    "efficiency":        ["value", "x_points", "price", "captain_ev", "ownership_pct", "ceiling"],
     "blowout-transfers": ["x_points", "captain_ev", "ceiling", "price", "ownership_pct"],
-    # Legacy columns kept for back-compat but not featured in ARTICLES
+    # Legacy columns kept for back-compat but not featured in ARTICLES. best-xi was
+    # merged into wildcard (2026-07) -- select_xi() and this column spec are kept
+    # for the retrospective backtest, which still grades older published snapshots
+    # that contain a best-xi article.
+    "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
     "high-ceiling-xi":   ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
     "differentials":     ["x_points", "ceiling", "captain_ev", "price", "value", "ownership_pct"],
 }
 
-# XI articles get pitch SVG; others get an EV bar
+# XI articles get pitch SVG; others get an EV bar. best-xi is kept in this set for
+# back-compat (in case some future code re-derives a viz for an old snapshot);
+# wildcard is the only one actually published now that best-xi is merged into it.
 _XI_ARTICLES = {"best-xi", "wildcard"}
 
 
@@ -182,9 +187,10 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # Matches article: no player subject, no player table
         is_matches = (slug == "matches")
 
-        # Determine the subject (lead player) for prose focus. best-xi, wildcard,
-        # matches and fixtures are team/match-framed, with no single player centred.
-        if slug in ("best-xi", "wildcard", "matches", "fixtures"):
+        # Determine the subject (lead player) for prose focus. wildcard (now also
+        # the site's "best XI" piece), matches and fixtures are team/match-framed,
+        # with no single player centred.
+        if slug in ("wildcard", "matches", "fixtures"):
             subject = None
         else:
             subject = next(
@@ -287,11 +293,16 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             shutil.copy2(os.path.join(fonts_src, fname), os.path.join(fonts_dst, fname))
 
     # --- Landing page ---
-    # Featured = captains article (first in ARTICLES)
+    # Featured = captains article (first in ARTICLES). The article page itself
+    # shows all 20 captain entries, but the landing's featured chart is above
+    # the fold -- a 20-bar chart pushes the whole feed below the fold, so cap
+    # the featured viz to the top 8 (ev_bar also has a belt-and-braces max_rows
+    # for the same cap, in case a future call site forgets to slice).
+    _FEATURED_VIZ_MAX_ROWS = 8
     captains_entries = entries_map["captains"]
     captains_cols = _COLUMNS["captains"]
     captains_prose = prose_map["captains"]
-    captains_viz = render.ev_bar(captains_entries, captains_cols[0])
+    captains_viz = render.ev_bar(captains_entries[:_FEATURED_VIZ_MAX_ROWS], captains_cols[0])
 
     featured = {
         "slug": "captains",
@@ -324,7 +335,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             "stat_label": stat_label,
         })
 
-    landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str)
+    landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str,
+                                       fixtures=entries_map["matches"])
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 

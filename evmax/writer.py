@@ -236,6 +236,51 @@ def _wc_best_value(entries):
     return max(priced, key=lambda e: e["value"])
 
 
+# ---------------------------------------------------------------------------
+# efficiency() price-tier helpers -- entries carry a `tier` field (Budget/Mid/
+# Premium, from articles.efficiency); these surface the best value pick WITHIN
+# each tier, not just the single best overall.
+# ---------------------------------------------------------------------------
+
+_TIER_ORDER = ["Budget", "Mid", "Premium"]
+
+
+def _eff_best_in_tier(entries):
+    from evmax.articles import best_in_tier
+    return best_in_tier(entries)
+
+
+def _wc_efficiency_tier_paragraph(entries) -> str:
+    by_tier = _eff_best_in_tier(entries)
+    if not by_tier:
+        return ""
+    picks = []
+    for tier in _TIER_ORDER:
+        r = by_tier.get(tier)
+        if r is None:
+            continue
+        picks.append(
+            f"<b>{tier}</b>: {html.escape(r['name'])} "
+            f"({_fmt_pts(r.get('value', 0))} xPts/£, £{_fmt_price(r['price'])}m)"
+        )
+    if not picks:
+        return ""
+    return f"<p>The best pick in each price bracket — {'; '.join(picks)}.</p>"
+
+
+def _wc_efficiency_tier_bottom_line(entries) -> str:
+    by_tier = _eff_best_in_tier(entries)
+    picks = []
+    for tier in _TIER_ORDER:
+        r = by_tier.get(tier)
+        if r is None:
+            continue
+        picks.append(f"{tier.lower()} — {html.escape(r['name'])}")
+    if not picks:
+        return ""
+    return " By tier: " + ", ".join(picks) + "."
+
+
 _TEMPLATES = {
     "captains": {
         "headline": lambda e, r, subj: f"{subj} leads the armband race in Round {r}",
@@ -292,18 +337,19 @@ _TEMPLATES = {
     "wildcard": {
         # wildcard is always team-framed (subject=None) -- the article is about
         # the 15-man squad as a unit, not any one player.
-        "headline": lambda e, r, subj: f"Wildcard draft: the best legal 15 for Round {r}",
+        "headline": lambda e, r, subj: f"Best XI and Wildcard draft for Round {r}",
         "standfirst": lambda e, r, subj: (
-            f"A {_wc_formation(e)} squad costing {_fmt_price(_wc_total_cost(e))}m, "
-            f"projecting {_fmt_pts(_wc_xi_xpoints(e))} xPts from the XI."
+            f"The strongest starting XI is a {_wc_formation(e)} projecting "
+            f"{_fmt_pts(_wc_xi_xpoints(e))} xPts, wrapped in a {_fmt_price(_wc_total_cost(e))}m "
+            f"legal 15."
             if e else f"Wildcard squad for Round {r}."
         ),
         "body": lambda e, r, subj: (
-            f"<p>This round's wildcard build spends "
-            f"{_fmt_price(_wc_total_cost(e))}m of a 100.0m budget on a full legal 15 "
-            f"— 2 goalkeepers, 5 defenders, 5 midfielders, 3 forwards — set up in a "
-            f"{_wc_formation(e)} starting XI projecting {_fmt_pts(_wc_xi_xpoints(e))} "
-            f"combined xPts.</p>\n"
+            f"<p>The strongest starting XI this round is a {_wc_formation(e)} projecting "
+            f"{_fmt_pts(_wc_xi_xpoints(e))} combined xPts. Built out to a full legal 15 "
+            f"— 2 goalkeepers, 5 defenders, 5 midfielders, 3 forwards — for wildcard and "
+            f"rebuild managers, the squad spends "
+            f"{_fmt_price(_wc_total_cost(e))}m of a 100.0m budget.</p>\n"
             + (
                 f"<blockquote><p>The bench is deliberately the cheapest legal one "
                 f"available — {', '.join(html.escape(b['name']) for b in _wc_bench(e))} "
@@ -409,11 +455,13 @@ _TEMPLATES = {
                if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>Value picks compound over a tournament — "
-            f"a 0.1 xPts/£ edge across 11 players adds up fast.</p></blockquote>"
+            f"a 0.1 xPts/£ edge across 11 players adds up fast.</p></blockquote>\n"
+            + _wc_efficiency_tier_paragraph(e)
         ),
         "bottom_line": lambda e, r, subj: (
             f"Prioritise {subj} — {_fmt_pts(_subject_entry(e, subj).get('value', 0))} xPts/£ is the best "
             f"efficiency in the pool."
+            + _wc_efficiency_tier_bottom_line(e)
         ),
     },
     "high-ceiling-xi": {

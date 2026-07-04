@@ -318,7 +318,7 @@ class RiskyTest(unittest.TestCase):
 
 class ArticleSetTest(unittest.TestCase):
     def test_articles_list_has_correct_slugs(self):
-        expected = ["captains", "matches", "fixtures", "transfers", "wildcard", "best-xi",
+        expected = ["captains", "matches", "fixtures", "transfers", "wildcard",
                     "defenders", "risky", "efficiency", "blowout-transfers"]
         self.assertEqual(articles.ARTICLES, expected)
 

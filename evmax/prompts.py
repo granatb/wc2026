@@ -42,6 +42,8 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
     one of the 4 squad-filler picks. Bench players are enablers that make the 15 legal
     and cheap, not picks to sell the reader on — do not oversell their point projections
     or ceiling; the pitch to the reader is entirely about the XI and the budget logic.
+  - tier → the price bracket ("Budget", "Mid", or "Premium") — quote it as-is when
+    naming a per-tier recommendation.
 
 Write a tight analytical article with:
   - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
@@ -87,6 +89,17 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
             f"a limited number of transfers: which move to prioritize first, and which "
             f"second if they have another available.\n"
         )
+    elif subject is not None and slug == "efficiency":
+        subject_instruction = (
+            f"Focus      : Center this article on {subject}, the overall value leader "
+            f"(highest xPts per million). Every entry also carries a `tier` field — "
+            f"\"Budget\" (under £5.5m), \"Mid\" (£5.5m-£8.0m), or \"Premium\" (over £8.0m). "
+            f"After covering {subject}, recommend the single best-value pick IN EACH "
+            f"tier present in the data (the entry with the highest `value` for that "
+            f"tier) — a reader building on any budget should come away knowing the best "
+            f"cheap pick, the best mid-price pick, and the best premium pick, grounded "
+            f"only in the numbers supplied.\n"
+        )
     elif subject is not None:
         subject_instruction = (
             f"Focus      : Center this article on {subject}. You may reference other "
@@ -114,8 +127,10 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
         subject_instruction = (
             "Focus      : This is a full 15-man wildcard/rebuild squad (role=\"XI\" for "
             "the 11 starters, role=\"Bench\" for the 4 squad-fillers), not a single-player "
-            "pick. Cover: the total squad cost vs the 100.0m budget, the starting XI's "
-            "combined xPts and formation, and the bench philosophy — the bench is "
+            "pick. This article is ALSO the site's \"best XI\" piece, so open by naming the "
+            "strongest starting XI explicitly — its formation and combined xPts total — "
+            "before moving on to the budget and bench discussion. Then cover: the total "
+            "squad cost vs the 100.0m budget, and the bench philosophy — the bench is "
             "deliberately the cheapest legal set of players (2 GK / 5 DEF / 5 MID / 3 FWD "
             "total across the 15), so all the spending power sits in the XI. Name the "
             "2-3 priciest picks and call out the single best value pick (highest xPts per "

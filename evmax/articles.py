@@ -16,6 +16,10 @@ DIFF_MAX_OWNERSHIP = 10.0   # percent — "differential" cutoff
 DIFF_MIN_XPTS = 4.0         # only surface differentials worth owning
 BLOWOUT_FIXTURES = 2        # how many top-lambda fixtures count as "blowouts"
 LOW_CEILING_RATIO = 1.15    # ceiling/xPts below this = "safe floor, no haul upside"
+# efficiency() price tiers -- classify each row by price band so the article can
+# recommend a best-value pick WITHIN each budget bracket, not just overall.
+TIER_BUDGET_MAX = 5.5   # price < this -> "Budget"
+TIER_MID_MAX = 8.0      # 5.5 <= price <= this -> "Mid"; above -> "Premium"
 # Fixture-guide environment thresholds (fixture_guide()): a fixture's exp_total
 # (combined expected goals) classifies it as a high-scoring "blowout" worth
 # targeting attackers in, a low-scoring "avoid" environment where forwards
@@ -29,14 +33,14 @@ FIXTURE_ENV_AVOID_MAX = 2.1
 # match-status string (e.g. "STATUS_SCHEDULED"), not the tournament stage — so we
 # hardcode the known threshold for this one tournament rather than infer it.
 KNOCKOUT_ROUND_START = 4
-ARTICLES = ["captains", "matches", "fixtures", "transfers", "wildcard", "best-xi", "defenders",
+ARTICLES = ["captains", "matches", "fixtures", "transfers", "wildcard", "defenders",
             "risky", "efficiency", "blowout-transfers"]
 ARTICLE_TITLES = {
     "captains": "Best captain picks",
     "matches": "Match predictions & games to watch",
     "fixtures": "Fixture guide — clean sheets, blowouts and games to avoid",
     "transfers": "Priority transfers this round",
-    "wildcard": "Wildcard draft — the best legal 15 under budget",
+    "wildcard": "Best XI & wildcard draft — the optimal squad under budget",
     "best-xi": "Best XI by expected points",
     "defenders": "Best defenders",
     "risky": "Risky chances — highest ceilings",
@@ -366,9 +370,41 @@ def rank_value(rows: list) -> list:
     return _ranked([r for r in rows if r.get("value") is not None], "value")
 
 
+def price_tier(price) -> str:
+    """Classify a price into 'Budget' (< TIER_BUDGET_MAX), 'Mid' (<= TIER_MID_MAX),
+    or 'Premium' (> TIER_MID_MAX). Returns 'Mid' for a missing price (conservative
+    default -- avoids mislabeling an unknown price as a bargain or a splurge)."""
+    if price is None:
+        return "Mid"
+    if price < TIER_BUDGET_MAX:
+        return "Budget"
+    if price <= TIER_MID_MAX:
+        return "Mid"
+    return "Premium"
+
+
 def efficiency(rows: list) -> list:
-    """The EV-per-dollar article: rows ranked by value (xPts / price). Public alias."""
-    return rank_value(rows)
+    """The EV-per-dollar article: rows ranked by value (xPts / price), each tagged
+    with a `tier` field (Budget/Mid/Premium by price) so the article can surface
+    the best pick in each price bracket, not just the single best overall."""
+    ranked = rank_value(rows)
+    for r in ranked:
+        r["tier"] = price_tier(r.get("price"))
+    return ranked
+
+
+def best_in_tier(entries: list) -> dict:
+    """{'Budget': entry, 'Mid': entry, 'Premium': entry} -- the highest-value
+    (best `value`) entry in each price tier present in `entries`. A tier absent
+    from `entries` is simply absent from the result (no KeyError/None padding)."""
+    out = {}
+    for r in entries:
+        tier = r.get("tier")
+        if tier is None or r.get("value") is None:
+            continue
+        if tier not in out or r["value"] > out[tier]["value"]:
+            out[tier] = r
+    return out
 
 
 def formation_of(xi: list) -> str:

@@ -293,6 +293,23 @@ _STYLE = (
     ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;max-width:76ch;margin-bottom:10px}"
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
     ".pitch-mini{width:200px}"
+    ".landing-grid{display:grid;grid-template-columns:1fr 300px;gap:40px;align-items:start}"
+    ".rail{position:sticky;top:80px;align-self:start;background:var(--surf);"
+    "border:1px solid var(--line);border-radius:14px;padding:18px 20px}"
+    ".rail .pagelabel{margin:0 0 14px}"
+    ".rail-row{padding:12px 0;border-bottom:1px solid var(--line)}"
+    ".rail-row:last-of-type{border-bottom:0}"
+    ".rail-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;"
+    "margin-bottom:8px}"
+    ".rail-teams{font-size:14px;font-weight:700;letter-spacing:-.2px}"
+    ".rail-ko{font-size:11px;color:var(--ink3);white-space:nowrap;text-align:right}"
+    ".rail-score{font-size:18px;font-weight:800;color:var(--ink)}"
+    ".rail-link{display:block;margin-top:14px;font-size:13px;font-weight:600;color:var(--green)}"
+    "@media(max-width:900px){"
+    ".landing-grid{grid-template-columns:1fr}"
+    ".landing-grid .rail{position:static;order:2}"
+    ".landing-grid .main-col{order:1}"
+    "}"
     "@media(max-width:760px){"
     ".feat{grid-template-columns:1fr;gap:20px}"
     ".feed{grid-template-columns:1fr}"
@@ -443,9 +460,15 @@ def pitch_svg(xi_entries):
     )
 
 
-def ev_bar(entries, metric, width=360, row_h=30):
-    """Horizontal bar viz (v2-styled). Top entry green, differentials red, others muted."""
+def ev_bar(entries, metric, width=360, row_h=30, max_rows=None):
+    """Horizontal bar viz (v2-styled). Top entry green, differentials red, others muted.
+
+    max_rows: optional cap on the number of rows drawn (belt & braces alongside
+    slicing at the call site) -- keeps a chart from growing unbounded when it's
+    fed a long ranked list. None (default) draws every entry."""
     entries = list(entries)
+    if max_rows is not None:
+        entries = entries[:max_rows]
     if not entries:
         return f'<svg viewBox="0 0 {width} 40" xmlns="http://www.w3.org/2000/svg"></svg>'
     vmax = max((e.get(metric) or 0.0) for e in entries) or 1.0
@@ -503,10 +526,15 @@ def _rank_table_html(entries, columns):
                     if env == "avoid" else "")
         bench_tag = (f'<span class="tag-floor">Bench</span>'
                     if r.get("role") == "Bench" else "")
+        # efficiency() price tier -- a muted chip, same style for all three tiers
+        # (Premium deliberately does NOT use the red .tag style: red reads as a
+        # warning elsewhere on the site, and a Premium price isn't a warning).
+        tier = r.get("tier")
+        tier_tag = f'<span class="tag-floor">{_html.escape(tier)}</span>' if tier else ""
         player_cell = (
             f'<td class="l"><span class="nm">{_html.escape(r["name"])}</span> '
             f'<span class="tm">{_html.escape(r.get("team") or "")}</span>'
-            f'{diff_tag}{floor_tag}{risk_tag}{blowout_tag}{avoid_tag}{bench_tag}</td>'
+            f'{tier_tag}{diff_tag}{floor_tag}{risk_tag}{blowout_tag}{avoid_tag}{bench_tag}</td>'
         )
         col_vals = "".join(
             f'<td class="big">{_fmt(c, r)}</td>' for c in columns)
@@ -992,12 +1020,62 @@ def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str
     )
 
 
-def landing_page(round_no, featured, feed, date_str=None):
-    """v2 landing page — featured block + feed grid.
+def _fixtures_rail_row(m: dict) -> str:
+    """One compact fixture row for the landing page's odds rail. Reuses the
+    .mx-probs/.mx-ph/.mx-pd/.mx-pa classes from the matches renderer so the
+    probability bar matches the matches article pixel-for-pixel."""
+    home_esc = _html.escape(m.get("home", ""))
+    away_esc = _html.escape(m.get("away", ""))
+    ko = m.get("kickoff", "")
+    # Kickoff is stored as an ISO-8601 string; the rail only has room for HH:MM.
+    ko_time = ko[11:16] if len(ko) >= 16 else "—"
+    close_tag = '<span class="tag">Close</span>' if m.get("close") else ""
+    top_line = (
+        f'<div class="rail-row-top"><span class="rail-teams">{home_esc} vs {away_esc}'
+        f'{close_tag}</span><span class="rail-ko">{_html.escape(ko_time)}</span></div>'
+    )
+    if m.get("finished") or m.get("final_score"):
+        score = _html.escape(m.get("final_score", ""))
+        body = (f'<div class="rail-score">{score}</div>'
+                f'<span class="mx-badge final">Final</span>')
+    else:
+        p_home = m.get("p_home", 0.0) * 100
+        p_draw = m.get("p_draw", 0.0) * 100
+        p_away = m.get("p_away", 0.0) * 100
+        body = (
+            '<div class="mx-probs">'
+            f'<div class="mx-ph">H {p_home:.0f}%</div>'
+            f'<div class="mx-pd">D {p_draw:.0f}%</div>'
+            f'<div class="mx-pa">A {p_away:.0f}%</div>'
+            '</div>'
+        )
+    return f'<div class="rail-row">{top_line}{body}</div>'
+
+
+def _fixtures_rail_html(round_no: int, fixtures: list) -> str:
+    """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
+    list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
+    close/top_scoreline, and possibly finished/final_score)."""
+    rows = "".join(_fixtures_rail_row(m) for m in fixtures)
+    return (
+        f'<aside class="rail"><div class="pagelabel">This round\'s ties</div>'
+        f'{rows}'
+        f'<a class="rail-link" href="/round/{round_no}/matches/">All match predictions →</a>'
+        f'</aside>'
+    )
+
+
+def landing_page(round_no, featured, feed, date_str=None, fixtures=None):
+    """v2 landing page — featured block + feed grid, with an optional right-hand
+    odds rail ("This round's ties").
 
     featured: {slug, prose: {headline, standfirst, ...}, viz_html}
     feed: list of {slug, headline, teaser, stat_value, stat_label}
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
+    fixtures: optional list of match_predictions() entries; when provided, a
+              sticky sidebar of this round's fixtures/odds renders alongside
+              the main content in a two-column grid (single column on mobile,
+              with the aside placed after the main content).
     """
     og_block = _og_meta(
         f"World Cup Fantasy Round {round_no} — simulation-based picks",
@@ -1027,24 +1105,7 @@ def landing_page(round_no, featured, feed, date_str=None):
             f["stat_value"], f["stat_label"], date_str=date_str)
         for f in feed)
 
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
-<meta name="description" content="Simulation-based World Cup Fantasy analysis for Round {round_no} from 50,000 Monte-Carlo runs.">
-{og_block}
-<script type="application/ld+json">{org_ld}</script>
-<script type="application/ld+json">{site_ld}</script>
-{GSC_META_TAG}
-{_HEAD_COMMON}
-{_FONTS}
-<style>{_STYLE}</style>
-</head><body>
-<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
-<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
-</div></header>
-<div class="wrap">
-<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
+    main_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1058,7 +1119,35 @@ def landing_page(round_no, featured, feed, date_str=None):
 <div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 {_newsletter_html()}
-<p class="method"><b>Method.</b> {METHODOLOGY}</p>
+<p class="method"><b>Method.</b> {METHODOLOGY}</p>"""
+
+    if fixtures:
+        rail_html = _fixtures_rail_html(round_no, fixtures)
+        body_content = (f'<div class="landing-grid">'
+                        f'<div class="main-col">{main_content}</div>'
+                        f'{rail_html}'
+                        f'</div>')
+    else:
+        body_content = main_content
+
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
+<meta name="description" content="Simulation-based World Cup Fantasy analysis for Round {round_no} from 50,000 Monte-Carlo runs.">
+{og_block}
+<script type="application/ld+json">{org_ld}</script>
+<script type="application/ld+json">{site_ld}</script>
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_MATCH_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
+</div></header>
+<div class="wrap">
+{body_content}
 </div>
 {_footer_html()}</body></html>"""
 
