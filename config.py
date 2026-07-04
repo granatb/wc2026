@@ -67,6 +67,17 @@ DATA_SOURCE = "espn"          # "espn" (free, default) | "odds_api" (key-based a
 USE_DIXON_COLES = True        # Målspillet: market-consistent scoreline correlation
 SCORER_MARGIN_SHRINK = 0.92   # de-margin factor for 2-way player props (anytime goal)
 
+# De-vig method for turning 1X2 decimal odds into fair probabilities (consumed at the
+# 1X2-to-lambda step in core/espn.py derive_match, via core.odds_math.devig_by_method).
+#   proportional -> normalise implied probs to sum to 1 (mainstream default, but per
+#                   Strumbelj 2014 / Hegarty & Whelan 2025 the worst mainstream method:
+#                   it understates favourites — the favourite-longshot bias).
+#   shin         -> Shin's method; solves for an insider-trading fraction z, corrects FLB.
+#   power        -> power method; solves p_i = imp_i^k normalised, also corrects FLB.
+# Default stays "proportional" until scripts/devig_bakeoff.py shows a challenger wins
+# on realized results with n>=40 matches (see bake-off script + commit history).
+DEVIG_METHOD = "proportional"
+
 # ---------------------------------------------------------------------------
 # Priors — the expert fallback used when no market odds exist (e.g. knockouts
 # before teams are known). Multiplicative goal model around BASE_GOALS.
@@ -95,6 +106,7 @@ def summary() -> str:
         f"default sims       : {DEFAULT_SIMS:,}",
         f"data source        : {DATA_SOURCE}",
         f"dixon-coles        : {USE_DIXON_COLES}",
+        f"devig method       : {DEVIG_METHOD}",
         f"prop margin shrink : {SCORER_MARGIN_SHRINK}",
         f"base goals / home  : {BASE_GOALS} / {HOME_ADV}",
         "",

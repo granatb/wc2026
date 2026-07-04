@@ -17,11 +17,163 @@ def implied_probs(decimal_odds: list[float]) -> list[float]:
     return [1.0 / o for o in decimal_odds]
 
 
-def devig(decimal_odds: list[float]) -> list[float]:
-    """Proportional de-vig: normalise implied probabilities to sum to 1."""
+def devig_proportional(decimal_odds: list[float]) -> list[float]:
+    """Proportional de-vig: normalise implied probabilities to sum to 1.
+
+    The mainstream default, but per Strumbelj (2014) and Hegarty & Whelan (2025) it is
+    the worst mainstream method — it understates favourites (favourite-longshot bias)
+    because it spreads the whole overround evenly instead of weighting it towards the
+    longshots where bookmaker margin is actually concentrated.
+    """
     raw = implied_probs(decimal_odds)
     s = sum(raw)
     return [r / s for r in raw]
+
+
+# Back-compat alias: existing call sites (core/espn.py, core/odds.py, tests) call
+# odds_math.devig(...) directly. Keep it bit-identical to devig_proportional.
+devig = devig_proportional
+
+
+def solve_shin_z(implied: list[float], *, lo: float = 0.0, hi: float = 0.5,
+                 iters: int = 100, tol: float = 1e-12) -> float:
+    """Solve for Shin's insider-trading fraction z in (0, 1).
+
+    Shin (1992/93): a fraction z of the betting population are informed insiders; the
+    bookmaker sets prices to survive against them. Fair probabilities satisfy
+        p_i = (sqrt(z^2 + 4(1-z) * imp_i^2 / B) - z) / (2(1-z))
+    for booksum B = sum(imp_i), and z is the unique root making sum(p_i) = 1.
+    z = 0 recovers proportional normalisation (no informed-trading correction).
+    Bisection on the monotonic residual sum(p_i(z)) - 1.
+    """
+    def probs_for_z(z: float) -> list[float]:
+        return _shin_probs(implied, z)
+
+    def residual(z: float) -> float:
+        return sum(probs_for_z(z)) - 1.0
+
+    b = sum(implied)
+    if b <= 1.0 + 1e-12:
+        return 0.0  # no overround (or underround) — nothing for z to correct.
+
+    r_lo, r_hi = residual(lo), residual(hi)
+    # residual(0) > 0 whenever there's overround (booksum > 1); residual should fall
+    # as z grows. If hi isn't enough to flip the sign, widen once — pathological/very
+    # high-margin inputs — then fall back to the boundary that minimises |residual|.
+    if r_lo * r_hi > 0:
+        hi = 0.9
+        r_hi = residual(hi)
+        if r_lo * r_hi > 0:
+            return lo if abs(r_lo) < abs(r_hi) else hi
+    for _ in range(iters):
+        mid = (lo + hi) / 2.0
+        r_mid = residual(mid)
+        if abs(r_mid) < tol:
+            return mid
+        if (r_lo < 0) != (r_mid < 0):
+            hi = mid
+        else:
+            lo, r_lo = mid, r_mid
+    return (lo + hi) / 2.0
+
+
+def _shin_probs(implied: list[float], z: float) -> list[float]:
+    b = sum(implied)
+    if z <= 0.0:
+        return [i / b for i in implied]
+    if z >= 1.0:
+        z = 1.0 - 1e-9
+    out = []
+    for i in implied:
+        i = min(max(i, 0.0), 1.0)
+        inner = z * z + 4.0 * (1.0 - z) * (i * i) / b
+        inner = max(inner, 0.0)
+        p = (math.sqrt(inner) - z) / (2.0 * (1.0 - z))
+        out.append(max(p, 0.0))
+    return out
+
+
+def devig_shin(implied: list[float]) -> list[float]:
+    """Shin's method: de-vig by solving for the insider-trading fraction z, then
+    reading off fair probabilities. Corrects the favourite-longshot bias that
+    proportional normalisation leaves in place — favourites get MORE probability,
+    longshots get less, relative to plain normalisation, for the same market."""
+    z = solve_shin_z(implied)
+    p = _shin_probs(implied, z)
+    s = sum(p)
+    if s <= 0:
+        # Degenerate input (all-zero implied probs) — fall back to proportional.
+        return devig_proportional_probs(implied)
+    return [x / s for x in p]
+
+
+def devig_proportional_probs(implied: list[float]) -> list[float]:
+    """Proportional normalisation applied directly to already-implied probabilities
+    (as opposed to devig_proportional, which takes decimal odds)."""
+    s = sum(implied)
+    return [i / s for i in implied]
+
+
+def solve_power_k(implied: list[float], *, lo: float = 0.05, hi: float = 4.0,
+                  iters: int = 100, tol: float = 1e-12) -> float:
+    """Solve for the power-method exponent k such that sum(imp_i^k) = 1.
+
+    The power method treats the whole market as scaled by a single exponent: fair
+    p_i = imp_i^k / sum(imp_j^k). Choosing k so that sum(imp_i^k) = 1 makes the
+    normalising denominator equal to 1, i.e. p_i = imp_i^k directly. sum(imp_i^k) is
+    strictly decreasing in k for imp_i in (0,1), so a market with overround (booksum
+    > 1 at k=1) needs k > 1 to shrink every probability just enough to remove the
+    margin (bisection on the residual).
+    """
+    def total(k: float) -> float:
+        return sum(i ** k for i in implied)
+
+    b = total(1.0)
+    if abs(b - 1.0) < 1e-12:
+        return 1.0  # no overround — k=1 is already exact.
+
+    r_lo, r_hi = total(lo) - 1.0, total(hi) - 1.0
+    if r_lo * r_hi > 0:
+        # Shouldn't happen for a normal overround market; fall back to the closer end.
+        return lo if abs(r_lo) < abs(r_hi) else hi
+    for _ in range(iters):
+        mid = (lo + hi) / 2.0
+        r_mid = total(mid) - 1.0
+        if abs(r_mid) < tol:
+            return mid
+        if (r_lo < 0) != (r_mid < 0):
+            hi = mid
+        else:
+            lo, r_lo = mid, r_mid
+    return (lo + hi) / 2.0
+
+
+def devig_power(implied: list[float]) -> list[float]:
+    """Power method: fair p_i = imp_i^k, with k solved so sum(imp_i^k) = 1.
+
+    Like Shin, this concentrates the correction on the longshots (imp_i^k for k<1
+    shrinks small probabilities proportionally more than large ones), giving
+    favourites more probability than plain proportional normalisation."""
+    k = solve_power_k(implied)
+    p = [i ** k for i in implied]
+    s = sum(p)
+    if s <= 0:
+        return devig_proportional_probs(implied)
+    return [x / s for x in p]
+
+
+# Dispatch table for config.DEVIG_METHOD. All three take DECIMAL ODDS (not implied
+# probabilities) so they're drop-in interchangeable at the 1X2-to-lambda call site.
+def devig_by_method(decimal_odds: list[float], method: str = "proportional") -> list[float]:
+    """De-vig decimal odds using the named method: proportional | shin | power."""
+    if method == "proportional":
+        return devig_proportional(decimal_odds)
+    implied = implied_probs(decimal_odds)
+    if method == "shin":
+        return devig_shin(implied)
+    if method == "power":
+        return devig_power(implied)
+    raise ValueError(f"unknown DEVIG_METHOD: {method!r} (expected proportional|shin|power)")
 
 
 def _pois(k: int, lam: float) -> float:

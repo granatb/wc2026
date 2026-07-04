@@ -21,6 +21,8 @@ import os
 import urllib.parse
 import urllib.request
 
+import config
+
 from . import odds_math
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -232,11 +234,12 @@ def derive_match(rec: dict) -> dict:
     h = rec.get("h2h")
     if not h or not all(h.get(k) for k in ("home", "draw", "away")):
         return {}
-    pH, pD, pA = odds_math.devig([h["home"], h["draw"], h["away"]])
+    method = getattr(config, "DEVIG_METHOD", "proportional")
+    pH, pD, pA = odds_math.devig_by_method([h["home"], h["draw"], h["away"]], method)
     p_over = line = None
     tot = rec.get("totals") or {}
     if tot.get("over") and tot.get("under") and tot.get("line"):
-        ov, un = odds_math.devig([tot["over"], tot["under"]])
+        ov, un = odds_math.devig_by_method([tot["over"], tot["under"]], method)
         p_over, line = ov, tot["line"]
     lh, la, rho = odds_math.solve_dc(pH, pD, pA, p_over=p_over, line=line or 2.5)
     return {"lam_home": round(lh, 3), "lam_away": round(la, 3), "rho": round(rho, 4),

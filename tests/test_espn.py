@@ -1,7 +1,9 @@
 import json
 import os
 import unittest
+from unittest import mock
 
+import config
 from core import espn
 
 FX = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -40,6 +42,17 @@ class TestEspnScoreboard(unittest.TestCase):
     def test_derive_match_no_odds_returns_empty(self):
         rows = espn.parse_scoreboard(self.raw, fantasy_round=2)
         self.assertEqual(espn.derive_match(rows[1]), {})
+
+    def test_derive_match_respects_devig_method_config(self):
+        # config.DEVIG_METHOD picks the de-vig at the 1X2-to-lambda step. Shin/power
+        # give the favourite (Czechia, -125 home) MORE fair probability than
+        # proportional, which should pull lam_home up relative to the default.
+        rows = espn.parse_scoreboard(self.raw, fantasy_round=2)
+        with mock.patch.object(config, "DEVIG_METHOD", "proportional"):
+            d_prop = espn.derive_match(rows[0])
+        with mock.patch.object(config, "DEVIG_METHOD", "shin"):
+            d_shin = espn.derive_match(rows[0])
+        self.assertGreater(d_shin["p1x2"]["home"], d_prop["p1x2"]["home"])
 
 
 class TestMatchdays(unittest.TestCase):
