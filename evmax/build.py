@@ -13,7 +13,7 @@ import os
 from datetime import datetime, timezone
 
 from core import engine_events, espn, fixtures, research
-from evmax import articles, backtest, render, writer
+from evmax import articles, backtest, reddit, render, writer
 
 # Google Search Console site-verification file (HTML-file method). Regenerated on
 # every build so it survives a dist/ wipe rather than relying on a one-off manual
@@ -177,6 +177,16 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                               generated_at=generated_at, date_str=date_str,
                               show_table=not is_matches))
 
+    # --- Reddit kit (operator posting material — NOT published to the site) ---
+    # data/ is gitignored; this never lands in dist/. Written after articles/prose
+    # are built so the kit can pull real captain EV / close-game numbers.
+    reddit_kit_text = reddit.reddit_kit(fantasy_round, entries_map, prose_map, date_str)
+    reddit_dir = os.path.join("data", "reddit")
+    os.makedirs(reddit_dir, exist_ok=True)
+    reddit_kit_path = os.path.join(reddit_dir, f"round-{fantasy_round}.md")
+    with open(reddit_kit_path, "w", encoding="utf-8") as fh:
+        fh.write(reddit_kit_text)
+
     # --- About + Privacy pages ---
     w("/about/index.html", render.about_page())
     w("/privacy/index.html", render.privacy_page())
@@ -261,7 +271,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w(f"/{indexnow_key}.txt", indexnow_key + "\n")
 
     print(f"Built round {fantasy_round} → {out}/ "
-          f"({len(rows)} players, {len(articles.ARTICLES)} articles)")
+          f"({len(rows)} players, {len(articles.ARTICLES)} articles) "
+          f"| reddit kit → {reddit_kit_path}")
 
 
 # ---------------------------------------------------------------------------

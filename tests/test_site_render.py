@@ -299,3 +299,63 @@ class AgentFilesTest(unittest.TestCase):
         self.assertIn("Dixon-Coles", h)
         self.assertIn("50,000", h)
         self.assertIn('href="/about/"', h)  # nav active on about
+
+
+class NewsletterTest(unittest.TestCase):
+    """Feature 1: zero-cookie, zero-JS, zero-third-party-on-load newsletter capture."""
+
+    def setUp(self):
+        self.entries = [
+            {"rank": 1, "name": "Bruno Fernandes", "team": "Portugal", "position": "MID",
+             "x_points": 5.67, "captain_ev": 11.34, "ceiling": 9.1, "price": 9.5,
+             "ownership_pct": 18.0, "value": 0.6, "kickoff": "2026-06-27T23:30:00+00:00"},
+        ]
+        self.prose = {
+            "headline": "Bruno Fernandes leads the captain board",
+            "standfirst": "Portugal's midfielder tops this round's captain EV at 11.34.",
+            "body_html": "<p>Bruno Fernandes projects <b>11.34 captain EV</b> this round.</p>",
+            "bottom_line": "Captain Bruno Fernandes.",
+            "source": "template",
+        }
+        self.viz_html = '<svg viewBox="0 0 100 40"><rect width="80" height="20" fill="#0f7a45"/></svg>'
+
+    def test_article_page_has_newsletter_form(self):
+        h = render.article_page(
+            round_no=3, article="captains",
+            title="Best captain picks — Round 3",
+            prose=self.prose, entries=self.entries,
+            columns=["captain_ev", "x_points"],
+            json_url="/api/round/3/captains.json",
+            viz_html=self.viz_html)
+        self.assertIn(f'action="{render.NEWSLETTER_ACTION}"', h)
+        self.assertIn('method="post"', h)
+        self.assertIn('name="email"', h)
+        # The only <script> tags on the page are the pre-existing JSON-LD blocks
+        # (Dataset + Article schema.org); the newsletter feature adds none.
+        scripts = h.count("<script")
+        ld_json_scripts = h.count('<script type="application/ld+json">')
+        self.assertEqual(scripts, ld_json_scripts)
+
+    def test_landing_page_has_newsletter_form(self):
+        feed = [
+            {"slug": "best-xi", "headline": "The model's Round 3 XI",
+             "teaser": "A 3-4-3 built around Kane.", "stat_value": "58.7",
+             "stat_label": "total xPts"},
+        ]
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
+        h = render.landing_page(round_no=3, featured=featured, feed=feed)
+        self.assertIn(f'action="{render.NEWSLETTER_ACTION}"', h)
+        self.assertIn('name="email"', h)
+
+    def test_no_script_tags_introduced_by_newsletter_box(self):
+        nl = render._newsletter_html()
+        self.assertNotIn("<script", nl)
+
+    def test_privacy_page_mentions_buttondown(self):
+        h = render.privacy_page()
+        self.assertIn("Buttondown", h)
+        self.assertIn("Newsletter", h)
+
+    def test_privacy_page_no_script_tags(self):
+        h = render.privacy_page()
+        self.assertNotIn("<script", h)

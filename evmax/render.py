@@ -16,6 +16,13 @@ DATA_LICENSE_TEXT = ("CC BY 4.0 — free to reuse with attribution to evmax "
                      "(https://evmax.ai)")
 METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
                "simulations, scored on the official FIFA World Cup Fantasy points table.")
+# Buttondown chosen for its static-site-friendly no-JS embed form: a plain HTML
+# <form> POST, no client-side script, no cookies set by us. The account is
+# registered separately from this codebase. This is a user-initiated POST only
+# (fires when a visitor deliberately submits the form) — it does not run on page
+# load, so it does not violate the site's zero-cookie / zero-JS / zero-third-party-
+# on-load compliance posture. Disclosed to visitors in /privacy/.
+NEWSLETTER_ACTION = "https://buttondown.com/api/emails/embed-subscribe/evmax"
 
 
 def article_json(competition, fantasy_round, article, title, generated_at, sims, entries):
@@ -201,6 +208,20 @@ _STYLE = (
     ".method{font-size:13.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--line);"
     "margin-top:34px;padding-top:18px}"
     ".method b{color:var(--green)}"
+    ".nl-box{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:26px 28px;margin:34px 0}"
+    ".nl-box h2{font-size:21px;font-weight:800;letter-spacing:-.3px;margin-bottom:8px}"
+    ".nl-box p{font-family:var(--serif);font-size:15.5px;color:var(--ink2);line-height:1.5;"
+    "margin-bottom:16px}"
+    ".nl-form{display:flex;gap:10px;flex-wrap:wrap}"
+    ".nl-form input[type=email]{flex:1;min-width:220px;font-family:var(--sans);font-size:14.5px;"
+    "padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);"
+    "color:var(--ink)}"
+    ".nl-form button{font-family:var(--sans);font-size:14.5px;font-weight:700;color:#fff;"
+    "background:var(--green);border:0;border-radius:8px;padding:11px 20px;cursor:pointer}"
+    ".nl-form button:hover{background:var(--greend)}"
+    ".nl-micro{font-size:12px;color:var(--ink3);margin-top:10px;margin-bottom:0}"
+    "@media(max-width:760px){.nl-form{flex-direction:column}.nl-form button{width:100%}}"
     ".sitefoot{border-top:1px solid var(--line);margin-top:56px;padding:26px 0 40px;background:var(--surf)}"
     ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;max-width:76ch;margin-bottom:10px}"
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
@@ -248,6 +269,25 @@ def _footer_html():
         '<a href="/about/">About</a> \u00b7 <a href="/privacy/">Privacy</a> \u00b7 '
         '<a href="/llms.txt">llms.txt</a></p>'
         '</div></footer>')
+
+def _newsletter_html():
+    """Editorial newsletter box: plain HTML form, no JS. The POST only fires when
+    a visitor deliberately submits it, so it does not run on page load and does not
+    compromise the site's zero-cookie / zero-JS / zero-third-party-on-load posture.
+    See NEWSLETTER_ACTION and /privacy/ for the Buttondown disclosure."""
+    return (
+        '<div class="nl-box">'
+        '<h2>Get the next round the moment odds drop</h2>'
+        '<p>50,000 simulations per matchday — captains, EV and match predictions '
+        'in your inbox before lock.</p>'
+        f'<form method="post" action="{NEWSLETTER_ACTION}" class="nl-form">'
+        '<input type="email" name="email" required placeholder="you@example.com">'
+        '<button type="submit">Subscribe</button>'
+        '</form>'
+        '<p class="nl-micro">Double opt-in. No spam, no tracking. Unsubscribe anytime.</p>'
+        '</div>'
+    )
+
 
 def pitch_svg(xi_entries):
     """SVG football pitch placing an XI by position lines. Captain (rank 1) is flagged."""
@@ -770,6 +810,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 {data_section}
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
+{_newsletter_html()}
 <p class="method"><b>How we get these numbers.</b> {METHODOLOGY}
 Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
@@ -871,6 +912,7 @@ def landing_page(round_no, featured, feed, date_str=None):
 </section>
 <div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
+{_newsletter_html()}
 <p class="method"><b>Method.</b> {METHODOLOGY}</p>
 </div>
 {_footer_html()}</body></html>"""
@@ -1013,10 +1055,21 @@ def privacy_page():
 <h1 style="font-size:clamp(26px,4vw,38px);font-weight:800">Privacy</h1>
 <h2>The short version</h2>
 <p>This site sets <b>no cookies</b>, runs <b>no analytics or trackers</b>, requires no
-account, and makes <b>no requests to third-party services</b> from your browser — fonts
-and all assets are served from this domain. We do not collect, store, or process any
-personal data ourselves. That is why there is no cookie banner: there is nothing to
-consent to.</p>
+account, and makes <b>no third-party requests when you load a page</b> — the optional
+newsletter form sends data only if you submit it. Fonts and all assets are served from
+this domain. We do not collect, store, or process any personal data ourselves beyond
+that optional, user-initiated form. That is why there is no cookie banner: there is
+nothing to consent to.</p>
+<h2>Newsletter (optional)</h2>
+<p>If you submit the newsletter form, your email address is sent directly to
+<b>Buttondown, Inc.</b>, our newsletter processor, solely to deliver the round-by-round
+emails you signed up for. Subscribing is double opt-in — you'll get a confirmation
+email before anything else is sent — and every email includes an unsubscribe link. The
+form itself is a plain HTML submission: no JavaScript runs, and no request to
+Buttondown happens unless you deliberately click subscribe. The site itself still sets
+no cookies and makes no page-load third-party requests. See
+<a href="https://buttondown.com/legal/privacy" style="color:var(--greend)">Buttondown's
+privacy policy</a> for how they handle subscriber data.</p>
 <h2>Hosting</h2>
 <p>The site is served as static files via Cloudflare Pages (Cloudflare, Inc.), which —
 like any web host — technically processes visitor IP addresses in transit to deliver
@@ -1026,8 +1079,8 @@ privacy policy</a>. We do not receive or retain this data.</p>
 <h2>External links</h2>
 <p>Articles may link to external sites; their privacy practices are their own.</p>
 <h2>Changes &amp; contact</h2>
-<p>If our practices ever change (for example, if we add an email newsletter), this page
-will describe exactly what is collected and why, before it happens.</p>
+<p>If our practices ever change further, this page will describe exactly what is
+collected and why, before it happens.</p>
 </div>
 {_footer_html()}</body></html>"""
 
