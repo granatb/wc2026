@@ -39,6 +39,7 @@ One odds/simulation engine feeding two flywheels:
 | 07-04 | Domain: evmax.ai bought (rename options rejected — collision judged minor vs. momentum; entity-qualified titles instead) |
 | 07-04 | Data license: CC BY 4.0 (reuse-with-attribution = the growth strategy, formalized) |
 | 07-04 | Zero-cookie/zero-third-party posture locked in (self-hosted fonts; no analytics until a cookieless one is chosen) |
+| 07-04 | Policy clarified after owner challenge: the commitment is zero-TRACKING and zero-THIRD-PARTY code, NOT zero-JavaScript. First-party, self-hosted, no-data-collection JS is allowed as progressive enhancement (pages must fully work without it — that is what crawlers/agents read). CI added (GitHub Actions, unit tests on push). Known accepted debt: hand-rolled f-string templating + CSS-in-Python — refactor trigger is the FPL-season transition, not before |
 | 07-04 | Newsletter: Buttondown, no-JS form (account registration pending) |
 | 07-04 | Engine changes are evidence-gated: Shin/power de-vig implemented but default held (bake-off n=0 — cache bug found+fixed; gate opens with accumulated closing lines, realistically FPL season) |
 | 07-04 | **Articles are FROZEN at lock** — no mid-round mutation of published lists (owner decision: readers must see what we said and how it worked). The only live element is predicted-vs-actual (matches scoreboard, track record). Live-list filtering built then deliberately reverted same day |
