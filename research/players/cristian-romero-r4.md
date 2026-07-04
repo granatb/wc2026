@@ -1,7 +1,7 @@
 ---
 entity: player
 name: Cristian Romero
-status: out
+status: nailed
 start_prob_override: null
 lambda_multiplier: 1.0
 round: 4
@@ -12,3 +12,5 @@ updated: 2026-06-29
 
 OUT for R32 — injured, missing the Cape Verde game (user-confirmed, supersedes the earlier
 "back in training" report which was reported, not confirmed). Do not pick.
+
+(R4 out-note superseded 07-04: fully recovered, MRI clear — see cristian-romero.md.)
