@@ -186,6 +186,32 @@ class EfficiencyTest(unittest.TestCase):
         self.assertEqual(out[0]["rank"], 1)
 
 
+class UpcomingRowsTest(unittest.TestCase):
+    def test_filters_to_rows_with_future_kickoff(self):
+        now = "2026-07-04T12:00:00+00:00"
+        rows = [
+            _row("NotYet", "FWD", 8.0),
+            _row("AlreadyPlaying", "MID", 7.0),
+            _row("NoKickoff", "DEF", 6.0),
+        ]
+        rows[0]["kickoff"] = "2026-07-04T18:00:00+00:00"   # future -> upcoming
+        rows[1]["kickoff"] = "2026-07-04T08:00:00+00:00"   # past -> excluded
+        rows[2]["kickoff"] = None                          # unknown -> excluded
+        out = articles.upcoming_rows(rows, now)
+        self.assertEqual([r["name"] for r in out], ["NotYet"])
+
+    def test_iso_string_comparison_is_safe_across_utc_strings(self):
+        """Both sides are UTC ISO-8601, so plain string comparison must agree with
+        real datetime ordering (no parsing needed)."""
+        now = "2026-07-04T17:00:00+00:00"
+        rows = [_row("Exact", "FWD", 5.0)]
+        rows[0]["kickoff"] = "2026-07-04T17:00:00+00:00"  # equal to now -> not upcoming
+        self.assertEqual(articles.upcoming_rows(rows, now), [])
+
+    def test_empty_input_returns_empty(self):
+        self.assertEqual(articles.upcoming_rows([], "2026-07-04T12:00:00+00:00"), [])
+
+
 class ByPositionTest(unittest.TestCase):
     def test_by_position_filters_and_ranks_by_xpoints(self):
         rows = [
@@ -428,6 +454,94 @@ class MatchPredictionsTest(unittest.TestCase):
         result = articles.match_predictions(self._ms, fantasy_round=5)
         england = next(e for e in result if e["home"] == "England")
         self.assertGreater(england["p_advance_home"], england["p_home"])
+
+    def test_results_param_marks_finished_fixture_and_keeps_predictions(self):
+        """When a (home, away) pair is present in `results`, the entry gains
+        final_score + finished=True while every prediction field survives —
+        this is predicted-vs-actual, not a replacement."""
+        results = {("england", "senegal"): {"hs": 2, "as": 1}}
+        result = articles.match_predictions(self._ms, fantasy_round=3, results=results)
+        england = next(e for e in result if e["home"] == "England")
+        spain = next(e for e in result if e["home"] == "Spain")
+        self.assertEqual(england["final_score"], "2-1")
+        self.assertTrue(england["finished"])
+        # prediction fields untouched
+        self.assertIn("top_scoreline", england)
+        self.assertIn("p_home", england)
+        # the other, unmatched fixture is not marked finished
+        self.assertNotIn("finished", spain)
+
+    def test_results_none_means_no_fixture_marked_finished(self):
+        """Default (pre-round / non-live) behaviour: no results param -> no
+        finished/final_score fields at all, matching today's output shape."""
+        result = articles.match_predictions(self._ms, fantasy_round=3)
+        for entry in result:
+            self.assertNotIn("finished", entry)
+            self.assertNotIn("final_score", entry)
+
+    def test_results_lookup_is_unaffected_by_unmatched_pair(self):
+        """A results map with no matching (home, away) key leaves every entry
+        exactly as if results=None had been passed."""
+        results = {("brazil", "argentina"): {"hs": 1, "as": 0}}
+        result = articles.match_predictions(self._ms, fantasy_round=3, results=results)
+        for entry in result:
+            self.assertNotIn("finished", entry)
+
+
+class IsFinishedStatusTest(unittest.TestCase):
+    def test_recognises_espn_style_full_time(self):
+        self.assertTrue(articles._is_finished_status("STATUS_FULL_TIME"))
+
+    def test_recognises_espn_style_final_aet_and_pen(self):
+        self.assertTrue(articles._is_finished_status("STATUS_FINAL_AET"))
+        self.assertTrue(articles._is_finished_status("STATUS_FINAL_PEN"))
+
+    def test_recognises_fifa_feed_lowercase_complete(self):
+        self.assertTrue(articles._is_finished_status("complete"))
+
+    def test_scheduled_is_not_finished(self):
+        self.assertFalse(articles._is_finished_status("scheduled"))
+        self.assertFalse(articles._is_finished_status("STATUS_SCHEDULED"))
+
+    def test_none_or_empty_is_not_finished(self):
+        self.assertFalse(articles._is_finished_status(None))
+        self.assertFalse(articles._is_finished_status(""))
+
+
+class FinishedResultsMapTest(unittest.TestCase):
+    def _patch_fifa_fixtures(self, fake_fixtures):
+        import core.fifa_api as fifa_api
+        original = fifa_api.fixtures
+        fifa_api.fixtures = lambda: fake_fixtures
+        self.addCleanup(setattr, fifa_api, "fixtures", original)
+
+    def test_only_finished_fixtures_with_scores_are_included(self):
+        self._patch_fifa_fixtures([
+            {"round": 5, "status": "complete", "home": "France", "away": "Paraguay",
+             "hs": 3, "as": 0},
+            {"round": 5, "status": "scheduled", "home": "Spain", "away": "Germany",
+             "hs": None, "as": None},
+        ])
+        out = articles.finished_results_map(5)
+        self.assertEqual(out[("france", "paraguay")], {"hs": 3, "as": 0})
+        self.assertNotIn(("spain", "germany"), out)
+
+    def test_country_alias_normalisation_matches_espn_vs_fifa_spellings(self):
+        """USMNT (FIFA feed) must key-match 'USA' (ESPN/core.fixtures spelling)
+        via fifa_api._ckey's country-alias table."""
+        self._patch_fifa_fixtures([
+            {"round": 5, "status": "STATUS_FULL_TIME", "home": "USMNT", "away": "South Korea",
+             "hs": 1, "as": 1},
+        ])
+        out = articles.finished_results_map(5)
+        self.assertIn(("usa", "korea republic"), out)
+
+    def test_missing_score_fields_are_excluded(self):
+        self._patch_fifa_fixtures([
+            {"round": 5, "status": "complete", "home": "France", "away": "Paraguay",
+             "hs": None, "as": None},
+        ])
+        self.assertEqual(articles.finished_results_map(5), {})
 
 
 class AdvancementMapTest(unittest.TestCase):

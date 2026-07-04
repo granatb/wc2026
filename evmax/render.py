@@ -154,6 +154,8 @@ _STYLE = (
     ".pagelabel{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;"
     "color:var(--ink3);margin:34px 0 18px;display:flex;align-items:center;gap:12px}"
     ".pagelabel::after{content:'';flex:1;border-top:1px solid var(--line)}"
+    ".live-tag{color:var(--acc);font-size:11px;font-weight:700;letter-spacing:1.5px;"
+    "text-transform:uppercase}"
     ".feat{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center;padding:6px 0 8px}"
     ".kick{font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;"
     "color:var(--acc);margin-bottom:12px}"
@@ -472,6 +474,10 @@ _MATCH_CSS = (
     ".mx-badge{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
     "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;"
     "padding:2px 8px;align-self:flex-start}"
+    ".mx-badge.final{color:var(--greend);background:#eaf5ee}"
+    ".mx-final-score{font-size:32px;font-weight:800;color:var(--ink);letter-spacing:1px;"
+    "line-height:1}"
+    ".mx-predicted{font-size:12.5px;color:var(--ink3)}"
 )
 
 
@@ -502,8 +508,8 @@ def match_predictions_html(entries: list) -> str:
     cards = []
     for e in sorted_entries:
         is_close = e.get("close", False)
-        card_cls = "mx-card mx-close-card" if is_close else "mx-card"
-        match_esc = _html.escape(e.get("match", ""))
+        is_finished = e.get("finished", False)
+        card_cls = "mx-card mx-close-card" if (is_close and not is_finished) else "mx-card"
         home_esc = _html.escape(e.get("home", ""))
         away_esc = _html.escape(e.get("away", ""))
         score = _html.escape(e.get("top_scoreline", "?-?"))
@@ -516,26 +522,44 @@ def match_predictions_html(entries: list) -> str:
         # Format kickoff: show ISO date+time trimmed
         ko_display = ko[:16].replace("T", " ") + " UTC" if ko else "—"
 
-        badge = '<span class="mx-badge">Close — one to watch</span>' if is_close else ""
-
-        card = (
-            f'<div class="{card_cls}">'
-            f'<div class="mx-teams">{home_esc} <span style="color:var(--ink3);font-weight:400">vs</span> {away_esc}</div>'
-            f'<div class="mx-score">{score}</div>'
-            f'<div class="mx-xg">'
-            f'<span class="mx-xg-h">{xgh:.2f} xG</span>'
-            f'<span style="color:var(--line)">|</span>'
-            f'<span class="mx-xg-a">{xga:.2f} xG</span>'
-            f'</div>'
-            f'<div class="mx-probs">'
-            f'<div class="mx-ph">H {p_home*100:.0f}%</div>'
-            f'<div class="mx-pd">D {p_draw*100:.0f}%</div>'
-            f'<div class="mx-pa">A {p_away*100:.0f}%</div>'
-            f'</div>'
-            f'<div class="mx-ko">{_html.escape(ko_display)}</div>'
-            f'{badge}'
-            f'</div>'
-        )
+        if is_finished:
+            # Finished fixture: the ACTUAL score is the headline number, with the
+            # pre-match prediction demoted to a small caption underneath — a
+            # running predicted-vs-actual scoreboard rather than a stale forecast.
+            final_score = _html.escape(e.get("final_score", score))
+            badge = '<span class="mx-badge final">Final</span>'
+            fav_pct = round(max(p_home, p_draw, p_away) * 100)
+            fav_label = "Draw" if p_draw >= p_home and p_draw >= p_away else (
+                home_esc if p_home >= p_away else away_esc)
+            card = (
+                f'<div class="{card_cls}">'
+                f'<div class="mx-teams">{home_esc} <span style="color:var(--ink3);font-weight:400">vs</span> {away_esc}</div>'
+                f'<div class="mx-final-score">{final_score}</div>'
+                f'<div class="mx-predicted">predicted {score} · P({fav_label}) {fav_pct}%</div>'
+                f'<div class="mx-ko">{_html.escape(ko_display)}</div>'
+                f'{badge}'
+                f'</div>'
+            )
+        else:
+            badge = '<span class="mx-badge">Close — one to watch</span>' if is_close else ""
+            card = (
+                f'<div class="{card_cls}">'
+                f'<div class="mx-teams">{home_esc} <span style="color:var(--ink3);font-weight:400">vs</span> {away_esc}</div>'
+                f'<div class="mx-score">{score}</div>'
+                f'<div class="mx-xg">'
+                f'<span class="mx-xg-h">{xgh:.2f} xG</span>'
+                f'<span style="color:var(--line)">|</span>'
+                f'<span class="mx-xg-a">{xga:.2f} xG</span>'
+                f'</div>'
+                f'<div class="mx-probs">'
+                f'<div class="mx-ph">H {p_home*100:.0f}%</div>'
+                f'<div class="mx-pd">D {p_draw*100:.0f}%</div>'
+                f'<div class="mx-pa">A {p_away*100:.0f}%</div>'
+                f'</div>'
+                f'<div class="mx-ko">{_html.escape(ko_display)}</div>'
+                f'{badge}'
+                f'</div>'
+            )
         cards.append(card)
 
     grid = f'<div class="mx-grid">{"".join(cards)}</div>'
@@ -747,13 +771,17 @@ def track_record_json(record: dict) -> dict:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True):
+                 generated_at=None, date_str=None, show_table=True, live=False):
     """v2 editorial article page.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
     generated_at: ISO-8601 timestamp string (optional)
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
+    live: when True, the kicker shows a "LIVE" note (small, --acc colored) and
+          the H1 gets " (remaining fixtures)" appended -- callers only pass True
+          for the filtered remaining-fixture list articles, never best-xi/matches/
+          track-record. <title> is left untouched for SEO stability.
     """
     summary = summary_sentence(article, entries)
     dataset_ld_raw = _json.dumps({
@@ -780,6 +808,9 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
         _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
+    live_html = (' <span class="live-tag">· LIVE — updated as the round plays out</span>'
+                if live else "")
+    h1_suffix = " (remaining fixtures)" if live else ""
     table_html = _rank_table_html(entries, columns) if show_table else ""
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
@@ -801,8 +832,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 </div></header>
 <div class="wrap">
 <article class="art">
-<div class="kick">{kicker_label}</div>
-<h1>{_html.escape(prose["headline"])}</h1>
+<div class="kick">{kicker_label}{live_html}</div>
+<h1>{_html.escape(prose["headline"])}{_html.escape(h1_suffix)}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
 <div class="artviz">{viz_html}</div>
@@ -865,18 +896,24 @@ def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str
     )
 
 
-def landing_page(round_no, featured, feed, date_str=None):
+def landing_page(round_no, featured, feed, date_str=None, live=False):
     """v2 landing page — featured block + feed grid.
 
     featured: {slug, prose: {headline, standfirst, ...}, viz_html}
     feed: list of {slug, headline, teaser, stat_value, stat_label}
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
+    live: when True (and the featured slug is one of the filtered remaining-
+          fixture articles), shows the "LIVE" kicker note and appends
+          " (remaining fixtures)" to the featured H1, matching article_page.
     """
     feat_slug = featured["slug"]
     feat_prose = featured["prose"]
     feat_viz = featured.get("viz_html", "")
     feat_kicker = "Featured · " + _html.escape(
         feat_slug.replace("-", " ").title())
+    live_html = (' <span class="live-tag">· LIVE — updated as the round plays out</span>'
+                if live else "")
+    h1_suffix = " (remaining fixtures)" if live else ""
     feat_url = f"/round/{round_no}/{feat_slug}/"
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
 
@@ -902,8 +939,8 @@ def landing_page(round_no, featured, feed, date_str=None):
 <div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 <section class="feat">
 <div>
-  <div class="kick">{feat_kicker}</div>
-  <h1>{_html.escape(feat_prose["headline"])}</h1>
+  <div class="kick">{feat_kicker}{live_html}</div>
+  <h1>{_html.escape(feat_prose["headline"])}{_html.escape(h1_suffix)}</h1>
   <p class="stand">{_html.escape(feat_prose["standfirst"])}</p>
   <div class="byline"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
   <p style="margin-top:16px"><a href="{feat_url}" style="color:var(--green);font-weight:600;font-size:14px">Read the full analysis →</a></p>

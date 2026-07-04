@@ -3,7 +3,7 @@
 import json
 import os
 
-from core import fixtures
+from core import fifa_api, fixtures
 from games.fifa import model as fifa_model
 
 POS_MIN = {"GK": 1, "DEF": 3, "MID": 2, "FWD": 1}
@@ -71,6 +71,20 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
             "kickoff": kickoffs.get(m.get("team")),
         })
     return rows
+
+
+def upcoming_rows(rows: list, now_iso: str) -> list:
+    """Rows whose kickoff is known and still in the future (ISO-8601 UTC strings,
+    which compare safely as plain strings without parsing).
+
+    Used in live-round mode: once a round's first match has kicked off, players
+    whose own match has already started can't newly become captain (FIFA's live
+    captain chain only allows the armband to move to someone who hasn't started),
+    so the ranked-list articles should only surface players from fixtures that
+    haven't kicked off yet. Rows with kickoff=None (unknown fixture) are excluded
+    -- pre-round articles never call this, so there's no ambiguity to fall back on.
+    """
+    return [r for r in rows if r.get("kickoff") is not None and r["kickoff"] > now_iso]
 
 
 def select_xi(rows: list, key: str) -> list:
@@ -199,7 +213,49 @@ def blowout_transfers(rows: list, teams: set) -> list:
     return _ranked(pool, "x_points")
 
 
-def match_predictions(match_samples: dict, fantasy_round: int) -> list:
+_FINISHED_STATUS_MARKERS = ("FULL_TIME", "FINAL", "COMPLETE")
+
+
+def _is_finished_status(status) -> bool:
+    """True if a raw feed status string indicates the match has finished.
+
+    Feeds disagree on casing/vocabulary: core.fixtures' ESPN-derived `stage`
+    uses upper-snake-case ("STATUS_FULL_TIME", "STATUS_FINAL_AET", ...), while
+    core.fifa_api's own feed uses lowercase ("complete", "scheduled"). Normalise
+    to uppercase and check for any known "done" marker rather than an exact
+    string, so this keeps working regardless of which feed supplied the value.
+    """
+    if not status:
+        return False
+    upper = status.upper()
+    return any(marker in upper for marker in _FINISHED_STATUS_MARKERS)
+
+
+def finished_results_map(fantasy_round: int) -> dict:
+    """(home, away) team-name pairs -> {"hs": int, "as": int} for fixtures in
+    `fantasy_round` that the cached FIFA feed (core.fifa_api.fixtures()) reports
+    as finished. Keys are normalised with fifa_api._ckey so ESPN-vs-FIFA team
+    name spelling differences (e.g. "South Korea" vs "Korea Republic") match up.
+
+    Only rounds/fixtures actually present -- and finished -- in the cached feed
+    are returned; everything else is simply absent from the map, which callers
+    treat as "not yet finished" rather than an error (the cache is refreshed by
+    the production controller before a real build, so a stale/empty cache here
+    is expected outside of that window).
+    """
+    out: dict[tuple, dict] = {}
+    for m in fifa_api.fixtures():
+        if not _is_finished_status(m.get("status")):
+            continue
+        home, away = m.get("home"), m.get("away")
+        hs, as_ = m.get("hs"), m.get("as")
+        if home is None or away is None or hs is None or as_ is None:
+            continue
+        out[(fifa_api._ckey(home), fifa_api._ckey(away))] = {"hs": hs, "as": as_}
+    return out
+
+
+def match_predictions(match_samples: dict, fantasy_round: int, results=None) -> list:
     """Return one prediction dict per fixture in fantasy_round, sorted by kickoff.
 
     Derives predictions from the simulated scoreline distribution in match_samples
@@ -209,6 +265,11 @@ def match_predictions(match_samples: dict, fantasy_round: int) -> list:
     Each entry has:
       match, home, away, kickoff (ISO str), exp_home_goals, exp_away_goals,
       exp_total, top_scoreline ("H-A"), p_home, p_draw, p_away, close (bool).
+
+    results: optional output of finished_results_map(fantasy_round) -- when a
+    fixture's (home, away) pair (normalised via fifa_api._ckey) is present, the
+    entry additionally carries final_score ("H-A") and finished=True, while
+    keeping every prediction field intact (predicted-vs-actual, not a replacement).
     """
     import math
 
@@ -242,7 +303,7 @@ def match_predictions(match_samples: dict, fantasy_round: int) -> list:
         return p_home, p_draw, p_away, best_score, exp_h, exp_a
 
     fx_list = fixtures.by_round(fantasy_round)
-    results = []
+    entries_out = []
     for f in fx_list:
         ms = match_samples.get(f.match_id)
         if ms is not None and ms.sims > 0:
@@ -300,10 +361,17 @@ def match_predictions(match_samples: dict, fantasy_round: int) -> list:
             entry["p_advance_home"] = round(p_home + p_draw * strength_h, 3)
             entry["p_advance_away"] = round(p_away + p_draw * (1 - strength_h), 3)
 
-        results.append(entry)
+        if results is not None:
+            key = (fifa_api._ckey(f.home), fifa_api._ckey(f.away))
+            actual = results.get(key)
+            if actual is not None:
+                entry["final_score"] = f"{actual['hs']}-{actual['as']}"
+                entry["finished"] = True
 
-    results.sort(key=lambda r: r["kickoff"])
-    return results
+        entries_out.append(entry)
+
+    entries_out.sort(key=lambda r: r["kickoff"])
+    return entries_out
 
 
 def advancement_map(match_entries: list) -> dict:

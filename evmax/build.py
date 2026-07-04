@@ -52,16 +52,46 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
     return out
 
 
-def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
-    """Return {slug: entries_list} for the v2 article set."""
+# Articles built from a pickable-player pool that, in live mode, gets filtered
+# down to remaining (not-yet-kicked-off) fixtures. best-xi is deliberately
+# excluded: it's the round's pre-round optimal-XI artifact and is never filtered.
+_MIN_LIVE_POOL = 5
+
+FILTERED_ARTICLE_SLUGS = ("captains", "transfers", "risky", "efficiency",
+                          "defenders", "blowout-transfers")
+
+
+def _live_pool(rows: list, now_iso: str) -> tuple[list, bool]:
+    """Return (pool, used_fallback) for the filtered live-mode article set.
+
+    Filters to upcoming (not-yet-kicked-off) rows; if that leaves fewer than
+    _MIN_LIVE_POOL players (round nearly over), falls back to the full pool
+    rather than publishing a near-empty list.
+    """
+    upcoming = articles.upcoming_rows(rows, now_iso)
+    if len(upcoming) < _MIN_LIVE_POOL:
+        return rows, True
+    return upcoming, False
+
+
+def _article_entries(rows: list, fantasy_round: int, live_pool: list | None = None) -> dict[str, list]:
+    """Return {slug: entries_list} for the v2 article set.
+
+    rows:      the FULL player pool -- always used for best-xi (a pre-round
+               optimal-XI artifact that must never be filtered).
+    live_pool: the pool to use for the filtered ranked-list articles (captains,
+               transfers-adjacent, risky, efficiency, defenders, blowout-transfers).
+               Defaults to `rows` (pre-round / non-live behaviour) when omitted.
+    """
+    pool = rows if live_pool is None else live_pool
     blow = articles.blowout_teams(fantasy_round)
     return {
-        "captains":          articles.rank_captains(rows)[:20],
+        "captains":          articles.rank_captains(pool)[:20],
         "best-xi":           articles.select_xi(rows, "x_points"),
-        "defenders":         articles.by_position(rows, "DEF")[:15],
-        "risky":             articles.risky(rows)[:20],
-        "efficiency":        articles.efficiency(rows)[:20],
-        "blowout-transfers": articles.blowout_transfers(rows, blow)[:20],
+        "defenders":         articles.by_position(pool, "DEF")[:15],
+        "risky":             articles.risky(pool)[:20],
+        "efficiency":        articles.efficiency(pool)[:20],
+        "blowout-transfers": articles.blowout_transfers(pool, blow)[:20],
     }
 
 
@@ -80,6 +110,16 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     render.SITE_URL = url
     generated_at = datetime.now(timezone.utc).isoformat()
     date_str = _format_date(generated_at)
+    now = datetime.now(timezone.utc)
+
+    # --- Live round mode ---
+    # Once a round's first kickoff has passed, matches finish overnight and a
+    # rebuild should reflect reality: players who already played can't be newly
+    # captained (FIFA's live captain chain only allows the armband to move to
+    # someone whose match hasn't started), and finished fixtures should show
+    # their actual score rather than a stale pre-match prediction.
+    lock_time = fixtures.round_lock_time(fantasy_round)
+    live = lock_time is not None and now > lock_time
 
     # --- Simulate ---
     players, match_samples = engine_events.simulate_round(
@@ -94,14 +134,25 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     rows = articles.build_rows(means, samples, meta, kickoffs)
 
     # --- Build per-article data ---
-    entries_map = _article_entries(rows, fantasy_round)
-    entries_map["matches"] = articles.match_predictions(match_samples, fantasy_round)
+    live_pool_rows, live_fallback = (rows, False)
+    if live:
+        live_pool_rows, live_fallback = _live_pool(rows, now.isoformat())
+        if live_fallback:
+            print(f"Live mode: fewer than {_MIN_LIVE_POOL} upcoming players for "
+                  f"round {fantasy_round} — falling back to the full player pool "
+                  f"for the filtered articles.")
+    entries_map = _article_entries(rows, fantasy_round,
+                                   live_pool=live_pool_rows if live else None)
+    results_map = articles.finished_results_map(fantasy_round) if live else None
+    entries_map["matches"] = articles.match_predictions(
+        match_samples, fantasy_round, results=results_map)
     # Transfer priorities need each team's advancement probability from the matches
     # article, so it's computed after — and only knockout rounds populate adv_map,
     # so transfer_priorities degrades gracefully to pure value-over-replacement
     # ranking during the group stage.
     adv_map = articles.advancement_map(entries_map["matches"])
-    entries_map["transfers"] = articles.transfer_priorities(rows, adv_map)
+    transfer_pool = live_pool_rows if live else rows
+    entries_map["transfers"] = articles.transfer_priorities(transfer_pool, adv_map)
     nav = [(slug, articles.ARTICLE_TITLES[slug]) for slug in articles.ARTICLES]
 
     def w(path: str, text: str) -> None:
@@ -135,8 +186,16 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             if subject:
                 used_leads.add(subject)
 
-        # Prose
+        # Prose. In live mode, the filtered (remaining-fixtures) articles use a
+        # fresh per-round cache namespace so the writer's cache doesn't keep
+        # serving stale pre-round prose for entries that live filtering has
+        # already changed; best-xi/matches keep the normal cache (their content
+        # isn't filtered, so the ordinary cache is still valid).
+        is_live_filtered = live and slug in FILTERED_ARTICLE_SLUGS
+        cache_dir = (f"data/articles/round-{fantasy_round}-live" if is_live_filtered
+                    else "data/articles")
         prose = writer.article_prose(slug, fantasy_round, entries, columns,
+                                     cache_dir=cache_dir,
                                      use_llm=use_llm, subject=subject)
         prose_map[slug] = prose
 
@@ -175,7 +234,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
           render.article_page(fantasy_round, slug, title, prose, entries,
                               columns, json_url, viz_html,
                               generated_at=generated_at, date_str=date_str,
-                              show_table=not is_matches))
+                              show_table=not is_matches, live=is_live_filtered))
 
     # --- Reddit kit (operator posting material — NOT published to the site) ---
     # data/ is gitignored; this never lands in dist/. Written after articles/prose
@@ -246,7 +305,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             "stat_label": stat_label,
         })
 
-    landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str)
+    landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str,
+                                       live=live)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 
@@ -272,9 +332,11 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         indexnow_key = fh.read().strip()
     w(f"/{indexnow_key}.txt", indexnow_key + "\n")
 
+    live_note = (f" | LIVE mode (locked {lock_time.isoformat()}, "
+                f"{len(live_pool_rows)} upcoming players)" if live else "")
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles) "
-          f"| reddit kit → {reddit_kit_path}")
+          f"| reddit kit → {reddit_kit_path}{live_note}")
 
 
 # ---------------------------------------------------------------------------

@@ -359,3 +359,115 @@ class NewsletterTest(unittest.TestCase):
     def test_privacy_page_no_script_tags(self):
         h = render.privacy_page()
         self.assertNotIn("<script", h)
+
+
+class MatchPredictionsHtmlTest(unittest.TestCase):
+    """Live-round scoreboard: finished fixtures show the actual score big with
+    the prediction demoted underneath; upcoming fixtures render as before."""
+
+    def _entry(self, **overrides):
+        base = {
+            "match": "France vs Paraguay", "home": "France", "away": "Paraguay",
+            "kickoff": "2026-07-04T15:00:00+00:00",
+            "exp_home_goals": 2.1, "exp_away_goals": 0.4, "exp_total": 2.5,
+            "top_scoreline": "2-0", "p_home": 0.68, "p_draw": 0.20, "p_away": 0.12,
+            "close": False,
+        }
+        base.update(overrides)
+        return base
+
+    def test_finished_fixture_shows_final_badge_and_actual_score(self):
+        entry = self._entry(finished=True, final_score="3-0")
+        h = render.match_predictions_html([entry])
+        self.assertIn("Final", h)
+        self.assertIn("3-0", h)
+        self.assertIn("mx-final-score", h)
+
+    def test_finished_fixture_shows_prediction_small_underneath(self):
+        entry = self._entry(finished=True, final_score="3-0")
+        h = render.match_predictions_html([entry])
+        self.assertIn("predicted 2-0", h)
+        self.assertIn("68%", h)
+
+    def test_unfinished_fixture_renders_prediction_only_no_final_badge(self):
+        entry = self._entry()
+        h = render.match_predictions_html([entry])
+        self.assertIn("2-0", h)               # predicted scoreline still shown big
+        self.assertNotIn(">Final<", h)
+        # no element actually uses the final-score class (CSS rule alone doesn't count)
+        self.assertNotIn('class="mx-final-score"', h)
+
+    def test_unfinished_close_fixture_still_gets_close_badge(self):
+        entry = self._entry(close=True, p_home=0.3, p_draw=0.35, p_away=0.35)
+        h = render.match_predictions_html([entry])
+        self.assertIn("Close", h)
+
+    def test_finished_close_fixture_gets_final_not_close_badge(self):
+        """Once a fixture is finished, it's graded as Final, not flagged as a
+        close pre-match call — the outcome is already known."""
+        entry = self._entry(close=True, finished=True, final_score="1-1",
+                            p_home=0.3, p_draw=0.35, p_away=0.35)
+        h = render.match_predictions_html([entry])
+        self.assertIn("Final", h)
+        self.assertNotIn("Close — one to watch", h)
+
+
+class LiveModeLabelTest(unittest.TestCase):
+    """Round 4 spec section 3: live-mode labeling on article/landing pages."""
+
+    def setUp(self):
+        self.entries = [
+            {"rank": 1, "name": "Bruno Fernandes", "team": "Portugal", "position": "MID",
+             "x_points": 5.67, "captain_ev": 11.34, "ceiling": 9.1, "price": 9.5,
+             "ownership_pct": 18.0, "value": 0.6, "kickoff": "2026-07-05T23:30:00+00:00"},
+        ]
+        self.prose = {
+            "headline": "Bruno Fernandes leads the captain board",
+            "standfirst": "Portugal's midfielder tops this round's captain EV at 11.34.",
+            "body_html": "<p>Bruno Fernandes projects <b>11.34 captain EV</b> this round.</p>",
+            "bottom_line": "Captain Bruno Fernandes.",
+            "source": "template",
+        }
+        self.viz_html = '<svg viewBox="0 0 100 40"><rect width="80" height="20" fill="#0f7a45"/></svg>'
+
+    def test_live_true_shows_live_label_in_kicker(self):
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=True)
+        self.assertIn("LIVE", h)
+        self.assertIn("remaining fixtures", h)
+
+    def test_live_false_shows_no_live_label(self):
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=False)
+        self.assertNotIn("LIVE", h)
+        self.assertNotIn("remaining fixtures", h)
+
+    def test_live_title_tag_is_unchanged_for_seo(self):
+        """<title> must not carry the live suffix -- SEO stability requirement."""
+        title = "Best captain picks — Round 5"
+        h = render.article_page(
+            round_no=5, article="captains", title=title,
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html, live=True)
+        self.assertIn(f"<title>{title} | {render.BRAND_SUFFIX}</title>", h)
+
+    def test_live_true_landing_page_shows_label_on_featured_block(self):
+        feed = [
+            {"slug": "best-xi", "headline": "The model's Round 5 XI",
+             "teaser": "A 3-4-3 built around Kane.", "stat_value": "58.7",
+             "stat_label": "total xPts"},
+        ]
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
+        h = render.landing_page(round_no=5, featured=featured, feed=feed, live=True)
+        self.assertIn("LIVE", h)
+        self.assertIn("remaining fixtures", h)
+
+    def test_live_false_landing_page_shows_no_label(self):
+        feed = []
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
+        h = render.landing_page(round_no=5, featured=featured, feed=feed, live=False)
+        self.assertNotIn("LIVE", h)
