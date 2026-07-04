@@ -7,6 +7,13 @@ from unittest import mock
 
 from evmax import backtest, render
 
+# Integration tests against the REAL local caches (data/ is gitignored, absent in CI).
+_HAS_LIVE_DATA = os.path.exists(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "data", "schedule.json"))
+_NEEDS_DATA = unittest.skipUnless(_HAS_LIVE_DATA,
+                                  "requires local data/ caches (skipped in CI)")
+
 
 def _env(round_no, slug, entries, generated_at="2026-06-24T12:00:00+00:00"):
     return {
@@ -155,6 +162,7 @@ class RoundStatusTest(unittest.TestCase):
     def test_no_snapshot(self):
         self.assertEqual(backtest.round_status(999999), "no_snapshot")
 
+    @_NEEDS_DATA
     def test_round_3_is_final_in_real_data(self):
         # Real repo data: round 3 fixtures are all STATUS_FULL_TIME and a snapshot exists.
         self.assertEqual(backtest.round_status(3), "final")
@@ -165,6 +173,7 @@ class RoundStatusTest(unittest.TestCase):
 
 
 class RealizedPointsTest(unittest.TestCase):
+    @_NEEDS_DATA
     def test_round_3_coverage_is_high(self):
         realized = backtest.realized_points(3)
         self.assertGreater(realized["total"], 0)
@@ -207,6 +216,7 @@ class MissesTest(unittest.TestCase):
 
 
 class BuildTrackRecordTest(unittest.TestCase):
+    @_NEEDS_DATA
     def test_round_3_excluded_from_rounds_list(self):
         # Owner decision 2026-07-04: round 3 hidden from the public track record.
         # Snapshots stay on disk (round_status/realized_points still see them),
