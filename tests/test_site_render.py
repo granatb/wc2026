@@ -471,3 +471,30 @@ class LiveModeLabelTest(unittest.TestCase):
         featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
         h = render.landing_page(round_no=5, featured=featured, feed=feed, live=False)
         self.assertNotIn("LIVE", h)
+
+
+class UtilityAndOgTest(unittest.TestCase):
+    def test_thanks_and_confirmed_pages_render_noindex(self):
+        for page in (render.thanks_page(), render.confirmed_page()):
+            self.assertIn("noindex", page)
+            self.assertIn("evmax", page)
+
+    def test_landing_has_og_canonical_and_org_schema(self):
+        h = render.landing_page(5, {"slug": "captains", "prose": _SAMPLE_PROSE,
+                                    "viz_html": ""}, [], date_str="4 July 2026")
+        self.assertIn('property="og:image"', h)
+        self.assertIn('rel="canonical"', h)
+        self.assertIn('"Organization"', h)
+
+    def test_article_page_has_og_and_canonical(self):
+        h = render.article_page(
+            round_no=5, article="captains", title="Best captain picks — Round 5",
+            prose=_SAMPLE_PROSE, entries=_SAMPLE_XI[:1], columns=["captain_ev"],
+            json_url="/api/round/5/captains.json", viz_html="")
+        self.assertIn('property="og:title"', h)
+        self.assertIn('https://evmax.ai/round/5/captains/', h)  # canonical URL
+        self.assertIn("twitter:card", h)
+
+
+if __name__ == '__main__':
+    unittest.main()

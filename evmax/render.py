@@ -14,6 +14,39 @@ GSC_META_TAG = (
 DATA_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 DATA_LICENSE_TEXT = ("CC BY 4.0 — free to reuse with attribution to evmax "
                      "(https://evmax.ai)")
+
+# Favicons + mobile theme color, on every page. Google Search shows the favicon next
+# to results (SVG supported); the PNG set covers Safari/Apple-touch and old browsers.
+_HEAD_COMMON = (
+    '<link rel="icon" href="/brand/logo.svg" type="image/svg+xml">'
+    '<link rel="alternate icon" href="/brand/icon-32.png" type="image/png">'
+    '<link rel="apple-touch-icon" href="/brand/icon-180.png">'
+    '<meta name="theme-color" content="#0f7a45">')
+
+
+def _og_meta(title, description, canonical_path, og_type="article"):
+    """Open Graph + Twitter card + canonical — what makes shares (Reddit, X, WhatsApp)
+    render a branded preview card instead of a bare link, and tells Google the
+    canonical URL for each page."""
+    url = f"{SITE_URL}{canonical_path}"
+    t = _html.escape(title)
+    d = _html.escape(description)
+    return (
+        f'<link rel="canonical" href="{url}">'
+        f'<meta property="og:site_name" content="evmax">'
+        f'<meta property="og:type" content="{og_type}">'
+        f'<meta property="og:title" content="{t}">'
+        f'<meta property="og:description" content="{d}">'
+        f'<meta property="og:url" content="{url}">'
+        f'<meta property="og:image" content="{SITE_URL}/brand/og-image.png">'
+        f'<meta property="og:image:width" content="1200">'
+        f'<meta property="og:image:height" content="630">'
+        f'<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:title" content="{t}">'
+        f'<meta name="twitter:description" content="{d}">'
+        f'<meta name="twitter:image" content="{SITE_URL}/brand/og-image.png">')
+
+
 METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
                "simulations, scored on the official FIFA World Cup Fantasy points table.")
 # Buttondown chosen for its static-site-friendly no-JS embed form: a plain HTML
@@ -722,6 +755,7 @@ def track_record_page(record: dict) -> str:
 <title>Every prediction, graded | {BRAND_SUFFIX}</title>
 <meta name="description" content="evmax grades its own published World Cup Fantasy predictions against official FIFA fantasy points, misses included. No cherry-picking — every round, every article.">
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}{_TRACK_RECORD_CSS}</style>
 </head><body>
@@ -821,7 +855,9 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <title>{_html.escape(title)} | {BRAND_SUFFIX}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
+{_og_meta(prose["headline"], summary, f"/round/{round_no}/{article}/", "article")}
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}</style>
 <script type="application/ld+json">{dataset_ld}</script>
@@ -865,6 +901,7 @@ def hub_page(round_no, nav, highlights):
 <title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
 <meta name="description" content="Simulation-based World Cup Fantasy picks for Round {round_no}: best XI, captains, differentials, value and blowout-fixture transfers from 50,000 Monte-Carlo runs.">
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}</style>
 </head><body>
@@ -906,6 +943,20 @@ def landing_page(round_no, featured, feed, date_str=None, live=False):
           fixture articles), shows the "LIVE" kicker note and appends
           " (remaining fixtures)" to the featured H1, matching article_page.
     """
+    og_block = _og_meta(
+        f"World Cup Fantasy Round {round_no} — simulation-based picks",
+        f"Captain EV, expected points and match predictions for Round {round_no}, "
+        f"from 50,000 Monte-Carlo simulations. Graded publicly.", "/", "website")
+    org_ld = _json.dumps({
+        "@context": "https://schema.org", "@type": "Organization", "name": "evmax",
+        "url": SITE_URL, "logo": SITE_URL + "/brand/icon-512.png",
+        "description": ("Simulation-based fantasy football analysis — 50,000 "
+                        "Monte-Carlo simulations per matchday, graded publicly."),
+    }).replace("</", "<\\/")
+    site_ld = _json.dumps({
+        "@context": "https://schema.org", "@type": "WebSite",
+        "name": "evmax — fantasy football simulations", "url": SITE_URL,
+    }).replace("</", "<\\/")
     feat_slug = featured["slug"]
     feat_prose = featured["prose"]
     feat_viz = featured.get("viz_html", "")
@@ -928,7 +979,11 @@ def landing_page(round_no, featured, feed, date_str=None, live=False):
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
 <meta name="description" content="Simulation-based World Cup Fantasy analysis for Round {round_no} from 50,000 Monte-Carlo runs.">
+{og_block}
+<script type="application/ld+json">{org_ld}</script>
+<script type="application/ld+json">{site_ld}</script>
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}</style>
 </head><body>
@@ -992,11 +1047,12 @@ def robots_txt():
     return "\n\n".join(blocks) + f"\n\nSitemap: {SITE_URL}/sitemap.xml\n"
 
 
-def sitemap_xml(round_no, nav):
+def sitemap_xml(round_no, nav, lastmod=None):
     urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
             f"{SITE_URL}/track-record/", f"{SITE_URL}/round/{round_no}/"]
     urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
-    items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+    items = "".join(f"<url><loc>{u}</loc>{lm}</url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
             f'{items}</urlset>')
@@ -1010,6 +1066,7 @@ def about_page():
 <title>About | {BRAND_SUFFIX}</title>
 <meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}
 .about-body{{max-width:680px;margin:40px auto 80px}}
@@ -1078,6 +1135,7 @@ def privacy_page():
 <title>Privacy | {BRAND_SUFFIX}</title>
 <meta name="description" content="evmax sets no cookies, runs no analytics or trackers, and makes no third-party requests. What little processing exists is described here.">
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}
 .legal h2{{font-size:16px;font-weight:700;margin:28px 0 8px}}
@@ -1129,6 +1187,7 @@ def _utility_page(title, kicker, heading, body_html, active=None):
 <meta name="robots" content="noindex">
 <title>{title} | {BRAND_SUFFIX}</title>
 {GSC_META_TAG}
+{_HEAD_COMMON}
 {_FONTS}
 <style>{_STYLE}</style>
 </head><body>

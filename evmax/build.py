@@ -258,8 +258,14 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/api/track-record.json", json.dumps(
         render.track_record_json(record), ensure_ascii=False, indent=2))
 
-    # --- Self-hosted fonts (see render._FONTS: no third-party requests, GDPR) ---
+    # --- Brand assets + self-hosted fonts (no third-party requests, GDPR) ---
     import shutil
+    brand_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "brand")
+    brand_dst = os.path.join(out, "brand")
+    os.makedirs(brand_dst, exist_ok=True)
+    for fname in os.listdir(brand_src):
+        if fname.endswith((".png", ".svg")):
+            shutil.copy2(os.path.join(brand_src, fname), os.path.join(brand_dst, fname))
     fonts_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
     fonts_dst = os.path.join(out, "fonts")
     os.makedirs(fonts_dst, exist_ok=True)
@@ -317,7 +323,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         ensure_ascii=False, indent=2))
     w("/llms.txt", render.llms_txt(fantasy_round, nav))
     w("/robots.txt", render.robots_txt())
-    w("/sitemap.xml", render.sitemap_xml(fantasy_round, nav))
+    w("/sitemap.xml", render.sitemap_xml(fantasy_round, nav, lastmod=generated_at[:10]))
     w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
     # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks Google's
     # exact-path verification check. Force this one path to serve as-is.
