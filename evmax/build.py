@@ -48,6 +48,10 @@ _COLUMNS = {
 # wildcard is the only one actually published now that best-xi is merged into it.
 _XI_ARTICLES = {"best-xi", "wildcard"}
 
+# In-article ev_bar charts are a captioned summary, not the full data (the table
+# below has everything) -- cap rows so the chart never reads as "ridiculous" size.
+_ARTICLE_VIZ_MAX_ROWS = 10
+
 
 def _kickoffs_for_round(fantasy_round: int) -> dict:
     out = {}
@@ -220,9 +224,14 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             # raw 0-1 fraction.
             viz_entries = [dict(e, p_clean_sheet=(e.get("p_clean_sheet") or 0.0) * 100)
                           for e in entries]
-            viz_html = render.ev_bar(viz_entries, "p_clean_sheet")
+            viz_html = render.ev_bar(viz_entries, "p_clean_sheet",
+                                     max_rows=_ARTICLE_VIZ_MAX_ROWS)
         else:
-            viz_html = render.ev_bar(entries, columns[0])
+            # In-article charts are a captioned SUMMARY of the top slice -- the
+            # table below has everything -- so cap at 10 rows and keep the
+            # default (denser) sizing; the landing page's featured chart below
+            # gets its own bigger, easier-to-read sizing.
+            viz_html = render.ev_bar(entries, columns[0], max_rows=_ARTICLE_VIZ_MAX_ROWS)
 
         # JSON
         extra_fields = {"squad": wildcard_meta} if slug == "wildcard" else None
@@ -302,7 +311,11 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     captains_entries = entries_map["captains"]
     captains_cols = _COLUMNS["captains"]
     captains_prose = prose_map["captains"]
-    captains_viz = render.ev_bar(captains_entries[:_FEATURED_VIZ_MAX_ROWS], captains_cols[0])
+    # Featured chart on the landing page: bigger and easier to read than the
+    # denser in-article default -- it's the first thing a visitor sees.
+    captains_viz = render.ev_bar(
+        captains_entries[:_FEATURED_VIZ_MAX_ROWS], captains_cols[0],
+        width=400, row_h=40, label_size=15, value_size=14, bar_h=22)
 
     featured = {
         "slug": "captains",

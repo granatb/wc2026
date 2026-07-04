@@ -340,6 +340,140 @@ class HtmlTest(unittest.TestCase):
         self.assertIn('href="/"', h)
         self.assertIn('href="/about/"', h)
 
+    def test_landing_with_fixtures_uses_grid_areas_and_fold_label(self):
+        fixtures = [
+            {"home": "France", "away": "Paraguay", "kickoff": "2026-07-04T17:00:00+00:00",
+             "p_home": 0.68, "p_draw": 0.2, "p_away": 0.12, "close": False,
+             "top_scoreline": "2-0", "exp_home_goals": 2.1, "exp_away_goals": 0.4},
+        ]
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": ""}
+        h = render.landing_page(round_no=5, featured=featured, feed=[],
+                                date_str="4 July 2026", fixtures=fixtures)
+        self.assertIn('grid-template-areas', h)
+        self.assertIn('class="feat-area"', h)
+        self.assertIn('class="feed-area"', h)
+        self.assertIn('id="rail-toggle"', h)
+        self.assertIn('for="rail-toggle"', h)
+        self.assertIn("Quick picks", h)
+        # feat-area must come before rail in DOM order (featured stays first)
+        self.assertLess(h.index('class="feat-area"'), h.index('id="rail-toggle"'))
+
+    def test_landing_rail_row_shows_date_and_xg_line(self):
+        fixtures = [
+            {"home": "France", "away": "Paraguay", "kickoff": "2026-07-04T17:00:00+00:00",
+             "p_home": 0.68, "p_draw": 0.2, "p_away": 0.12, "close": False,
+             "top_scoreline": "1-1", "exp_home_goals": 1.24, "exp_away_goals": 1.07},
+        ]
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": ""}
+        h = render.landing_page(round_no=5, featured=featured, feed=[],
+                                fixtures=fixtures)
+        self.assertIn("4 Jul", h)
+        self.assertIn("17:00", h)
+        self.assertIn("xG 1.07", h)
+        self.assertIn("1.24", h)
+        self.assertIn("pred 1-1", h)
+
+
+class ArticleFigureLayoutTest(unittest.TestCase):
+    """Prose-first article layout: lede paragraph before the figure, then the
+    rest of the body; every viz (except matches) wrapped in a captioned
+    <figure>."""
+
+    def setUp(self):
+        self.entries = [
+            {"rank": 1, "name": "Bruno Fernandes", "team": "Portugal", "position": "MID",
+             "x_points": 5.67, "captain_ev": 11.34, "ceiling": 9.1, "price": 9.5,
+             "ownership_pct": 18.0, "value": 0.6, "kickoff": None},
+        ]
+        self.prose = {
+            "headline": "Bruno Fernandes leads the captain board",
+            "standfirst": "Portugal's midfielder tops this round's captain EV at 11.34.",
+            "body_html": ("<p>First paragraph, the lede.</p>"
+                          "<p>Second paragraph with more detail.</p>"),
+            "bottom_line": "Captain Bruno Fernandes.",
+            "source": "template",
+        }
+        self.viz_html = '<svg viewBox="0 0 100 40"><rect width="80" height="20"/></svg>'
+
+    def test_lede_paragraph_renders_before_figure(self):
+        h = render.article_page(
+            round_no=3, article="captains", title="Best captain picks — Round 3",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/3/captains.json", viz_html=self.viz_html)
+        lede_pos = h.index("First paragraph, the lede.")
+        fig_pos = h.index('<figure class="fig">')
+        rest_pos = h.index("Second paragraph with more detail.")
+        self.assertLess(lede_pos, fig_pos)
+        self.assertLess(fig_pos, rest_pos)
+
+    def test_figure_has_figcaption_for_captains_metric(self):
+        h = render.article_page(
+            round_no=3, article="captains", title="Best captain picks — Round 3",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/3/captains.json", viz_html=self.viz_html)
+        self.assertIn("<figcaption>", h)
+        self.assertIn("Top 10 by Captain EV.", h)
+        self.assertIn("Full list in the table below.", h)
+
+    def test_pitch_article_gets_fixed_caption_and_pitch_class(self):
+        h = render.article_page(
+            round_no=5, article="wildcard", title="Wildcard draft — Round 5",
+            prose=self.prose, entries=self.entries,
+            columns=["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
+            json_url="/api/round/5/wildcard.json", viz_html=self.viz_html)
+        self.assertIn("The model&#x27;s optimal XI · number = projected points (xPts)", h)
+        self.assertIn('class="fig fig-pitch"', h)
+
+    def test_matches_article_has_no_figure_wrapper(self):
+        h = render.article_page(
+            round_no=5, article="matches", title="Match predictions — Round 5",
+            prose=self.prose, entries=[], columns=[],
+            json_url="/api/round/5/matches.json", viz_html=self.viz_html,
+            show_table=False)
+        self.assertNotIn("<figure", h)
+        self.assertNotIn("<figcaption>", h)
+        self.assertIn(self.viz_html, h)
+
+    def test_no_closing_p_tag_leaves_body_unsplit(self):
+        prose = dict(self.prose, body_html="<div>No paragraph tags here.</div>")
+        h = render.article_page(
+            round_no=3, article="captains", title="Best captain picks — Round 3",
+            prose=prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/3/captains.json", viz_html=self.viz_html)
+        self.assertIn("No paragraph tags here.", h)
+        # figure still renders, just with the (unsplit) body after it
+        fig_pos = h.index('<figure class="fig">')
+        body_pos = h.index("No paragraph tags here.")
+        self.assertLess(fig_pos, body_pos)
+
+
+class MatchCardStyleTest(unittest.TestCase):
+    def _entry(self, **overrides):
+        base = {
+            "match": "France vs Paraguay", "home": "France", "away": "Paraguay",
+            "kickoff": "2026-07-04T15:00:00+00:00",
+            "exp_home_goals": 2.1, "exp_away_goals": 0.4, "exp_total": 2.5,
+            "top_scoreline": "2-0", "p_home": 0.68, "p_draw": 0.20, "p_away": 0.12,
+            "close": False,
+        }
+        base.update(overrides)
+        return base
+
+    def test_mx_grid_uses_260px_two_column_minmax(self):
+        h = render.match_predictions_html([self._entry()])
+        self.assertIn("minmax(260px,1fr)", h)
+
+    def test_mx_score_is_22px(self):
+        h = render.match_predictions_html([self._entry()])
+        self.assertIn(".mx-score{font-size:22px", h)
+        self.assertIn(".mx-final-score{font-size:22px", h)
+
+    def test_games_to_watch_is_flat_line_not_nested_card(self):
+        h = render.match_predictions_html([self._entry(close=True)])
+        self.assertIn("Games to watch", h)
+        self.assertIn('class="mx-lead"', h)
+        self.assertNotIn("<h3>", h)  # no more nested-card heading
+
 
 class PitchSvgTest(unittest.TestCase):
     def test_pitch_svg_returns_svg(self):
@@ -359,6 +493,36 @@ class PitchSvgTest(unittest.TestCase):
         svg = render.pitch_svg(_SAMPLE_XI)
         # Captain badge: red circle with "C" label
         self.assertIn(">C<", svg, "captain badge 'C' not found in pitch SVG")
+
+    def test_pitch_label_drops_jr_suffix(self):
+        # "Vinicius Jr" must label as "Vinicius", not the suffix "Jr".
+        self.assertEqual(render._pitch_label("Vinicius Jr"), "Vinicius")
+
+    def test_pitch_label_drops_other_generational_suffixes(self):
+        self.assertEqual(render._pitch_label("Alexander Isaksson Sr"), "Isaksson")
+        self.assertEqual(render._pitch_label("Alexander Isaksson II"), "Isaksson")
+        self.assertEqual(render._pitch_label("Alexander Isaksson III"), "Isaksson")
+
+    def test_pitch_label_short_full_name_shown_in_full(self):
+        # <=11 chars: show the full name rather than truncating to one token.
+        self.assertEqual(render._pitch_label("Harry Kane"), "Harry Kane")
+
+    def test_pitch_label_long_name_falls_back_to_last_token(self):
+        self.assertEqual(render._pitch_label("Kylian Mbappe Lottin"), "Lottin")
+
+    def test_pitch_svg_labels_vinicius_jr_correctly(self):
+        xi = [dict(e) for e in _SAMPLE_XI]
+        xi[0] = dict(xi[0], name="Vinicius Jr")
+        svg = render.pitch_svg(xi)
+        self.assertIn("Vinicius", svg)
+        self.assertNotIn(">Jr<", svg)
+
+    def test_pitch_svg_xpts_inside_node_name_below(self):
+        svg = render.pitch_svg(_SAMPLE_XI)
+        # The xPts text should render at a smaller y-offset from the node centre
+        # than the name text (xPts inside the circle, name below it on the grass).
+        self.assertIn('fill="#f2f8f4"', svg)   # name label fill (on-grass colour)
+        self.assertIn('fill="#15140f"', svg)   # xPts label fill (in-node colour)
 
 
 class EvBarTest(unittest.TestCase):

@@ -201,7 +201,7 @@ _STYLE = (
     "body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;"
     "-webkit-font-smoothing:antialiased}"
     "a{color:inherit;text-decoration:none}"
-    ".wrap{max-width:1000px;margin:0 auto;padding:0 28px}"
+    ".wrap{max-width:1140px;margin:0 auto;padding:0 28px}"
     "header{display:flex;align-items:center;gap:20px;height:62px;border-bottom:1px solid var(--line);"
     "position:sticky;top:0;background:rgba(251,250,247,.92);backdrop-filter:blur(8px);z-index:10}"
     ".logo{font-weight:800;font-size:22px;letter-spacing:-.5px}.logo b{color:var(--green)}"
@@ -250,6 +250,10 @@ _STYLE = (
     "font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}"
     ".artviz{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:18px;"
     "margin:6px 0 26px;display:flex;flex-direction:column;align-items:center}"
+    ".fig{max-width:560px;margin:20px auto;background:var(--surf);border:1px solid var(--line);"
+    "border-radius:16px;padding:18px;display:flex;flex-direction:column;align-items:center}"
+    ".fig.fig-pitch{max-width:420px}"
+    "figcaption{font-size:12px;color:var(--ink3);text-align:center;margin-top:8px;line-height:1.5}"
     ".prose p{font-family:var(--serif);font-size:18px;line-height:1.66;color:#23201a;margin-bottom:18px}"
     ".prose p b{color:var(--ink)}"
     ".prose h2{font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;"
@@ -293,10 +297,16 @@ _STYLE = (
     ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;max-width:76ch;margin-bottom:10px}"
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
     ".pitch-mini{width:200px}"
-    ".landing-grid{display:grid;grid-template-columns:1fr 300px;gap:40px;align-items:start}"
+    ".landing-grid{display:grid;grid-template-columns:1fr 320px;gap:48px;"
+    "grid-template-areas:\"feat rail\" \"feed rail\";align-items:start}"
+    ".landing-grid .feat-area{grid-area:feat}"
+    ".landing-grid .feed-area{grid-area:feed}"
+    ".landing-grid .rail{grid-area:rail}"
     ".rail{position:sticky;top:80px;align-self:start;background:var(--surf);"
-    "border:1px solid var(--line);border-radius:14px;padding:18px 20px}"
-    ".rail .pagelabel{margin:0 0 14px}"
+    "border:1px solid var(--line);border-radius:14px;padding:14px 16px}"
+    ".rail .pagelabel{margin:0 0 12px;font-size:11px}"
+    ".rail-toggle{display:none}"
+    ".rail-fold-label{display:none}"
     ".qp-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}"
     ".qp-row:hover .qp-name{color:var(--green)}"
     ".qp-label{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);min-width:86px}"
@@ -305,15 +315,23 @@ _STYLE = (
     ".rail-row{padding:12px 0;border-bottom:1px solid var(--line)}"
     ".rail-row:last-of-type{border-bottom:0}"
     ".rail-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;"
-    "margin-bottom:8px}"
+    "margin-bottom:6px}"
     ".rail-teams{font-size:14px;font-weight:700;letter-spacing:-.2px}"
     ".rail-ko{font-size:11px;color:var(--ink3);white-space:nowrap;text-align:right}"
     ".rail-score{font-size:18px;font-weight:800;color:var(--ink)}"
+    ".rail-meta{font-size:11px;color:var(--ink3);margin-top:6px}"
     ".rail-link{display:block;margin-top:14px;font-size:13px;font-weight:600;color:var(--green)}"
     "@media(max-width:900px){"
-    ".landing-grid{grid-template-columns:1fr}"
-    ".landing-grid .rail{position:static;order:2}"
-    ".landing-grid .main-col{order:1}"
+    ".landing-grid{grid-template-columns:1fr;grid-template-areas:\"feat\" \"rail\" \"feed\"}"
+    ".landing-grid .rail{position:static}"
+    ".rail-fold-label{display:flex;align-items:center;justify-content:space-between;"
+    "background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:14px 18px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}"
+    ".rail-fold-label::after{content:'\\25be';font-size:14px;color:var(--ink3);"
+    "transition:transform .15s}"
+    ".rail-toggle:checked ~ .rail-fold-label::after{transform:rotate(180deg)}"
+    ".rail-content{display:none;margin-top:10px}"
+    ".rail-toggle:checked ~ .rail-content{display:block}"
     "}"
     "@media(max-width:760px){"
     ".feat{grid-template-columns:1fr;gap:20px}"
@@ -378,12 +396,33 @@ def _newsletter_html():
     )
 
 
+_NAME_SUFFIXES = {"Jr", "Jr.", "Sr", "Sr.", "II", "III"}
+
+
+def _pitch_label(name: str) -> str:
+    """Player label for a pitch node: the surname, with trailing generational
+    suffixes ("Jr", "Sr", "II", "III") dropped first so "Vinicius Jr" reads as
+    "Vinicius" rather than "Jr" -- the suffix strip takes priority over the
+    short-name rule below, since "Jr" alone is never a usable label. Short
+    full names (<=11 chars, after any suffix strip) are shown in full instead
+    of being truncated to a single token."""
+    tokens = name.split()
+    while len(tokens) > 1 and tokens[-1] in _NAME_SUFFIXES:
+        tokens = tokens[:-1]
+    remaining = " ".join(tokens) if tokens else name
+    if len(remaining) <= 11:
+        return remaining
+    return tokens[-1] if tokens else name
+
+
 def pitch_svg(xi_entries):
-    """SVG football pitch placing an XI by position lines. Captain (rank 1) is flagged."""
+    """SVG football pitch placing an XI by position lines. Captain (rank 1) is
+    flagged. Node = small circle with xPts inside; the player's name sits
+    below the node (on the grass), not crammed inside a giant circle."""
     from evmax.articles import formation_of  # lazy to avoid circular at module level
     xi = list(xi_entries)
     if not xi:
-        return '<svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg"/>'
+        return '<svg viewBox="0 0 360 460" xmlns="http://www.w3.org/2000/svg"/>'
     # group by position
     gks = [e for e in xi if e.get("position") == "GK"]
     defs = [e for e in xi if e.get("position") == "DEF"]
@@ -395,10 +434,14 @@ def pitch_svg(xi_entries):
         if id(e) not in placed:
             mids.append(e)
 
-    # pitch dimensions
-    W, H = 200, 280
-    # y positions for rows (top = fwd, bottom = gk to match typical pitch view)
-    row_y = {"FWD": 50, "MID": 120, "DEF": 190, "GK": 250}
+    # Pitch dimensions. Row spacing must clear: node radius (14) + gap to name
+    # baseline + name text height (~12px) + >=18px gap before the next row's
+    # node top, so name labels never collide with the row below.
+    W, H = 360, 460
+    NODE_R = 14
+    NAME_DY = 12 + 6  # name baseline offset below node centre (text height + pad)
+    ROW_GAP = 14 + NAME_DY + 18  # node radius + name + minimum clear gap
+    row_y = {"FWD": 62, "MID": 62 + ROW_GAP, "DEF": 62 + 2 * ROW_GAP, "GK": 62 + 3 * ROW_GAP}
 
     def _row_nodes(players, y):
         if not players:
@@ -407,40 +450,40 @@ def pitch_svg(xi_entries):
         nodes = []
         for i, p in enumerate(players):
             x = W * (i + 1) / (n + 1)
-            surname = _html.escape(p["name"].split()[-1])
+            label = _html.escape(_pitch_label(p["name"]))
             xpts = p.get("x_points", 0.0)
             is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
-            # node circle
-            fill = "#0f7a45" if is_captain else "#fff"
-            stroke = "#0f7a45"
-            text_fill = "#fff" if is_captain else "#15140f"
             cap_badge = ""
             if is_captain:
-                cap_badge = (f'<circle cx="{x+10:.1f}" cy="{y-12}" r="6" fill="#e8482b"/>'
-                             f'<text x="{x+10:.1f}" y="{y-9}" text-anchor="middle" '
-                             f'font-size="7" font-weight="700" fill="#fff">C</text>')
+                # 8px-radius badge at the node's top-right; offset far enough
+                # (dx=12, dy=-12 from a r=14 node) that it clears both the
+                # node circle and the name label below without overlap.
+                bx, by = x + 12, y - 12
+                cap_badge = (f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="8" fill="#e8482b"/>'
+                             f'<text x="{bx:.1f}" y="{by + 2.8:.1f}" text-anchor="middle" '
+                             f'font-size="8" font-weight="700" fill="#fff">C</text>')
             nodes.append(
-                f'<circle cx="{x:.1f}" cy="{y}" r="16" fill="{fill}" '
-                f'stroke="{stroke}" stroke-width="1.5"/>'
-                f'<text x="{x:.1f}" y="{y-3}" text-anchor="middle" '
-                f'font-size="8.5" font-weight="700" fill="{text_fill}">{surname}</text>'
-                f'<text x="{x:.1f}" y="{y+8}" text-anchor="middle" '
-                f'font-size="8" fill="{text_fill}">{xpts:.1f}</text>'
+                f'<circle cx="{x:.1f}" cy="{y}" r="{NODE_R}" fill="#fbfaf7" '
+                f'stroke="var(--greend)" stroke-width="1.5"/>'
+                f'<text x="{x:.1f}" y="{y + 4}" text-anchor="middle" '
+                f'font-size="11" font-weight="700" fill="#15140f">{xpts:.1f}</text>'
+                f'<text x="{x:.1f}" y="{y + NAME_DY:.1f}" text-anchor="middle" '
+                f'font-size="11.5" font-weight="600" fill="#f2f8f4">{label}</text>'
                 + cap_badge
             )
         return "".join(nodes)
 
-    # pitch grass
+    # Pitch grass + markings, subtler (opacity .35) than the old .3/.4 mix.
     pitch_bg = (
-        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#1a7a3c" rx="4"/>'
-        f'<rect x="8" y="8" width="{W-16}" height="{H-16}" fill="none" stroke="#fff" '
-        f'stroke-width=".8" opacity=".4" rx="2"/>'
+        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#1a7a3c" rx="6"/>'
+        f'<rect x="10" y="10" width="{W-20}" height="{H-20}" fill="none" stroke="#fff" '
+        f'stroke-width="1" opacity=".35" rx="3"/>'
         # centre line
-        f'<line x1="8" y1="{H//2}" x2="{W-8}" y2="{H//2}" '
-        f'stroke="#fff" stroke-width=".6" opacity=".3"/>'
+        f'<line x1="10" y1="{H//2}" x2="{W-10}" y2="{H//2}" '
+        f'stroke="#fff" stroke-width=".8" opacity=".35"/>'
         # centre circle
-        f'<circle cx="{W//2}" cy="{H//2}" r="20" fill="none" stroke="#fff" '
-        f'stroke-width=".6" opacity=".3"/>'
+        f'<circle cx="{W//2}" cy="{H//2}" r="36" fill="none" stroke="#fff" '
+        f'stroke-width=".8" opacity=".35"/>'
     )
 
     nodes_svg = (
@@ -452,8 +495,8 @@ def pitch_svg(xi_entries):
 
     formation = formation_of(xi)
     formation_label = (
-        f'<text x="{W//2}" y="{H-4}" text-anchor="middle" '
-        f'font-size="9" font-weight="600" fill="#fff" opacity=".7">{formation}</text>'
+        f'<text x="{W//2}" y="{H-8}" text-anchor="middle" '
+        f'font-size="11" font-weight="600" fill="#fff" opacity=".7">{formation}</text>'
     )
 
     return (
@@ -465,12 +508,18 @@ def pitch_svg(xi_entries):
     )
 
 
-def ev_bar(entries, metric, width=360, row_h=30, max_rows=None):
+def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
+          label_size=13, value_size=12, bar_h=15):
     """Horizontal bar viz (v2-styled). Top entry green, differentials red, others muted.
 
     max_rows: optional cap on the number of rows drawn (belt & braces alongside
     slicing at the call site) -- keeps a chart from growing unbounded when it's
-    fed a long ranked list. None (default) draws every entry."""
+    fed a long ranked list. None (default) draws every entry.
+
+    label_size/value_size/bar_h: sizing knobs so the same emitter can serve two
+    very different usages -- a bigger, easier-to-read featured chart on the
+    landing page (row_h~40, label 15px, value 14px, bar 22px) and a denser
+    in-article chart (defaults here)."""
     entries = list(entries)
     if max_rows is not None:
         entries = entries[:max_rows]
@@ -480,6 +529,7 @@ def ev_bar(entries, metric, width=360, row_h=30, max_rows=None):
     label_w, pad = 90, 6
     bar_max = width - label_w - 50
     height = row_h * len(entries) + 10
+    bar_y_off = (row_h - bar_h) // 2
     rows = []
     for i, e in enumerate(entries):
         y = i * row_h + pad
@@ -492,12 +542,13 @@ def ev_bar(entries, metric, width=360, row_h=30, max_rows=None):
         bar_fill = "#0f7a45" if is_top else ("#e8482b" if is_diff else "#cdc6b6")
         val_fill = "#0a4f2d" if is_top else ("#a8331c" if is_diff else "#5d564a")
         nm_fill = "#15140f"
+        text_y = y + bar_y_off + bar_h - (bar_h - label_size) / 2 - 2
         rows.append(
-            f'<text x="0" y="{y + 18}" font-size="13" font-weight="700" '
+            f'<text x="0" y="{text_y:.1f}" font-size="{label_size}" font-weight="700" '
             f'fill="{nm_fill}">{label}</text>'
-            f'<rect x="{label_w}" y="{y + 7}" width="{bw:.1f}" height="15" rx="3" '
+            f'<rect x="{label_w}" y="{y + bar_y_off}" width="{bw:.1f}" height="{bar_h}" rx="3" '
             f'fill="{bar_fill}"/>'
-            f'<text x="{label_w + bw + 6:.1f}" y="{y + 19}" font-size="12" '
+            f'<text x="{label_w + bw + 6:.1f}" y="{text_y:.1f}" font-size="{value_size}" '
             f'font-weight="700" fill="{val_fill}">{val:.2f}</text>'
         )
     return (
@@ -552,19 +603,20 @@ def _rank_table_html(entries, columns):
 
 
 _MATCH_CSS = (
-    ".mx-lead{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
-    "padding:16px 20px;margin-bottom:24px}"
-    ".mx-lead h3{font-size:15px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;"
-    "color:var(--green);margin-bottom:10px}"
-    ".mx-close-list{display:flex;flex-wrap:wrap;gap:8px}"
-    ".mx-close-tag{background:#fdeee9;color:var(--acc);font-size:13px;font-weight:700;"
-    "padding:4px 10px;border-radius:8px}"
-    ".mx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}"
+    # "Games to watch" is a single muted line of chips, not its own bordered
+    # card-in-a-card box -- it sits directly above the fixture grid.
+    ".mx-lead{margin-bottom:16px;font-size:13px;color:var(--ink3);display:flex;"
+    "align-items:center;flex-wrap:wrap;gap:8px}"
+    ".mx-lead .mx-lead-label{font-weight:700;letter-spacing:.5px;text-transform:uppercase;"
+    "font-size:11px;color:var(--ink3);margin-right:2px}"
+    ".mx-close-tag{color:var(--acc);font-size:12.5px;font-weight:700;"
+    "background:#fdeee9;padding:2px 9px;border-radius:20px}"
+    ".mx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}"
     ".mx-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
-    "padding:18px 20px;display:flex;flex-direction:column;gap:10px}"
+    "padding:14px;display:flex;flex-direction:column;gap:8px}"
     ".mx-card.mx-close-card{border-color:var(--acc);border-width:2px}"
-    ".mx-teams{font-size:18px;font-weight:800;letter-spacing:-.3px}"
-    ".mx-score{font-size:32px;font-weight:800;color:var(--green);letter-spacing:1px;"
+    ".mx-teams{font-size:15px;font-weight:800;letter-spacing:-.2px}"
+    ".mx-score{font-size:22px;font-weight:800;color:var(--green);letter-spacing:.5px;"
     "line-height:1}"
     ".mx-xg{font-size:13px;color:var(--ink3);display:flex;align-items:center;gap:6px}"
     ".mx-xg-h{color:var(--green);font-weight:700}"
@@ -579,20 +631,23 @@ _MATCH_CSS = (
     "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;"
     "padding:2px 8px;align-self:flex-start}"
     ".mx-badge.final{color:var(--greend);background:#eaf5ee}"
-    ".mx-final-score{font-size:32px;font-weight:800;color:var(--ink);letter-spacing:1px;"
+    ".mx-final-score{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:.5px;"
     "line-height:1}"
     ".mx-predicted{font-size:12.5px;color:var(--ink3)}"
 )
 
 
 def match_predictions_html(entries: list) -> str:
-    """Render fixture prediction cards in v2 editorial style."""
+    """Render fixture prediction cards in v2 editorial style. Returned as raw
+    cards HTML (plus its own <style> block) -- NOT wrapped in .artviz/.fig by
+    the caller, since the cards are self-explanatory and a figure/caption
+    wrapper around a whole grid of cards just adds a redundant box."""
     if not entries:
         return "<p style='color:var(--ink3);text-align:center'>No fixtures found for this round.</p>"
 
     close_matches = [e for e in entries if e.get("close")]
 
-    # Lead strip
+    # Lead strip: a single muted line of chips (no nested card-in-card box).
     lead_parts = []
     if close_matches:
         tags = "".join(
@@ -600,10 +655,7 @@ def match_predictions_html(entries: list) -> str:
             for e in close_matches
         )
         lead_parts.append(
-            f'<div class="mx-lead">'
-            f'<h3>Games to watch</h3>'
-            f'<div class="mx-close-list">{tags}</div>'
-            f'</div>'
+            f'<div class="mx-lead"><span class="mx-lead-label">Games to watch</span>{tags}</div>'
         )
 
     # Sort: close games first, then by kickoff
@@ -897,6 +949,43 @@ def track_record_json(record: dict) -> dict:
     }
 
 
+# Articles whose viz is the pitch SVG (a starting XI), vs everything else which
+# gets an ev_bar top-slice chart. "matches" gets neither -- its cards are
+# self-explanatory, so no figure/figcaption wrapper is added at all.
+_PITCH_ARTICLES = {"best-xi", "wildcard"}
+
+
+def _article_fig_caption(article: str, columns: list):
+    """Caption text for the figure wrapping an article's viz, or None for
+    articles (matches) that render without a figure at all -- the cards are
+    self-explanatory."""
+    if article == "matches":
+        return None
+    if article in _PITCH_ARTICLES:
+        return "The model's optimal XI · number = projected points (xPts)"
+    metric = columns[0] if columns else ""
+    metric_label = _COL_LABEL.get(metric, metric)
+    return (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
+            "red = under 10% owned. Full list in the table below.")
+
+
+# Kept in sync with build._ARTICLE_VIZ_MAX_ROWS (the actual cap applied to the
+# chart data) purely for the caption text -- render.py has no import on build.py.
+_ARTICLE_VIZ_ROWS_IN_CAPTION = 10
+
+
+def _split_lede(body_html: str) -> tuple:
+    """Split prose body_html at the first </p> so the lede paragraph can render
+    directly after the byline, before the figure -- prose leads, chart follows.
+    Guard: if there's no </p> at all, the whole body stays where it was
+    (returned as the "rest", with an empty lede) rather than guessing."""
+    idx = body_html.find("</p>")
+    if idx == -1:
+        return "", body_html
+    split_at = idx + len("</p>")
+    return body_html[:split_at], body_html[split_at:]
+
+
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
                  generated_at=None, date_str=None, show_table=True):
     """v2 editorial article page.
@@ -911,6 +1000,11 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
     generated_at: ISO-8601 timestamp string (optional)
     date_str: human-readable date string, e.g. "24 June 2026" (optional)
+
+    Layout follows sports-data-journalism convention (FiveThirtyEight/The
+    Athletic): prose leads -- the lede paragraph renders before the chart --
+    the chart is a captioned summary of the top slice, and the full data sits
+    in the table below.
     """
     summary = summary_sentence(article, entries)
     dataset_ld_raw = _json.dumps({
@@ -941,6 +1035,24 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
+
+    # Prose-first layout: the lede paragraph (up to and including the first
+    # </p>) renders right after the byline, then the figure, then the rest of
+    # the body. If body_html has no </p> at all, it stays exactly where it was
+    # (whole body after the figure) rather than guessing at a split.
+    lede_html, rest_html = _split_lede(prose["body_html"])
+
+    caption = _article_fig_caption(article, columns)
+    if caption is None:
+        # matches: cards are self-explanatory, no figure/figcaption wrapper.
+        viz_section = viz_html
+    else:
+        fig_cls = "fig fig-pitch" if article in _PITCH_ARTICLES else "fig"
+        viz_section = (
+            f'<figure class="{fig_cls}">{viz_html}'
+            f'<figcaption>{_html.escape(caption)}</figcaption></figure>'
+        )
+
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -964,8 +1076,9 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
-<div class="artviz">{viz_html}</div>
-<div class="prose">{prose["body_html"]}
+<div class="prose">{lede_html}
+{viz_section}
+{rest_html}
 {data_section}
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
@@ -1025,24 +1138,45 @@ def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str
     )
 
 
+def _format_kickoff_short(ko: str) -> str:
+    """Parse a kickoff ISO-8601 string into '4 Jul · 17:00'. Strips the leading
+    zero from the day manually where the platform's strftime lacks %-d (mirrors
+    build._format_date's %-d fallback)."""
+    if not ko:
+        return "—"
+    try:
+        from datetime import datetime as _dt
+        dt = _dt.fromisoformat(ko)
+    except ValueError:
+        return "—"
+    try:
+        return dt.strftime("%-d %b · %H:%M")
+    except ValueError:
+        return dt.strftime("%d %b · %H:%M").lstrip("0")
+
+
 def _fixtures_rail_row(m: dict) -> str:
     """One compact fixture row for the landing page's odds rail. Reuses the
     .mx-probs/.mx-ph/.mx-pd/.mx-pa classes from the matches renderer so the
-    probability bar matches the matches article pixel-for-pixel."""
+    probability bar matches the matches article pixel-for-pixel.
+
+    Line 1: teams + kickoff date/time. Line 2: probs bar (or final score).
+    Line 3 (new): a muted xG / predicted-scoreline caption -- "xG 1.07-1.24 ·
+    pred 1-1" pre-match, "predicted 1-1" under the final score once finished."""
     home_esc = _html.escape(m.get("home", ""))
     away_esc = _html.escape(m.get("away", ""))
-    ko = m.get("kickoff", "")
-    # Kickoff is stored as an ISO-8601 string; the rail only has room for HH:MM.
-    ko_time = ko[11:16] if len(ko) >= 16 else "—"
+    ko_display = _format_kickoff_short(m.get("kickoff", ""))
     close_tag = '<span class="tag">Close</span>' if m.get("close") else ""
     top_line = (
         f'<div class="rail-row-top"><span class="rail-teams">{home_esc} vs {away_esc}'
-        f'{close_tag}</span><span class="rail-ko">{_html.escape(ko_time)}</span></div>'
+        f'{close_tag}</span><span class="rail-ko">{_html.escape(ko_display)}</span></div>'
     )
+    score = _html.escape(m.get("top_scoreline", "") or "")
     if m.get("finished") or m.get("final_score"):
-        score = _html.escape(m.get("final_score", ""))
-        body = (f'<div class="rail-score">{score}</div>'
+        final_score = _html.escape(m.get("final_score", ""))
+        body = (f'<div class="rail-score">{final_score}</div>'
                 f'<span class="mx-badge final">Final</span>')
+        meta = f'<div class="rail-meta">predicted {score}</div>' if score else ""
     else:
         p_home = m.get("p_home", 0.0) * 100
         p_draw = m.get("p_draw", 0.0) * 100
@@ -1054,7 +1188,14 @@ def _fixtures_rail_row(m: dict) -> str:
             f'<div class="mx-pa">A {p_away:.0f}%</div>'
             '</div>'
         )
-    return f'<div class="rail-row">{top_line}{body}</div>'
+        xgh = m.get("exp_home_goals")
+        xga = m.get("exp_away_goals")
+        if xgh is not None and xga is not None:
+            lo, hi = sorted((xgh, xga))
+            meta = f'<div class="rail-meta">xG {lo:.2f}–{hi:.2f} · pred {score}</div>'
+        else:
+            meta = ""
+    return f'<div class="rail-row">{top_line}{body}{meta}</div>'
 
 
 def _quick_picks_html(picks: list) -> str:
@@ -1072,14 +1213,25 @@ def _quick_picks_html(picks: list) -> str:
 def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
     list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
-    close/top_scoreline, and possibly finished/final_score)."""
+    close/top_scoreline, and possibly finished/final_score).
+
+    Foldable on mobile via a zero-JS checkbox pattern: the checkbox + label are
+    hidden on desktop (content always shown); on mobile the label becomes a
+    tappable card and `.rail-content` is display:none until the checkbox (its
+    sibling) is checked. No JS anywhere on the site."""
     rows = "".join(_fixtures_rail_row(m) for m in fixtures)
     qp = _quick_picks_html(quick_picks) if quick_picks else ""
-    return (
-        f'<aside class="rail">{qp}<div class="pagelabel">This round\'s ties</div>'
+    content = (
+        f'{qp}<div class="pagelabel">This round\'s ties</div>'
         f'{rows}'
         f'<a class="rail-link" href="/round/{round_no}/matches/">All match predictions →</a>'
-        f'</aside>'
+    )
+    return (
+        '<aside class="rail">'
+        '<input type="checkbox" id="rail-toggle" class="rail-toggle">'
+        '<label class="rail-fold-label" for="rail-toggle">Quick picks &amp; this round\'s ties</label>'
+        f'<div class="rail-content">{content}</div>'
+        '</aside>'
     )
 
 
@@ -1123,7 +1275,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
             f["stat_value"], f["stat_label"], date_str=date_str)
         for f in feed)
 
-    main_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
+    feat_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1133,20 +1285,30 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
   <p style="margin-top:16px"><a href="{feat_url}" style="color:var(--green);font-weight:600;font-size:14px">Read the full analysis →</a></p>
 </div>
 <div class="viz">{feat_viz}</div>
-</section>
-<div class="pagelabel">Latest analysis</div>
+</section>"""
+
+    feed_content = f"""<div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 {_newsletter_html()}
 <p class="method"><b>Method.</b> {METHODOLOGY}</p>"""
 
     if fixtures:
+        # Grid-areas puts the rail in its own right-hand column spanning both
+        # the "feat" and "feed" rows on desktop (grid-template-areas:
+        # "feat rail" / "feed rail"), while feat still comes first in reading/
+        # DOM order overall. On mobile the single-column stack collapses to
+        # feat -> rail (folded) -> feed via the areas list, so the owner can
+        # actually find the rail without scrolling to the very bottom.
         rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks)
-        body_content = (f'<div class="landing-grid">'
-                        f'<div class="main-col">{main_content}</div>'
-                        f'{rail_html}'
-                        f'</div>')
+        body_content = (
+            '<div class="landing-grid">'
+            f'<div class="feat-area">{feat_content}</div>'
+            f'{rail_html}'
+            f'<div class="feed-area">{feed_content}</div>'
+            '</div>'
+        )
     else:
-        body_content = main_content
+        body_content = feat_content + feed_content
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
