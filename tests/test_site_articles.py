@@ -765,3 +765,31 @@ class TransferPrioritiesTest(unittest.TestCase):
         rows = self._rows() * 5  # 15 rows across positions, still all FWD
         out = articles.transfer_priorities(rows, adv_map={}, top_n=3)
         self.assertEqual(len(out), 3)
+
+
+class PlayerFlagTest(unittest.TestCase):
+    """articles.player_flag: the shared out/doubtful/None taxonomy behind both
+    the /rate/ players.json feed and scripts/rate_team.py's flags_for()."""
+
+    class _Note:
+        def __init__(self, status):
+            self.status = status
+
+    def test_out_status_flags_out(self):
+        notes = {"Injured Star": self._Note("out")}
+        self.assertEqual(articles.player_flag("Injured Star", notes), "out")
+
+    def test_suspended_status_flags_out(self):
+        notes = {"Banned Player": self._Note("suspended")}
+        self.assertEqual(articles.player_flag("Banned Player", notes), "out")
+
+    def test_doubtful_status_flags_doubtful(self):
+        notes = {"Maybe Player": self._Note("doubtful")}
+        self.assertEqual(articles.player_flag("Maybe Player", notes), "doubtful")
+
+    def test_nailed_status_has_no_flag(self):
+        notes = {"Nailed Player": self._Note("nailed")}
+        self.assertIsNone(articles.player_flag("Nailed Player", notes))
+
+    def test_no_note_has_no_flag(self):
+        self.assertIsNone(articles.player_flag("Unknown Player", {}))

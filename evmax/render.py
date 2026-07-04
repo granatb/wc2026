@@ -343,13 +343,15 @@ _STYLE = (
 
 def _nav_html(active=None):
     """Fixed site nav, identical on every page.
-    active ∈ {'home','about','track-record',None}."""
+    active ∈ {'home','about','track-record','rate',None}."""
     home_cls = ' class="on"' if active == "home" else ""
     track_cls = ' class="on"' if active == "track-record" else ""
+    rate_cls = ' class="on"' if active == "rate" else ""
     about_cls = ' class="on"' if active == "about" else ""
     items = [
         f'<a href="/"{home_cls}>Home</a>',
         f'<a href="/track-record/"{track_cls}>Track record</a>',
+        f'<a href="/rate/"{rate_cls}>Rate my team</a>',
         '<a class="soon">Build a team</a>',
         '<a class="soon">Analyse a sub</a>',
         f'<a href="/about/"{about_cls}>About</a>',
@@ -1481,6 +1483,7 @@ def llms_txt(round_no, nav):
         "## API",
         f"- Article index: {SITE_URL}/api/latest.json",
         f"- Graded prediction accuracy: {SITE_URL}/api/track-record.json",
+        f"- Full player projections: {SITE_URL}/api/round/{round_no}/players.json",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1493,7 +1496,8 @@ def robots_txt():
 
 def sitemap_xml(round_no, nav, lastmod=None):
     urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
-            f"{SITE_URL}/track-record/", f"{SITE_URL}/round/{round_no}/"]
+            f"{SITE_URL}/track-record/", f"{SITE_URL}/rate/",
+            f"{SITE_URL}/round/{round_no}/"]
     urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
     lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
     items = "".join(f"<url><loc>{u}</loc>{lm}</url>" for u in urls)
@@ -1665,5 +1669,124 @@ def confirmed_page():
         "captains, expected points and match predictions, all graded publicly on our "
         "<a href='/track-record/' style='color:var(--greend)'>track record</a> page.</p>"
         "<p><a href='/' style='color:var(--greend)'>Back to this round's picks →</a></p>")
+
+
+# --- /rate/ -- the site's first first-party JavaScript ---------------------
+# Policy: self-hosted (/js/rate.js), zero tracking, zero external requests, and
+# the page must degrade gracefully with JS off (see <noscript> below). This is
+# a deliberate, narrow exception to the site's zero-JS posture -- everything
+# else on evmax (including this page's own markup/results container) still
+# renders and reads fine without it.
+_RATE_CSS = (
+    ".rate-wrap{max-width:720px;margin:0 auto}"
+    ".rate-wrap .kick{margin-bottom:14px}"
+    ".rate-wrap h1{font-size:clamp(28px,4.6vw,42px);font-weight:800;line-height:1.06;"
+    "letter-spacing:-1px}"
+    ".rate-wrap .stand{font-family:var(--serif);font-size:19px;color:var(--ink2);"
+    "line-height:1.5;margin-top:14px}"
+    ".rate-form{margin:26px 0}"
+    "#team-input{width:100%;font-family:var(--sans);font-size:15px;color:var(--ink);"
+    "background:var(--surf);border:1px solid var(--line);border-radius:12px;"
+    "padding:14px 16px;resize:vertical;line-height:1.5}"
+    "#team-input:focus{outline:2px solid var(--green);outline-offset:1px}"
+    ".rate-actions{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap}"
+    "#rate-btn{font-family:var(--sans);font-size:14.5px;font-weight:700;color:#fff;"
+    "background:var(--green);border:0;border-radius:8px;padding:12px 22px;cursor:pointer}"
+    "#rate-btn:hover{background:var(--greend)}"
+    "#rate-btn:disabled{opacity:.6;cursor:default}"
+    ".rate-hint{font-size:12.5px;color:var(--ink3)}"
+    ".rate-noscript{background:var(--chipbg);border:1px solid var(--line);border-radius:12px;"
+    "padding:14px 18px;font-size:13.5px;color:var(--ink2);line-height:1.55;margin:18px 0}"
+    ".rate-noscript a{color:var(--greend);text-decoration:underline}"
+    "#rate-results{margin-top:8px}"
+    ".rate-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
+    "padding:22px 24px;margin-top:18px}"
+    ".rate-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;"
+    "padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}"
+    ".rate-row:last-of-type{border-bottom:0}"
+    ".rate-row .rn{font-weight:700}"
+    ".rate-row .rf{font-size:12.5px;font-weight:700;margin-left:8px}"
+    ".rate-row .rf.out{color:var(--acc)}"
+    ".rate-row .rf.doubtful{color:#a8331c}"
+    ".rate-row .rc{color:var(--green);font-weight:700;font-size:11.5px;"
+    "text-transform:uppercase;letter-spacing:.5px;margin-left:6px}"
+    ".rate-row .rnote{display:block;font-size:12px;color:var(--ink3);margin-top:2px}"
+    ".rate-row b.rx{font-variant-numeric:tabular-nums;white-space:nowrap}"
+    ".rate-total{display:flex;align-items:baseline;justify-content:space-between;"
+    "margin-top:14px;padding-top:14px;border-top:2px solid var(--ink);font-size:17px}"
+    ".rate-total b{font-size:22px;color:var(--green)}"
+    ".rate-capcheck{font-family:var(--serif);font-size:15.5px;color:var(--ink2);"
+    "line-height:1.5;margin-top:14px}"
+    ".rate-missing{font-size:13px;color:var(--ink3);margin-top:12px}"
+    ".rate-warn{font-size:13px;color:#a8331c;background:#fdeee9;border-radius:8px;"
+    "padding:8px 12px;margin-top:12px}"
+    "#rate-copy{font-family:var(--sans);font-size:13.5px;font-weight:700;color:var(--green);"
+    "background:none;border:1px solid var(--line);border-radius:8px;padding:8px 14px;"
+    "cursor:pointer;margin-top:16px}"
+    "#rate-copy:hover{border-color:var(--green)}"
+    "#rate-error{color:#a8331c;font-size:14px;margin-top:12px}"
+)
+
+
+def rate_page(round_no: int) -> str:
+    """/rate/ -- paste-a-squad client-side team rater.
+
+    All computation happens in the browser (see /js/rate.js, fetched from
+    /api/round/{round_no}/players.json, embedded via data-round below). This
+    function only emits static markup + the <noscript> fallback; it makes no
+    server-side prediction of the user's team.
+    """
+    title = f"Rate my World Cup fantasy team — instant simulation analysis | {BRAND_SUFFIX}"
+    description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
+                   "projection, captain check and injury flags -- entirely in your "
+                   "browser, nothing uploaded.")
+    json_url = f"/api/round/{round_no}/players.json"
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{_html.escape(description)}">
+{_og_meta(
+    "Rate my World Cup fantasy team",
+    description, "/rate/", "website")}
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_RATE_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="rate")}
+</div></header>
+<div class="wrap">
+<div class="rate-wrap">
+<div class="pagelabel" style="margin-top:34px">Interactive</div>
+<h1>Rate my World Cup fantasy team</h1>
+<p class="stand">Paste your squad — get instant Monte-Carlo projections, captain check
+and injury flags. Nothing leaves your browser.</p>
+
+<noscript><div class="rate-noscript">This tool needs JavaScript (self-hosted, no
+tracking). Prefer no JS? The full projections are at
+<a href="{json_url}">{json_url}</a> and in every article.</div></noscript>
+
+<form class="rate-form" id="rate-form" data-round="{round_no}" data-players-url="{json_url}">
+<textarea id="team-input" name="team" rows="6"
+placeholder="Messi (C), Mbappé, Cunha, …  — comma or newline separated, (C) marks your captain"></textarea>
+<div class="rate-actions">
+<button type="submit" id="rate-btn">Rate my team</button>
+<span class="rate-hint">or press &#8984;/Ctrl + Enter</span>
+</div>
+</form>
+
+<div id="rate-results" aria-live="polite"></div>
+
+<p class="method"><b>How this works.</b> {METHODOLOGY} Player names are matched against
+this round's projections entirely client-side against
+<a href="{json_url}" style="color:var(--greend)">{json_url}</a> -- no squad is ever sent
+to our servers or anyone else's.</p>
+</div>
+</div>
+{_footer_html()}
+<script src="/js/rate.js" defer></script>
+</body></html>"""
 
 

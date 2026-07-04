@@ -57,10 +57,14 @@ def match(rows: list, wanted: str):
 
 
 def flags_for(name: str, rnd: int, notes: dict) -> str:
-    e = notes.get(name)
-    if e and e.status in ("out", "suspended"):
+    """Display-string wrapper around the shared articles.player_flag() taxonomy
+    ("out"/"doubtful"/None) -- kept here so existing callers/tests of this CLI's
+    exact glyph output ("🚫 OUT" / "⚠ doubtful") don't need to change."""
+    flag = articles.player_flag(name, notes)
+    if flag == "out":
+        e = notes.get(name)
         return f"🚫 {e.status.upper()}"
-    if e and e.status == "doubtful":
+    if flag == "doubtful":
         return "⚠ doubtful"
     return ""
 

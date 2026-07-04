@@ -1,5 +1,7 @@
 """Pure ranking/selection logic for the evmax static site (no I/O except load_player_meta)."""
 
+from __future__ import annotations
+
 import json
 import os
 
@@ -50,6 +52,22 @@ ARTICLE_TITLES = {
 
 _PLAYERS_JSON = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "players.json")
+
+
+def player_flag(name: str, notes: dict) -> str | None:
+    """Collapse a player's research note into the small public vocabulary the
+    site is willing to expose: "out" (covers out/suspended -- both mean zero
+    minutes expected) | "doubtful" | None. Shared by the /rate/ players.json
+    feed (build.py) and scripts/rate_team.py's Reddit-reply CLI, so the two
+    surfaces never drift on what counts as a red flag."""
+    e = notes.get(name)
+    if e is None:
+        return None
+    if e.status in ("out", "suspended"):
+        return "out"
+    if e.status == "doubtful":
+        return "doubtful"
+    return None
 
 
 def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:

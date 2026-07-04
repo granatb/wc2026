@@ -575,6 +575,15 @@ class AgentFilesTest(unittest.TestCase):
         self.assertIn(f"{render.SITE_URL}/round/3/captains/", x)
         self.assertIn(f"{render.SITE_URL}/about/", x)
 
+    def test_sitemap_lists_rate_page(self):
+        x = render.sitemap_xml(round_no=3, nav=self.nav)
+        self.assertIn(f"{render.SITE_URL}/rate/", x)
+
+    def test_llms_txt_lists_players_feed(self):
+        t = render.llms_txt(round_no=5, nav=self.nav)
+        self.assertIn("full player projections", t.lower())
+        self.assertIn(f"{render.SITE_URL}/api/round/5/players.json", t)
+
     def test_about_page_has_expected_content(self):
         h = render.about_page()
         self.assertIn("<!doctype html>", h.lower())
@@ -797,6 +806,57 @@ class ArticleMdTest(unittest.TestCase):
             date_str="4 July 2026", canonical_path="/round/5/captains/")
         self.assertIn("Player19", md)
         self.assertNotIn("Player20", md)
+
+
+class RatePageTest(unittest.TestCase):
+    """/rate/ -- the site's first first-party JavaScript. Page must degrade
+    gracefully with JS off (noscript fallback) and never inline price/
+    ownership -- those stay article-only per the players.json data guardrail."""
+
+    def test_rate_page_has_textarea_and_button(self):
+        h = render.rate_page(5)
+        self.assertIn('id="team-input"', h)
+        self.assertIn("<textarea", h)
+        self.assertIn("Rate my team", h)
+        self.assertIn("comma or newline separated", h)
+
+    def test_rate_page_has_noscript_fallback(self):
+        h = render.rate_page(5)
+        self.assertIn("<noscript>", h)
+        self.assertIn("This tool needs JavaScript", h)
+        self.assertIn("/api/round/5/players.json", h)
+
+    def test_rate_page_references_self_hosted_js(self):
+        h = render.rate_page(5)
+        self.assertIn('src="/js/rate.js"', h)
+        # self-hosted only -- no external script origins anywhere on the page
+        self.assertNotIn("cdn.", h)
+        self.assertNotIn("googleapis.com", h)
+
+    def test_rate_page_embeds_round_and_players_url_as_data_attrs(self):
+        h = render.rate_page(7)
+        self.assertIn('data-round="7"', h)
+        self.assertIn('data-players-url="/api/round/7/players.json"', h)
+
+    def test_rate_page_nav_is_active_and_real_link(self):
+        h = render.rate_page(5)
+        self.assertIn('<a href="/rate/" class="on">Rate my team</a>', h)
+
+    def test_rate_page_has_head_and_footer(self):
+        h = render.rate_page(5)
+        self.assertIn("<!doctype html>", h.lower())
+        self.assertIn("Rate my World Cup fantasy team", h)
+        self.assertIn(render.BRAND_SUFFIX, h)
+        self.assertIn("evmax", h)  # footer present
+
+    def test_rate_page_title_and_canonical(self):
+        h = render.rate_page(5)
+        self.assertIn("Rate my World Cup fantasy team — instant simulation analysis", h)
+        self.assertIn('rel="canonical" href="https://evmax.ai/rate/"', h)
+
+    def test_nav_has_rate_link_on_other_pages(self):
+        h = render.about_page()
+        self.assertIn('href="/rate/"', h)
 
 
 if __name__ == '__main__':

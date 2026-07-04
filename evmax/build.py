@@ -233,6 +233,31 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         with open(full, "w", encoding="utf-8") as fh:
             fh.write(text)
 
+    # --- Bulk players feed (/api/round/{N}/players.json) -- powers the /rate/
+    # client-side tool. Guardrail: derived model outputs + name/team/position
+    # ONLY. No price, no ownership -- those stay per-player context columns in
+    # articles, never in this public bulk feed (see /rate/ build note).
+    player_notes = research.load_entries("players", fantasy_round)
+    players_feed = [
+        {
+            "name": r["name"],
+            "team": r.get("team"),
+            "position": r.get("position"),
+            "x_points": r["x_points"],
+            "captain_ev": r["captain_ev"],
+            "ceiling": r["ceiling"],
+            "flag": articles.player_flag(r["name"], player_notes),
+        }
+        for r in rows
+    ]
+    w(f"/api/round/{fantasy_round}/players.json", json.dumps({
+        "round": fantasy_round,
+        "generated_at": generated_at,
+        "methodology": render.METHODOLOGY,
+        "license": render.DATA_LICENSE_URL,
+        "players": players_feed,
+    }, ensure_ascii=False, indent=2))
+
     # --- Render each article ---
     prose_map: dict[str, dict] = {}
     latest_index: dict[str, str] = {}
@@ -362,6 +387,19 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     for fname in os.listdir(fonts_src):
         if fname.endswith(".woff2"):
             shutil.copy2(os.path.join(fonts_src, fname), os.path.join(fonts_dst, fname))
+
+    # --- Self-hosted JS (the site's first first-party JavaScript -- see
+    # evmax/assets/js/rate.js header comment for the no-tracking/no-external-
+    # request policy this asset must satisfy) --------------------------------
+    js_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "js")
+    js_dst = os.path.join(out, "js")
+    os.makedirs(js_dst, exist_ok=True)
+    for fname in os.listdir(js_src):
+        if fname.endswith(".js"):
+            shutil.copy2(os.path.join(js_src, fname), os.path.join(js_dst, fname))
+
+    # --- /rate/ -- client-side team rater ------------------------------------
+    w("/rate/index.html", render.rate_page(fantasy_round))
 
     # --- Landing page ---
     # Featured = captains article (first in ARTICLES). The article page itself
