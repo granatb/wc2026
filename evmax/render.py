@@ -1084,3 +1084,46 @@ collected and why, before it happens.</p>
 </div>
 {_footer_html()}</body></html>"""
 
+def _utility_page(title, kicker, heading, body_html, active=None):
+    """Small editorial utility page (thanks/confirmed) — noindex, footer, nav."""
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{title} | {BRAND_SUFFIX}</title>
+{GSC_META_TAG}
+{_FONTS}
+<style>{_STYLE}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active)}
+</div></header>
+<div class="wrap" style="padding-bottom:40px">
+<div class="pagelabel">{kicker}</div>
+<h1 style="font-size:clamp(26px,4vw,38px);font-weight:800">{heading}</h1>
+<div class="prose" style="max-width:640px;margin-top:14px">{body_html}</div>
+</div>
+{_footer_html()}</body></html>"""
+
+
+def thanks_page():
+    """Post-submit landing: explain the double opt-in step."""
+    return _utility_page(
+        "Almost there", "Newsletter", "One click to go — check your inbox.",
+        "<p>We just sent you a confirmation email. Click the link inside and "
+        "you're subscribed — that's the double opt-in we promised, so nobody can "
+        "sign you up against your will.</p>"
+        "<p>No email within a few minutes? Check spam, or just "
+        "<a href='/' style='color:var(--greend)'>head back to the picks</a>.</p>")
+
+
+def confirmed_page():
+    """Post-confirmation landing: welcome aboard."""
+    return _utility_page(
+        "Subscribed", "Newsletter", "You're in.",
+        "<p>From the next round on, the sims land in your inbox before lock — "
+        "captains, expected points and match predictions, all graded publicly on our "
+        "<a href='/track-record/' style='color:var(--greend)'>track record</a> page.</p>"
+        "<p><a href='/' style='color:var(--greend)'>Back to this round's picks →</a></p>")
+
+

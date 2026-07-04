@@ -190,6 +190,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # --- About + Privacy pages ---
     w("/about/index.html", render.about_page())
     w("/privacy/index.html", render.privacy_page())
+    w("/thanks/index.html", render.thanks_page())
+    w("/confirmed/index.html", render.confirmed_page())
 
     # --- Track record (backtest our own published predictions vs reality) ---
     record = backtest.build_track_record()
