@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from evmax import backtest, render
 
@@ -206,15 +207,79 @@ class MissesTest(unittest.TestCase):
 
 
 class BuildTrackRecordTest(unittest.TestCase):
-    def test_real_repo_data_has_round_3_final_and_round_5_pending(self):
+    def test_round_3_excluded_from_rounds_list(self):
+        # Owner decision 2026-07-04: round 3 hidden from the public track record.
+        # Snapshots stay on disk (round_status/realized_points still see them),
+        # but build_track_record() must not surface round 3 at all.
+        record = backtest.build_track_record()
+        rounds = {r["round"] for r in record["rounds"]}
+        self.assertNotIn(3, rounds)
+        # The underlying data is untouched -- only the display is filtered.
+        self.assertEqual(backtest.round_status(3), "final")
+
+    def test_round_3_excluded_from_summary_aggregates(self):
+        # A hand-built snapshot set makes this deterministic regardless of
+        # whatever real round-3 numbers happen to be on disk right now.
+        with mock.patch.object(backtest, "EXCLUDED_DISPLAY_ROUNDS", {3}), \
+             mock.patch.object(backtest, "RETROSPECTIVE_ROUNDS", set()):
+            record = backtest.build_track_record()
+        rounds = {r["round"] for r in record["rounds"]}
+        self.assertNotIn(3, rounds)
+
+    def test_round_5_is_published_and_pending(self):
         record = backtest.build_track_record()
         by_round = {r["round"]: r for r in record["rounds"]}
-        self.assertEqual(by_round[3]["status"], "final")
         self.assertEqual(by_round[5]["status"], "pending")
-        self.assertIn("captains", by_round[3]["grades"])
-        self.assertTrue(by_round[3]["grades"]["captains"]["graded"])
-        self.assertIn("summary", record)
-        self.assertIsNotNone(record["summary"]["mean_captain_mae"])
+        self.assertEqual(by_round[5]["kind"], "published")
+
+    def test_round_4_present_as_retrospective_with_note(self):
+        fake_entries = {
+            "captains": [{"name": "Fake Captain", "x_points": 8.0, "rank": 1}],
+            "best-xi": [{"name": "Fake Captain", "x_points": 8.0}],
+        }
+        with mock.patch.object(backtest, "_retrospective_entries", return_value=fake_entries), \
+             mock.patch.object(backtest, "round_status_ignoring_snapshot", return_value="final"), \
+             mock.patch.object(backtest, "realized_points_for_entries",
+                               return_value={"points": {"Fake Captain": 5.0},
+                                             "matched": 1, "total": 1, "unmatched": []}):
+            record = backtest.build_track_record()
+        by_round = {r["round"]: r for r in record["rounds"]}
+        self.assertIn(4, by_round)
+        r4 = by_round[4]
+        self.assertEqual(r4["kind"], "retrospective")
+        self.assertEqual(r4["status"], "final")
+        self.assertIn("note", r4)
+        self.assertIn("Reconstructed after the fact", r4["note"])
+        self.assertTrue(r4["grades"]["captains"]["graded"])
+
+    def test_retrospective_round_excluded_from_summary_aggregates(self):
+        fake_entries = {
+            "captains": [{"name": "Fake Captain", "x_points": 8.0, "rank": 1},
+                        {"name": "Second", "x_points": 6.0, "rank": 2}],
+            "best-xi": [{"name": "Fake Captain", "x_points": 8.0}],
+        }
+        with mock.patch.object(backtest, "_retrospective_entries", return_value=fake_entries), \
+             mock.patch.object(backtest, "round_status_ignoring_snapshot", return_value="final"), \
+             mock.patch.object(backtest, "realized_points_for_entries",
+                               return_value={"points": {"Fake Captain": 1.0, "Second": 99.0},
+                                             "matched": 2, "total": 2, "unmatched": []}):
+            record = backtest.build_track_record()
+        by_round = {r["round"]: r for r in record["rounds"]}
+        r4 = by_round[4]
+        # A deliberately huge captain_regret for the fake round-4 data -- if it
+        # leaked into the summary aggregates this would be obvious.
+        self.assertGreater(r4["grades"]["captains"]["captain_regret"], 50)
+        regretful_rounds = {cr["round"] for cr in record["summary"]["captain_regrets"]}
+        self.assertNotIn(4, regretful_rounds)
+
+    def test_retrospective_round_pending_when_fixtures_unfinished(self):
+        with mock.patch.object(backtest, "round_status_ignoring_snapshot", return_value="pending"):
+            record = backtest.build_track_record()
+        by_round = {r["round"]: r for r in record["rounds"]}
+        r4 = by_round[4]
+        self.assertEqual(r4["status"], "pending")
+        self.assertEqual(r4["kind"], "retrospective")
+        self.assertEqual(r4["grades"], {})
 
     def test_rounds_sorted_newest_first(self):
         record = backtest.build_track_record()
@@ -227,12 +292,58 @@ class TrackRecordPageTest(unittest.TestCase):
         record = backtest.build_track_record()
         html = render.track_record_page(record)
         self.assertIn("<!doctype html>", html.lower())
-        self.assertIn("Round 3", html)
+        # Round 3 is hidden (owner decision) -- must not appear on the page.
+        self.assertNotIn("Round 3</h2>", html)
         self.assertIn("Round 5", html)
-        self.assertIn("Final", html)
         self.assertIn("pending", html.lower())
         self.assertIn('href="/track-record/"', html)
         self.assertIn("Accountability", html)
+
+    def test_published_round_shows_frozen_at_lock_badge(self):
+        record = {
+            "rounds": [{
+                "round": 5, "status": "pending", "kind": "published",
+                "generated_at": "2026-06-24T12:00:00+00:00", "grades": {}, "misses": [],
+            }],
+            "summary": {"rounds_graded": 0, "mean_captain_mae": None,
+                       "mean_spearman": None, "captain_regrets": []},
+        }
+        html = render.track_record_page(record)
+        self.assertIn("frozen at lock", html)
+        self.assertNotIn("Retrospective backtest", html)
+
+    def test_retrospective_round_shows_badge_and_note(self):
+        record = {
+            "rounds": [{
+                "round": 4, "status": "final", "kind": "retrospective",
+                "generated_at": None,
+                "note": "Reconstructed after the fact from frozen closing odds "
+                        "(research overlay off, fixed seed). NOT published predictions.",
+                "grades": {
+                    "captains": {
+                        "slug": "captains", "graded": True, "matched": 1, "total": 1,
+                        "mae": 2.0, "spearman": None,
+                        "top_pick": {"name": "A", "projected": 8.0, "realized": 6.0},
+                        "best_in_list": {"name": "A", "realized": 6.0},
+                        "captain_regret": 0.0,
+                    },
+                },
+                "misses": [],
+                "coverage": {"matched": 1, "total": 1},
+            }],
+            "summary": {"rounds_graded": 0, "mean_captain_mae": None,
+                       "mean_spearman": None, "captain_regrets": []},
+        }
+        html = render.track_record_page(record)
+        self.assertIn("Retrospective backtest", html)
+        self.assertIn("Reconstructed after the fact", html)
+        self.assertIn("tag-retro", html)
+        self.assertNotIn("frozen at lock", html)
+
+    def test_standfirst_mentions_retrospective_distinction(self):
+        record = backtest.build_track_record()
+        html = render.track_record_page(record)
+        self.assertIn("reconstructed after results were", html.lower())
 
     def test_nav_link_present_and_active(self):
         record = backtest.build_track_record()

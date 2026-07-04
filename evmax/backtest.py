@@ -8,10 +8,13 @@ load_snapshots(assets_dir=None) -> {round_no: {slug: envelope_dict}}
 realized_points(round_no) -> {"points": {name: pts}, "matched": int, "total": int}
 grade_round(round_no, snapshots, realized) -> {slug: grade_dict, ...}
 round_status(round_no) -> "final" | "pending" | "no_snapshot"
+retrospective_round(fantasy_round) -> {"round", "status", "kind", "grades", "note"}
 build_track_record() -> {"rounds": [...], "summary": {...}}
 
 No network I/O: realized_points reads the FIFA fantasy feed via core.fifa_api,
 which is a local on-disk cache (data/fifa/*.json), populated by fifa_api.refresh().
+retrospective_round reruns the simulation engine, but only against on-disk
+caches (data/odds, data/schedule.json, research/) — still no live network I/O.
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ import json
 import os
 import re
 
-from core import fifa_api, fixtures
+from core import engine_events, espn, fifa_api, fixtures, research
 
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "assets", "projections")
@@ -33,6 +36,23 @@ _GRADEABLE_LIST_ARTICLES = {
 }
 
 _FINAL_STATUSES_PREFIXES = ("STATUS_FULL_TIME", "STATUS_FINAL")
+
+# Owner decision 2026-07-04: hide Round 3 from the public track record for now.
+# Snapshots are kept untouched on disk at evmax/assets/projections/round-3/ —
+# nothing is deleted. Flip this set (remove 3, or empty it) to re-enable.
+EXCLUDED_DISPLAY_ROUNDS = {3}
+
+# Rounds that were NEVER PUBLISHED on the site (no frozen pre-lock snapshot)
+# but are reconstructed after the fact, purely for context. These are graded
+# and shown in the rounds list, explicitly labeled "retrospective", but are
+# always excluded from the published-record summary aggregates — mixing them
+# in would overclaim a track record we don't actually have for that round.
+# See retrospective_round().
+RETROSPECTIVE_ROUNDS = {4}
+
+# Articles graded for a retrospective round. Kept deliberately narrow (vs. the
+# full published article set) to avoid overclaiming from a reconstruction.
+_RETROSPECTIVE_ARTICLES = ("captains", "best-xi")
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +260,25 @@ def _grade_list_article(slug: str, entries: list, realized: dict) -> dict:
     return grade
 
 
+def grade_entries_map(entries_by_slug: dict, realized: dict) -> dict:
+    """{slug: grade_dict} for an in-memory {slug: entries_list} map.
+
+    Shared per-list grading logic factored out of grade_round() so it can be
+    reused both for published snapshots (loaded from disk) and for
+    retrospective reconstructions (held only in memory — never written as a
+    published snapshot). 'matches' is fixture 1X2 grading, deferred — marked
+    not_graded here, same as grade_round().
+    """
+    grades: dict[str, dict] = {}
+    for slug, entries in entries_by_slug.items():
+        if slug == "matches":
+            grades[slug] = {"slug": slug, "graded": False,
+                            "reason": "fixture grading not implemented in v1"}
+            continue
+        grades[slug] = _grade_list_article(slug, entries, realized)
+    return grades
+
+
 def grade_round(round_no: int, snapshots: dict, realized: dict) -> dict:
     """{slug: grade_dict} for every article published in this round's snapshot.
 
@@ -248,15 +287,127 @@ def grade_round(round_no: int, snapshots: dict, realized: dict) -> dict:
     best-xi get extra slug-specific fields (see _grade_list_article).
     """
     round_snaps = snapshots.get(round_no, {})
-    grades: dict[str, dict] = {}
-    for slug, env in round_snaps.items():
-        if slug == "matches":
-            grades[slug] = {"slug": slug, "graded": False,
-                            "reason": "fixture grading not implemented in v1"}
+    entries_by_slug = {slug: env.get("entries", []) for slug, env in round_snaps.items()}
+    return grade_entries_map(entries_by_slug, realized)
+
+
+# ---------------------------------------------------------------------------
+# Retrospective backtests (rounds never published on the site)
+# ---------------------------------------------------------------------------
+
+_RETROSPECTIVE_NOTE = (
+    "Reconstructed after the fact from frozen closing odds (research overlay "
+    "off, fixed seed). NOT published predictions.")
+
+
+def _kickoffs_for_round(fantasy_round: int) -> dict:
+    """team -> earliest ISO-8601 kickoff string for the round. Same pattern as
+    evmax.build._kickoffs_for_round, duplicated here (rather than imported) to
+    avoid a circular import (evmax.build already imports evmax.backtest)."""
+    out = {}
+    for f in fixtures.by_round(fantasy_round):
+        for team in (f.home, f.away):
+            iso = f.kickoff.isoformat()
+            if team not in out or iso < out[team]:
+                out[team] = iso
+    return out
+
+
+def _retrospective_entries(fantasy_round: int) -> dict:
+    """Rerun the engine reproducibly from on-disk caches and build the narrow
+    {slug: entries} set graded for a retrospective round (captains, best-xi).
+
+    research_weight=0.0 is deliberate: current research/ notes for an already-
+    finished round are written post-hoc (with the result known), so overlaying
+    them here would leak hindsight into a "prediction". Pure odds only.
+    """
+    from evmax import articles
+
+    players, _match_samples = engine_events.simulate_round(
+        fantasy_round, sims=50_000,
+        market_rates=espn.load_player_rates(fantasy_round),
+        research=research.load_entries("players", fantasy_round),
+        research_weight=0.0)
+    means = engine_events.event_means(players)
+    samples = {name: ps.goal_samples for name, ps in players.items()}
+    meta = articles.load_player_meta()
+    kickoffs = _kickoffs_for_round(fantasy_round)
+    rows = articles.build_rows(means, samples, meta, kickoffs)
+
+    return {
+        "captains": articles.rank_captains(rows)[:20],
+        "best-xi": articles.select_xi(rows, "x_points"),
+    }
+
+
+def retrospective_round(fantasy_round: int) -> dict:
+    """Grade a round that was NEVER PUBLISHED, by reconstructing it after the
+    fact from frozen closing odds. Structurally and visually distinct from
+    published rounds ("kind": "retrospective") — see render.py's badge/note
+    handling. Grading uses the same per-list metrics as published rounds
+    (grade_entries_map / _grade_list_article), just on in-memory entries.
+    """
+    status = round_status_ignoring_snapshot(fantasy_round)
+    round_entry = {
+        "round": fantasy_round,
+        "status": status,
+        "kind": "retrospective",
+        "generated_at": None,
+        "note": _RETROSPECTIVE_NOTE,
+    }
+    if status != "final":
+        round_entry["grades"] = {}
+        round_entry["misses"] = []
+        return round_entry
+
+    entries_by_slug = _retrospective_entries(fantasy_round)
+    realized = realized_points_for_entries(fantasy_round, entries_by_slug)
+    grades = grade_entries_map(entries_by_slug, realized)
+    round_entry["grades"] = grades
+    round_entry["coverage"] = {"matched": realized["matched"], "total": realized["total"]}
+    round_entry["misses"] = _misses_for_round(fantasy_round, grades)
+    return round_entry
+
+
+def round_status_ignoring_snapshot(round_no: int) -> str:
+    """Like round_status(), but for rounds with no published snapshot at all
+    (retrospective rounds) — gated purely on fixture completeness."""
+    fx = fixtures.by_round(round_no)
+    if not fx:
+        return "pending"
+    if all(_is_final_status(f.stage) for f in fx):
+        return "final"
+    return "pending"
+
+
+def realized_points_for_entries(round_no: int, entries_by_slug: dict) -> dict:
+    """Same contract as realized_points(), but sources the player-name universe
+    from an in-memory {slug: entries} map instead of on-disk snapshots — needed
+    for retrospective rounds, which have no snapshot to read names from."""
+    names: set[str] = set()
+    for entries in entries_by_slug.values():
+        for e in entries:
+            if "name" in e:
+                names.add(e["name"])
+
+    points: dict[str, float] = {}
+    unmatched: list[str] = []
+    for name in sorted(names):
+        rec = fifa_api.lookup(name)
+        if rec is None:
+            unmatched.append(name)
             continue
-        entries = env.get("entries", [])
-        grades[slug] = _grade_list_article(slug, entries, realized)
-    return grades
+        pts = _round_points_for_record(rec, round_no)
+        if pts is None:
+            continue
+        points[name] = pts
+
+    return {
+        "points": points,
+        "matched": len(points),
+        "total": len(names),
+        "unmatched": unmatched,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +447,21 @@ def _misses_for_round(round_no: int, grades: dict) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def build_track_record(assets_dir: str | None = None) -> dict:
+    """Build the public track record.
+
+    Three kinds of round can appear in the output:
+      - published, excluded (EXCLUDED_DISPLAY_ROUNDS): skipped entirely — not
+        in the rounds list, not in summary aggregates. Data/snapshots on disk
+        are untouched; this is a display-only filter.
+      - published (everything else with a snapshot): graded normally,
+        "kind": "published", counted in summary aggregates.
+      - retrospective (RETROSPECTIVE_ROUNDS): never had a published snapshot;
+        reconstructed after the fact via retrospective_round(). Shown in the
+        rounds list (interleaved newest-first like any other round) but
+        ALWAYS excluded from summary aggregates — mixing a reconstruction
+        into the published-record stats would overclaim a track record we
+        don't actually have for that round.
+    """
     snapshots = load_snapshots(assets_dir)
     rounds_out = []
 
@@ -304,10 +470,14 @@ def build_track_record(assets_dir: str | None = None) -> dict:
     captain_regrets: list[dict] = []
 
     for round_no in sorted(snapshots):
+        if round_no in EXCLUDED_DISPLAY_ROUNDS:
+            continue
+
         status = round_status(round_no)
         round_entry = {
             "round": round_no,
             "status": status,
+            "kind": "published",
             "generated_at": _generated_at(snapshots[round_no]),
         }
         if status == "final":
@@ -338,10 +508,19 @@ def build_track_record(assets_dir: str | None = None) -> dict:
 
         rounds_out.append(round_entry)
 
+    # Retrospective rounds: never published, so they have no on-disk snapshot
+    # and are never in `snapshots` above — add them explicitly. Deliberately
+    # NOT folded into all_captain_mae / all_spearman / captain_regrets.
+    for round_no in sorted(RETROSPECTIVE_ROUNDS):
+        if round_no in EXCLUDED_DISPLAY_ROUNDS:
+            continue
+        rounds_out.append(retrospective_round(round_no))
+
     rounds_out.sort(key=lambda r: r["round"], reverse=True)
 
     summary = {
-        "rounds_graded": sum(1 for r in rounds_out if r["status"] == "final"),
+        "rounds_graded": sum(1 for r in rounds_out
+                             if r["status"] == "final" and r.get("kind") == "published"),
         "mean_captain_mae": round(sum(all_captain_mae) / len(all_captain_mae), 3)
                            if all_captain_mae else None,
         "mean_spearman": round(sum(all_spearman) / len(all_spearman), 3)

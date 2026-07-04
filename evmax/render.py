@@ -623,6 +623,10 @@ _TRACK_RECORD_CSS = (
     "letter-spacing:.6px;padding:3px 10px;border-radius:20px}"
     ".tr-badge.final{background:#eaf5ee;color:var(--greend)}"
     ".tr-badge.pending{background:var(--chipbg);color:var(--ink3)}"
+    ".tag-retro{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;"
+    "letter-spacing:.6px;padding:3px 10px;border-radius:20px;color:#854f0b;background:#faeeda}"
+    ".tr-retro-note{font-family:var(--serif);font-size:14px;color:var(--ink3);"
+    "line-height:1.5;margin:-6px 0 16px;font-style:italic}"
     ".tr-card{background:var(--surf);border:1px solid var(--line);border-radius:14px;"
     "padding:24px 26px;margin-bottom:24px}"
     ".tr-card h2{font-size:20px;font-weight:800;letter-spacing:-.3px;margin:0}"
@@ -654,10 +658,20 @@ _TRACK_RECORD_CSS = (
 
 
 def _tr_badge(status: str) -> str:
+    """Small badge for the round's completeness status (Final / pending)."""
     label = "Final" if status == "final" else (
         "Results pending" if status == "pending" else "No snapshot")
     cls = status if status in ("final", "pending") else "pending"
     return f'<span class="tr-badge {cls}">{_html.escape(label)}</span>'
+
+
+def _tr_kind_badge(kind: str) -> str:
+    """The provenance badge: distinguishes a published-and-frozen round from a
+    retrospective backtest. This is the credibility-critical bit of the page —
+    it must never be ambiguous which kind a round is."""
+    if kind == "retrospective":
+        return '<span class="tag-retro">Retrospective backtest</span>'
+    return '<span class="tr-badge final" style="background:#eaf5ee">Published · frozen at lock</span>'
 
 
 def _tr_metrics_table(grades: dict) -> str:
@@ -714,15 +728,22 @@ def _tr_headline_claim(round_no: int, grades: dict) -> str:
 def _track_record_round_card(round_data: dict) -> str:
     round_no = round_data["round"]
     status = round_data["status"]
+    kind = round_data.get("kind", "published")
     badge = _tr_badge(status)
-    header = (f'<div class="tr-head"><h2>Round {round_no}</h2>{badge}</div>')
+    kind_badge = _tr_kind_badge(kind)
+    header = (f'<div class="tr-head"><h2>Round {round_no}</h2>'
+             f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+             f'{kind_badge}{badge}</div></div>')
+
+    note = round_data.get("note")
+    note_html = (f'<p class="tr-retro-note">{_html.escape(note)}</p>' if note else "")
 
     if status != "final":
         body = ('<p class="tr-claim">This round is still in progress — matches have not '
                 'all finished, so we have not graded it yet. The published prediction '
                 'snapshot is already frozen and will be graded automatically once the '
                 'round completes.</p>')
-        return f'<div class="tr-card">{header}{body}</div>'
+        return f'<div class="tr-card">{header}{note_html}{body}</div>'
 
     grades = round_data.get("grades", {})
     claim = _tr_headline_claim(round_no, grades)
@@ -741,7 +762,7 @@ def _track_record_round_card(round_data: dict) -> str:
         misses_html = (f'<div class="tr-misses"><h3>Honest misses</h3>'
                        f'<ul>{items}</ul></div>')
 
-    return (f'<div class="tr-card">{header}'
+    return (f'<div class="tr-card">{header}{note_html}'
            f'<p class="tr-claim">{claim}</p>{table}{cov_note}{misses_html}</div>')
 
 
@@ -788,7 +809,8 @@ def track_record_page(record: dict) -> str:
 <p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
 snapshot. Once the round finishes, we grade that exact snapshot against the official FIFA
 World Cup Fantasy points — no do-overs, no rebuilding the model after the fact. Misses are
-shown alongside hits.</p>
+shown alongside hits. Rounds marked retrospective were reconstructed after results were
+known — from frozen closing odds — and are shown for context, not credit.</p>
 {summary_stats}
 <div class="pagelabel" style="margin-top:8px">By round, newest first</div>
 {cards}
