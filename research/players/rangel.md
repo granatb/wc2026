@@ -1,13 +1,15 @@
 ---
 entity: player
 name: Rangel
-status: doubtful
-start_prob_override: 0.4
+status: nailed
+start_prob_override: null
 lambda_multiplier: 1.0
-round: 3
+round: 5
 sources:
-  - https://www.si.com/soccer/czechia-vs-mexico-world-cup-preview-predictions-lineups-6-24-26
-updated: 2026-06-24
+  - https://www.foxsports.com/stories/soccer/raul-rangel-uses-pure-reaction-to-make-save-that-moves-mexico-into-knockout-stage-of-world-cup
+updated: 2026-07-04
 ---
 
-R3: Mexico won Group A — dead rubber; rotation keeper may start. (auto from R3 news-research workflow.)
+R5: Mexico's undisputed starting GK — tournament breakout, 4 straight clean sheets.
+The old R3 'doubtful' came from a predicted-XI aggregator (unreliable source class);
+confirmed reality is the opposite. Also mirror to raul-rangel.md.
