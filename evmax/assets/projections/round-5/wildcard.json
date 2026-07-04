@@ -1,8 +1,8 @@
 {
   "competition": "fifa_world_cup_fantasy",
   "round": 5,
-  "article": "captains",
-  "title": "Best captain picks — Round 5",
+  "article": "wildcard",
+  "title": "Wildcard draft — the best legal 15 under budget — Round 5",
   "generated_at": "2026-07-04T10:46:49.007915+00:00",
   "sims": 50000,
   "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
@@ -19,6 +19,7 @@
       "ownership_pct": 40.4,
       "value": 0.747,
       "kickoff": "2026-07-07T16:00:00+00:00",
+      "role": "XI",
       "rank": 1
     },
     {
@@ -33,6 +34,7 @@
       "ownership_pct": 59.2,
       "value": 0.578,
       "kickoff": "2026-07-04T21:00:00+00:00",
+      "role": "XI",
       "rank": 2
     },
     {
@@ -47,6 +49,7 @@
       "ownership_pct": 14.9,
       "value": 0.816,
       "kickoff": "2026-07-04T17:00:00+00:00",
+      "role": "XI",
       "rank": 3
     },
     {
@@ -61,6 +64,7 @@
       "ownership_pct": 4.4,
       "value": 0.746,
       "kickoff": "2026-07-05T20:00:00+00:00",
+      "role": "XI",
       "rank": 4
     },
     {
@@ -75,6 +79,7 @@
       "ownership_pct": 34.5,
       "value": 0.529,
       "kickoff": "2026-07-05T20:00:00+00:00",
+      "role": "XI",
       "rank": 5
     },
     {
@@ -89,6 +94,7 @@
       "ownership_pct": 8.9,
       "value": 1.004,
       "kickoff": "2026-07-04T21:00:00+00:00",
+      "role": "XI",
       "rank": 6
     },
     {
@@ -103,6 +109,7 @@
       "ownership_pct": 4.9,
       "value": 0.945,
       "kickoff": "2026-07-04T21:00:00+00:00",
+      "role": "XI",
       "rank": 7
     },
     {
@@ -117,6 +124,7 @@
       "ownership_pct": 28,
       "value": 0.825,
       "kickoff": "2026-07-04T17:00:00+00:00",
+      "role": "XI",
       "rank": 8
     },
     {
@@ -131,21 +139,8 @@
       "ownership_pct": 1.5,
       "value": 0.616,
       "kickoff": "2026-07-04T21:00:00+00:00",
+      "role": "XI",
       "rank": 9
-    },
-    {
-      "name": "E. Haaland",
-      "team": "Norway",
-      "position": "FWD",
-      "x_points": 4.86,
-      "captain_ev": 9.73,
-      "ceiling": 7.6,
-      "ceiling_ratio": 1.563,
-      "price": 10.5,
-      "ownership_pct": 28.6,
-      "value": 0.463,
-      "kickoff": "2026-07-05T20:00:00+00:00",
-      "rank": 10
     },
     {
       "name": "Michael Olise",
@@ -159,35 +154,8 @@
       "ownership_pct": 34.1,
       "value": 0.511,
       "kickoff": "2026-07-04T21:00:00+00:00",
-      "rank": 11
-    },
-    {
-      "name": "Emiliano Martinez",
-      "team": "Argentina",
-      "position": "GK",
-      "x_points": 4.84,
-      "captain_ev": 9.68,
-      "ceiling": 4.84,
-      "ceiling_ratio": 1.0,
-      "price": 5,
-      "ownership_pct": 30,
-      "value": 0.968,
-      "kickoff": "2026-07-07T16:00:00+00:00",
-      "rank": 12
-    },
-    {
-      "name": "Kane",
-      "team": "England",
-      "position": "FWD",
-      "x_points": 4.83,
-      "captain_ev": 9.65,
-      "ceiling": 7.73,
-      "ceiling_ratio": 1.602,
-      "price": 10.5,
-      "ownership_pct": 40.6,
-      "value": 0.46,
-      "kickoff": "2026-07-06T00:00:00+00:00",
-      "rank": 13
+      "role": "XI",
+      "rank": 10
     },
     {
       "name": "Christian Pulisic",
@@ -201,94 +169,78 @@
       "ownership_pct": 4.5,
       "value": 0.684,
       "kickoff": "2026-07-07T00:00:00+00:00",
+      "role": "XI",
+      "rank": 11
+    },
+    {
+      "name": "Luc De Fougerolles",
+      "team": "Canada",
+      "position": "DEF",
+      "x_points": 1.97,
+      "captain_ev": 3.95,
+      "ceiling": 1.91,
+      "ceiling_ratio": 0.969,
+      "price": 3.5,
+      "ownership_pct": 0.9,
+      "value": 0.564,
+      "kickoff": "2026-07-04T17:00:00+00:00",
+      "role": "Bench",
+      "rank": 12
+    },
+    {
+      "name": "Orlando Gill",
+      "team": "Paraguay",
+      "position": "GK",
+      "x_points": 1.95,
+      "captain_ev": 3.9,
+      "ceiling": 1.95,
+      "ceiling_ratio": 1.0,
+      "price": 3.5,
+      "ownership_pct": 0.5,
+      "value": 0.557,
+      "kickoff": "2026-07-04T21:00:00+00:00",
+      "role": "Bench",
+      "rank": 13
+    },
+    {
+      "name": "Redouane Halhal",
+      "team": "Morocco",
+      "position": "DEF",
+      "x_points": 0.79,
+      "captain_ev": 1.59,
+      "ceiling": 0.76,
+      "ceiling_ratio": 0.952,
+      "price": 3.5,
+      "ownership_pct": 2.3,
+      "value": 0.227,
+      "kickoff": "2026-07-04T17:00:00+00:00",
+      "role": "Bench",
       "rank": 14
     },
     {
-      "name": "Bruno Fernandes",
-      "team": "Portugal",
-      "position": "MID",
-      "x_points": 4.72,
-      "captain_ev": 9.44,
-      "ceiling": 9.32,
-      "ceiling_ratio": 1.976,
-      "price": 8.5,
-      "ownership_pct": 34.9,
-      "value": 0.555,
-      "kickoff": "2026-07-06T19:00:00+00:00",
-      "rank": 15
-    },
-    {
-      "name": "Jules Kounde",
-      "team": "France",
-      "position": "DEF",
-      "x_points": 4.71,
-      "captain_ev": 9.42,
-      "ceiling": 4.59,
-      "ceiling_ratio": 0.973,
-      "price": 5.4,
-      "ownership_pct": 6.3,
-      "value": 0.873,
-      "kickoff": "2026-07-04T21:00:00+00:00",
-      "rank": 16
-    },
-    {
-      "name": "Jonathan David",
+      "name": "Kamal Miller",
       "team": "Canada",
-      "position": "FWD",
-      "x_points": 4.66,
-      "captain_ev": 9.31,
-      "ceiling": 8.4,
-      "ceiling_ratio": 1.803,
-      "price": 7,
-      "ownership_pct": 2.4,
-      "value": 0.665,
-      "kickoff": "2026-07-04T17:00:00+00:00",
-      "rank": 17
-    },
-    {
-      "name": "Ousmane Dembele",
-      "team": "France",
-      "position": "MID",
-      "x_points": 4.54,
-      "captain_ev": 9.09,
-      "ceiling": 3.67,
-      "ceiling_ratio": 0.809,
-      "price": 10,
-      "ownership_pct": 22.9,
-      "value": 0.454,
-      "kickoff": "2026-07-04T21:00:00+00:00",
-      "rank": 18
-    },
-    {
-      "name": "William Saliba",
-      "team": "France",
       "position": "DEF",
-      "x_points": 4.47,
-      "captain_ev": 8.93,
-      "ceiling": 4.16,
-      "ceiling_ratio": 0.932,
-      "price": 5.3,
-      "ownership_pct": 13,
-      "value": 0.843,
-      "kickoff": "2026-07-04T21:00:00+00:00",
-      "rank": 19
-    },
-    {
-      "name": "Lamine Yamal",
-      "team": "Spain",
-      "position": "MID",
-      "x_points": 4.43,
-      "captain_ev": 8.86,
-      "ceiling": 8.67,
-      "ceiling_ratio": 1.958,
-      "price": 10,
-      "ownership_pct": 39.3,
-      "value": 0.443,
-      "kickoff": "2026-07-06T19:00:00+00:00",
-      "rank": 20
+      "x_points": 0.11,
+      "captain_ev": 0.21,
+      "ceiling": 0.1,
+      "ceiling_ratio": 0.95,
+      "price": 3.5,
+      "ownership_pct": 0.1,
+      "value": 0.03,
+      "kickoff": "2026-07-04T17:00:00+00:00",
+      "role": "Bench",
+      "rank": 15
     }
   ],
   "source": "https://evmax.ai",
   "license": "https://creativecommons.org/licenses/by/4.0/",
-  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)"
+  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)",
+  "squad": {
+    "total_cost": 99.4,
+    "xi_xpoints": 59.37,
+    "formation": "2-5-3",
+    "budget": 100.0,
+    "left_over": 0.6
+  }
 }
