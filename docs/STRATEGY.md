@@ -41,6 +41,8 @@ One odds/simulation engine feeding two flywheels:
 | 07-04 | Zero-cookie/zero-third-party posture locked in (self-hosted fonts; no analytics until a cookieless one is chosen) |
 | 07-04 | Newsletter: Buttondown, no-JS form (account registration pending) |
 | 07-04 | Engine changes are evidence-gated: Shin/power de-vig implemented but default held (bake-off n=0 — cache bug found+fixed; gate opens with accumulated closing lines, realistically FPL season) |
+| 07-04 | **Articles are FROZEN at lock** — no mid-round mutation of published lists (owner decision: readers must see what we said and how it worked). The only live element is predicted-vs-actual (matches scoreboard, track record). Live-list filtering built then deliberately reverted same day |
+| 07-04 | Fixture-guide article added (clean-sheet probabilities per tie, blowout targets, low-goal forward fades) — from the R16 content-scan gaps |
 | 07-03 | Competitor landscape done: agent surface unclaimed (1/11 has llms.txt, Opta BLOCKS AI crawlers = citation vacuum); beachhead = simulation/methodology query cluster; wedges = R16-now, FPL-templated-Aug, fantasy-EV social graphics |
 
 ## 4. Legal / ToU guardrails (standing policy)
