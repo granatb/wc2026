@@ -191,6 +191,51 @@ def _subject_entry(entries, subject):
     return entries[0] if entries else {}
 
 
+# ---------------------------------------------------------------------------
+# wildcard template helpers -- entries is the full 15 (XI + bench); these
+# derive squad-level numbers from the rows themselves since the template tier
+# only ever receives the flat entries list (not articles.wildcard_squad's
+# separate meta dict).
+# ---------------------------------------------------------------------------
+
+def _wc_xi(entries):
+    xi = [e for e in entries if e.get("role") == "XI"]
+    return xi if xi else entries[:11]
+
+
+def _wc_bench(entries):
+    bench = [e for e in entries if e.get("role") == "Bench"]
+    return bench if bench else entries[11:]
+
+
+def _wc_total_cost(entries):
+    return sum(e.get("price") or 0.0 for e in entries)
+
+
+def _wc_xi_xpoints(entries):
+    return sum(e.get("x_points") or 0.0 for e in _wc_xi(entries))
+
+
+def _wc_left_over(entries, budget=100.0):
+    return round(budget - _wc_total_cost(entries), 2)
+
+
+def _wc_formation(entries):
+    from evmax.articles import formation_of
+    return formation_of(_wc_xi(entries))
+
+
+def _wc_priciest(entries, n=3):
+    return sorted(entries, key=lambda e: e.get("price") or 0.0, reverse=True)[:n]
+
+
+def _wc_best_value(entries):
+    priced = [e for e in entries if e.get("value") is not None]
+    if not priced:
+        return None
+    return max(priced, key=lambda e: e["value"])
+
+
 _TEMPLATES = {
     "captains": {
         "headline": lambda e, r, subj: f"{subj} leads the armband race in Round {r}",
@@ -242,6 +287,47 @@ _TEMPLATES = {
         "bottom_line": lambda e, r, subj: (
             f"Field this XI — {sum(x.get('x_points', 0) for x in e):.1f} total xPts "
             f"is the model's best-fit combination for Round {r}."
+        ),
+    },
+    "wildcard": {
+        # wildcard is always team-framed (subject=None) -- the article is about
+        # the 15-man squad as a unit, not any one player.
+        "headline": lambda e, r, subj: f"Wildcard draft: the best legal 15 for Round {r}",
+        "standfirst": lambda e, r, subj: (
+            f"A {_wc_formation(e)} squad costing {_fmt_price(_wc_total_cost(e))}m, "
+            f"projecting {_fmt_pts(_wc_xi_xpoints(e))} xPts from the XI."
+            if e else f"Wildcard squad for Round {r}."
+        ),
+        "body": lambda e, r, subj: (
+            f"<p>This round's wildcard build spends "
+            f"{_fmt_price(_wc_total_cost(e))}m of a 100.0m budget on a full legal 15 "
+            f"— 2 goalkeepers, 5 defenders, 5 midfielders, 3 forwards — set up in a "
+            f"{_wc_formation(e)} starting XI projecting {_fmt_pts(_wc_xi_xpoints(e))} "
+            f"combined xPts.</p>\n"
+            + (
+                f"<blockquote><p>The bench is deliberately the cheapest legal one "
+                f"available — {', '.join(html.escape(b['name']) for b in _wc_bench(e))} "
+                f"are enablers, not picks: their job is to exist within the rules so "
+                f"every spare pound goes into the XI, not to contribute points "
+                f"themselves.</p></blockquote>\n"
+                if _wc_bench(e) else ""
+            )
+            + (
+                f"<p>The most expensive picks are "
+                + ", ".join(f"{html.escape(p['name'])} ({_fmt_price(p['price'])}m)"
+                           for p in _wc_priciest(e, 3))
+                + f". The standout value pick is "
+                f"{html.escape(_wc_best_value(e)['name'])} at "
+                f"{_fmt_pts(_wc_best_value(e).get('value', 0))} xPts/m "
+                f"({_fmt_price(_wc_best_value(e)['price'])}m).</p>"
+                if _wc_priciest(e, 1) and _wc_best_value(e) else ""
+            )
+        ),
+        "bottom_line": lambda e, r, subj: (
+            f"Field this {_wc_formation(e)} — {_fmt_pts(_wc_xi_xpoints(e))} xPts from "
+            f"a {_fmt_price(_wc_total_cost(e))}m squad, with "
+            f"{_fmt_price(_wc_left_over(e))}m left in the bank."
+            if e else f"No wildcard squad available for Round {r}."
         ),
     },
     "defenders": {
@@ -519,10 +605,11 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi, matches and fixtures (no player subject), skip per-player framing
+    # For best-xi, wildcard, matches and fixtures (no player subject), skip
+    # per-player framing
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "matches", "fixtures"):
+    elif article in ("best-xi", "wildcard", "matches", "fixtures"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None

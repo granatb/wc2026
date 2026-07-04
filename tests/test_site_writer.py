@@ -49,6 +49,38 @@ class WriterTest(unittest.TestCase):
         # Team-framed: headline should mention "XI" or "Round", not a single player name
         self.assertIn("XI", p["headline"])
 
+    def test_wildcard_is_team_framed_and_covers_budget_and_bench(self):
+        """wildcard with subject=None should be squad-framed: cost, XI xPts,
+        formation, bench philosophy, priciest picks and the best value pick."""
+        xi = [
+            {"rank": i + 1, "name": f"XI{i}", "team": "BRA", "position": pos,
+             "x_points": 8.0 - i * 0.3, "captain_ev": 16.0, "ceiling": 10.0,
+             "price": 10.0 - i * 0.5, "value": round((8.0 - i * 0.3) / (10.0 - i * 0.5), 2),
+             "ownership_pct": 30.0, "role": "XI"}
+            for i, pos in enumerate(
+                ["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])
+        ]
+        bench = [
+            {"rank": 12 + i, "name": f"Bench{i}", "team": "BRA", "position": pos,
+             "x_points": 2.0, "captain_ev": 4.0, "ceiling": 2.5, "price": 4.0,
+             "value": 0.5, "ownership_pct": 3.0, "role": "Bench"}
+            for i, pos in enumerate(["GK", "DEF", "DEF", "DEF"])
+        ]
+        entries = xi + bench
+        p = writer.article_prose("wildcard", 5, entries, ["x_points", "price"],
+                                 cache_dir="/nonexistent", use_llm=False, subject=None)
+        self.assertEqual(p["source"], "template")
+        combined = p["headline"] + p["standfirst"] + p["body_html"] + p["bottom_line"]
+        # Team-framed: no bench filler should be the headline subject
+        self.assertNotIn("Bench0", p["headline"])
+        self.assertIn("Wildcard", p["headline"])
+        # Squad totals show up somewhere in the prose
+        self.assertIn("100.0m", combined)  # budget mentioned
+        # The priciest XI pick (XI0, price 10.0) should be named
+        self.assertIn("XI0", combined)
+        # Bench philosophy is mentioned without overselling bench numbers
+        self.assertIn("Bench0", combined)
+
     def test_defenders_template(self):
         """defenders template should work and include subject in headline."""
         entries = [

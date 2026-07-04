@@ -58,8 +58,11 @@ METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte
 NEWSLETTER_ACTION = "https://buttondown.com/api/emails/embed-subscribe/evmax"
 
 
-def article_json(competition, fantasy_round, article, title, generated_at, sims, entries):
-    return {
+def article_json(competition, fantasy_round, article, title, generated_at, sims, entries,
+                 extra_fields=None):
+    """extra_fields: optional dict merged into the envelope as additional top-level
+    keys (e.g. wildcard's {"squad": {...}} meta). Never overrides the standard keys."""
+    env = {
         "competition": competition,
         "round": fantasy_round,
         "article": article,
@@ -72,6 +75,10 @@ def article_json(competition, fantasy_round, article, title, generated_at, sims,
         "license": DATA_LICENSE_URL,
         "license_text": DATA_LICENSE_TEXT,
     }
+    if extra_fields:
+        for k, v in extra_fields.items():
+            env.setdefault(k, v)
+    return env
 
 
 def summary_sentence(article, entries):
@@ -81,6 +88,16 @@ def summary_sentence(article, entries):
         close = sum(1 for e in entries if e.get("close"))
         return (f"Match predictions for {len(entries)} fixtures this round; "
                 f"{close} close game(s) to watch.")
+    if article == "wildcard":
+        # summary_sentence only receives entries (no meta dict), so derive the
+        # squad-level numbers straight from the 15 rows themselves. SQUAD_BUDGET
+        # is the article's fixed budget constant (entries carry cost, not budget).
+        from evmax.articles import formation_of, SQUAD_BUDGET
+        xi = [e for e in entries if e.get("role") == "XI"] or entries[:11]
+        total_cost = round(sum(e.get("price") or 0.0 for e in entries), 2)
+        xi_xpoints = round(sum(e.get("x_points") or 0.0 for e in xi), 2)
+        return (f"A {formation_of(xi)} wildcard squad costing {total_cost}m of the "
+                f"{SQUAD_BUDGET}m budget, projecting {xi_xpoints} xPts from the XI.")
     top = entries[0]
     if article == "transfers" and "name" in top:
         return (f"{top['name']} ({top.get('team', '')}) is the top priority transfer: "
@@ -484,10 +501,12 @@ def _rank_table_html(entries, columns):
         blowout_tag = f'<span class="tag-go">Blowout</span>' if env == "blowout" else ""
         avoid_tag = (f'<span class="tag-floor">Low-goal — fade forwards</span>'
                     if env == "avoid" else "")
+        bench_tag = (f'<span class="tag-floor">Bench</span>'
+                    if r.get("role") == "Bench" else "")
         player_cell = (
             f'<td class="l"><span class="nm">{_html.escape(r["name"])}</span> '
             f'<span class="tm">{_html.escape(r.get("team") or "")}</span>'
-            f'{diff_tag}{floor_tag}{risk_tag}{blowout_tag}{avoid_tag}</td>'
+            f'{diff_tag}{floor_tag}{risk_tag}{blowout_tag}{avoid_tag}{bench_tag}</td>'
         )
         col_vals = "".join(
             f'<td class="big">{_fmt(c, r)}</td>' for c in columns)

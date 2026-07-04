@@ -38,6 +38,10 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
     faded, "balanced" means neither extreme applies
   - top_def / top_gk → that team's best defender/goalkeeper pick, already formatted as
     "Name (x.x)" — quote them as-is
+  - role → "XI" means the player starts in the wildcard lineup; "Bench" means they are
+    one of the 4 squad-filler picks. Bench players are enablers that make the 15 legal
+    and cheap, not picks to sell the reader on — do not oversell their point projections
+    or ceiling; the pitch to the reader is entirely about the XI and the budget logic.
 
 Write a tight analytical article with:
   - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
@@ -70,7 +74,7 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
     """Return a filled ARTICLE_PROMPT ready to send to the API.
 
     subject: player name to centre prose on, or None for team-framing
-             (best-xi / matches / fixtures).
+             (best-xi / wildcard / matches / fixtures).
     """
     if subject is not None and slug == "transfers":
         subject_instruction = (
@@ -105,6 +109,18 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
             "the supplied numbers — do not invent teams, players, or stats not in the "
             "data. You may cite top_def/top_gk as the best defensive picks for a "
             "high-clean-sheet team.\n"
+        )
+    elif slug == "wildcard":
+        subject_instruction = (
+            "Focus      : This is a full 15-man wildcard/rebuild squad (role=\"XI\" for "
+            "the 11 starters, role=\"Bench\" for the 4 squad-fillers), not a single-player "
+            "pick. Cover: the total squad cost vs the 100.0m budget, the starting XI's "
+            "combined xPts and formation, and the bench philosophy — the bench is "
+            "deliberately the cheapest legal set of players (2 GK / 5 DEF / 5 MID / 3 FWD "
+            "total across the 15), so all the spending power sits in the XI. Name the "
+            "2-3 priciest picks and call out the single best value pick (highest xPts per "
+            "million). Do not oversell the Bench players' own point projections — they "
+            "are there to make the squad legal and cheap, not to score.\n"
         )
     else:
         subject_instruction = (

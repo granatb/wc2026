@@ -29,6 +29,7 @@ _COLUMNS = {
     "matches":           [],  # no player table; fixture cards rendered by match_predictions_html
     "transfers":         ["priority_score", "vor", "x_points", "p_advance", "price", "ownership_pct"],
     "fixtures":          ["p_clean_sheet", "exp_goals_against", "exp_goals_for", "top_def", "top_gk"],
+    "wildcard":          ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
     "best-xi":           ["x_points", "captain_ev", "ceiling", "price", "value", "ownership_pct"],
     "defenders":         ["x_points", "price", "value", "ceiling", "ownership_pct"],
     "risky":             ["ceiling", "x_points", "captain_ev", "price", "ownership_pct"],
@@ -40,7 +41,7 @@ _COLUMNS = {
 }
 
 # XI articles get pitch SVG; others get an EV bar
-_XI_ARTICLES = {"best-xi"}
+_XI_ARTICLES = {"best-xi", "wildcard"}
 
 
 def _kickoffs_for_round(fantasy_round: int) -> dict:
@@ -61,10 +62,16 @@ def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
     that reflects reality as the round plays out is the predicted-vs-actual
     panel on the matches article (see articles.finished_results_map /
     match_predictions(..., results=...)).
+
+    wildcard's entries are the 15-man squad list only; its squad-level meta
+    (total_cost, xi_xpoints, formation, ...) is attached separately in build()
+    since this function's contract is a flat {slug: entries_list} map.
     """
     blow = articles.blowout_teams(fantasy_round)
+    wildcard_entries, _wildcard_meta = articles.wildcard_squad(rows)
     return {
         "captains":          articles.rank_captains(rows)[:20],
+        "wildcard":          wildcard_entries,
         "best-xi":           articles.select_xi(rows, "x_points"),
         "defenders":         articles.by_position(rows, "DEF")[:15],
         "risky":             articles.risky(rows)[:20],
@@ -108,6 +115,11 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # article's predicted-vs-actual panel (finished_results_map below), which
     # simply returns an empty map before any fixture has finished.
     entries_map = _article_entries(rows, fantasy_round)
+    # wildcard's squad-level meta (total_cost, xi_xpoints, formation, ...) isn't part
+    # of the flat entries list _article_entries returns, so recompute it here for the
+    # JSON envelope + prose. wildcard_squad is deterministic, so this reproduces the
+    # exact same 15 already sitting in entries_map["wildcard"].
+    _wildcard_entries, wildcard_meta = articles.wildcard_squad(rows)
     results_map = articles.finished_results_map(fantasy_round)
     entries_map["matches"] = articles.match_predictions(
         match_samples, fantasy_round, results=results_map)
@@ -140,9 +152,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # Matches article: no player subject, no player table
         is_matches = (slug == "matches")
 
-        # Determine the subject (lead player) for prose focus. best-xi, matches
-        # and fixtures are team/match-framed, with no single player centred.
-        if slug in ("best-xi", "matches", "fixtures"):
+        # Determine the subject (lead player) for prose focus. best-xi, wildcard,
+        # matches and fixtures are team/match-framed, with no single player centred.
+        if slug in ("best-xi", "wildcard", "matches", "fixtures"):
             subject = None
         else:
             subject = next(
@@ -160,6 +172,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         # Viz
         if is_matches:
             viz_html = render.match_predictions_html(entries)
+        elif slug == "wildcard":
+            # entries is the full 15 (XI + bench); the pitch only draws a starting XI.
+            viz_html = render.pitch_svg([e for e in entries if e.get("role") == "XI"])
         elif slug in _XI_ARTICLES:
             viz_html = render.pitch_svg(entries)
         elif slug == "fixtures":
@@ -174,8 +189,10 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             viz_html = render.ev_bar(entries, columns[0])
 
         # JSON
+        extra_fields = {"squad": wildcard_meta} if slug == "wildcard" else None
         env = render.article_json("fifa_world_cup_fantasy", fantasy_round, slug,
-                                  title, generated_at, sims, entries)
+                                  title, generated_at, sims, entries,
+                                  extra_fields=extra_fields)
         env_json = json.dumps(env, ensure_ascii=False, indent=2)
         w(json_url, env_json)
         latest_index[slug] = json_url

@@ -4,9 +4,11 @@ from evmax import build
 
 
 def _row(name, pos, xp, kickoff=None):
+    # price=5.0 keeps a 15-man squad (75.0m) comfortably inside wildcard_squad's
+    # default 100.0m budget.
     return {"name": name, "team": name + "land", "position": pos, "x_points": xp,
-            "captain_ev": 2 * xp, "ceiling": xp, "price": 8.0, "ownership_pct": 20.0,
-            "value": xp / 8.0, "kickoff": kickoff}
+            "captain_ev": 2 * xp, "ceiling": xp, "price": 5.0, "ownership_pct": 20.0,
+            "value": xp / 5.0, "kickoff": kickoff}
 
 
 class ArticleEntriesTest(unittest.TestCase):
@@ -33,6 +35,14 @@ class ArticleEntriesTest(unittest.TestCase):
         # captains is capped to top 20, but every row comes from the full pool --
         # none are excluded just because their fixture already kicked off.
         self.assertEqual(len(entries["captains"]), min(20, len(pool)))
+
+    def test_wildcard_returns_a_legal_15_with_roles(self):
+        pool = self._pool("2026-07-04T08:00:00+00:00")
+        entries = build._article_entries(pool, fantasy_round=5)
+        wildcard = entries["wildcard"]
+        self.assertEqual(len(wildcard), 15)
+        self.assertEqual(sum(1 for e in wildcard if e["role"] == "XI"), 11)
+        self.assertEqual(sum(1 for e in wildcard if e["role"] == "Bench"), 4)
 
 
 if __name__ == "__main__":

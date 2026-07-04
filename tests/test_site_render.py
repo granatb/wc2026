@@ -48,6 +48,36 @@ class JsonEnvelopeTest(unittest.TestCase):
         self.assertIn("England", s)
         self.assertIn("62%", s)
 
+    def test_summary_sentence_wildcard_mentions_cost_and_formation(self):
+        entries = (
+            [{"name": f"XI{i}", "position": pos, "x_points": 5.0, "price": 6.0,
+              "role": "XI"}
+             for i, pos in enumerate(
+                 ["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])]
+            + [{"name": f"B{i}", "position": pos, "x_points": 2.0, "price": 4.0,
+                "role": "Bench"}
+               for i, pos in enumerate(["GK", "DEF", "DEF", "DEF"])]
+        )
+        s = render.summary_sentence("wildcard", entries)
+        self.assertIn("3-4-3", s)
+        self.assertIn("82.0", s)  # 11 XI * 6.0 + 4 bench * 4.0 price
+        self.assertIn("55.0", s)  # 11 XI * 5.0 xPts
+
+    def test_article_json_extra_fields_merged(self):
+        env = render.article_json("fifa_world_cup_fantasy", 5, "wildcard",
+                                  "Wildcard draft — Round 5",
+                                  "2026-06-24T12:00:00+00:00", 50000, self.entries,
+                                  extra_fields={"squad": {"total_cost": 99.5}})
+        self.assertIn("squad", env)
+        self.assertEqual(env["squad"]["total_cost"], 99.5)
+        json.dumps(env)
+
+    def test_article_json_without_extra_fields_unchanged(self):
+        env = render.article_json("fifa_world_cup_fantasy", 3, "captains",
+                                  "Best captain picks — Round 3",
+                                  "2026-06-24T12:00:00+00:00", 50000, self.entries)
+        self.assertNotIn("squad", env)
+
 
 class SvgChartTest(unittest.TestCase):
     def test_svg_contains_bars_and_labels(self):
@@ -196,6 +226,23 @@ class HtmlTest(unittest.TestCase):
             columns=["priority_score", "vor", "p_advance"],
             json_url="/api/round/5/transfers.json", viz_html=self.viz_html)
         self.assertIn("Advance risk", h)
+
+    def test_bench_role_gets_bench_chip(self):
+        entries = [
+            {"rank": 1, "name": "Star Striker", "team": "Brazil", "position": "FWD",
+             "x_points": 8.0, "captain_ev": 16.0, "ceiling": 10.0, "price": 12.0,
+             "ownership_pct": 40.0, "value": 0.67, "role": "XI", "kickoff": None},
+            {"rank": 12, "name": "Backup Keeper", "team": "Brazil", "position": "GK",
+             "x_points": 3.0, "captain_ev": 6.0, "ceiling": 3.0, "price": 4.0,
+             "ownership_pct": 2.0, "value": 0.75, "role": "Bench", "kickoff": None},
+        ]
+        h = render.article_page(
+            round_no=5, article="wildcard", title="Wildcard draft — Round 5",
+            prose=self.prose, entries=entries,
+            columns=["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
+            json_url="/api/round/5/wildcard.json", viz_html=self.viz_html)
+        self.assertIn("Bench", h)
+        self.assertNotIn("Bench", h.split("Star Striker")[1].split("</tr>")[0])
 
     def test_fixture_guide_columns_render_formatted_values(self):
         entries = [

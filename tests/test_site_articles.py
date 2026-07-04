@@ -159,6 +159,95 @@ class SelectXITest(unittest.TestCase):
             articles.select_xi(pool, "x_points")
 
 
+class WildcardSquadTest(unittest.TestCase):
+    def _pool(self):
+        """Price positively correlated with x_points -- the realistic case where
+        cheap players are genuinely weaker, so bench-cheap != bench-best."""
+        rows = []
+        rows += [_row(f"GK{i}", "GK", 5.5 - i * 0.25, price=5.5 - i * 0.25)
+                for i in range(4)]
+        rows += [_row(f"DEF{i}", "DEF", 6.5 - i * 0.25, price=6.5 - i * 0.25)
+                for i in range(10)]
+        rows += [_row(f"MID{i}", "MID", 7.5 - i * 0.25, price=7.5 - i * 0.25)
+                for i in range(10)]
+        rows += [_row(f"FWD{i}", "FWD", 8.5 - i * 0.25, price=8.5 - i * 0.25)
+                for i in range(8)]
+        return rows
+
+    def test_returns_15_with_legal_quotas(self):
+        entries, meta = articles.wildcard_squad(self._pool())
+        self.assertEqual(len(entries), 15)
+        counts = {}
+        for e in entries:
+            counts[e["position"]] = counts.get(e["position"], 0) + 1
+        self.assertEqual(counts, {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3})
+
+    def test_budget_respected(self):
+        entries, meta = articles.wildcard_squad(self._pool(), budget=100.0)
+        total = sum(e["price"] for e in entries)
+        self.assertLessEqual(round(total, 2), 100.0)
+        self.assertAlmostEqual(meta["total_cost"], round(total, 2), places=2)
+        self.assertAlmostEqual(meta["left_over"], round(100.0 - total, 2), places=2)
+
+    def test_xi_first_ordering_by_x_points(self):
+        entries, meta = articles.wildcard_squad(self._pool())
+        xi = [e for e in entries if e["role"] == "XI"]
+        bench = [e for e in entries if e["role"] == "Bench"]
+        self.assertEqual(len(xi), 11)
+        self.assertEqual(len(bench), 4)
+        self.assertEqual([e["rank"] for e in xi], list(range(1, 12)))
+        self.assertEqual([e["rank"] for e in bench], [12, 13, 14, 15])
+        # XI ranked by x_points desc
+        xpts = [e["x_points"] for e in xi]
+        self.assertEqual(xpts, sorted(xpts, reverse=True))
+
+    def test_roles_assigned_to_every_entry(self):
+        entries, meta = articles.wildcard_squad(self._pool())
+        self.assertTrue(all(e["role"] in ("XI", "Bench") for e in entries))
+
+    def test_meta_fields_present(self):
+        entries, meta = articles.wildcard_squad(self._pool())
+        for key in ("total_cost", "xi_xpoints", "formation", "budget", "left_over"):
+            self.assertIn(key, meta)
+        xi = [e for e in entries if e["role"] == "XI"]
+        self.assertAlmostEqual(meta["xi_xpoints"], round(sum(e["x_points"] for e in xi), 2),
+                               places=2)
+        self.assertEqual(meta["formation"], articles.formation_of(xi))
+        self.assertEqual(meta["budget"], 100.0)
+
+    def test_tight_budget_forces_downgrade_repair(self):
+        """A budget above the cheapest-possible legal squad but below the greedy
+        best-XI cost must trigger the downgrade repair loop, not just fail."""
+        pool = self._pool()
+        # Cheapest possible legal squad in this pool costs ~83.25m (2 cheapest GK +
+        # 5 cheapest DEF + 5 cheapest MID + 3 cheapest FWD); a naive best-XI-first
+        # build costs ~96.5m. 88.0m sits in between -- feasible only via repair.
+        entries, meta = articles.wildcard_squad(pool, budget=88.0)
+        self.assertEqual(len(entries), 15)
+        self.assertLessEqual(meta["total_cost"], 88.0)
+
+    def test_impossible_pool_raises_value_error(self):
+        # Only 2 defenders available -- can never fill the 5-DEF quota.
+        pool = [_row(f"GK{i}", "GK", 5.0, price=5.0) for i in range(2)]
+        pool += [_row(f"DEF{i}", "DEF", 5.0, price=5.0) for i in range(2)]
+        pool += [_row(f"MID{i}", "MID", 5.0, price=5.0) for i in range(5)]
+        pool += [_row(f"FWD{i}", "FWD", 5.0, price=5.0) for i in range(3)]
+        with self.assertRaises(ValueError):
+            articles.wildcard_squad(pool)
+
+    def test_infeasible_budget_raises_value_error(self):
+        pool = self._pool()
+        with self.assertRaises(ValueError):
+            articles.wildcard_squad(pool, budget=1.0)
+
+    def test_rows_missing_price_are_excluded(self):
+        pool = self._pool()
+        pool[0] = dict(pool[0])
+        pool[0]["price"] = None
+        entries, meta = articles.wildcard_squad(pool)
+        self.assertNotIn(pool[0]["name"], [e["name"] for e in entries])
+
+
 class BlowoutTest(unittest.TestCase):
     def test_blowout_transfers_picks_attackers_from_highest_lambda_fixtures(self):
         # two fixtures; (Spain vs Malta) has the biggest combined lambda
@@ -229,8 +318,8 @@ class RiskyTest(unittest.TestCase):
 
 class ArticleSetTest(unittest.TestCase):
     def test_articles_list_has_correct_slugs(self):
-        expected = ["captains", "matches", "fixtures", "transfers", "best-xi", "defenders",
-                    "risky", "efficiency", "blowout-transfers"]
+        expected = ["captains", "matches", "fixtures", "transfers", "wildcard", "best-xi",
+                    "defenders", "risky", "efficiency", "blowout-transfers"]
         self.assertEqual(articles.ARTICLES, expected)
 
     def test_matches_is_second(self):
