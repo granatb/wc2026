@@ -130,6 +130,9 @@ Principle: **the engine is the product; everything else is distribution.**
 11. FPL engine port (August); Holdet sibling after ToS check
 12. Citation test loop as a repeatable script
 
+### Parked: draft-game simulator (the 38-0 opportunity)
+*Logged 07-04.* 38-0 (38-0.app) is a viral draft game (wheel → real club-season → pick player → fill XI → simulate a season; 3.5M players, 50M impressions, hobbyist-built in days) and its fast-follower 38-0-0 ALSO hit the UK App Store top ten — proof that (a) draft+simulate mechanics are currently viral, (b) the improved clone captures the market, (c) build-time is days not months. Our angle if/when we build: **"draft your XI, a real 50k-sim Monte-Carlo engine plays it out"** — their sims are toys, ours is the genuine article, and the share-card ("my XI survived to the semis, 12% of sims won it all") feeds the social flywheel. Blockers: needs client-side interactivity (JS or a JS port of a slim sim core) — breaks our zero-JS posture on the main site, so it should live on a subpath/subdomain as the first Tools-tab entry. Natural window: post-World-Cup lull or FPL launch. Revisit then; don't build during the tournament.
+
 ## 11. Metrics
 
 - AI-bot hits on `/llms.txt` + `/api/*` (Cloudflare analytics), AI referral sessions (chatgpt.com/perplexity referrers), citation-test wins/week, email signups per round, premium conversions (later), per-round model calibration (RPS/Brier, xPts MAE) from §7.
