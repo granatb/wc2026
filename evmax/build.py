@@ -77,6 +77,42 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
     return out
 
 
+_BACK_TO_LATEST_MARKER = 'id="back-to-latest"'
+
+
+def _backfill_latest_round_link(out: str, round_root: str, current_round: int) -> None:
+    """Articles are frozen at lock (see build()'s snapshot guard) -- an old
+    round's pages never get rebuilt, so they never pick up new nav/UI
+    features like the round switcher. That leaves a real dead end: someone
+    landing on an old round via search or a shared link has no obvious way
+    back to the live one. Rather than rebuild old rounds (which would re-run
+    the engine and risk changing a published round's numbers), patch ONLY a
+    small "back to the latest round" link into their already-built HTML --
+    mechanical, idempotent, touches no data/prose/numbers. Uses only the
+    `.wrap` class and `--green` CSS var, both present since the original v2
+    editorial redesign, so it renders correctly even on the oldest builds."""
+    if not os.path.isdir(round_root):
+        return
+    link_html = (
+        f'<div class="wrap" style="padding-top:10px">'
+        f'<a {_BACK_TO_LATEST_MARKER} href="/" style="color:var(--green);'
+        f'font-weight:600;font-size:13px">&larr; Back to the latest round</a></div>'
+    )
+    for entry in os.listdir(round_root):
+        if not entry.isdigit() or int(entry) == current_round:
+            continue
+        for dirpath, _dirs, filenames in os.walk(os.path.join(round_root, entry)):
+            if "index.html" not in filenames:
+                continue
+            path = os.path.join(dirpath, "index.html")
+            with open(path, encoding="utf-8") as fh:
+                html = fh.read()
+            if _BACK_TO_LATEST_MARKER in html or "</header>" not in html:
+                continue  # already patched, or a shape we don't recognize -- skip rather than guess
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(html.replace("</header>", "</header>" + link_html, 1))
+
+
 def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
     """Return {slug: entries_list} for the v2 article set.
 
@@ -517,6 +553,10 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                                        available_rounds=available_rounds)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
+
+    # Old rounds are frozen and never get this build's nav/switcher -- patch
+    # in a minimal way back to the current round (see docstring).
+    _backfill_latest_round_link(out, round_root, fantasy_round)
 
     # --- Agent / meta files ---
     w("/api/latest.json", json.dumps(

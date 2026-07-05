@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -133,4 +135,59 @@ class CheckRowsTest(unittest.TestCase):
     def test_nonempty_rows_pass(self):
         build._check_rows([{"name": "Kane"}], means={"Kane": {}},
                           meta={"Kane": {}})  # must not raise
+
+
+class BackfillLatestRoundLinkTest(unittest.TestCase):
+    """build._backfill_latest_round_link: old rounds are frozen and never
+    rebuilt, so they never pick up new nav features -- this patches ONLY a
+    "back to the latest round" link into their already-built HTML, without
+    touching any data/prose/numbers."""
+
+    _PAGE = ('<html><head></head><body><header><div class="wrap">nav here</div>'
+            '</header><div class="wrap"><h1>Old content -- must not change</h1>'
+            '</div></body></html>')
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="evmax_backfill_test_")
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, ignore_errors=True)
+        self.round_root = os.path.join(self.tmp, "round")
+
+    def _write(self, round_no, slug="captains"):
+        d = os.path.join(self.round_root, str(round_no), slug)
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, "index.html")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(self._PAGE)
+        return path
+
+    def test_patches_old_round_not_current_round(self):
+        old_path = self._write(3)
+        current_path = self._write(5)
+        build._backfill_latest_round_link(self.tmp, self.round_root, current_round=5)
+        with open(old_path, encoding="utf-8") as fh:
+            old_html = fh.read()
+        with open(current_path, encoding="utf-8") as fh:
+            current_html = fh.read()
+        self.assertIn("back-to-latest", old_html)
+        self.assertIn('href="/"', old_html)
+        self.assertNotIn("back-to-latest", current_html)  # current round untouched
+
+    def test_does_not_alter_existing_content(self):
+        path = self._write(3)
+        build._backfill_latest_round_link(self.tmp, self.round_root, current_round=5)
+        with open(path, encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertIn("Old content -- must not change", html)
+
+    def test_idempotent_on_second_build(self):
+        path = self._write(3)
+        build._backfill_latest_round_link(self.tmp, self.round_root, current_round=5)
+        build._backfill_latest_round_link(self.tmp, self.round_root, current_round=5)
+        with open(path, encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertEqual(html.count("back-to-latest"), 1)
+
+    def test_missing_round_root_is_a_noop(self):
+        build._backfill_latest_round_link(self.tmp, os.path.join(self.tmp, "nope"),
+                                          current_round=5)  # must not raise
 
