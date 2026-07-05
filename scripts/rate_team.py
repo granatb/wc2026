@@ -135,6 +135,18 @@ def captain_chain(xi_rows: list) -> list:
     return sorted(best_at.values(), key=_kickoff_dt) + [anchor]
 
 
+def optimal_xi_and_total(rows: list) -> tuple:
+    """The model's best legal XI this round (formation-constrained, by
+    x_points) plus its projected total with its own best captain doubled --
+    the honest comparison point for "how good is my team", since a squad can
+    only be judged against what was actually achievable."""
+    xi = articles.select_xi(rows, "x_points")
+    cap = max(xi, key=lambda r: r["captain_ev"])
+    total = sum(r["x_points"] for r in xi) + cap["x_points"]  # cap counted twice
+    ceiling_total = sum(r["ceiling"] for r in xi) + cap["ceiling"]
+    return xi, cap, total, ceiling_total
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("players", nargs="?", help="comma-separated names, (C) marks captain, (B) marks bench")
@@ -193,18 +205,32 @@ def main() -> None:
         out = []
         for r, capmark, extras in entries:
             extra_str = "  " + " ".join(extras) if extras else ""
-            out.append(f"- {r['name']}{capmark} — **{r['x_points']:.1f} xPts**{extra_str}")
+            out.append(f"- {r['name']}{capmark} — **{r['x_points']:.1f} xPts** "
+                       f"(ceiling {r['ceiling']:.1f}){extra_str}")
         return out
 
     best_cap = max(xi_rows, key=lambda r: r["captain_ev"], default=None)
+    ceiling_total = sum(
+        r["ceiling"] * (2 if cap_row is not None and _norm(r["name"]) == _norm(cap_row["name"]) else 1)
+        for r in xi_rows)
 
     print(f"\nRan your team through my Monte-Carlo model ({a.sims:,} sims on de-vigged market odds, Round {a.round}):\n")
     print("Starting XI:")
     print("\n".join(fmt(xi_lines)))
-    print(f"\n**Projected total: {total:.1f} pts** (XI only, captain doubled)")
+    print(f"\n**Projected total: {total:.1f} pts** (XI only, captain doubled)"
+          f"  ·  **ceiling EV: {ceiling_total:.1f} pts** (upside if it all hits)")
     if bench_lines:
         print("\nBench:")
         print("\n".join(fmt(bench_lines)))
+
+    opt_xi, opt_cap, opt_total, opt_ceiling = optimal_xi_and_total(rows)
+    gap = opt_total - total
+    opt_names = ", ".join(
+        f"{r['name']} (C)" if r is opt_cap else r["name"] for r in opt_xi)
+    print(f"\n**Model's optimal XI this round: {opt_total:.1f} pts** (ceiling {opt_ceiling:.1f}), "
+          f"captained {opt_cap['name']} ({opt_cap['captain_ev']:.1f} cEV) — "
+          f"you're {'+' if gap < 0 else '-'}{abs(gap):.1f} vs optimal.")
+    print(f"Optimal XI: {opt_names}")
     if cap_row is not None and best_cap is not None:
         if _norm(cap_row["name"]) == _norm(best_cap["name"]):
             print(f"\nCaptain check: **{cap_row['name']} ✔** — top captain EV in your squad "

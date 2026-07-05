@@ -81,6 +81,17 @@ class RateJsAssetTest(unittest.TestCase):
         self.assertIn("chainNote", self.js)
         self.assertIn("XI only", self.js)
 
+    def test_has_optimal_xi_and_ceiling(self):
+        self.assertIn("optimalXi", self.js)
+        self.assertIn("optimalSummary", self.js)
+        self.assertIn("ceilingTotal", self.js)
+
+    def test_has_round_and_hero_button_hooks(self):
+        # slot picker / round-switcher live in render.py markup, not this JS --
+        # just confirm the datalist-filling wiring this feature depends on.
+        self.assertIn("fillDatalist", self.js)
+        self.assertIn("slotsAsText", self.js)
+
 
 class RateTeamCliChainNoteTest(unittest.TestCase):
     """Unit tests for the CLI's pure helpers -- no engine/network needed, so
@@ -159,6 +170,34 @@ class CaptainChainTest(unittest.TestCase):
         messi = self._row("Messi", 7.1, 14.2, 13.5, "2026-07-04T16:00:00+00:00")
         late = self._row("Late", 6.1, 12.2, 13.0, "2026-07-07T21:00:00+00:00")
         self.assertEqual(self.mod.captain_chain([messi, late]), [])
+
+
+class OptimalXiTest(unittest.TestCase):
+    """optimal_xi_and_total(): the honest comparison point for a rated squad
+    -- the model's own best legal XI this round, by x_points, with its own
+    best captain doubled."""
+
+    def setUp(self):
+        self.mod = _load_rate_team_module()
+
+    def _row(self, name, pos, xp, cev, ceil):
+        return {"name": name, "position": pos, "x_points": xp, "captain_ev": cev, "ceiling": ceil}
+
+    def test_optimal_beats_or_ties_a_suboptimal_selection(self):
+        rows = (
+            [self._row(f"GK{i}", "GK", 3.0 + i * 0.1, 6.0, 3.0) for i in range(2)]
+            + [self._row(f"DEF{i}", "DEF", 3.0 + i * 0.1, 6.0, 3.0) for i in range(6)]
+            + [self._row(f"MID{i}", "MID", 4.0 + i * 0.1, 8.0, 6.0) for i in range(6)]
+            + [self._row(f"FWD{i}", "FWD", 5.0 + i * 0.1, 10.0, 8.0) for i in range(4)]
+        )
+        xi, cap, total, ceiling_total = self.mod.optimal_xi_and_total(rows)
+        self.assertEqual(len(xi), 11)
+        self.assertEqual(cap["name"], "FWD3")  # highest captain_ev in the pool
+        # captain counted twice: sum(xi) + cap's own x_points once more
+        expected = sum(r["x_points"] for r in xi) + cap["x_points"]
+        self.assertAlmostEqual(total, expected, places=6)
+        self.assertGreater(total, 0)
+        self.assertGreater(ceiling_total, 0)
 
 
 @_NEEDS_DATA

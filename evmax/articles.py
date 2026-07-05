@@ -85,7 +85,7 @@ def build_rows(means: dict, samples: dict, meta: dict, kickoffs: dict) -> list:
         if not m or not m.get("position"):
             continue
         xp = fifa_model.expected_points(ev)
-        ceiling = fifa_model.ceiling_points(ev, samples.get(name, []))
+        ceiling = fifa_model.ceiling_points_clamped(ev, samples.get(name, []))
         price = m.get("price")
         rows.append({
             "name": name,

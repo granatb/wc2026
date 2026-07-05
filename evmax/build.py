@@ -43,6 +43,20 @@ _COLUMNS = {
     "differentials":     ["x_points", "ceiling", "captain_ev", "price", "value", "ownership_pct"],
 }
 
+# Articles whose chart metric is points-denominated get a floor+ceiling reach
+# bar (solid = the metric, faint = ceiling) so the boom/bust range reads at a
+# glance -- "value" (pts/million), "priority_score" (composite VOR) and
+# "p_clean_sheet" (a probability) are different units, so mixing in raw
+# ceiling points would be dimensionally wrong; those keep a single-metric bar.
+# captains charts captain_ev (2x a single appearance), so its ceiling
+# companion needs the same doubling to land on the same scale.
+_CEILING_PAIRED_METRIC = {
+    "captains":           ("captain_ev", 2.0),
+    "defenders":          ("x_points", 1.0),
+    "risky":              ("x_points", 1.0),  # floor+reach instead of ceiling-only
+    "blowout-transfers":  ("x_points", 1.0),
+}
+
 # XI articles get pitch SVG; others get an EV bar. best-xi is kept in this set for
 # back-compat (in case some future code re-derives a viz for an old snapshot);
 # wildcard is the only one actually published now that best-xi is merged into it.
@@ -180,6 +194,16 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     render.SITE_URL = url
     generated_at = datetime.now(timezone.utc).isoformat()
     date_str = _format_date(generated_at)
+
+    # Rounds don't get overwritten -- build() never clears `out`, so every
+    # round's /round/{N}/ pages built into this same output dir persist across
+    # runs and get re-uploaded on every deploy. The round switcher (landing +
+    # article pages) is generated from what's actually on disk, so it never
+    # links to a round that isn't there.
+    round_root = os.path.join(out, "round")
+    available_rounds = sorted(
+        {int(d) for d in os.listdir(round_root) if d.isdigit()} | {fantasy_round}
+    ) if os.path.isdir(round_root) else [fantasy_round]
 
     # --- Simulate ---
     players, match_samples = engine_events.simulate_round(
@@ -319,7 +343,13 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             # table below has everything -- so cap at 10 rows and keep the
             # default (denser) sizing; the landing page's featured chart below
             # gets its own bigger, easier-to-read sizing.
-            viz_html = render.ev_bar(entries, columns[0], max_rows=_ARTICLE_VIZ_MAX_ROWS)
+            pair = _CEILING_PAIRED_METRIC.get(slug)
+            if pair:
+                pair_metric, pair_scale = pair
+                viz_html = render.ev_bar(entries, pair_metric, max_rows=_ARTICLE_VIZ_MAX_ROWS,
+                                         reach_metric="ceiling", reach_scale=pair_scale)
+            else:
+                viz_html = render.ev_bar(entries, columns[0], max_rows=_ARTICLE_VIZ_MAX_ROWS)
 
         # JSON
         extra_fields = {"squad": wildcard_meta} if slug == "wildcard" else None
@@ -350,7 +380,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
           render.article_page(fantasy_round, slug, title, prose, entries,
                               columns, json_url, viz_html,
                               generated_at=generated_at, date_str=date_str,
-                              show_table=not is_matches))
+                              show_table=not is_matches,
+                              available_rounds=available_rounds))
 
         # Markdown twin (agent-facing content-only article, llms.txt convention)
         w(f"/round/{fantasy_round}/{slug}.md",
@@ -422,7 +453,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # denser in-article default -- it's the first thing a visitor sees.
     captains_viz = render.ev_bar(
         captains_entries[:_FEATURED_VIZ_MAX_ROWS], captains_cols[0],
-        width=400, row_h=40, label_size=15, value_size=14, bar_h=22)
+        width=400, row_h=40, label_size=15, value_size=14, bar_h=22,
+        reach_metric="ceiling", reach_scale=2.0)
 
     featured = {
         "slug": "captains",
@@ -481,7 +513,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                             "href": f"/round/{fantasy_round}/fixtures/"})
 
     landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str,
-                                       fixtures=entries_map["matches"], quick_picks=quick_picks)
+                                       fixtures=entries_map["matches"], quick_picks=quick_picks,
+                                       available_rounds=available_rounds)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 

@@ -222,6 +222,26 @@ _STYLE = (
     ".pagelabel::after{content:'';flex:1;border-top:1px solid var(--line)}"
     ".live-tag{color:var(--acc);font-size:11px;font-weight:700;letter-spacing:1.5px;"
     "text-transform:uppercase}"
+    # hero-actions: the CTA + round switcher above the fold on the landing page.
+    ".hero-actions{display:flex;align-items:center;justify-content:space-between;"
+    "gap:16px;flex-wrap:wrap;margin-bottom:22px}"
+    ".rate-cta{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);"
+    "font-size:15px;font-weight:800;color:#fff;background:var(--green);"
+    "padding:12px 22px;border-radius:10px;white-space:nowrap}"
+    ".rate-cta:hover{background:var(--greend)}"
+    ".rate-cta .arrow{transition:transform .15s}"
+    ".rate-cta:hover .arrow{transform:translateX(3px)}"
+    # round-switcher: pill row of every built round, also used (smaller) at the
+    # top of article pages so old rounds stay reachable once the feed moves on.
+    ".round-switcher{display:flex;align-items:center;gap:6px;flex-wrap:wrap}"
+    ".round-switcher .rs-label{font-size:11px;font-weight:700;letter-spacing:1px;"
+    "text-transform:uppercase;color:var(--ink3);margin-right:2px}"
+    ".round-tab{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--ink2);"
+    "background:var(--chipbg);border:1px solid var(--line);border-radius:20px;"
+    "padding:5px 13px}"
+    ".round-tab:hover{border-color:var(--green);color:var(--greend)}"
+    ".round-tab.active{background:var(--green);border-color:var(--green);color:#fff}"
+    ".art .round-switcher{margin:2px 0 14px}"
     ".feat{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center;padding:6px 0 8px}"
     ".kick{font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;"
     "color:var(--acc);margin-bottom:12px}"
@@ -361,6 +381,26 @@ def _nav_html(active=None):
         f'<a href="/about/"{about_cls}>About</a>',
     ]
     return "<nav>" + "".join(items) + "</nav>"
+
+
+def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/"):
+    """Pill row of every round that's actually been built (see build.py's
+    available_rounds -- computed from what's on disk, so this never links to
+    a round that doesn't exist). Without this, older rounds are still live
+    (build() never overwrites a prior round's pages) but undiscoverable once
+    the landing page moves on -- this is the only on-page way back to them."""
+    if not available_rounds or len(available_rounds) <= 1:
+        return ""
+    tabs = "".join(
+        f'<a class="round-tab{" active" if r == current_round else ""}" '
+        f'href="{base_path.format(r=r)}">R{r}</a>'
+        for r in available_rounds
+    )
+    return f'<div class="round-switcher"><span class="rs-label">Rounds</span>{tabs}</div>'
+
+
+def _rate_cta_html():
+    return ('<a class="rate-cta" href="/rate/">Rate my team <span class="arrow">&rarr;</span></a>')
 
 
 
@@ -520,7 +560,7 @@ def pitch_svg(xi_entries):
 
 
 def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
-          label_size=13, value_size=12, bar_h=15):
+          label_size=13, value_size=12, bar_h=15, reach_metric=None, reach_scale=1.0):
     """Horizontal bar viz (v2-styled). Top entry green, differentials red, others muted.
 
     max_rows: optional cap on the number of rows drawn (belt & braces alongside
@@ -530,15 +570,30 @@ def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
     label_size/value_size/bar_h: sizing knobs so the same emitter can serve two
     very different usages -- a bigger, easier-to-read featured chart on the
     landing page (row_h~40, label 15px, value 14px, bar 22px) and a denser
-    in-article chart (defaults here)."""
+    in-article chart (defaults here).
+
+    reach_metric/reach_scale: when set, the solid bar still encodes `metric`
+    (the floor/EV), but a lighter "reach" segment extends it out to
+    `reach_metric * reach_scale` (the ceiling) -- so every chart reads as
+    "here's the safe floor, here's the boom scenario" at a glance, not just a
+    single number. reach_scale=2.0 is for the captains chart, where the bar's
+    own metric (captain_ev) is already 2x a single appearance, so the ceiling
+    needs the same doubling to stay on the same scale. Only draws the reach
+    segment where it's actually longer than the floor (a defender's model
+    ceiling can dip at/below xPts -- see games/fifa/model.ceiling_points)."""
     entries = list(entries)
     if max_rows is not None:
         entries = entries[:max_rows]
     if not entries:
         return f'<svg viewBox="0 0 {width} 40" xmlns="http://www.w3.org/2000/svg"></svg>'
-    vmax = max((e.get(metric) or 0.0) for e in entries) or 1.0
+    reach_vals = [(e.get(reach_metric) or 0.0) * reach_scale for e in entries] if reach_metric else []
+    vmax = max([e.get(metric) or 0.0 for e in entries] + reach_vals) or 1.0
     label_w, pad = 90, 6
-    bar_max = width - label_w - 50
+    # "X.XX -> Y.YY" runs roughly twice as wide as a single "X.XX" value --
+    # reserve more right-margin so the reach label never clips the viewBox
+    # (SVG content past the viewBox edge is clipped, not wrapped).
+    right_margin = 108 if reach_metric is not None else 58
+    bar_max = width - label_w - right_margin
     height = row_h * len(entries) + 10
     bar_y_off = (row_h - bar_h) // 2
     rows = []
@@ -554,20 +609,44 @@ def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
         val_fill = "#0a4f2d" if is_top else ("#a8331c" if is_diff else "#5d564a")
         nm_fill = "#15140f"
         text_y = y + bar_y_off + bar_h - (bar_h - label_size) / 2 - 2
+        reach_rect = ""
+        end_x = label_w + bw
+        val_text = f"{val:.2f}"
+        if reach_metric is not None:
+            reach_val = (e.get(reach_metric) or 0.0) * reach_scale
+            if reach_val > val:
+                rw = max(0.0, bar_max * (reach_val / vmax) - bw)
+                reach_rect = (
+                    f'<rect x="{end_x:.1f}" y="{y + bar_y_off}" width="{rw:.1f}" '
+                    f'height="{bar_h}" rx="3" fill="{bar_fill}" opacity="0.28"/>'
+                )
+                end_x += rw
+                val_text = f"{val:.2f} → {reach_val:.2f}"
         rows.append(
             f'<text x="0" y="{text_y:.1f}" font-size="{label_size}" font-weight="700" '
             f'fill="{nm_fill}">{label}</text>'
             f'<rect x="{label_w}" y="{y + bar_y_off}" width="{bw:.1f}" height="{bar_h}" rx="3" '
             f'fill="{bar_fill}"/>'
-            f'<text x="{label_w + bw + 6:.1f}" y="{text_y:.1f}" font-size="{value_size}" '
-            f'font-weight="700" fill="{val_fill}">{val:.2f}</text>'
+            f'{reach_rect}'
+            f'<text x="{end_x + 6:.1f}" y="{text_y:.1f}" font-size="{value_size}" '
+            f'font-weight="700" fill="{val_fill}">{val_text}</text>'
         )
+    _friendly = {"x_points": "xPts", "captain_ev": "captain EV", "ceiling": "ceiling"}
+    floor_label = _friendly.get(metric, metric)
+    reach_suffix = " (captained)" if reach_scale == 2.0 else ""
+    legend = (
+        f'<text x="{label_w}" y="{height - 2}" font-size="{max(9, label_size - 4)}" '
+        f'fill="#8a8272">solid = {floor_label} · faint = ceiling upside{reach_suffix}</text>'
+        if reach_metric is not None else ""
+    )
+    if legend:
+        height += 16
     return (
         f'<svg viewBox="0 0 {width} {height}" width="100%" '
         f'xmlns="http://www.w3.org/2000/svg" role="img" '
         f'aria-label="{_html.escape(metric)} chart">'
         f'<g font-family="\'Hanken Grotesk\',sans-serif">'
-        + "".join(rows) +
+        + "".join(rows) + legend +
         f'</g></svg>'
     )
 
@@ -1118,7 +1197,7 @@ def _split_lede(body_html: str) -> tuple:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True):
+                 generated_at=None, date_str=None, show_table=True, available_rounds=None):
     """v2 editorial article page.
 
     Published articles are frozen claims: this page always renders the exact
@@ -1205,6 +1284,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <div class="wrap">
 <article class="art">
 <div class="kick">{kicker_label}</div>
+{_round_switcher_html(available_rounds or [round_no], round_no)}
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
@@ -1367,7 +1447,8 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     )
 
 
-def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None):
+def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
+                 available_rounds=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1407,7 +1488,13 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
             f["stat_value"], f["stat_label"], date_str=date_str)
         for f in feed)
 
+    hero_actions = (
+        f'<div class="hero-actions">'
+        f'{_round_switcher_html(available_rounds or [round_no], round_no)}'
+        f'{_rate_cta_html()}</div>'
+    )
     feat_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
+{hero_actions}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1721,11 +1808,19 @@ _RATE_CSS = (
     "text-transform:uppercase;letter-spacing:.5px;margin-left:6px}"
     ".rate-row .rnote{display:block;font-size:12px;color:var(--ink3);margin-top:2px}"
     ".rate-row b.rx{font-variant-numeric:tabular-nums;white-space:nowrap}"
+    ".rate-row .rx-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:1px}"
+    ".rate-row .rceil{font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums}"
     ".rate-total{display:flex;align-items:baseline;justify-content:space-between;"
     "margin-top:14px;padding-top:14px;border-top:2px solid var(--ink);font-size:17px}"
     ".rate-total b{font-size:22px;color:var(--green)}"
+    ".rate-ceiling-total{margin-top:6px;padding-top:0;border-top:0;font-size:13.5px;"
+    "color:var(--ink3)}"
+    ".rate-ceiling-total b{font-size:15px;color:var(--ink2)}"
     ".rate-capcheck{font-family:var(--serif);font-size:15.5px;color:var(--ink2);"
     "line-height:1.5;margin-top:14px}"
+    ".rate-optimal{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}"
+    ".rate-optimal .rate-capcheck{margin-top:0}"
+    ".rate-optimal .rnote{font-size:12.5px;color:var(--ink3);margin-top:6px;line-height:1.5}"
     ".rate-missing{font-size:13px;color:var(--ink3);margin-top:12px}"
     ".rate-warn{font-size:13px;color:#a8331c;background:#fdeee9;border-radius:8px;"
     "padding:8px 12px;margin-top:12px}"

@@ -425,7 +425,10 @@ _TEMPLATES = {
                if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>Defenders from high-scoring expected fixtures offer "
-            f"attacking returns on top of clean-sheet potential — the best of both worlds.</p></blockquote>"
+            f"attacking returns on top of clean-sheet potential — the best of both worlds.</p></blockquote>\n"
+            + f"<p>That {_fmt_pts(_subject_entry(e, subj)['x_points'])} is the safe floor; the model's "
+            f"ceiling has {html.escape(subj)} at {_fmt_pts(_subject_entry(e, subj)['ceiling'])} if the clean "
+            f"sheet holds and a goal or assist arrives on top.</p>"
         ),
         "bottom_line": lambda e, r, subj: (
             f"Start {subj} — {_fmt_pts(_subject_entry(e, subj)['x_points'])} xPts "
@@ -644,7 +647,10 @@ _TEMPLATES = {
                if len(e) > 1 and e[1]['name'] != subj else ".")
             + "</p>\n"
             + f"<blockquote><p>Fixtures drive points at a World Cup — "
-            f"get the best attackers from the biggest mismatches.</p></blockquote>"
+            f"get the best attackers from the biggest mismatches.</p></blockquote>\n"
+            + f"<p>{_fmt_pts(_subject_entry(e, subj)['x_points'])} is the projected floor; if the "
+            f"goals flow the way the model expects, {html.escape(subj)}'s ceiling stretches to "
+            f"{_fmt_pts(_subject_entry(e, subj)['ceiling'])}.</p>"
         ),
         "bottom_line": lambda e, r, subj: (
             f"Bring in {subj} before the deadline — "

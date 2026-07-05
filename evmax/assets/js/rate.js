@@ -200,6 +200,52 @@
     return "(chain option for " + names + " -- kicks off first, ~" + gapH + "h to react)";
   }
 
+  // --- optimal XI (mirrors evmax.articles.select_xi(rows, "x_points")) -----
+  // Formation-constrained best-XI: fill position minimums first (highest
+  // x_points), then fill remaining slots by best x_points within maxima.
+  var POS_MIN = { GK: 1, DEF: 3, MID: 2, FWD: 1 };
+  var POS_MAX = { GK: 1, DEF: 5, MID: 5, FWD: 3 };
+  var XI_SIZE = 11;
+
+  function optimalXi(players) {
+    var byPos = {};
+    Object.keys(POS_MIN).forEach(function (pos) {
+      byPos[pos] = players
+        .filter(function (p) { return p.position === pos && p.x_points != null; })
+        .sort(function (a, b) { return b.x_points - a.x_points; });
+    });
+    var chosen = [], counts = {};
+    Object.keys(POS_MIN).forEach(function (pos) {
+      var take = byPos[pos].slice(0, POS_MIN[pos]);
+      chosen = chosen.concat(take);
+      counts[pos] = take.length;
+    });
+    var leftovers = [];
+    Object.keys(POS_MIN).forEach(function (pos) {
+      leftovers = leftovers.concat(byPos[pos].slice(POS_MIN[pos]));
+    });
+    leftovers.sort(function (a, b) { return b.x_points - a.x_points; });
+    for (var i = 0; i < leftovers.length && chosen.length < XI_SIZE; i++) {
+      var r = leftovers[i];
+      if ((counts[r.position] || 0) < POS_MAX[r.position]) {
+        chosen.push(r);
+        counts[r.position] = (counts[r.position] || 0) + 1;
+      }
+    }
+    chosen.sort(function (a, b) { return b.x_points - a.x_points; });
+    return chosen;
+  }
+
+  function optimalSummary(players) {
+    var xi = optimalXi(players);
+    if (xi.length < XI_SIZE) return null; // pool too thin (shouldn't happen with a full feed)
+    var cap = xi[0];
+    xi.forEach(function (r) { if ((r.captain_ev || 0) > (cap.captain_ev || 0)) cap = r; });
+    var total = xi.reduce(function (s, r) { return s + (r.x_points || 0); }, 0) + cap.x_points;
+    var ceilingTotal = xi.reduce(function (s, r) { return s + (r.ceiling || 0); }, 0) + cap.ceiling;
+    return { xi: xi, cap: cap, total: total, ceilingTotal: ceilingTotal };
+  }
+
   // --- armband chain (mirrors captain_chain()) -------------------------------
   // The captaincy can be moved mid-round like manual subs: captain an early
   // kickoff, keep the double on a haul, otherwise roll the band to a later
@@ -287,11 +333,14 @@
     });
 
     var bestCap = null;
+    var ceilingTotal = 0;
     for (var j = 0; j < xiRows.length; j++) {
       var r = xiRows[j];
       if (bestCap === null || (r.captain_ev || 0) > (bestCap.captain_ev || 0)) {
         bestCap = r;
       }
+      var isRowCap = capRow && normalize(r.name) === normalize(capRow.name);
+      ceilingTotal += (r.ceiling || 0) * (isRowCap ? 2 : 1);
     }
 
     return {
@@ -300,9 +349,11 @@
       lines: xiLines.concat(benchLines),
       missing: missing,
       total: total,
+      ceilingTotal: ceilingTotal,
       capRow: capRow,
       bestCap: bestCap,
       chain: captainChain(xiRows),
+      optimal: optimalSummary(players),
     };
   }
 
@@ -343,7 +394,10 @@
         left.appendChild(noteEl);
       }
       row.appendChild(left);
-      row.appendChild(el("b", { cls: "rx", text: fmt1(line.row.x_points) + " xPts" }));
+      var right = el("span", { cls: "rx-wrap" });
+      right.appendChild(el("b", { cls: "rx", text: fmt1(line.row.x_points) + " xPts" }));
+      right.appendChild(el("span", { cls: "rceil", text: "ceiling " + fmt1(line.row.ceiling) }));
+      row.appendChild(right);
       card.appendChild(row);
     }
 
@@ -357,9 +411,32 @@
     totalRow.appendChild(el("b", { text: fmt1(result.total) + " pts" }));
     card.appendChild(totalRow);
 
+    var ceilRow = el("div", { cls: "rate-total rate-ceiling-total" });
+    ceilRow.appendChild(el("span", { text: "Ceiling EV (upside if it all hits)" }));
+    ceilRow.appendChild(el("b", { text: fmt1(result.ceilingTotal) + " pts" }));
+    card.appendChild(ceilRow);
+
     if (result.benchLines.length) {
       card.appendChild(el("p", { cls: "rate-section", text: "Bench" }));
       result.benchLines.forEach(appendLine);
+    }
+
+    if (result.optimal) {
+      var opt = result.optimal;
+      var gap = opt.total - result.total;
+      var gapText = (gap <= 0 ? "+" : "-") + fmt1(Math.abs(gap)) + " vs optimal";
+      var optNames = opt.xi.map(function (r) {
+        return r === opt.cap ? r.name + " (C)" : r.name;
+      }).join(", ");
+      var optBox = el("div", { cls: "rate-optimal" });
+      optBox.appendChild(el("p", {
+        cls: "rate-capcheck",
+        text: "Model's optimal XI this round: " + fmt1(opt.total) + " pts (ceiling " +
+          fmt1(opt.ceilingTotal) + "), captained " + opt.cap.name + " (" +
+          fmt1(opt.cap.captain_ev) + " cEV) — you're " + gapText + ".",
+      }));
+      optBox.appendChild(el("p", { cls: "rnote", text: "Optimal XI: " + optNames }));
+      card.appendChild(optBox);
     }
 
     // Captain check
@@ -431,7 +508,8 @@
       if (line.flag) extras.push(line.flag.text);
       if (line.note) extras.push(line.note);
       var extraStr = extras.length ? "  " + extras.join(" ") : "";
-      out.push("- " + line.row.name + capmark + " — **" + fmt1(line.row.x_points) + " xPts**" + extraStr);
+      out.push("- " + line.row.name + capmark + " — **" + fmt1(line.row.x_points) + " xPts** (ceiling " +
+        fmt1(line.row.ceiling) + ")" + extraStr);
     }
 
     if (result.xiLines.length) {
@@ -439,11 +517,25 @@
       result.xiLines.forEach(pushLine);
       out.push("");
     }
-    out.push("**Projected total: " + fmt1(result.total) + " pts** (XI only, captain doubled)");
+    out.push("**Projected total: " + fmt1(result.total) + " pts** (XI only, captain doubled)  ·  " +
+      "**ceiling EV: " + fmt1(result.ceilingTotal) + " pts** (upside if it all hits)");
     if (result.benchLines.length) {
       out.push("");
       out.push("Bench:");
       result.benchLines.forEach(pushLine);
+    }
+    if (result.optimal) {
+      var opt = result.optimal;
+      var gap = opt.total - result.total;
+      var gapText = (gap <= 0 ? "+" : "-") + fmt1(Math.abs(gap)) + " vs optimal";
+      var optNames = opt.xi.map(function (r) {
+        return r === opt.cap ? r.name + " (C)" : r.name;
+      }).join(", ");
+      out.push("");
+      out.push("**Model's optimal XI this round: " + fmt1(opt.total) + " pts** (ceiling " +
+        fmt1(opt.ceilingTotal) + "), captained " + opt.cap.name + " (" +
+        fmt1(opt.cap.captain_ev) + " cEV) — you're " + gapText + ".");
+      out.push("Optimal XI: " + optNames);
     }
     if (result.capRow && result.bestCap) {
       if (normalize(result.capRow.name) === normalize(result.bestCap.name)) {

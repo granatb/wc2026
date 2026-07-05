@@ -3,7 +3,7 @@
   "round": 5,
   "article": "wildcard",
   "title": "Best XI & wildcard draft — the optimal squad under budget — Round 5",
-  "generated_at": "2026-07-04T12:51:50.420146+00:00",
+  "generated_at": "2026-07-04T14:14:23.450145+00:00",
   "sims": 50000,
   "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
   "entries": [

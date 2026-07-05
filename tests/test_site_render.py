@@ -170,6 +170,28 @@ class HtmlTest(unittest.TestCase):
         # No per-article nav links (old nav parameter removed)
         self.assertNotIn("/round/3/captains/", h.split('<nav>')[1].split('</nav>')[0])
 
+    def test_article_page_round_switcher_links_to_round_landing_not_slug(self):
+        h = render.article_page(
+            round_no=5, article="captains",
+            title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html,
+            available_rounds=[3, 5])
+        self.assertIn('class="round-switcher"', h)
+        # links to each round's landing page, never a same-slug guess that
+        # could 404 on a round where this article didn't exist yet
+        self.assertIn('href="/round/3/"', h)
+        self.assertIn('href="/round/5/"', h)
+        self.assertNotIn('href="/round/3/captains/"', h)
+
+    def test_article_page_no_switcher_for_single_round(self):
+        h = render.article_page(
+            round_no=5, article="captains",
+            title="Best captain picks — Round 5",
+            prose=self.prose, entries=self.entries, columns=["captain_ev", "x_points"],
+            json_url="/api/round/5/captains.json", viz_html=self.viz_html)
+        self.assertNotIn('class="round-switcher"', h)  # CSS rule is always present; the element isn't
+
     def test_article_page_has_article_schema_and_prose_headline(self):
         h = render.article_page(
             round_no=3, article="captains",
@@ -339,6 +361,22 @@ class HtmlTest(unittest.TestCase):
         # Fixed nav has Home and About
         self.assertIn('href="/"', h)
         self.assertIn('href="/about/"', h)
+
+    def test_landing_has_rate_cta_and_no_switcher_for_single_round(self):
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
+        h = render.landing_page(round_no=5, featured=featured, feed=[])
+        self.assertIn('class="rate-cta"', h)
+        self.assertIn('href="/rate/"', h)
+        self.assertIn("Rate my team", h)
+        self.assertNotIn('class="round-switcher"', h)  # CSS rule is always present; the element isn't  # only one round -- nothing to switch to
+
+    def test_landing_round_switcher_links_every_built_round(self):
+        featured = {"slug": "captains", "prose": _SAMPLE_PROSE, "viz_html": self.viz_html}
+        h = render.landing_page(round_no=5, featured=featured, feed=[], available_rounds=[3, 5])
+        self.assertIn('class="round-switcher"', h)
+        self.assertIn('href="/round/3/"', h)
+        self.assertIn('href="/round/5/"', h)
+        self.assertIn('round-tab active', h)  # current round marked
 
     def test_landing_with_fixtures_uses_grid_areas_and_fold_label(self):
         fixtures = [
