@@ -1,7 +1,8 @@
-"""Tests for the /rate/ tool: the self-hosted JS asset, and (when local data/
-caches are available) an end-to-end smoke build of the players.json feed and
-/rate/ page."""
+"""Tests for the /rate/ tool: the self-hosted JS asset, the CLI's pure helper
+functions (name matching + sub-chain notes), and (when local data/ caches are
+available) an end-to-end smoke build of the players.json feed and /rate/ page."""
 
+import importlib.util
 import json
 import os
 import re
@@ -13,6 +14,14 @@ from evmax import build, render
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _JS_PATH = os.path.join(_REPO_ROOT, "evmax", "assets", "js", "rate.js")
+_CLI_PATH = os.path.join(_REPO_ROOT, "scripts", "rate_team.py")
+
+
+def _load_rate_team_module():
+    spec = importlib.util.spec_from_file_location("rate_team_cli", _CLI_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 # Integration tests against the REAL local caches (data/ is gitignored, absent in CI).
 _HAS_LIVE_DATA = os.path.exists(os.path.join(_REPO_ROOT, "data", "schedule.json"))
@@ -65,6 +74,92 @@ class RateJsAssetTest(unittest.TestCase):
         self.assertIn("normalize(\"NFD\")", self.js)
         self.assertIn("toLowerCase", self.js)
 
+    def test_parses_bench_tag(self):
+        self.assertIn('"(b)"', self.js)
+
+    def test_has_chain_note_and_xi_only_total_label(self):
+        self.assertIn("chainNote", self.js)
+        self.assertIn("XI only", self.js)
+
+
+class RateTeamCliChainNoteTest(unittest.TestCase):
+    """Unit tests for the CLI's pure helpers -- no engine/network needed, so
+    these run in CI. chain_note() is the sub-chain logic: a bench player
+    isn't a wasted slot if a same-position XI starter kicks off earlier,
+    since manual subs (unlike DNP-only autosubs) are allowed up to the
+    round's last kickoff."""
+
+    def setUp(self):
+        self.mod = _load_rate_team_module()
+
+    def _row(self, name, position, kickoff):
+        return {"name": name, "position": position, "x_points": 5.0,
+                "captain_ev": 10.0, "kickoff": kickoff}
+
+    def test_earlier_same_position_starter_gives_chain_note(self):
+        starter = self._row("Early Guy", "FWD", "2026-07-06T19:00:00+00:00")
+        bench = self._row("Late Guy", "FWD", "2026-07-07T16:00:00+00:00")
+        note = self.mod.chain_note(bench, [starter])
+        self.assertIn("Early Guy", note)
+        self.assertIn("chain option", note)
+        self.assertIn("21h", note)  # 19:00 Jul 6 -> 16:00 Jul 7 = 21h
+
+    def test_no_note_when_bench_kicks_off_first(self):
+        starter = self._row("Later Starter", "FWD", "2026-07-07T16:00:00+00:00")
+        bench = self._row("Earlier Bench", "FWD", "2026-07-06T19:00:00+00:00")
+        self.assertEqual(self.mod.chain_note(bench, [starter]), "")
+
+    def test_no_note_across_different_positions(self):
+        starter = self._row("Defender", "DEF", "2026-07-06T19:00:00+00:00")
+        bench = self._row("Forward", "FWD", "2026-07-07T16:00:00+00:00")
+        self.assertEqual(self.mod.chain_note(bench, [starter]), "")
+
+    def test_no_note_without_kickoff_data(self):
+        starter = self._row("Starter", "FWD", "2026-07-06T19:00:00+00:00")
+        bench = {"name": "Bench Guy", "position": "FWD", "x_points": 5.0,
+                  "captain_ev": 10.0, "kickoff": None}
+        self.assertEqual(self.mod.chain_note(bench, [starter]), "")
+
+
+class CaptainChainTest(unittest.TestCase):
+    """captain_chain(): the armband can be rolled forward mid-round, so the
+    tool should recommend a kickoff-ordered chain ending at the best static
+    captain, with earlier links included only when their ceiling beats the
+    anchor's single xPts (a haul worth locking)."""
+
+    def setUp(self):
+        self.mod = _load_rate_team_module()
+
+    def _row(self, name, xp, cev, ceil, kickoff):
+        return {"name": name, "position": "FWD", "x_points": xp,
+                "captain_ev": cev, "ceiling": ceil, "kickoff": kickoff}
+
+    def test_chain_orders_early_links_before_anchor(self):
+        mbappe = self._row("Mbappe", 6.1, 12.2, 13.0, "2026-07-04T21:00:00+00:00")
+        saibari = self._row("Saibari", 5.7, 11.4, 9.2, "2026-07-04T17:00:00+00:00")
+        messi = self._row("Messi", 7.1, 14.2, 13.5, "2026-07-07T16:00:00+00:00")
+        chain = self.mod.captain_chain([mbappe, messi, saibari])
+        self.assertEqual([r["name"] for r in chain], ["Saibari", "Mbappe", "Messi"])
+
+    def test_low_ceiling_early_player_excluded(self):
+        # ceiling below the anchor's xPts -> a "haul" still loses to just
+        # captaining the anchor, so he's not a link
+        plodder = self._row("Plodder", 3.0, 6.0, 5.0, "2026-07-04T17:00:00+00:00")
+        messi = self._row("Messi", 7.1, 14.2, 13.5, "2026-07-07T16:00:00+00:00")
+        self.assertEqual(self.mod.captain_chain([plodder, messi]), [])
+
+    def test_one_link_per_kickoff_slot_highest_cev_wins(self):
+        a = self._row("Lesser", 5.0, 10.0, 9.0, "2026-07-04T21:00:00+00:00")
+        b = self._row("Greater", 6.1, 12.2, 13.0, "2026-07-04T21:00:00+00:00")
+        messi = self._row("Messi", 7.1, 14.2, 13.5, "2026-07-07T16:00:00+00:00")
+        chain = self.mod.captain_chain([a, b, messi])
+        self.assertEqual([r["name"] for r in chain], ["Greater", "Messi"])
+
+    def test_no_chain_when_anchor_kicks_off_first(self):
+        messi = self._row("Messi", 7.1, 14.2, 13.5, "2026-07-04T16:00:00+00:00")
+        late = self._row("Late", 6.1, 12.2, 13.0, "2026-07-07T21:00:00+00:00")
+        self.assertEqual(self.mod.captain_chain([messi, late]), [])
+
 
 @_NEEDS_DATA
 class RateSmokeBuildTest(unittest.TestCase):
@@ -92,6 +187,7 @@ class RateSmokeBuildTest(unittest.TestCase):
             self.assertIn("x_points", p)
             self.assertIn("captain_ev", p)
             self.assertIn("ceiling", p)
+            self.assertIn("kickoff", p)
             self.assertIn("flag", p)
             self.assertNotIn("price", p)
             self.assertNotIn("ownership_pct", p)

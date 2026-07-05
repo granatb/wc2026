@@ -13,11 +13,22 @@
  * <noscript> block in evmax/render.py:rate_page) -- this script only adds
  * the interactive layer on top.
  *
+ * Rates the full 15, not just the XI: tag a name with (B) to mark it as
+ * bench. Bench players get an xPts line but are excluded from the projected
+ * total (XI + doubled captain only) and instead get a "sub chain" note when
+ * a same-position XI starter kicks off earlier -- FIFA's automatic subs are
+ * DNP-only and only fire at round end, but manual subs are allowed up to the
+ * round's last kickoff, so managers routinely start the earlier fixture and
+ * hold a stronger later-kickoff player in reserve. A strong, unflagged bench
+ * player is very often intentional, not a mistake -- check the chain note
+ * before calling it wasted.
+ *
  * Ported 1:1 from scripts/rate_team.py (the Reddit rate-my-team CLI) so the
  * browser tool and the CLI never disagree on name matching or output shape:
  *   _norm()          -> normalize()
  *   match()          -> matchPlayer()
  *   flags_for()       -> flagGlyph()
+ *   chain_note()      -> chainNote()
  *   main()'s per-line -> renderResults() / asPlainText()
  */
 (function () {
@@ -64,7 +75,8 @@
       });
   }
 
-  // --- parse the textarea into cleaned names + captain (mirrors main()) ----
+  // --- parse the textarea into cleaned names + captain + bench flags -------
+  // (mirrors main()'s (C)/(B) tag parsing)
   function parseInput(raw) {
     var names = raw
       .replace(/\n/g, ",")
@@ -74,15 +86,21 @@
 
     var capName = null;
     var cleaned = [];
+    var benchFlags = [];
     for (var i = 0; i < names.length; i++) {
       var n = names[i];
+      var isBench = n.toLowerCase().indexOf("(b)") !== -1;
+      if (isBench) {
+        n = n.toLowerCase().replace("(b)", "").trim();
+      }
       if (n.toLowerCase().indexOf("(c)") !== -1) {
         n = n.toLowerCase().replace("(c)", "").trim();
         capName = n;
       }
       cleaned.push(n);
+      benchFlags.push(isBench);
     }
-    return { names: cleaned, capName: capName };
+    return { names: cleaned, capName: capName, benchFlags: benchFlags };
   }
 
   // --- match a wanted name against the players list (mirrors match()) ------
@@ -123,48 +141,128 @@
     return (Math.round(n * 10) / 10).toFixed(1);
   }
 
+  // --- sub-chain note (mirrors chain_note()) --------------------------------
+  // A bench player is a deliberate "chain" option, not a wasted slot, if some
+  // XI starter of the same position kicks off earlier -- manual subs are
+  // allowed up to the round's last kickoff, so the manager can watch that
+  // match then swap the bench player in before his own kicks off.
+  function chainNote(benchRow, xiRows) {
+    if (!benchRow.kickoff) return "";
+    var benchKo = new Date(benchRow.kickoff).getTime();
+    var earlier = xiRows.filter(function (r) {
+      return r.position === benchRow.position && r.kickoff &&
+        new Date(r.kickoff).getTime() < benchKo;
+    });
+    if (!earlier.length) return "";
+    var lastKo = Math.max.apply(null, earlier.map(function (r) { return new Date(r.kickoff).getTime(); }));
+    var gapH = Math.round((benchKo - lastKo) / 3600000);
+    var names = earlier.map(function (r) { return r.name; }).join(", ");
+    return "(chain option for " + names + " -- kicks off first, ~" + gapH + "h to react)";
+  }
+
+  // --- armband chain (mirrors captain_chain()) -------------------------------
+  // The captaincy can be moved mid-round like manual subs: captain an early
+  // kickoff, keep the double on a haul, otherwise roll the band to a later
+  // player before he kicks off. Chain = best-cEV player per kickoff slot among
+  // those playing before the best static captain (the anchor) whose ceiling
+  // beats the anchor's single xPts; ends at the anchor.
+  function captainChain(xiRows) {
+    var scored = xiRows.filter(function (r) { return r.kickoff; });
+    if (!scored.length) return [];
+    var anchor = scored[0];
+    scored.forEach(function (r) {
+      if ((r.captain_ev || 0) > (anchor.captain_ev || 0)) anchor = r;
+    });
+    var anchorKo = new Date(anchor.kickoff).getTime();
+    var bestAt = {};
+    scored.forEach(function (r) {
+      var ko = new Date(r.kickoff).getTime();
+      if (ko >= anchorKo || (r.ceiling || 0) <= anchor.x_points) return;
+      if (!bestAt[ko] || (r.captain_ev || 0) > (bestAt[ko].captain_ev || 0)) bestAt[ko] = r;
+    });
+    var links = Object.keys(bestAt).map(function (k) { return bestAt[k]; });
+    if (!links.length) return [];
+    links.sort(function (a, b) { return new Date(a.kickoff) - new Date(b.kickoff); });
+    links.push(anchor);
+    return links;
+  }
+
+  function chainAdviceText(chain) {
+    var hops = chain.map(function (r) { return r.name; }).join(" → ");
+    var thrs = [];
+    for (var i = 0; i < chain.length - 1; i++) {
+      var rest = chain.slice(i + 1).map(function (r) { return r.x_points || 0; });
+      thrs.push(Math.round(Math.max.apply(null, rest)));
+    }
+    var allSame = thrs.every(function (t) { return t === thrs[0]; });
+    var rule;
+    if (allSame) {
+      rule = "keep the band wherever it lands on a " + thrs[0] + "+ score, otherwise roll it forward";
+    } else {
+      rule = thrs.map(function (t, i) {
+        return "roll off " + chain[i].name + " if he scores under ~" + t;
+      }).join(", ");
+    }
+    return "Armband chain (captain can be moved mid-round): " + hops + " — " + rule + ".";
+  }
+
   // --- core compute: mirrors main()'s matching/scoring loop -----------------
   function computeRating(players, parsed) {
-    var lines = []; // {row, isCap, flag, note}
+    var xiLines = [], benchLines = []; // {row, isCap, flag, note}
     var missing = [];
-    var matchedRows = [];
+    var xiRows = [];
     var capRow = null;
     var total = 0;
 
     for (var i = 0; i < parsed.names.length; i++) {
       var n = parsed.names[i];
+      var isBench = parsed.benchFlags[i];
       var m = matchPlayer(players, n);
       if (!m.row) {
         missing.push(n);
         continue;
       }
-      matchedRows.push(m.row);
-      var isCap = parsed.capName && normalize(parsed.capName).length > 0 &&
+      var isCap = !isBench && parsed.capName && normalize(parsed.capName).length > 0 &&
         normalize(m.row.name).indexOf(normalize(parsed.capName)) !== -1;
       if (isCap) capRow = m.row;
-      lines.push({
+      var line = {
         row: m.row,
         isCap: !!isCap,
         flag: flagGlyph(m.row),
         note: m.note,
-      });
-      total += m.row.x_points * (isCap ? 2 : 1);
+        bench: isBench,
+      };
+      if (isBench) {
+        benchLines.push(line);
+      } else {
+        xiRows.push(m.row);
+        xiLines.push(line);
+        total += m.row.x_points * (isCap ? 2 : 1);
+      }
     }
 
+    benchLines.forEach(function (line) {
+      var cn = chainNote(line.row, xiRows);
+      if (cn) line.note = line.note ? line.note + " " + cn : cn;
+    });
+
     var bestCap = null;
-    for (var j = 0; j < matchedRows.length; j++) {
-      var r = matchedRows[j];
+    for (var j = 0; j < xiRows.length; j++) {
+      var r = xiRows[j];
       if (bestCap === null || (r.captain_ev || 0) > (bestCap.captain_ev || 0)) {
         bestCap = r;
       }
     }
 
     return {
-      lines: lines,
+      xiLines: xiLines,
+      benchLines: benchLines,
+      lines: xiLines.concat(benchLines),
       missing: missing,
       total: total,
       capRow: capRow,
       bestCap: bestCap,
+      chain: captainChain(xiRows),
     };
   }
 
@@ -193,7 +291,7 @@
       card.appendChild(el("p", { cls: "rate-warn", text: "None of those names matched this round's player pool." }));
     }
 
-    result.lines.forEach(function (line) {
+    function appendLine(line) {
       var row = el("div", { cls: "rate-row" });
       var left = el("span");
       var nameSpan = el("span", { cls: "rn", text: line.row.name });
@@ -207,12 +305,22 @@
       row.appendChild(left);
       row.appendChild(el("b", { cls: "rx", text: fmt1(line.row.x_points) + " xPts" }));
       card.appendChild(row);
-    });
+    }
+
+    if (result.xiLines.length) {
+      card.appendChild(el("p", { cls: "rate-section", text: "Starting XI" }));
+      result.xiLines.forEach(appendLine);
+    }
 
     var totalRow = el("div", { cls: "rate-total" });
-    totalRow.appendChild(el("span", { text: "Projected total (captain doubled)" }));
+    totalRow.appendChild(el("span", { text: "Projected total (XI only, captain doubled)" }));
     totalRow.appendChild(el("b", { text: fmt1(result.total) + " pts" }));
     card.appendChild(totalRow);
+
+    if (result.benchLines.length) {
+      card.appendChild(el("p", { cls: "rate-section", text: "Bench" }));
+      result.benchLines.forEach(appendLine);
+    }
 
     // Captain check
     if (result.capRow && result.bestCap) {
@@ -232,6 +340,10 @@
         text: "Best captain in your squad by the sims: " + result.bestCap.name +
           " (" + fmt1(result.bestCap.captain_ev) + " cEV).",
       }));
+    }
+
+    if (result.chain && result.chain.length > 1) {
+      card.appendChild(el("p", { cls: "rate-capcheck", text: chainAdviceText(result.chain) }));
     }
 
     if (result.missing.length) {
@@ -272,16 +384,27 @@
     out.push("Ran your team through my Monte-Carlo model (" + simsLabel +
       " on de-vigged market odds, Round " + roundNo + "):");
     out.push("");
-    result.lines.forEach(function (line) {
+
+    function pushLine(line) {
       var capmark = line.isCap ? " **(C)**" : "";
       var extras = [];
       if (line.flag) extras.push(line.flag.text);
       if (line.note) extras.push(line.note);
       var extraStr = extras.length ? "  " + extras.join(" ") : "";
       out.push("- " + line.row.name + capmark + " — **" + fmt1(line.row.x_points) + " xPts**" + extraStr);
-    });
-    out.push("");
-    out.push("**Projected total: " + fmt1(result.total) + " pts** (captain doubled)");
+    }
+
+    if (result.xiLines.length) {
+      out.push("Starting XI:");
+      result.xiLines.forEach(pushLine);
+      out.push("");
+    }
+    out.push("**Projected total: " + fmt1(result.total) + " pts** (XI only, captain doubled)");
+    if (result.benchLines.length) {
+      out.push("");
+      out.push("Bench:");
+      result.benchLines.forEach(pushLine);
+    }
     if (result.capRow && result.bestCap) {
       if (normalize(result.capRow.name) === normalize(result.bestCap.name)) {
         out.push("");
@@ -297,6 +420,10 @@
       out.push("");
       out.push("Best captain in your squad by my sims: **" + result.bestCap.name + "** (" +
         fmt1(result.bestCap.captain_ev) + " cEV).");
+    }
+    if (result.chain && result.chain.length > 1) {
+      out.push("");
+      out.push(chainAdviceText(result.chain));
     }
     if (result.missing.length) {
       out.push("");

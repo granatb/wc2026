@@ -15,9 +15,13 @@ DATA_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 DATA_LICENSE_TEXT = ("CC BY 4.0 — free to reuse with attribution to evmax "
                      "(https://evmax.ai)")
 
-# Favicons + mobile theme color, on every page. Google Search shows the favicon next
-# to results (SVG supported); the PNG set covers Safari/Apple-touch and old browsers.
+# Favicons + mobile theme color, on every page. Google Search needs a raster icon
+# of AT LEAST 48px (multiples of 48 preferred) declared via rel="icon" -- its
+# favicon pipeline often skips SVG, and a 32px-only PNG gets you the generic globe
+# in results. So: 192px PNG first for Google, SVG for modern browsers, 32px + 180px
+# for legacy/Apple-touch.
 _HEAD_COMMON = (
+    '<link rel="icon" href="/brand/icon-192.png" type="image/png" sizes="192x192">'
     '<link rel="icon" href="/brand/logo.svg" type="image/svg+xml">'
     '<link rel="alternate icon" href="/brand/icon-32.png" type="image/png">'
     '<link rel="apple-touch-icon" href="/brand/icon-180.png">'
@@ -364,10 +368,15 @@ def _footer_html():
     """Site-wide footer: legal disclaimer + privacy/about links, on every page."""
     return (
         '<footer class="sitefoot"><div class="wrap">'
-        '<p><b>evmax</b> is an independent statistical-analysis project. It is not '
-        'affiliated with, endorsed by, or connected to FIFA, any football federation, '
-        'league, club, or fantasy game operator. All player and team names are used in '
-        'a purely descriptive, informational context.</p>'
+        # One unbreakable clause: "with no affiliation to FIFA" -- never a sentence
+        # boundary between "project" and the entity list. Google's snippet builder
+        # once truncated the old wording ("...project. It is not affiliated with,
+        # endorsed by, or connected to FIFA...") into "...project. connected to
+        # FIFA..." -- the disclaimer INVERTED in search results.
+        '<p><b>evmax</b> is an independent, unofficial statistical-analysis project '
+        'with no affiliation to FIFA, any football federation, league, club, or '
+        'fantasy game operator. All player and team names are used in a purely '
+        'descriptive, informational context.</p>'
         '<p>All projections are our own model estimates (Monte-Carlo simulations on '
         'publicly available market information) and carry no guarantee of accuracy. '
         'Nothing on this site is betting or financial advice. If you choose to bet, '
@@ -1227,7 +1236,7 @@ def hub_page(round_no, nav, highlights):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
-<meta name="description" content="Simulation-based World Cup Fantasy picks for Round {round_no}: best XI, captains, differentials, value and blowout-fixture transfers from 50,000 Monte-Carlo runs.">
+<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1437,7 +1446,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
-<meta name="description" content="Simulation-based World Cup Fantasy analysis for Round {round_no} from 50,000 Monte-Carlo runs.">
+<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
 {og_block}
 <script type="application/ld+json">{org_ld}</script>
 <script type="application/ld+json">{site_ld}</script>
@@ -1553,9 +1562,9 @@ def about_page():
 <p>LLM-friendly context is published at <a href="/llms.txt" style="color:var(--greend)">/llms.txt</a>. Attribution to evmax is requested when republishing figures.</p>
 
 <h2>Independence &amp; disclaimer</h2>
-<p>evmax is an independent statistical-analysis project. It is <b>not affiliated with,
-endorsed by, or connected to FIFA</b>, any football federation, league, club, or fantasy
-game operator. Player and team names appear in a purely descriptive, informational
+<p>evmax is an independent, unofficial statistical-analysis project with <b>no
+affiliation to FIFA</b>, any football federation, league, club, or fantasy game
+operator. Player and team names appear in a purely descriptive, informational
 context, as in any statistics publication.</p>
 <p>Every number on this site is our own model output — Monte-Carlo simulations computed
 from publicly available market information. We do not republish any third-party data
@@ -1770,7 +1779,7 @@ tracking). Prefer no JS? The full projections are at
 
 <form class="rate-form" id="rate-form" data-round="{round_no}" data-players-url="{json_url}">
 <textarea id="team-input" name="team" rows="6"
-placeholder="Messi (C), Mbappé, Cunha, …  — comma or newline separated, (C) marks your captain"></textarea>
+placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline separated, (C) marks captain, (B) marks bench"></textarea>
 <div class="rate-actions">
 <button type="submit" id="rate-btn">Rate my team</button>
 <span class="rate-hint">or press &#8984;/Ctrl + Enter</span>
@@ -1782,7 +1791,12 @@ placeholder="Messi (C), Mbappé, Cunha, …  — comma or newline separated, (C)
 <p class="method"><b>How this works.</b> {METHODOLOGY} Player names are matched against
 this round's projections entirely client-side against
 <a href="{json_url}" style="color:var(--greend)">{json_url}</a> -- no squad is ever sent
-to our servers or anyone else's.</p>
+to our servers or anyone else's. Mark bench players with (B): they're shown with
+projected points but left out of your total, and flagged with a "chain option" note
+when a same-position starter of yours kicks off earlier -- FIFA's automatic subs only
+fire on a did-not-play at the very end of the round, but manual subs are allowed up
+until the round's last kickoff, so a strong bench pick with a later fixture is often a
+deliberate hedge, not a wasted slot.</p>
 </div>
 </div>
 {_footer_html()}

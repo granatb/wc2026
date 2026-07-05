@@ -237,6 +237,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # client-side tool. Guardrail: derived model outputs + name/team/position
     # ONLY. No price, no ownership -- those stay per-player context columns in
     # articles, never in this public bulk feed (see /rate/ build note).
+    # kickoff is included so /rate/ can flag "sub chain" options: a bench
+    # player whose match kicks off later than a same-position starter's can
+    # be manually swapped in after seeing the starter's actual result -- FIFA
+    # allows manual subs up to the round's last kickoff (autosubs are DNP-only
+    # and only fire at round end, so they're not how serious managers play
+    # the bench). See memory/fifa-manual-sub-chains for the full mechanic.
     player_notes = research.load_entries("players", fantasy_round)
     players_feed = [
         {
@@ -246,6 +252,7 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
             "x_points": r["x_points"],
             "captain_ev": r["captain_ev"],
             "ceiling": r["ceiling"],
+            "kickoff": r.get("kickoff"),
             "flag": articles.player_flag(r["name"], player_notes),
         }
         for r in rows
