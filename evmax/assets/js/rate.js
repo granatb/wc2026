@@ -42,9 +42,49 @@
   var btn = document.getElementById("rate-btn");
   var round = form.getAttribute("data-round");
   var playersUrl = form.getAttribute("data-players-url");
+  var datalist = document.getElementById("players-dl");
 
   var playersCache = null; // {round, generated_at, methodology, players: [...]}
   var MAX_NAMES_WARN = 15;
+
+  // Fill the slot-picker's shared datalist as soon as the feed loads, best
+  // projection first, so the browser's autocomplete surfaces the strongest
+  // players at the top of every slot's suggestions.
+  function fillDatalist(players) {
+    if (!datalist || datalist.children.length) return;
+    players
+      .slice()
+      .sort(function (a, b) { return (b.x_points || 0) - (a.x_points || 0); })
+      .forEach(function (p) {
+        var opt = document.createElement("option");
+        opt.value = p.name;
+        opt.label = p.team + " · " + p.position + " · " + fmt1(p.x_points) + " xPts";
+        datalist.appendChild(opt);
+      });
+  }
+
+  // Slot picker -> the same "name (c) / name (b)" text the paste box takes,
+  // so both input modes share one parse + compute path.
+  function slotsAsText() {
+    var rows = Array.prototype.slice.call(form.querySelectorAll(".slot"));
+    var capIdx = -1;
+    var capRadio = form.querySelector('input[name="cap"]:checked');
+    if (capRadio) capIdx = parseInt(capRadio.value, 10);
+    var xiSeen = -1;
+    var parts = [];
+    rows.forEach(function (inp) {
+      var name = (inp.value || "").trim();
+      var isBench = inp.getAttribute("data-bench") === "1";
+      if (!isBench) xiSeen += 1;
+      if (!name) return;
+      if (isBench) {
+        parts.push(name + " (b)");
+      } else {
+        parts.push(xiSeen === capIdx ? name + " (c)" : name);
+      }
+    });
+    return parts.join(", ");
+  }
 
   // --- name normalization (mirrors scripts/rate_team.py _norm) --------------
   function normalize(s) {
@@ -440,9 +480,10 @@
   }
 
   function runRating() {
-    var raw = input.value || "";
+    // slot picker wins when it has anything in it; the paste box is the fallback
+    var raw = slotsAsText() || (input ? input.value : "") || "";
     if (!raw.trim()) {
-      showError("Paste a squad first — names comma or newline separated.");
+      showError("Pick your players above (or paste the squad as text) first.");
       return;
     }
     var parsed = parseInput(raw);
@@ -475,11 +516,24 @@
     runRating();
   });
 
-  input.addEventListener("keydown", function (ev) {
+  form.addEventListener("keydown", function (ev) {
     var isEnter = ev.key === "Enter" || ev.keyCode === 13;
-    if (isEnter && (ev.metaKey || ev.ctrlKey)) {
+    if (!isEnter) return;
+    if (ev.metaKey || ev.ctrlKey) {
       ev.preventDefault();
       runRating();
+    } else if (ev.target && ev.target.classList && ev.target.classList.contains("slot")) {
+      // plain Enter in a slot input shouldn't submit a half-filled squad --
+      // move focus to the next slot instead
+      ev.preventDefault();
+      var slots = Array.prototype.slice.call(form.querySelectorAll(".slot"));
+      var next = slots[slots.indexOf(ev.target) + 1];
+      if (next) next.focus();
     }
   });
+
+  // warm the feed + fill the autocomplete immediately (one same-origin GET)
+  loadPlayers().then(function (data) {
+    fillDatalist(data.players || []);
+  }).catch(function () { /* rated on submit instead; errors surface there */ });
 })();

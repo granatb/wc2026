@@ -1734,6 +1734,28 @@ _RATE_CSS = (
     "cursor:pointer;margin-top:16px}"
     "#rate-copy:hover{border-color:var(--green)}"
     "#rate-error{color:#a8331c;font-size:14px;margin-top:12px}"
+    # slot picker: 15 autocomplete inputs (11 XI + 4 bench) over a shared datalist
+    ".slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));"
+    "gap:8px 10px;margin-bottom:14px}"
+    ".slot-head{grid-column:1/-1;font-size:12px;font-weight:800;text-transform:uppercase;"
+    "letter-spacing:.8px;color:var(--ink2);margin-top:10px;display:flex;align-items:baseline;"
+    "justify-content:space-between;gap:10px}"
+    ".slot-head:first-child{margin-top:0}"
+    ".slot-row{display:flex;align-items:center;gap:6px}"
+    ".slot{flex:1;min-width:0;font-family:var(--sans);font-size:14px;color:var(--ink);"
+    "background:var(--surf);border:1px solid var(--line);border-radius:9px;padding:9px 12px}"
+    ".slot:focus{outline:2px solid var(--green);outline-offset:1px}"
+    ".slot-bench{background:var(--chipbg)}"
+    ".cappick{position:relative;flex:0 0 auto;cursor:pointer}"
+    ".cappick input{position:absolute;opacity:0;pointer-events:none}"
+    ".cappick span{display:inline-flex;align-items:center;justify-content:center;"
+    "width:28px;height:28px;border:1px solid var(--line);border-radius:50%;font-size:12px;"
+    "font-weight:800;color:var(--ink3);background:var(--surf)}"
+    ".cappick input:checked+span{background:var(--green);border-color:var(--green);color:#fff}"
+    ".cappick:hover span{border-color:var(--green)}"
+    ".rate-paste{margin:6px 0 2px}"
+    ".rate-paste summary{font-size:13px;color:var(--ink3);cursor:pointer;margin-bottom:10px}"
+    ".rate-paste summary:hover{color:var(--greend)}"
 )
 
 
@@ -1770,16 +1792,28 @@ def rate_page(round_no: int) -> str:
 <div class="rate-wrap">
 <div class="pagelabel" style="margin-top:34px">Interactive</div>
 <h1>Rate my World Cup fantasy team</h1>
-<p class="stand">Paste your squad — get instant Monte-Carlo projections, captain check
-and injury flags. Nothing leaves your browser.</p>
+<p class="stand">Pick your 15 — get instant Monte-Carlo projections, captain check,
+sub-chain notes and injury flags. Nothing leaves your browser.</p>
 
 <noscript><div class="rate-noscript">This tool needs JavaScript (self-hosted, no
 tracking). Prefer no JS? The full projections are at
 <a href="{json_url}">{json_url}</a> and in every article.</div></noscript>
 
 <form class="rate-form" id="rate-form" data-round="{round_no}" data-players-url="{json_url}">
+<datalist id="players-dl"></datalist>
+<div class="slot-grid" id="slot-grid">
+<div class="slot-head">Starting XI <span class="rate-hint">tap C to captain</span></div>
+{"".join(f'''<div class="slot-row"><input class="slot" list="players-dl" data-bench="0"
+placeholder="Player {i}" autocomplete="off" spellcheck="false"><label class="cappick"
+title="captain"><input type="radio" name="cap" value="{i - 1}"><span>C</span></label></div>''' for i in range(1, 12))}
+<div class="slot-head">Bench <span class="rate-hint">counted separately, chain notes included</span></div>
+{"".join(f'''<div class="slot-row"><input class="slot slot-bench" list="players-dl" data-bench="1"
+placeholder="Bench {i}" autocomplete="off" spellcheck="false"></div>''' for i in range(1, 5))}
+</div>
+<details class="rate-paste"><summary>prefer to paste the whole squad as text?</summary>
 <textarea id="team-input" name="team" rows="6"
 placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline separated, (C) marks captain, (B) marks bench"></textarea>
+</details>
 <div class="rate-actions">
 <button type="submit" id="rate-btn">Rate my team</button>
 <span class="rate-hint">or press &#8984;/Ctrl + Enter</span>
