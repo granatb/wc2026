@@ -551,9 +551,14 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
                             "stat": f"{f0['p_clean_sheet']*100:.0f}% CS",
                             "href": f"/round/{fantasy_round}/fixtures/"})
 
+    # Live "our XI so far" strip: realized vs expected vs ceiling for the
+    # PUBLISHED (frozen) XI's already-played players. None pre-lock / with a
+    # stale feed -- the landing simply omits the strip then.
+    live_xi = backtest.live_xi_progress(fantasy_round)
+
     landing_html = render.landing_page(fantasy_round, featured, feed, date_str=date_str,
                                        fixtures=entries_map["matches"], quick_picks=quick_picks,
-                                       available_rounds=available_rounds)
+                                       available_rounds=available_rounds, live_xi=live_xi)
     w("/index.html", landing_html)
     w(f"/round/{fantasy_round}/index.html", landing_html)
 

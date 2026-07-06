@@ -195,21 +195,31 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
     starter_gk_candidate = gks_by_price[0]
 
     # Cheapest 3 outfielders overall, subject to leaving >= POS_MIN at every
-    # outfield position for the XI. Greedily take the globally cheapest
-    # outfielder first, skipping any pick that would starve a position below
-    # its XI minimum.
+    # outfield position for the XI. Two separate constraints, both required:
+    #   1. the PLAYER POOL must retain enough bodies at that position to fill
+    #      the remaining squad quota (or step 2 can't complete the 15), and
+    #   2. the XI's FORMATION slots must stay legal: the XI at a position is
+    #      SQUAD_QUOTA[pos] minus its benched players, and that must stay
+    #      >= POS_MIN[pos]. This is the constraint the original code missed --
+    #      it only checked the pool, so with hundreds of cheap defenders
+    #      available it happily benched 3 DEFs and published a 2-5-3 XI
+    #      (illegal: minimum 3 defenders).
     outfield_pool = by_pos["DEF"] + by_pos["MID"] + by_pos["FWD"]
     outfield_pool_sorted = sorted(outfield_pool, key=lambda r: r["price"])
     remaining_at_pos = {pos: len(by_pos[pos]) for pos in ("DEF", "MID", "FWD")}
+    bench_count = {pos: 0 for pos in ("DEF", "MID", "FWD")}
     bench_outfield = []
     for r in outfield_pool_sorted:
         if len(bench_outfield) >= 3:
             break
         pos = r["position"]
         if remaining_at_pos[pos] - 1 < POS_MIN[pos]:
-            continue  # would starve the XI's position minimum
+            continue  # would starve the pool below the XI's position minimum
+        if SQUAD_QUOTA[pos] - bench_count[pos] - 1 < POS_MIN[pos]:
+            continue  # would leave the XI itself short at this position
         bench_outfield.append(r)
         remaining_at_pos[pos] -= 1
+        bench_count[pos] += 1
     if len(bench_outfield) < 3:
         raise ValueError("insufficient outfield pool to fill a legal bench")
 
@@ -349,6 +359,18 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
                 key=lambda r: r["x_points"], reverse=True)
     bench_final = sorted([r for r in squad if r.get("_bench")],
                          key=lambda r: r["x_points"], reverse=True)
+
+    # Formation legality gate: a published wildcard XI once shipped as 2-5-3
+    # (illegal, min 3 DEF) because the bench step only guarded the player
+    # pool, not the XI's slots. The construction above should now be safe by
+    # design; this raises rather than ever publishing an illegal lineup again.
+    xi_counts = {pos: sum(1 for r in xi if r["position"] == pos) for pos in POS_MIN}
+    for pos, need in POS_MIN.items():
+        if xi_counts.get(pos, 0) < need or xi_counts.get(pos, 0) > POS_MAX[pos]:
+            raise ValueError(
+                f"wildcard XI violates formation limits at {pos}: "
+                f"{xi_counts.get(pos, 0)} (legal range {need}-{POS_MAX[pos]}); "
+                f"formation {formation_of(xi)}")
     entries = []
     for i, r in enumerate(xi, 1):
         e = {k: v for k, v in r.items() if k != "_bench"}

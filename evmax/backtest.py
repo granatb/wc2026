@@ -146,6 +146,53 @@ def _is_final_status(stage: str) -> bool:
     return any(stage.startswith(p) for p in _FINAL_STATUSES_PREFIXES)
 
 
+def live_xi_progress(round_no: int, snapshots: dict | None = None,
+                     realized: dict | None = None,
+                     finished_teams: set | None = None):
+    """Mid-round progress of the round's PUBLISHED XI (the frozen wildcard
+    snapshot): realized official points so far vs what those same
+    already-played players were projected for, and their combined ceiling.
+
+    This is a live element by design — the published articles stay frozen at
+    lock, but the owner explicitly wants "expected vs realised" reality
+    panels (matches scoreboard, track record, and this XI strip) to update as
+    games finish. Sums cover ONLY the XI players whose team's fixture is
+    final, so expected/ceiling stay comparable to realized (no credit for
+    games not yet played). No captain doubling: the published wildcard XI is
+    graded as a flat XI total (same basis as its xi_xpoints meta).
+
+    Returns {played, total, realized, expected, ceiling} or None when there is
+    no snapshot for the round or nothing has finished yet.
+
+    snapshots/realized/finished_teams are injectable for tests; production
+    callers pass nothing and get the cached feeds.
+    """
+    snapshots = load_snapshots() if snapshots is None else snapshots
+    env = (snapshots.get(round_no) or {}).get("wildcard") \
+        or (snapshots.get(round_no) or {}).get("best-xi")
+    if not env:
+        return None
+    entries = env.get("entries", [])
+    xi = [e for e in entries if e.get("role") == "XI"] or entries[:11]
+    if not xi:
+        return None
+    if finished_teams is None:
+        finished_teams = {t for f in fixtures.by_round(round_no)
+                          if _is_final_status(f.stage) for t in (f.home, f.away)}
+    played = [e for e in xi if e.get("team") in finished_teams]
+    if not played:
+        return None
+    if realized is None:
+        realized = realized_points(round_no)["points"]
+    return {
+        "played": len(played),
+        "total": len(xi),
+        "realized": round(sum(realized.get(e["name"], 0.0) for e in played), 1),
+        "expected": round(sum(e.get("x_points") or 0.0 for e in played), 1),
+        "ceiling": round(sum(e.get("ceiling") or 0.0 for e in played), 1),
+    }
+
+
 def round_status(round_no: int) -> str:
     """'final' | 'pending' | 'no_snapshot'.
 

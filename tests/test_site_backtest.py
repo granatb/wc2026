@@ -406,5 +406,64 @@ class NavTest(unittest.TestCase):
         self.assertIn('class="on"', nav)
 
 
+class LiveXiProgressTest(unittest.TestCase):
+    """backtest.live_xi_progress(): mid-round realized-vs-expected-vs-ceiling
+    for the round's PUBLISHED (frozen) XI, counting only players whose team's
+    fixture is final. All feeds injected -- pure logic under test."""
+
+    def _snapshots(self):
+        entries = [
+            {"name": "A", "team": "France", "role": "XI", "x_points": 6.0, "ceiling": 12.0},
+            {"name": "B", "team": "Morocco", "role": "XI", "x_points": 5.0, "ceiling": 9.0},
+            {"name": "C", "team": "Argentina", "role": "XI", "x_points": 7.0, "ceiling": 13.0},
+            {"name": "D", "team": "France", "role": "Bench", "x_points": 2.0, "ceiling": 2.0},
+        ]
+        return {5: {"wildcard": {"entries": entries}}}
+
+    def test_counts_only_finished_teams_and_sums_all_three(self):
+        out = backtest.live_xi_progress(
+            5, snapshots=self._snapshots(),
+            realized={"A": 9.0, "B": 2.0, "C": 99.0},  # C not played -> ignored
+            finished_teams={"France", "Morocco"})
+        self.assertEqual(out["played"], 2)
+        self.assertEqual(out["total"], 3)          # XI only; bench D excluded
+        self.assertEqual(out["realized"], 11.0)    # 9 + 2
+        self.assertEqual(out["expected"], 11.0)    # 6 + 5
+        self.assertEqual(out["ceiling"], 21.0)     # 12 + 9
+
+    def test_none_when_nothing_finished(self):
+        out = backtest.live_xi_progress(
+            5, snapshots=self._snapshots(), realized={}, finished_teams=set())
+        self.assertIsNone(out)
+
+    def test_none_without_snapshot(self):
+        out = backtest.live_xi_progress(
+            7, snapshots=self._snapshots(), realized={}, finished_teams={"France"})
+        self.assertIsNone(out)
+
+    def test_missing_realized_points_count_as_zero(self):
+        # played (fixture final) but no points posted yet / DNP -> 0, not crash
+        out = backtest.live_xi_progress(
+            5, snapshots=self._snapshots(), realized={},
+            finished_teams={"France", "Morocco"})
+        self.assertEqual(out["realized"], 0.0)
+
+
+class LiveXiStripTest(unittest.TestCase):
+    def test_strip_renders_all_three_numbers_and_link(self):
+        h = render._live_xi_html(
+            {"played": 9, "total": 11, "realized": 42.0, "expected": 47.3,
+             "ceiling": 68.5}, round_no=5)
+        self.assertIn("9/11 played", h)
+        self.assertIn("42", h)
+        self.assertIn("47.3 expected", h)
+        self.assertIn("68.5 ceiling", h)
+        self.assertIn('href="/round/5/wildcard/"', h)
+        self.assertIn("lx-diff down", h)  # 42 < 47.3 -> running under expectation
+
+    def test_empty_when_no_data(self):
+        self.assertEqual(render._live_xi_html(None, 5), "")
+
+
 if __name__ == "__main__":
     unittest.main()

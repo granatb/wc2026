@@ -182,6 +182,28 @@ class WildcardSquadTest(unittest.TestCase):
             counts[e["position"]] = counts.get(e["position"], 0) + 1
         self.assertEqual(counts, {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3})
 
+    def test_xi_formation_is_legal_even_when_cheapest_players_share_a_position(self):
+        # Regression: R5 published a 2-5-3 XI (illegal, min 3 DEF) because the
+        # three globally-cheapest outfielders were all defenders and the bench
+        # step only guarded the player POOL, not the XI's formation slots.
+        # Recreate that shape: defenders far cheaper than everyone else.
+        rows = []
+        rows += [_row(f"GK{i}", "GK", 4.0 - i * 0.1, price=4.5 + i * 0.1) for i in range(3)]
+        rows += [_row(f"DEF{i}", "DEF", 3.0 + i * 0.1, price=3.5 + i * 0.05)
+                for i in range(10)]  # cheapest position by far
+        rows += [_row(f"MID{i}", "MID", 6.0 - i * 0.1, price=8.0 - i * 0.1) for i in range(8)]
+        rows += [_row(f"FWD{i}", "FWD", 7.0 - i * 0.1, price=9.0 - i * 0.1) for i in range(6)]
+        entries, meta = articles.wildcard_squad(rows)
+        xi = [e for e in entries if e["role"] == "XI"]
+        xi_counts = {}
+        for e in xi:
+            xi_counts[e["position"]] = xi_counts.get(e["position"], 0) + 1
+        self.assertGreaterEqual(xi_counts.get("DEF", 0), articles.POS_MIN["DEF"])
+        self.assertGreaterEqual(xi_counts.get("MID", 0), articles.POS_MIN["MID"])
+        self.assertGreaterEqual(xi_counts.get("FWD", 0), articles.POS_MIN["FWD"])
+        self.assertEqual(xi_counts.get("GK", 0), 1)
+        self.assertNotEqual(meta["formation"], "2-5-3")
+
     def test_budget_respected(self):
         entries, meta = articles.wildcard_squad(self._pool(), budget=100.0)
         total = sum(e["price"] for e in entries)

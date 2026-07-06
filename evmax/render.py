@@ -242,6 +242,18 @@ _STYLE = (
     ".round-tab:hover{border-color:var(--green);color:var(--greend)}"
     ".round-tab.active{background:var(--green);border-color:var(--green);color:#fff}"
     ".art .round-switcher{margin:2px 0 14px}"
+    # live-xi: the mid-round "our published XI so far" strip on the landing page.
+    ".live-xi{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;"
+    "background:var(--surf);border:1px solid var(--line);border-radius:12px;"
+    "padding:12px 18px;margin-bottom:22px;font-size:13.5px}"
+    ".live-xi .lx-label{font-weight:700;color:var(--ink2);display:flex;align-items:baseline;gap:8px}"
+    ".live-xi .lx-stats{display:flex;gap:16px;flex-wrap:wrap}"
+    ".live-xi .lx-stat{color:var(--ink3);white-space:nowrap}"
+    ".live-xi .lx-stat b{font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}"
+    ".live-xi .lx-diff{font-size:12px;padding:1px 7px;border-radius:10px;margin-left:2px}"
+    ".live-xi .lx-diff.up{color:var(--greend);background:#eaf5ee}"
+    ".live-xi .lx-diff.down{color:#a8331c;background:#fdeee9}"
+    ".live-xi .lx-link{margin-left:auto;font-weight:600;color:var(--green);font-size:13px;white-space:nowrap}"
     ".feat{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center;padding:6px 0 8px}"
     ".kick{font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;"
     "color:var(--acc);margin-bottom:12px}"
@@ -401,6 +413,33 @@ def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/
 
 def _rate_cta_html():
     return ('<a class="rate-cta" href="/rate/">Rate my team <span class="arrow">&rarr;</span></a>')
+
+
+def _live_xi_html(live_xi: dict, round_no: int) -> str:
+    """Mid-round strip: how the round's PUBLISHED XI (frozen at lock) is doing
+    so far -- realized official points vs what those already-played players
+    were expected to score, vs their combined ceiling. The articles themselves
+    stay frozen; this is one of the site's few deliberately-live reality
+    panels (matches scoreboard, track record, this strip)."""
+    if not live_xi:
+        return ""
+    realized, expected = live_xi["realized"], live_xi["expected"]
+    diff = realized - expected
+    diff_cls = "up" if diff >= 0 else "down"
+    diff_str = f"{'+' if diff >= 0 else '−'}{abs(diff):.1f}"
+    return (
+        f'<div class="live-xi">'
+        f'<span class="lx-label"><span class="live-tag">Live</span> Our XI so far '
+        f'· {live_xi["played"]}/{live_xi["total"]} played</span>'
+        f'<span class="lx-stats">'
+        f'<span class="lx-stat"><b>{realized:.0f}</b> scored</span>'
+        f'<span class="lx-stat">{expected:.1f} expected '
+        f'<b class="lx-diff {diff_cls}">{diff_str}</b></span>'
+        f'<span class="lx-stat">{live_xi["ceiling"]:.1f} ceiling</span>'
+        f'</span>'
+        f'<a class="lx-link" href="/round/{round_no}/wildcard/">The XI &rarr;</a>'
+        f'</div>'
+    )
 
 
 
@@ -1165,6 +1204,18 @@ def track_record_json(record: dict) -> dict:
 _PITCH_ARTICLES = {"best-xi", "wildcard"}
 
 
+# Articles whose chart pairs a floor bar with a faint ceiling reach -- kept in
+# sync with build._CEILING_PAIRED_METRIC (render.py has no import on build.py).
+_CEILING_REACH_ARTICLES = {"captains", "defenders", "risky", "blowout-transfers"}
+
+# One-line reader-facing definition, reused in figcaptions and the article
+# footer. "85th percentile of 50,000 sims" is the honest definition (see
+# games/fifa/model.ceiling_points) phrased for a fantasy reader.
+CEILING_EXPLAINER = (
+    "Ceiling = the 85th-percentile outcome across our 50,000 simulations — "
+    "the score when a player's best realistic game happens, not a fantasy cap.")
+
+
 def _article_fig_caption(article: str, columns: list):
     """Caption text for the figure wrapping an article's viz, or None for
     articles (matches) that render without a figure at all -- the cards are
@@ -1175,8 +1226,11 @@ def _article_fig_caption(article: str, columns: list):
         return "The model's optimal XI · number = projected points (xPts)"
     metric = columns[0] if columns else ""
     metric_label = _COL_LABEL.get(metric, metric)
-    return (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
+    base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
             "red = under 10% owned. Full list in the table below.")
+    if article in _CEILING_REACH_ARTICLES:
+        return f"{base} Solid bar = {metric_label}, faint bar = ceiling. {CEILING_EXPLAINER}"
+    return base
 
 
 # Kept in sync with build._ARTICLE_VIZ_MAX_ROWS (the actual cap applied to the
@@ -1263,6 +1317,11 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
             f'<figcaption>{_html.escape(caption)}</figcaption></figure>'
         )
 
+    # Any article whose table carries a ceiling column gets the one-line
+    # definition in the footer, so the stat is never a bare unexplained number.
+    ceiling_method_html = (
+        f"{_html.escape(CEILING_EXPLAINER)}\n" if "ceiling" in (columns or []) else "")
+
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1296,7 +1355,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <p>{bottom_line}</p>
 {_newsletter_html()}
 <p class="method"><b>How we get these numbers.</b> {METHODOLOGY}
-Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
+{ceiling_method_html}Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
 </article>
 </div>
@@ -1448,7 +1507,7 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
 
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
-                 available_rounds=None):
+                 available_rounds=None, live_xi=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1495,6 +1554,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     )
     feat_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
 {hero_actions}
+{_live_xi_html(live_xi, round_no)}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>

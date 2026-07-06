@@ -24,12 +24,18 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
   - ceiling_ratio → do not print the raw number; if it is below 1.15, say the pick has
     "no big-haul upside" or "a safe floor, no ceiling" (this is structurally true for
     goalkeepers, who cannot score outfield-style points)
-  - Whenever a player entry has BOTH an xPts/captain-EV figure and a ceiling figure, pair
-    them at least once for your one or two most important picks: name the safe floor
-    AND the boom ceiling in the same breath (e.g. "projects a nailed-on 5.1 but a ceiling
-    of 9.8 if he nets"). Readers find this genuinely fun to see, not just a raw number —
-    don't bury it as an afterthought, and don't force it into every single paragraph
-    either, once or twice, on the picks that matter most, is enough.
+  - Whenever you cite a specific pick's projected points (xPts or captain EV) and that
+    entry also carries a ceiling, PAIR the two in the same breath: floor first, ceiling
+    right behind it (e.g. "projects a nailed-on 5.1 with a 9.8 ceiling if he nets").
+    This is the default, not the exception — a bare projected-points figure with the
+    ceiling left unsaid is a missed opportunity. The only place to skip the pairing is
+    a quick list of three or more names in one sentence. Readers find the floor-vs-
+    ceiling range genuinely fun; treat the gap as a story (who is safe but capped, who
+    is volatile but explosive), and call out the widest gap in the data explicitly.
+  - The FIRST time you cite a ceiling figure, briefly say what it means in plain words:
+    it is the player's 85th-percentile outcome across the 50,000 simulations — the
+    realistic best-case game, not a hard cap. One clause is enough (e.g. "a ceiling of
+    9.8 — his 85th-percentile sim"), then use "ceiling" freely afterwards.
   - vor → "value over replacement" (how many more points than a typical player at the
     same position)
   - p_advance → the percentage chance that player's team survives this knockout tie to
