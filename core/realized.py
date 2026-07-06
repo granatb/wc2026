@@ -10,6 +10,12 @@ Event type IDs decoded empirically from the cached stats + known players (kr-tab
   218 = goal (Dembélé=3 hat-trick -> +602k; total 71 ≈ R3 goal count),
   220 = assist (~53 ≈ assist count), 513 = MOTM (24 = 1/match),
   558 = shot on target, 559 = GK save.
+Further ids decoded 2026-07-06 by regressing official FIFA fantasy roundPoints residuals
+(after goals/assists/CS/appearance) on event counts across R1-R5 (n=2706 player-rounds):
+  222 = yellow card (coef -1.04 vs FIFA's -1), 219/223 = red card / own goal (both ~-2.4
+  vs FIFA's -2; which is which is unresolved — both score -2), 465 = penalty save (+2.8
+  vs FIFA's +3, n=4). 556/557 track shot/duel-like volume (no FIFA point value); 348,
+  520, 560, 561, 618 remain undecoded.
 
 Knockout caveat: matchday 3 (R3) was full of dead-rubber rotation (e.g. Argentina rested
 Romero/Enzo/de Paul -> DNP), so the competitive rounds R1/R2 are weighted ALONGSIDE R3 for

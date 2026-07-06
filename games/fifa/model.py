@@ -28,14 +28,18 @@ SCOUTING_OWNERSHIP_CAP = 5.0  # percent
 SOT_PTS = 0.5            # FWD: +1 per 2 shots on target
 SAVE_PTS = 1.0 / 3.0     # GK:  +1 per 3 saves
 CONCEDE_PTS = -1         # GK/DEF: -1 per goal conceded beyond the first
-# MID defensive contribution (+1/3 tackles, +1/2 chances), ROLE-SHAPED by the player's
-# prior shares: tackle volume falls as attacking involvement (goal+assist share) rises,
-# chances created scale with assist share. Anchored so an average mid still nets ~1.25
-# pts/90 — this redistributes tackle↔chance by role, it doesn't change the level.
-MID_TACKLES_MAX = 2.6    # tackles/90 for a pure defensive mid
-MID_TACKLES_K = 4.0      # tackle decay per unit (goal_share + assist_share)
-MID_CHANCES_BASE = 0.8   # baseline chances/90
-MID_CHANCES_K = 5.0      # chances/90 added per unit assist_share
+# MID defensive contribution (+1/3 tackles, +1/2 chances). Calibrated 2026-07-06 against
+# realized FIFA points R1–R5 (n=288 full-90 MID player-rounds; official roundPoints minus
+# goals/assists/CS/appearance/cards): realized stat credit averages 0.84 pts/90 — the old
+# role-shaped constants paid ~1.27/90 to every MID, a +0.44/90 over-credit. The shaping
+# itself had ZERO signal (corr(prior gs+ash, realized credit) = -0.00; OLS |t| < 0.7), so
+# it's flattened: within-MID role differences are carried by goal/assist props, and the
+# realized within-MID spread (ball-winners ~2/90 vs metronomes ~0.3/90) isn't predictable
+# from our priors. Backtest R2–R5: MID MAE 2.20 -> 2.07, Spearman .215 -> .229, all rounds.
+MID_TACKLES_MAX = 1.5    # tackles/90 (flat across roles)
+MID_TACKLES_K = 0.0      # share-based tackle shaping removed — no realized signal
+MID_CHANCES_BASE = 0.68  # chances/90 (flat across roles)
+MID_CHANCES_K = 0.0      # assist-share chances shaping removed — no realized signal
 # NOT in this game: Player of the Match, DEF tackle/CBI points, outside-box bonus.
 # Unmodeled (rare / not sampled): direct-FK goal +1, penalty save +3 (GK), winning a
 # penalty +2, conceding a penalty -1, own goal -2.
@@ -57,8 +61,8 @@ def expected_points(ev: dict) -> float:
         pts += ev["saves"] * SAVE_PTS
         pts += ev["conc_beyond"] * CONCEDE_PTS
     elif pos == "MID":
-        # Role-shaped tackles + chances created (see constants). Attacking mids tackle
-        # less but create more; defensive mids the reverse — total stays ~calibrated.
+        # Flat per-90 tackles + chances credit (see constants — realized-calibrated;
+        # the K terms are 0 until share-based shaping shows signal in the data).
         gs, ash = ev.get("goal_share", 0.0), ev.get("assist_share", 0.0)
         tackles90 = max(0.0, MID_TACKLES_MAX - MID_TACKLES_K * (gs + ash))
         chances90 = MID_CHANCES_BASE + MID_CHANCES_K * ash

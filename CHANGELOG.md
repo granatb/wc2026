@@ -3,6 +3,23 @@
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests`
 (44 tests). App: `streamlit run app.py`.
 
+## 2026-07-06 — MID tackles/chances recalibrated against realized FIFA points
+
+- **FIFA** (`games/fifa/model.py`) — MID non-goal stat credit recalibrated from realized
+  R1–R5 data (official FIFA `roundPoints` joined to Holdet per-round events; residual after
+  goals/assists/CS/appearance/cards isolates the tackles+chances credit, n=288 full-90
+  MID player-rounds). Findings: realized credit averages **0.84 pts/90** vs the ~1.27/90
+  the old constants paid every MID (+0.44/90 over-credit), and the goal/assist-share role
+  shaping had **zero realized signal** (corr −0.00, OLS |t| < 0.7 — the real spread,
+  ball-winners ~2/90 vs metronomes ~0.3/90, isn't predictable from our priors). New
+  constants: flat `1.5` tackles/90 + `0.68` chances/90 (= 0.84 pts/90), shaping K's set
+  to 0. Evidence gate (R2–R5 backtest, identical sims, old vs new): MID MAE 2.20 → 2.07
+  and MID Spearman .215 → .229, improved in **every** round; GK/DEF/FWD untouched; MID
+  cross-position bias now in line with other positions (was relatively over-ranked).
+- **Holdet stat feed** (`core/realized.py` docstring) — three more event ids decoded by
+  regressing FIFA roundPoints residuals on event counts: **222 = yellow card**,
+  **219/223 = red card / own goal**, **465 = penalty save**.
+
 ## 2026-06-24 — R3 prep
 
 - **R3 news research pass** — 23-team parallel web-research workflow (qualification/rotation,

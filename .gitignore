@@ -1,4 +1,5 @@
-data/
+# no trailing slash: also ignores the data->main-checkout symlink used in worktrees
+data
 dist/
 __pycache__/
 *.pyc
