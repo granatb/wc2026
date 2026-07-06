@@ -204,20 +204,28 @@ class OptimalXiTest(unittest.TestCase):
 @_NEEDS_DATA
 class RateSmokeBuildTest(unittest.TestCase):
     """End-to-end smoke build into a temp dir: players.json shape + /rate/
-    page + /js/rate.js all present, matching the CLI's data guardrails."""
+    page + /js/rate.js all present, matching the CLI's data guardrails.
 
-    def setUp(self):
-        self.out = tempfile.mkdtemp(prefix="evmax_rate_test_")
-        self.addCleanup(shutil.rmtree, self.out, ignore_errors=True)
+    ONE build in setUpClass, shared by every test method -- a smoke build is
+    ~1 minute even at 200 sims (odds load + 448 players + 9 articles), so
+    per-test rebuilds of the identical output were pure waste."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.out = tempfile.mkdtemp(prefix="evmax_rate_test_")
         # The reddit kit is an operator artifact written outside `out` -- redirect
         # it too, so the smoke build can't overwrite the live data/reddit/ copy.
-        patcher = mock.patch.object(build, "_REDDIT_DIR",
-                                    os.path.join(self.out, "reddit"))
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        cls._patcher = mock.patch.object(build, "_REDDIT_DIR",
+                                         os.path.join(cls.out, "reddit"))
+        cls._patcher.start()
+        build.build(5, sims=200, out=cls.out, url="https://evmax.ai", use_llm=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._patcher.stop()
+        shutil.rmtree(cls.out, ignore_errors=True)
 
     def test_players_json_has_no_price_or_ownership(self):
-        build.build(5, sims=200, out=self.out, url="https://evmax.ai", use_llm=False)
         path = os.path.join(self.out, "api", "round", "5", "players.json")
         self.assertTrue(os.path.exists(path))
         with open(path, encoding="utf-8") as fh:
@@ -240,7 +248,6 @@ class RateSmokeBuildTest(unittest.TestCase):
             self.assertNotIn("ownership", p)
 
     def test_rate_page_and_js_are_emitted(self):
-        build.build(5, sims=200, out=self.out, url="https://evmax.ai", use_llm=False)
         self.assertTrue(os.path.exists(os.path.join(self.out, "rate", "index.html")))
         self.assertTrue(os.path.exists(os.path.join(self.out, "js", "rate.js")))
         with open(os.path.join(self.out, "rate", "index.html"), encoding="utf-8") as fh:

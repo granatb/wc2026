@@ -365,6 +365,14 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
     return out
 
 
+# _retrospective_entries is a ~1-minute 50k-sim rerun whose inputs (frozen
+# closing odds on disk) and seed are fixed -- the output is deterministic per
+# round. Memoize per process: a build calls it once anyway, but the test
+# suite was recomputing the identical result for every track-record test
+# (7 tests x ~58s was most of the suite's runtime).
+_RETRO_ENTRIES_CACHE: dict[int, dict] = {}
+
+
 def _retrospective_entries(fantasy_round: int) -> dict:
     """Rerun the engine reproducibly from on-disk caches and build the narrow
     {slug: entries} set graded for a retrospective round (captains, best-xi).
@@ -373,6 +381,10 @@ def _retrospective_entries(fantasy_round: int) -> dict:
     finished round are written post-hoc (with the result known), so overlaying
     them here would leak hindsight into a "prediction". Pure odds only.
     """
+    cached = _RETRO_ENTRIES_CACHE.get(fantasy_round)
+    if cached is not None:
+        return cached
+
     from evmax import articles
 
     players, _match_samples = engine_events.simulate_round(
@@ -386,10 +398,12 @@ def _retrospective_entries(fantasy_round: int) -> dict:
     kickoffs = _kickoffs_for_round(fantasy_round)
     rows = articles.build_rows(means, samples, meta, kickoffs)
 
-    return {
+    out = {
         "captains": articles.rank_captains(rows)[:20],
         "best-xi": articles.select_xi(rows, "x_points"),
     }
+    _RETRO_ENTRIES_CACHE[fantasy_round] = out
+    return out
 
 
 def retrospective_round(fantasy_round: int) -> dict:

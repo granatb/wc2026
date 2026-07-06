@@ -367,6 +367,7 @@ _STYLE = (
     ".rail-teams{font-size:14px;font-weight:700;letter-spacing:-.2px}"
     ".rail-ko{font-size:11px;color:var(--ink3);white-space:nowrap;text-align:right}"
     ".rail-score{font-size:18px;font-weight:800;color:var(--ink)}"
+    ".rail-final-line{display:flex;align-items:center;gap:8px;margin-bottom:6px}"
     ".rail-meta{font-size:11px;color:var(--ink3);margin-top:6px}"
     ".rail-link{display:block;margin-top:14px;font-size:13px;font-weight:600;color:var(--green)}"
     "@media(max-width:900px){"
@@ -1460,9 +1461,10 @@ def _fixtures_rail_row(m: dict) -> str:
     .mx-probs/.mx-ph/.mx-pd/.mx-pa classes from the matches renderer so the
     probability bar matches the matches article pixel-for-pixel.
 
-    Line 1: teams + kickoff date/time. Line 2: probs bar (or final score).
-    Line 3 (new): a muted xG / predicted-scoreline caption -- "xG 1.07-1.24 ·
-    pred 1-1" pre-match, "predicted 1-1" under the final score once finished."""
+    Line 1: teams + kickoff date/time. Line 2: probs bar (plus the final score
+    once finished -- the pre-match odds STAY visible so expected-vs-actual can
+    be compared at a glance, that comparison is the whole point of the site).
+    Line 3: a muted xG / predicted-scoreline caption, kept in both states."""
     home_esc = _html.escape(m.get("home", ""))
     away_esc = _html.escape(m.get("away", ""))
     ko_display = _format_kickoff_short(m.get("kickoff", ""))
@@ -1472,29 +1474,32 @@ def _fixtures_rail_row(m: dict) -> str:
         f'{close_tag}</span><span class="rail-ko">{_html.escape(ko_display)}</span></div>'
     )
     score = _html.escape(m.get("top_scoreline", "") or "")
+    p_home = m.get("p_home", 0.0) * 100
+    p_draw = m.get("p_draw", 0.0) * 100
+    p_away = m.get("p_away", 0.0) * 100
+    probs_bar = (
+        '<div class="mx-probs">'
+        f'<div class="mx-ph">H {p_home:.0f}%</div>'
+        f'<div class="mx-pd">D {p_draw:.0f}%</div>'
+        f'<div class="mx-pa">A {p_away:.0f}%</div>'
+        '</div>'
+    )
+    xgh = m.get("exp_home_goals")
+    xga = m.get("exp_away_goals")
+    if xgh is not None and xga is not None:
+        lo, hi = sorted((xgh, xga))
+        xg_meta = f'<div class="rail-meta">xG {lo:.2f}–{hi:.2f} · pred {score}</div>'
+    else:
+        xg_meta = f'<div class="rail-meta">pred {score}</div>' if score else ""
     if m.get("finished") or m.get("final_score"):
         final_score = _html.escape(m.get("final_score", ""))
-        body = (f'<div class="rail-score">{final_score}</div>'
-                f'<span class="mx-badge final">Final</span>')
-        meta = f'<div class="rail-meta">predicted {score}</div>' if score else ""
+        body = (f'<div class="rail-final-line"><span class="rail-score">{final_score}</span>'
+                f'<span class="mx-badge final">Final</span></div>'
+                f'{probs_bar}')
+        meta = xg_meta
     else:
-        p_home = m.get("p_home", 0.0) * 100
-        p_draw = m.get("p_draw", 0.0) * 100
-        p_away = m.get("p_away", 0.0) * 100
-        body = (
-            '<div class="mx-probs">'
-            f'<div class="mx-ph">H {p_home:.0f}%</div>'
-            f'<div class="mx-pd">D {p_draw:.0f}%</div>'
-            f'<div class="mx-pa">A {p_away:.0f}%</div>'
-            '</div>'
-        )
-        xgh = m.get("exp_home_goals")
-        xga = m.get("exp_away_goals")
-        if xgh is not None and xga is not None:
-            lo, hi = sorted((xgh, xga))
-            meta = f'<div class="rail-meta">xG {lo:.2f}–{hi:.2f} · pred {score}</div>'
-        else:
-            meta = ""
+        body = probs_bar
+        meta = xg_meta
     return f'<div class="rail-row">{top_line}{body}{meta}</div>'
 
 

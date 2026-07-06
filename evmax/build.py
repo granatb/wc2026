@@ -527,26 +527,43 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         })
 
     # Sidebar quick picks: one-glance answers, each linking into its article.
+    # Quick picks are ACTIONABLE shortcuts, not published claims (they're not
+    # in the frozen snapshots) -- once a pick's game has kicked off, nobody
+    # can act on it anymore, so each slot falls through to the best candidate
+    # whose match is still upcoming. This is what removed a DNP'd cheap pick
+    # (Chadi Riad, R5) from the rail mid-round: his game was already played.
+    kickoffs = _kickoffs_for_round(fantasy_round)
+    now_iso = generated_at
+
+    def _upcoming(e):
+        ko = e.get("kickoff") or kickoffs.get(e.get("name", ""))
+        return bool(ko) and ko > now_iso
+
+    def _first_upcoming(entries):
+        for e in entries or []:
+            if _upcoming(e):
+                return e
+        return None
+
     quick_picks = []
-    if entries_map.get("captains"):
-        c = entries_map["captains"][0]
+    c = _first_upcoming(entries_map.get("captains"))
+    if c:
         quick_picks.append({"label": "Captain", "name": c["name"],
                             "stat": f"{c['captain_ev']:.1f} EV",
                             "href": f"/round/{fantasy_round}/captains/"})
-    diffs = articles.differentials(rows)
-    if diffs:
-        d = diffs[0]
+    d = _first_upcoming(articles.differentials(rows))
+    if d:
         quick_picks.append({"label": "Differential", "name": d["name"],
                             "stat": f"{d['x_points']:.1f} xPts · {d['ownership_pct']:.0f}%",
                             "href": f"/round/{fantasy_round}/risky/"})
-    budget = [e for e in entries_map.get("efficiency", []) if e.get("tier") == "Budget"]
-    if budget:
-        b = budget[0]
+    b = _first_upcoming(
+        [e for e in entries_map.get("efficiency", []) if e.get("tier") == "Budget"])
+    if b:
         quick_picks.append({"label": "Cheap win", "name": b["name"],
                             "stat": f"{b['price']:.1f}m · {b['value']:.2f}/m",
                             "href": f"/round/{fantasy_round}/efficiency/"})
-    if entries_map.get("fixtures"):
-        f0 = entries_map["fixtures"][0]
+    f0 = _first_upcoming(entries_map.get("fixtures"))
+    if f0:
         quick_picks.append({"label": "Clean sheet", "name": f0["name"],
                             "stat": f"{f0['p_clean_sheet']*100:.0f}% CS",
                             "href": f"/round/{fantasy_round}/fixtures/"})
