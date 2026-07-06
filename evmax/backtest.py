@@ -187,9 +187,14 @@ def live_xi_progress(round_no: int, snapshots: dict | None = None,
     return {
         "played": len(played),
         "total": len(xi),
+        # so-far: only the already-played XI players, so the three numbers
+        # stay comparable to each other
         "realized": round(sum(realized.get(e["name"], 0.0) for e in played), 1),
         "expected": round(sum(e.get("x_points") or 0.0 for e in played), 1),
         "ceiling": round(sum(e.get("ceiling") or 0.0 for e in played), 1),
+        # full-round target: all 11, what the XI is aiming for by round end
+        "expected_total": round(sum(e.get("x_points") or 0.0 for e in xi), 1),
+        "ceiling_total": round(sum(e.get("ceiling") or 0.0 for e in xi), 1),
     }
 
 

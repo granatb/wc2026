@@ -242,18 +242,30 @@ _STYLE = (
     ".round-tab:hover{border-color:var(--green);color:var(--greend)}"
     ".round-tab.active{background:var(--green);border-color:var(--green);color:#fff}"
     ".art .round-switcher{margin:2px 0 14px}"
-    # live-xi: the mid-round "our published XI so far" strip on the landing page.
-    ".live-xi{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;"
+    # live-xi: the mid-round "our published XI" strip on the landing page --
+    # two rows (so-far / full-round target) on a shared 5-column grid so the
+    # expected and ceiling figures line up vertically between the rows.
+    # .lx-stats is display:contents so its three .lx-stat spans participate
+    # in the row grid directly.
+    ".live-xi{display:flex;flex-direction:column;gap:8px;"
     "background:var(--surf);border:1px solid var(--line);border-radius:12px;"
     "padding:12px 18px;margin-bottom:22px;font-size:13.5px}"
+    ".live-xi .lx-row{display:grid;grid-template-columns:1fr 92px 176px 106px 62px;"
+    "align-items:baseline;gap:12px}"
+    ".live-xi .lx-target{border-top:1px dashed var(--line);padding-top:8px;font-size:12.5px}"
     ".live-xi .lx-label{font-weight:700;color:var(--ink2);display:flex;align-items:baseline;gap:8px}"
-    ".live-xi .lx-stats{display:flex;gap:16px;flex-wrap:wrap}"
-    ".live-xi .lx-stat{color:var(--ink3);white-space:nowrap}"
+    ".live-xi .lx-target .lx-label{font-weight:600;color:var(--ink3)}"
+    ".live-xi .lx-stats{display:contents}"
+    ".live-xi .lx-stat{color:var(--ink3);white-space:nowrap;text-align:right}"
     ".live-xi .lx-stat b{font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}"
     ".live-xi .lx-diff{font-size:12px;padding:1px 7px;border-radius:10px;margin-left:2px}"
     ".live-xi .lx-diff.up{color:var(--greend);background:#eaf5ee}"
     ".live-xi .lx-diff.down{color:#a8331c;background:#fdeee9}"
-    ".live-xi .lx-link{margin-left:auto;font-weight:600;color:var(--green);font-size:13px;white-space:nowrap}"
+    ".live-xi .lx-link{font-weight:600;color:var(--green);font-size:13px;"
+    "white-space:nowrap;text-align:right}"
+    "@media(max-width:760px){.live-xi .lx-row{display:flex;flex-wrap:wrap;gap:6px 14px}"
+    ".live-xi .lx-stats{display:flex;gap:14px;flex-wrap:wrap}"
+    ".live-xi .lx-stat{text-align:left}}"
     ".feat{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center;padding:6px 0 8px}"
     ".kick{font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;"
     "color:var(--acc);margin-bottom:12px}"
@@ -427,8 +439,8 @@ def _live_xi_html(live_xi: dict, round_no: int) -> str:
     diff = realized - expected
     diff_cls = "up" if diff >= 0 else "down"
     diff_str = f"{'+' if diff >= 0 else '−'}{abs(diff):.1f}"
-    return (
-        f'<div class="live-xi">'
+    so_far_row = (
+        f'<div class="lx-row">'
         f'<span class="lx-label"><span class="live-tag">Live</span> Our XI so far '
         f'· {live_xi["played"]}/{live_xi["total"]} played</span>'
         f'<span class="lx-stats">'
@@ -440,6 +452,23 @@ def _live_xi_html(live_xi: dict, round_no: int) -> str:
         f'<a class="lx-link" href="/round/{round_no}/wildcard/">The XI &rarr;</a>'
         f'</div>'
     )
+    # second row: what the full XI is aiming for by the end of the round --
+    # only meaningful while games remain; once everyone has played, the
+    # so-far row IS the round total and this would just repeat it.
+    target_row = ""
+    if live_xi["played"] < live_xi["total"] and live_xi.get("expected_total") is not None:
+        target_row = (
+            f'<div class="lx-row lx-target">'
+            f'<span class="lx-label">Full-round target · all {live_xi["total"]}</span>'
+            f'<span class="lx-stats">'
+            f'<span class="lx-stat">&nbsp;</span>'
+            f'<span class="lx-stat">{live_xi["expected_total"]:.1f} expected</span>'
+            f'<span class="lx-stat">{live_xi["ceiling_total"]:.1f} ceiling</span>'
+            f'</span>'
+            f'<span class="lx-link">&nbsp;</span>'
+            f'</div>'
+        )
+    return f'<div class="live-xi">{so_far_row}{target_row}</div>'
 
 
 

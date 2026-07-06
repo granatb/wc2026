@@ -430,6 +430,8 @@ class LiveXiProgressTest(unittest.TestCase):
         self.assertEqual(out["realized"], 11.0)    # 9 + 2
         self.assertEqual(out["expected"], 11.0)    # 6 + 5
         self.assertEqual(out["ceiling"], 21.0)     # 12 + 9
+        self.assertEqual(out["expected_total"], 18.0)  # 6 + 5 + 7 (full XI)
+        self.assertEqual(out["ceiling_total"], 34.0)   # 12 + 9 + 13
 
     def test_none_when_nothing_finished(self):
         out = backtest.live_xi_progress(
@@ -450,16 +452,33 @@ class LiveXiProgressTest(unittest.TestCase):
 
 
 class LiveXiStripTest(unittest.TestCase):
+    def _panel(self, **over):
+        base = {"played": 9, "total": 11, "realized": 42.0, "expected": 47.3,
+                "ceiling": 68.5, "expected_total": 59.3, "ceiling_total": 89.2}
+        base.update(over)
+        return base
+
     def test_strip_renders_all_three_numbers_and_link(self):
-        h = render._live_xi_html(
-            {"played": 9, "total": 11, "realized": 42.0, "expected": 47.3,
-             "ceiling": 68.5}, round_no=5)
+        h = render._live_xi_html(self._panel(), round_no=5)
         self.assertIn("9/11 played", h)
         self.assertIn("42", h)
         self.assertIn("47.3 expected", h)
         self.assertIn("68.5 ceiling", h)
         self.assertIn('href="/round/5/wildcard/"', h)
         self.assertIn("lx-diff down", h)  # 42 < 47.3 -> running under expectation
+
+    def test_second_row_shows_full_round_target(self):
+        h = render._live_xi_html(self._panel(), round_no=5)
+        self.assertIn("Full-round target", h)
+        self.assertIn("59.3 expected", h)
+        self.assertIn("89.2 ceiling", h)
+
+    def test_target_row_hidden_once_all_played(self):
+        # 11/11 played -> so-far IS the round total; the target row would
+        # just repeat it
+        h = render._live_xi_html(self._panel(played=11), round_no=5)
+        self.assertIn("11/11 played", h)
+        self.assertNotIn("Full-round target", h)
 
     def test_empty_when_no_data(self):
         self.assertEqual(render._live_xi_html(None, 5), "")
