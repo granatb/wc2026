@@ -21,6 +21,10 @@ from evmax import articles, backtest, reddit, render, writer
 _GSC_VERIFICATION_FILE = "google8d25fd2122a8aadd.html"
 _GSC_VERIFICATION_CONTENT = "google-site-verification: google8d25fd2122a8aadd.html"
 
+# Where the reddit kit lands (cwd-relative, gitignored). Module-level so tests
+# can patch it and keep smoke builds from overwriting the live operator kit.
+_REDDIT_DIR = os.path.join("data", "reddit")
+
 # ---------------------------------------------------------------------------
 # Per-article column specs (primary metric first, then richer set)
 # ---------------------------------------------------------------------------
@@ -429,9 +433,8 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # data/ is gitignored; this never lands in dist/. Written after articles/prose
     # are built so the kit can pull real captain EV / close-game numbers.
     reddit_kit_text = reddit.reddit_kit(fantasy_round, entries_map, prose_map, date_str)
-    reddit_dir = os.path.join("data", "reddit")
-    os.makedirs(reddit_dir, exist_ok=True)
-    reddit_kit_path = os.path.join(reddit_dir, f"round-{fantasy_round}.md")
+    os.makedirs(_REDDIT_DIR, exist_ok=True)
+    reddit_kit_path = os.path.join(_REDDIT_DIR, f"round-{fantasy_round}.md")
     with open(reddit_kit_path, "w", encoding="utf-8") as fh:
         fh.write(reddit_kit_text)
 
