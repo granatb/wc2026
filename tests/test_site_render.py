@@ -407,8 +407,9 @@ class HtmlTest(unittest.TestCase):
                                 fixtures=fixtures)
         self.assertIn("4 Jul", h)
         self.assertIn("17:00", h)
-        self.assertIn("xG 1.07", h)
-        self.assertIn("1.24", h)
+        # HOME-AWAY order (matches the scoreline), NOT ascending -- a sorted
+        # range once flipped which team the xG belonged to
+        self.assertIn("xG 1.24–1.07", h)
         self.assertIn("pred 1-1", h)
 
 

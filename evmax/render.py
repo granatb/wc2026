@@ -341,9 +341,16 @@ _STYLE = (
     ".nl-form button:hover{background:var(--greend)}"
     ".nl-micro{font-size:12px;color:var(--ink3);margin-top:10px;margin-bottom:0}"
     "@media(max-width:760px){.nl-form{flex-direction:column}.nl-form button{width:100%}}"
+    # Footer: the two disclaimer paragraphs sit side by side filling the wrap
+    # (a lone 76ch column looked stranded/misaligned on wide screens); the
+    # license/links line spans the full width beneath them.
     ".sitefoot{border-top:1px solid var(--line);margin-top:56px;padding:26px 0 40px;background:var(--surf)}"
-    ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;max-width:76ch;margin-bottom:10px}"
+    ".sitefoot .wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px 48px;align-items:start}"
+    ".sitefoot p{font-size:12.5px;color:var(--ink3);line-height:1.65;margin-bottom:10px}"
+    ".sitefoot p:last-child{grid-column:1/-1;border-top:1px solid var(--line);"
+    "padding-top:14px;margin-top:6px;margin-bottom:0}"
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
+    "@media(max-width:760px){.sitefoot .wrap{grid-template-columns:1fr}}"
     ".pitch-mini{width:200px}"
     ".landing-grid{display:grid;grid-template-columns:1fr 320px;gap:48px;"
     "grid-template-areas:\"feat rail\" \"feed rail\";align-items:start}"
@@ -401,7 +408,6 @@ def _nav_html(active=None):
         f'<a href="/"{home_cls}>Home</a>',
         f'<a href="/track-record/"{track_cls}>Track record</a>',
         f'<a href="/rate/"{rate_cls}>Rate my team</a>',
-        '<a class="soon">Build a team</a>',
         '<a class="soon">Analyse a sub</a>',
         f'<a href="/about/"{about_cls}>About</a>',
     ]
@@ -1487,8 +1493,10 @@ def _fixtures_rail_row(m: dict) -> str:
     xgh = m.get("exp_home_goals")
     xga = m.get("exp_away_goals")
     if xgh is not None and xga is not None:
-        lo, hi = sorted((xgh, xga))
-        xg_meta = f'<div class="rail-meta">xG {lo:.2f}–{hi:.2f} · pred {score}</div>'
+        # HOME-AWAY order, same as the scoreline -- an ascending sort here
+        # silently flipped which team the numbers belonged to (Argentina vs
+        # Egypt rendered "xG 0.61-1.97", reading as Egypt favored)
+        xg_meta = f'<div class="rail-meta">xG {xgh:.2f}–{xga:.2f} · pred {score}</div>'
     else:
         xg_meta = f'<div class="rail-meta">pred {score}</div>' if score else ""
     if m.get("finished") or m.get("final_score"):
@@ -1757,10 +1765,12 @@ style="color:var(--greend)">CC BY 4.0</a>: reuse them freely, with attribution t
 
 <h2>Coming soon</h2>
 <div class="chip-row">
-<span class="chip">Build-a-team tool</span>
 <span class="chip">Substitution analysis</span>
 </div>
-<p>We are building interactive tools to help you construct an optimised squad within the budget constraint and to evaluate the expected value of substitution patterns. These will appear in the nav when ready.</p>
+<p>We are building an interactive tool to evaluate the expected value of substitution
+patterns. It will appear in the nav when ready. Squad construction is already live:
+<a href="/rate/" style="color:var(--greend)">Rate my team</a> scores any 15 against
+this round's simulations, including the model's own optimal XI to compare against.</p>
 </div>
 </div>
 {_footer_html()}</body></html>"""
