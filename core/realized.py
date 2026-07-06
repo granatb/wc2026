@@ -48,7 +48,7 @@ def _load_tournament():
     return persons, teams, pl
 
 
-def load(rounds=(1, 2, 3)) -> dict:
+def load(rounds=(1, 2, 3, 4)) -> dict:
     """-> {(norm_name, team): {start_prob, starts, subs, dnp, apps, goals, assists, sot}}"""
     key = tuple(rounds)
     if key in _CACHE:

@@ -1,101 +1,32 @@
 {
-  "_comment": "FINAL R2 squad locked 2026-06-18. Holdet Guld, 'Alwaysss 2nd' (EV-max). 3 subs, 3-5-2.",
+  "_comment": "Updated from R16 screenshot (2026-07-04). Holdet Guld, 'Alwaysss 2nd' (EV-max). Unlimited transfers, 1% fee. Dead: N. Brown + J. Musiala (Germany out in R32).",
   "game": "holdet_gold",
   "team_name": "Alwaysss 2nd",
   "variant": "guld_unlimited_transfers_1pct_fee",
   "_blend": "research_weight + objective live in config.py",
-  "formation": "3-5-2",
-  "cash": 3663642,
-  "total_value": 52995642,
-  "current_round": 3,
-  "captain": "Nicolas Jackson",
-  "r2_transfers_out": [
-    "Cesar Montes (susp) -> Willian Pacho",
-    "Kai Havertz -> Enner Valencia",
-    "Alex Baena (benched) -> Fabian Ruiz"
-  ],
+  "cash": 402616,
+  "total_value": 54858616,
+  "rank": 46909,
+  "top_pct": 32,
+  "current_round": 5,
+  "captain": "Harry Kane",
   "_flags": [
-    "Holdet positions best-guess; confirm if needed."
-  ],
-  "squad": [
-    {
-      "name": "Bart Verbruggen",
-      "team": "Netherlands",
-      "position": "GK",
-      "price": 4630000,
-      "is_captain": false
-    },
-    {
-      "name": "Achraf Hakimi",
-      "team": "Morocco",
-      "position": "DEF",
-      "price": 4450000,
-      "is_captain": false
-    },
-    {
-      "name": "Denzel Dumfries",
-      "team": "Netherlands",
-      "position": "DEF",
-      "price": 5210000,
-      "is_captain": false
-    },
-    {
-      "name": "Maxim De Cuyper",
-      "team": "Belgium",
-      "position": "DEF",
-      "price": 4104000,
-      "is_captain": false
-    },
-    {
-      "name": "Ismael Saibari",
-      "team": "Morocco",
-      "position": "MID",
-      "price": 4115000,
-      "is_captain": false
-    },
-    {
-      "name": "Ibrahim Sangare",
-      "team": "Ivory Coast",
-      "position": "MID",
-      "price": 3043000,
-      "is_captain": false
-    },
-    {
-      "name": "Crysencio Summerville",
-      "team": "Netherlands",
-      "position": "MID",
-      "price": 3418000,
-      "is_captain": false
-    },
-    {
-      "name": "Kevin De Bruyne",
-      "team": "Belgium",
-      "position": "MID",
-      "price": 7046000,
-      "is_captain": false
-    },
-    {
-      "name": "Nicolas Jackson",
-      "team": "Senegal",
-      "position": "FWD",
-      "price": 4548000,
-      "is_captain": true
-    },
-    {
-      "name": "Amad Diallo",
-      "team": "Ivory Coast",
-      "position": "FWD",
-      "price": 3718000,
-      "is_captain": false
-    },
-    {
-      "name": "Sadio Mane",
-      "team": "Senegal",
-      "position": "FWD",
-      "price": 5050000,
-      "is_captain": false
-    }
+    "Dead (Germany eliminated): N. Brown, J. Musiala — must be churned.",
+    "Holdet positions best-guess from layout."
   ],
   "watchlist": [],
-  "notes": "EV-max, w=0.10. 3 subs (Montes susp, Havertz, Baena benched) into blowout spots. Kept Nusa + Swiss trio (no fee-clearing upgrade). Captain Enner Valencia (179k > Oyarzabal 142k)."
+  "notes": "EV-max, w=0.10. Heavy USA/Canada/England stack from R4.",
+  "squad": [
+    {"name": "E. Martinez", "team": "Argentina", "position": "GK", "price": 5384000},
+    {"name": "Tim Ream", "team": "United States", "position": "DEF", "price": 2763000},
+    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2872000, "dead": true},
+    {"name": "Ezri Konsa", "team": "England", "position": "DEF", "price": 4774000},
+    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6723000, "dead": true},
+    {"name": "T. Buchanan", "team": "Canada", "position": "MID", "price": 3621000},
+    {"name": "W. McKennie", "team": "United States", "position": "MID", "price": 3681000},
+    {"name": "M. Tillman", "team": "United States", "position": "MID", "price": 4412000},
+    {"name": "Harry Kane", "team": "England", "position": "FWD", "price": 10435000, "is_captain": true},
+    {"name": "J. David", "team": "Canada", "position": "FWD", "price": 5179000},
+    {"name": "F. Balogun", "team": "United States", "position": "FWD", "price": 4612000}
+  ]
 }

@@ -1,107 +1,32 @@
 {
-  "_comment": "FINAL R2 squad locked 2026-06-18. Holdet Guld, 'Always 2nd 2' (high-variance). Full blowout rebuild, 3-4-3.",
+  "_comment": "Updated from R16 screenshot (2026-07-04). Holdet Guld, 'Always 2nd 2' (high-variance). Unlimited transfers, 1% fee. Dead: N. Brown, J. Musiala, Kai Havertz (Germany out in R32).",
   "game": "holdet_yolo",
   "team_name": "Always 2nd 2",
   "variant": "guld_unlimited_transfers_variance",
   "_blend": "research_weight + ceiling objective live in config.py",
-  "formation": "3-4-3",
-  "cash": 1126995,
-  "total_value": 52245995,
-  "current_round": 3,
-  "captain": "Amad Diallo",
-  "r2_transfers_out": [
-    "Cesar Montes (susp)",
-    "Alex Baena (benched)",
-    "Raul Rangel",
-    "Israel Reyes",
-    "Erik Lira",
-    "M. Ødegaard",
-    "Antonio Nusa",
-    "E. Haaland"
-  ],
+  "cash": 1136270,
+  "total_value": 54342270,
+  "rank": 69044,
+  "top_pct": 47,
+  "current_round": 5,
+  "captain": "Lionel Messi",
   "_flags": [
-    "Verify Felix Nmecha + M. Llorente are STARTING before lock (cheap = bench risk; the Baena lesson). Nmecha's +244k R1 implies he played.",
-    "Holdet positions best-guess; confirm if needed."
-  ],
-  "squad": [
-    {
-      "name": "Yahia Fofana",
-      "team": "Ivory Coast",
-      "position": "GK",
-      "price": 3140000,
-      "is_captain": false
-    },
-    {
-      "name": "Achraf Hakimi",
-      "team": "Morocco",
-      "position": "DEF",
-      "price": 4450000,
-      "is_captain": false
-    },
-    {
-      "name": "Denzel Dumfries",
-      "team": "Netherlands",
-      "position": "DEF",
-      "price": 5210000,
-      "is_captain": false
-    },
-    {
-      "name": "Ibrahim Mbaye",
-      "team": "Senegal",
-      "position": "MID",
-      "price": 4144000,
-      "is_captain": false
-    },
-    {
-      "name": "Maxim De Cuyper",
-      "team": "Belgium",
-      "position": "DEF",
-      "price": 4104000,
-      "is_captain": false
-    },
-    {
-      "name": "Kevin De Bruyne",
-      "team": "Belgium",
-      "position": "MID",
-      "price": 7046000,
-      "is_captain": false
-    },
-    {
-      "name": "Jude Bellingham",
-      "team": "England",
-      "position": "MID",
-      "price": 6291000,
-      "is_captain": false
-    },
-    {
-      "name": "Crysencio Summerville",
-      "team": "Netherlands",
-      "position": "MID",
-      "price": 3418000,
-      "is_captain": false
-    },
-    {
-      "name": "Nicolas Jackson",
-      "team": "Senegal",
-      "position": "FWD",
-      "price": 4548000,
-      "is_captain": false
-    },
-    {
-      "name": "Amad Diallo",
-      "team": "Ivory Coast",
-      "position": "FWD",
-      "price": 3718000,
-      "is_captain": true
-    },
-    {
-      "name": "Sadio Mane",
-      "team": "Senegal",
-      "position": "FWD",
-      "price": 5050000,
-      "is_captain": false
-    }
+    "Dead (Germany eliminated): N. Brown, J. Musiala, Kai Havertz — must be churned.",
+    "Holdet positions best-guess from layout."
   ],
   "watchlist": [],
-  "notes": "Blowout-stacked variance build: Ecuador x3, Spain x4 (cap), Brazil x2, England, Germany — all in 2.0+ xG routs. Cheap røverkøb Nmecha/Llorente fund Raphinha. Captain Oyarzabal (pens); Raphinha/Valencia are higher-ceiling armband options."
+  "notes": "Ceiling objective, w=0.50. USA stack + Messi captain from R4.",
+  "squad": [
+    {"name": "E. Martinez", "team": "Argentina", "position": "GK", "price": 5384000},
+    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2872000, "dead": true},
+    {"name": "Jules Kounde", "team": "France", "position": "DEF", "price": 3832000},
+    {"name": "Alex Freeman", "team": "United States", "position": "DEF", "price": 2994000},
+    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6723000, "dead": true},
+    {"name": "T. Buchanan", "team": "Canada", "position": "MID", "price": 3621000},
+    {"name": "M. Tillman", "team": "United States", "position": "MID", "price": 4412000},
+    {"name": "G. Reyna", "team": "United States", "position": "MID", "price": 3259000},
+    {"name": "F. Balogun", "team": "United States", "position": "FWD", "price": 4612000},
+    {"name": "Kai Havertz", "team": "Germany", "position": "FWD", "price": 6091000, "dead": true},
+    {"name": "Lionel Messi", "team": "Argentina", "position": "FWD", "price": 9406000, "is_captain": true}
+  ]
 }
