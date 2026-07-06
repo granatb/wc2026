@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from evmax import build, render
 
@@ -208,6 +209,12 @@ class RateSmokeBuildTest(unittest.TestCase):
     def setUp(self):
         self.out = tempfile.mkdtemp(prefix="evmax_rate_test_")
         self.addCleanup(shutil.rmtree, self.out, ignore_errors=True)
+        # The reddit kit is an operator artifact written outside `out` -- redirect
+        # it too, so the smoke build can't overwrite the live data/reddit/ copy.
+        patcher = mock.patch.object(build, "_REDDIT_DIR",
+                                    os.path.join(self.out, "reddit"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_players_json_has_no_price_or_ownership(self):
         build.build(5, sims=200, out=self.out, url="https://evmax.ai", use_llm=False)
