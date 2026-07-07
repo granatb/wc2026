@@ -209,8 +209,11 @@ def _preflight(fantasy_round: int) -> None:
     # tie was decided hours earlier and ESPN hadn't priced it yet). Pre-lock
     # builds before every game is priced are legitimate, so this is a loud
     # warning + a re-run instruction, not a failure.
+    # getattr defaults treat objects WITHOUT the attribute (test doubles) as
+    # priced; only a real fixture whose lambda is explicitly None is unpriced.
     unpriced = [f for f in fixtures.by_round(fantasy_round)
-                if f.lam_home is None or f.lam_away is None]
+                if getattr(f, "lam_home", 0) is None
+                or getattr(f, "lam_away", 0) is None]
     if unpriced:
         names = ", ".join(f"{f.home} vs {f.away}" for f in unpriced)
         print(f"\n!!! UNPRICED FIXTURE(S) — coin-flip fallback in effect: {names}\n"

@@ -167,9 +167,23 @@ class RoundStatusTest(unittest.TestCase):
         # Real repo data: round 3 fixtures are all STATUS_FULL_TIME and a snapshot exists.
         self.assertEqual(backtest.round_status(3), "final")
 
-    def test_round_5_is_pending_in_real_data(self):
-        # Real repo data: round 5 fixtures are all STATUS_SCHEDULED.
-        self.assertEqual(backtest.round_status(5), "pending")
+    def test_pending_when_any_fixture_unfinished(self):
+        # Mocked, not real-data: asserting a REAL round is pending is a time
+        # bomb -- it flips to final the night those games finish (R5 did).
+        class _F:
+            def __init__(self, stage): self.stage = stage
+        fx = [_F("STATUS_FULL_TIME"), _F("STATUS_SCHEDULED")]
+        with mock.patch.object(backtest, "load_snapshots", return_value={5: {"captains": {}}}), \
+             mock.patch.object(backtest.fixtures, "by_round", return_value=fx):
+            self.assertEqual(backtest.round_status(5), "pending")
+
+    def test_final_when_all_fixtures_finished(self):
+        class _F:
+            def __init__(self, stage): self.stage = stage
+        fx = [_F("STATUS_FULL_TIME"), _F("STATUS_FULL_TIME")]
+        with mock.patch.object(backtest, "load_snapshots", return_value={5: {"captains": {}}}), \
+             mock.patch.object(backtest.fixtures, "by_round", return_value=fx):
+            self.assertEqual(backtest.round_status(5), "final")
 
 
 class RealizedPointsTest(unittest.TestCase):
@@ -236,11 +250,16 @@ class BuildTrackRecordTest(unittest.TestCase):
         rounds = {r["round"] for r in record["rounds"]}
         self.assertNotIn(3, rounds)
 
-    def test_round_5_is_published_and_pending(self):
+    def test_published_snapshot_rounds_appear_with_kind_published(self):
+        # Round-agnostic: whatever rounds have real snapshots must appear as
+        # kind=published with a valid status. (Asserting a specific round is
+        # "pending" was a time bomb that fired the night its games finished.)
         record = backtest.build_track_record()
         by_round = {r["round"]: r for r in record["rounds"]}
-        self.assertEqual(by_round[5]["status"], "pending")
-        self.assertEqual(by_round[5]["kind"], "published")
+        published = [r for r in by_round.values() if r["kind"] == "published"]
+        self.assertGreater(len(published), 0)
+        for r in published:
+            self.assertIn(r["status"], ("pending", "final"))
 
     def test_round_4_present_as_retrospective_with_note(self):
         fake_entries = {
