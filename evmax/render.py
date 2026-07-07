@@ -5,6 +5,9 @@ import json as _json
 
 SITE_URL = "https://evmax.ai"
 BRAND_SUFFIX = "evmax — fantasy football simulations"
+# <title> suffix: Bing flags titles over ~65 chars ("Title too long" SEO error,
+# 07-06); the descriptive brand phrase lives in descriptions/schema instead.
+TITLE_BRAND = "evmax"
 GSC_META_TAG = (
     '<meta name="google-site-verification" '
     'content="TSaQglsr4AcaNMorvb7CgaHcSLkNhdt4xiaawRluLkQ" />')
@@ -1181,7 +1184,7 @@ def track_record_page(record: dict) -> str:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Every prediction, graded | {BRAND_SUFFIX}</title>
+<title>Every prediction, graded | {TITLE_BRAND}</title>
 <meta name="description" content="evmax grades its own published World Cup Fantasy predictions against official FIFA fantasy points, misses included. No cherry-picking — every round, every article.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -1361,7 +1364,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{_html.escape(title)} | {BRAND_SUFFIX}</title>
+<title>{_html.escape(title)} | {TITLE_BRAND}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
 <link rel="alternate" type="text/markdown" href="/round/{round_no}/{article}.md">
@@ -1410,7 +1413,7 @@ def hub_page(round_no, nav, highlights):
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
+<title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
 <meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -1634,7 +1637,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} — picks, captains, differentials | {BRAND_SUFFIX}</title>
+<title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
 <meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
 {og_block}
 <script type="application/ld+json">{org_ld}</script>
@@ -1709,7 +1712,7 @@ def about_page():
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About | {BRAND_SUFFIX}</title>
+<title>About evmax — fantasy football simulations</title>
 <meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -1780,7 +1783,7 @@ def privacy_page():
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Privacy | {BRAND_SUFFIX}</title>
+<title>Privacy | {TITLE_BRAND}</title>
 <meta name="description" content="evmax sets no cookies, runs no analytics or trackers, and makes no third-party requests. What little processing exists is described here.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -1833,7 +1836,7 @@ def _utility_page(title, kicker, heading, body_html, active=None):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{title} | {BRAND_SUFFIX}</title>
+<title>{title} | {TITLE_BRAND}</title>
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1966,7 +1969,7 @@ def rate_page(round_no: int) -> str:
     function only emits static markup + the <noscript> fallback; it makes no
     server-side prediction of the user's team.
     """
-    title = f"Rate my World Cup fantasy team — instant simulation analysis | {BRAND_SUFFIX}"
+    title = f"Rate my World Cup fantasy team | {TITLE_BRAND}"
     description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
                    "projection, captain check and injury flags -- entirely in your "
                    "browser, nothing uploaded.")

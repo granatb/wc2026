@@ -613,7 +613,10 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
     # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks Google's
     # exact-path verification check. Force this one path to serve as-is.
-    w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n")
+    w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n"
+                     # best-xi merged into wildcard mid-R5; the old URL had
+                     # already been published/crawled, so 301 rather than 404
+                     "/round/5/best-xi/ /round/5/wildcard/ 301\n")
 
     # --- IndexNow key file (see scripts/deploy.sh) ---
     # IndexNow requires a plaintext file at /<key>.txt containing exactly the key,

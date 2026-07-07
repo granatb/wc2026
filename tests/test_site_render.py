@@ -885,13 +885,24 @@ class RatePageTest(unittest.TestCase):
         h = render.rate_page(5)
         self.assertIn("<!doctype html>", h.lower())
         self.assertIn("Rate my World Cup fantasy team", h)
-        self.assertIn(render.BRAND_SUFFIX, h)
         self.assertIn("evmax", h)  # footer present
 
     def test_rate_page_title_and_canonical(self):
         h = render.rate_page(5)
-        self.assertIn("Rate my World Cup fantasy team — instant simulation analysis", h)
+        # Bing flags titles over ~65 chars ("Title too long") -- keep it tight
+        self.assertIn("<title>Rate my World Cup fantasy team | evmax</title>", h)
         self.assertIn('rel="canonical" href="https://evmax.ai/rate/"', h)
+
+    def test_all_page_titles_within_bing_length_limit(self):
+        import re
+        pages = [
+            render.rate_page(5),
+            render.about_page(),
+            render.privacy_page(),
+        ]
+        for h in pages:
+            t = re.search(r"<title>(.*?)</title>", h).group(1)
+            self.assertLessEqual(len(t), 65, f"title too long: {t!r}")
 
     def test_nav_has_rate_link_on_other_pages(self):
         h = render.about_page()

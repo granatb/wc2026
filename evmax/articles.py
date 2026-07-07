@@ -40,9 +40,11 @@ ARTICLES = ["captains", "matches", "fixtures", "transfers", "wildcard", "defende
 ARTICLE_TITLES = {
     "captains": "Best captain picks",
     "matches": "Match predictions & games to watch",
-    "fixtures": "Fixture guide — clean sheets, blowouts and games to avoid",
+    # Keep these short: the <title> becomes "{title} — Round N | evmax" and
+    # Bing errors on titles over ~65 chars ("Title too long", 07-06).
+    "fixtures": "Fixture guide — clean sheets & blowouts",
     "transfers": "Priority transfers this round",
-    "wildcard": "Best XI & wildcard draft — the optimal squad under budget",
+    "wildcard": "Best XI & wildcard squad",
     "best-xi": "Best XI by expected points",
     "defenders": "Best defenders",
     "risky": "Risky chances — highest ceilings",
