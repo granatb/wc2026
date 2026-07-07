@@ -82,6 +82,60 @@ def team_context(fantasy_round: int) -> dict:
     return ctx
 
 
+KNOCKOUT_FIRST_ROUND = 4        # fantasy round of the R32
+KNOCKOUT_FINAL_ROUND = 8        # fantasy round of the final
+COINFLIP_BAND = (0.35, 0.65)    # advance-prob range we call a coin flip
+CONCENTRATION_LIMIT = 2         # >2 players on one coin-flip team = correlated elimination risk
+
+
+def advance_prob(team: str, fantasy_round: int, team_ctx: dict | None = None) -> float:
+    """P(team survives this knockout round): P(win in 90') + 0.5 x P(draw).
+    ET/pens are priced as a coin flip — close enough for slot-life weighting."""
+    ctx = team_ctx if team_ctx is not None else team_context(fantasy_round)
+    if team not in ctx:
+        return 0.0
+    _lf, _la, p_w, p_d, _pl = ctx[team]
+    return p_w + 0.5 * p_d
+
+
+def slot_life(team: str, fantasy_round: int, team_ctx: dict | None = None) -> float:
+    """Expected rounds a squad slot stays alive, counting this one (>= 1.0).
+
+    Survival past the current opponent is priced from the odds (advance_prob);
+    every later round is a neutral 0.5 (future opponents unknowable at lock).
+    Multiplying round-growth by slot_life is the fixture-weighted-portfolio tilt:
+    equal round-EV on France and on a coin-flip team are NOT equal holdings —
+    the France slot keeps earning in later rounds, the coin-flip slot dies with
+    the team (Germany R32, USA R16)."""
+    if not (KNOCKOUT_FIRST_ROUND <= fantasy_round <= KNOCKOUT_FINAL_ROUND):
+        return 1.0                       # group stage: every team plays out the phase
+    p = advance_prob(team, fantasy_round, team_ctx)
+    life, alive = 1.0, p
+    for _ in range(fantasy_round + 1, KNOCKOUT_FINAL_ROUND + 1):
+        life += alive
+        alive *= 0.5
+    return life
+
+
+def concentration_flags(squad: list[dict], fantasy_round: int,
+                        team_ctx: dict | None = None) -> list[tuple[str, int, float]]:
+    """[(team, n_players, advance_prob)] for teams holding > CONCENTRATION_LIMIT of the
+    squad while sitting in the coin-flip band. EV is linear so the mean never shows
+    this, but the downside is correlated: one bad night kills several slots at once."""
+    ctx = team_ctx if team_ctx is not None else team_context(fantasy_round)
+    counts: dict[str, int] = {}
+    for p in squad:
+        counts[p["team"]] = counts.get(p["team"], 0) + 1
+    flags = []
+    for team, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        if n <= CONCENTRATION_LIMIT or team not in ctx:
+            continue
+        p_adv = advance_prob(team, fantasy_round, ctx)
+        if COINFLIP_BAND[0] <= p_adv <= COINFLIP_BAND[1]:
+            flags.append((team, n, p_adv))
+    return flags
+
+
 def expected_growth(ev: dict, name: str, team_ctx: dict | None = None) -> float:
     """Expected kr growth for one player in a round, from mean events + team context.
 
@@ -189,6 +243,13 @@ def print_order_book(label: str, state: dict, fantasy_round: int,
     for p in ranked:
         print(f"    {growth.get(p['name'], 0.0):>10,.0f}  {p['name']:<22} "
               f"{p['team']:<14} {holdet_position(p['name'], p['position'])}")
+
+    if KNOCKOUT_FIRST_ROUND <= fantasy_round <= KNOCKOUT_FINAL_ROUND:
+        for team, n, p_adv in concentration_flags(squad, fantasy_round):
+            print(f"\n  ⚠ CONCENTRATION: {n} players on {team} at P(advance)={p_adv:.0%} "
+                  f"— a coin flip kills {n} slots at once"
+                  + ("" if variance_mode else "; cap coin-flip teams at "
+                     f"{CONCENTRATION_LIMIT} in this game."))
 
     cap = best_captain(squad, growth)
     if cap:

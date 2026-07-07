@@ -3,6 +3,23 @@
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests`
 (44 tests). App: `streamlit run app.py`.
 
+## 2026-07-06 — QF prep: slot-life weighting (the USA lesson)
+
+- **Slot-life weighting** (`games/holdet_common.py`): `advance_prob` (P(win 90') + ½P(draw))
+  and `slot_life` (expected remaining rounds a squad slot stays alive; rounds beyond the
+  current opponent priced at a neutral 0.5). Motivation: equal round-EV on France and on a
+  coin-flip team are not equal holdings — Germany (R32) and the USA (R16) each killed
+  multiple slots at once and cost a fee per slot to rebuild.
+- **Optimiser rebuilt** (`optimize_holdet.py`): objective is now growth × slot_life; live
+  market prices/ownership from `holdet_api` (was: stale `data/holdet_prices.json`); round
+  as a CLI arg (was: hardcoded 2). EV games cap coin-flip teams (advance prob inside
+  `COINFLIP_BAND` 0.35–0.65) at `CONCENTRATION_LIMIT` (2) players; the variance game is
+  exempt (stacking is its strategy).
+- **Concentration flag** in every Holdet order book: warns when >2 players share a
+  coin-flip team in knockouts (correlated elimination risk a linear EV never shows).
+- Tests: `tests/test_slot_life.py` (7). Known wrinkle: abbreviated names in state.json
+  ("E. Martinez") don't match market rows — post-round state sync should use full names.
+
 ## 2026-07-06 — MID tackles/chances recalibrated against realized FIFA points
 
 - **FIFA** (`games/fifa/model.py`) — MID non-goal stat credit recalibrated from realized
