@@ -203,6 +203,21 @@ def _preflight(fantasy_round: int) -> None:
         raise SystemExit("evmax.build preflight failed:\n- " +
                          "\n- ".join(problems))
 
+    # WARN (don't abort) on fixtures with no market odds: the engine falls
+    # back to a symmetric coin-flip prior, which publishes visibly wrong
+    # probabilities (R6 Argentina-Switzerland shipped as 37/26/37 because the
+    # tie was decided hours earlier and ESPN hadn't priced it yet). Pre-lock
+    # builds before every game is priced are legitimate, so this is a loud
+    # warning + a re-run instruction, not a failure.
+    unpriced = [f for f in fixtures.by_round(fantasy_round)
+                if f.lam_home is None or f.lam_away is None]
+    if unpriced:
+        names = ", ".join(f"{f.home} vs {f.away}" for f in unpriced)
+        print(f"\n!!! UNPRICED FIXTURE(S) — coin-flip fallback in effect: {names}\n"
+              f"!!! Projections for these teams' players are unreliable. Re-run\n"
+              f"!!!   python3 manage.py fifa --round {fantasy_round} --refresh --props\n"
+              f"!!! and rebuild once the market posts odds.\n")
+
 
 def _check_rows(rows: list, means: dict, meta: dict) -> None:
     """Diagnose an empty enriched-row set before it corrupts every article.
