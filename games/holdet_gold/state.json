@@ -1,32 +1,86 @@
 {
-  "_comment": "Updated from R16 screenshot (2026-07-04). Holdet Guld, 'Alwaysss 2nd' (EV-max). Unlimited transfers, 1% fee. Dead: N. Brown + J. Musiala (Germany out in R32).",
-  "game": "holdet_gold",
-  "team_name": "Alwaysss 2nd",
-  "variant": "guld_unlimited_transfers_1pct_fee",
-  "_blend": "research_weight + objective live in config.py",
-  "cash": 402616,
-  "total_value": 54858616,
-  "rank": 46909,
-  "top_pct": 32,
-  "current_round": 5,
-  "captain": "Harry Kane",
-  "_flags": [
-    "Dead (Germany eliminated): N. Brown, J. Musiala — must be churned.",
-    "Holdet positions best-guess from layout."
-  ],
-  "watchlist": [],
-  "notes": "EV-max, w=0.10. Heavy USA/Canada/England stack from R4.",
-  "squad": [
-    {"name": "E. Martinez", "team": "Argentina", "position": "GK", "price": 5384000},
-    {"name": "Tim Ream", "team": "United States", "position": "DEF", "price": 2763000},
-    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2872000, "dead": true},
-    {"name": "Ezri Konsa", "team": "England", "position": "DEF", "price": 4774000},
-    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6723000, "dead": true},
-    {"name": "T. Buchanan", "team": "Canada", "position": "MID", "price": 3621000},
-    {"name": "W. McKennie", "team": "United States", "position": "MID", "price": 3681000},
-    {"name": "M. Tillman", "team": "United States", "position": "MID", "price": 4412000},
-    {"name": "Harry Kane", "team": "England", "position": "FWD", "price": 10435000, "is_captain": true},
-    {"name": "J. David", "team": "Canada", "position": "FWD", "price": 5179000},
-    {"name": "F. Balogun", "team": "United States", "position": "FWD", "price": 4612000}
-  ]
+ "_comment": "Synced from executed R16 team (screenshot 07-04) + live R6 prices. Cash exact from screenshot.",
+ "game": "holdet_gold",
+ "team_name": "Alwaysss 2nd",
+ "variant": "guld_unlimited_transfers_1pct_fee",
+ "_blend": "research_weight + objective live in config.py",
+ "cash": 98226,
+ "total_value": 54858616,
+ "rank": 46909,
+ "top_pct": 32,
+ "current_round": 6,
+ "captain": "Lionel Messi",
+ "_flags": [
+  "Dead (team eliminated): Ream/McKennie/Tillman (USA), Cunha (Brazil)"
+ ],
+ "watchlist": [],
+ "notes": "EV-max, w=0.10. Heavy USA/Canada/England stack from R4.",
+ "squad": [
+  {
+   "name": "Emiliano Martinez",
+   "team": "Argentina",
+   "position": "GK",
+   "price": 5430000
+  },
+  {
+   "name": "Jules Kounde",
+   "team": "France",
+   "position": "DEF",
+   "price": 3924000
+  },
+  {
+   "name": "Tim Ream",
+   "team": "United States",
+   "position": "DEF",
+   "price": 2740000
+  },
+  {
+   "name": "Achraf Hakimi",
+   "team": "Morocco",
+   "position": "DEF",
+   "price": 4651000
+  },
+  {
+   "name": "Ismael Saibari",
+   "team": "Morocco",
+   "position": "MID",
+   "price": 4186000
+  },
+  {
+   "name": "Bradley Barcola",
+   "team": "France",
+   "position": "MID",
+   "price": 4632000
+  },
+  {
+   "name": "Weston McKennie",
+   "team": "United States",
+   "position": "MID",
+   "price": 3638000
+  },
+  {
+   "name": "Malik Tillman",
+   "team": "United States",
+   "position": "MID",
+   "price": 4519000
+  },
+  {
+   "name": "Lionel Messi",
+   "team": "Argentina",
+   "position": "FWD",
+   "price": 9640000
+  },
+  {
+   "name": "Ousmane Dembele",
+   "team": "France",
+   "position": "FWD",
+   "price": 6565000
+  },
+  {
+   "name": "Matheus Cunha",
+   "team": "Brazil",
+   "position": "FWD",
+   "price": 5104000
+  }
+ ]
 }

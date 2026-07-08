@@ -1,8 +1,8 @@
 {
-  "_comment": "R5 (=R16): predictions to submit before first kickoff 2026-07-04 17:00 UTC.",
+  "_comment": "R6 (=QF): predictions to submit before first kickoff 2026-07-09 20:00 UTC.",
   "game": "malspillet",
   "_blend": "research_weight + objective live in config.py",
-  "current_round": 5,
+  "current_round": 6,
   "predictions": [],
   "bamse_match_id": null,
   "bamse_locked": false,

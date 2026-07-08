@@ -1,32 +1,86 @@
 {
-  "_comment": "Updated from R16 screenshot (2026-07-04). Holdet Guld, 'Always 2nd 2' (high-variance). Unlimited transfers, 1% fee. Dead: N. Brown, J. Musiala, Kai Havertz (Germany out in R32).",
-  "game": "holdet_yolo",
-  "team_name": "Always 2nd 2",
-  "variant": "guld_unlimited_transfers_variance",
-  "_blend": "research_weight + ceiling objective live in config.py",
-  "cash": 1136270,
-  "total_value": 54342270,
-  "rank": 69044,
-  "top_pct": 47,
-  "current_round": 5,
-  "captain": "Lionel Messi",
-  "_flags": [
-    "Dead (Germany eliminated): N. Brown, J. Musiala, Kai Havertz — must be churned.",
-    "Holdet positions best-guess from layout."
-  ],
-  "watchlist": [],
-  "notes": "Ceiling objective, w=0.50. USA stack + Messi captain from R4.",
-  "squad": [
-    {"name": "E. Martinez", "team": "Argentina", "position": "GK", "price": 5384000},
-    {"name": "N. Brown", "team": "Germany", "position": "DEF", "price": 2872000, "dead": true},
-    {"name": "Jules Kounde", "team": "France", "position": "DEF", "price": 3832000},
-    {"name": "Alex Freeman", "team": "United States", "position": "DEF", "price": 2994000},
-    {"name": "J. Musiala", "team": "Germany", "position": "MID", "price": 6723000, "dead": true},
-    {"name": "T. Buchanan", "team": "Canada", "position": "MID", "price": 3621000},
-    {"name": "M. Tillman", "team": "United States", "position": "MID", "price": 4412000},
-    {"name": "G. Reyna", "team": "United States", "position": "MID", "price": 3259000},
-    {"name": "F. Balogun", "team": "United States", "position": "FWD", "price": 4612000},
-    {"name": "Kai Havertz", "team": "Germany", "position": "FWD", "price": 6091000, "dead": true},
-    {"name": "Lionel Messi", "team": "Argentina", "position": "FWD", "price": 9406000, "is_captain": true}
-  ]
+ "_comment": "Synced from executed R16 team (Diop for Riad, Rabiot as final MID) + live R6 prices. Cash ESTIMATED (~2.25M) - verify in app.",
+ "game": "holdet_yolo",
+ "team_name": "Always 2nd 2",
+ "variant": "guld_unlimited_transfers_variance",
+ "_blend": "research_weight + ceiling objective live in config.py",
+ "cash": 2246000,
+ "total_value": 54342270,
+ "rank": 69044,
+ "top_pct": 47,
+ "current_round": 6,
+ "captain": "Lionel Messi",
+ "_flags": [
+  "Dead (team eliminated): Freeman/Reyna/Pulisic (USA)"
+ ],
+ "watchlist": [],
+ "notes": "Ceiling objective, w=0.50. USA stack + Messi captain from R4.",
+ "squad": [
+  {
+   "name": "Emiliano Martinez",
+   "team": "Argentina",
+   "position": "GK",
+   "price": 5430000
+  },
+  {
+   "name": "Jules Kounde",
+   "team": "France",
+   "position": "DEF",
+   "price": 3924000
+  },
+  {
+   "name": "Issa Diop",
+   "team": "Morocco",
+   "position": "DEF",
+   "price": 2930000
+  },
+  {
+   "name": "Alex Freeman",
+   "team": "United States",
+   "position": "DEF",
+   "price": 2971000
+  },
+  {
+   "name": "Thiago Almada",
+   "team": "Argentina",
+   "position": "MID",
+   "price": 5655000
+  },
+  {
+   "name": "Adrien Rabiot",
+   "team": "France",
+   "position": "MID",
+   "price": 4285000
+  },
+  {
+   "name": "Ismael Saibari",
+   "team": "Morocco",
+   "position": "MID",
+   "price": 4186000
+  },
+  {
+   "name": "Giovanni Reyna",
+   "team": "United States",
+   "position": "MID",
+   "price": 3242000
+  },
+  {
+   "name": "Lionel Messi",
+   "team": "Argentina",
+   "position": "FWD",
+   "price": 9640000
+  },
+  {
+   "name": "Ousmane Dembele",
+   "team": "France",
+   "position": "FWD",
+   "price": 6565000
+  },
+  {
+   "name": "Christian Pulisic",
+   "team": "United States",
+   "position": "FWD",
+   "price": 4105000
+  }
+ ]
 }
