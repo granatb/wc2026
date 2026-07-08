@@ -1189,7 +1189,7 @@ def track_record_page(record: dict) -> str:
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Every prediction, graded | {TITLE_BRAND}</title>
-<meta name="description" content="evmax grades its own published World Cup Fantasy predictions against official FIFA fantasy points, misses included. No cherry-picking — every round, every article.">
+<meta name="description" content="evmax grades its own World Cup Fantasy predictions against official points, misses included. No cherry-picking — every round, every article.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1418,7 +1418,7 @@ def hub_page(round_no, nav, highlights):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
-<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
+<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1642,7 +1642,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
-<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} best XI, captains, differentials and value picks from 50,000 Monte-Carlo runs on market odds.">
+<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
 {og_block}
 <script type="application/ld+json">{org_ld}</script>
 <script type="application/ld+json">{site_ld}</script>
@@ -1834,13 +1834,15 @@ collected and why, before it happens.</p>
 </div>
 {_footer_html()}</body></html>"""
 
-def _utility_page(title, kicker, heading, body_html, active=None):
+def _utility_page(title, kicker, heading, body_html, active=None,
+                  description="evmax — independent fantasy football simulations."):
     """Small editorial utility page (thanks/confirmed) — noindex, footer, nav."""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
 <title>{title} | {TITLE_BRAND}</title>
+<meta name="description" content="{_html.escape(description)}">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1865,7 +1867,8 @@ def thanks_page():
         "you're subscribed — that's the double opt-in we promised, so nobody can "
         "sign you up against your will.</p>"
         "<p>No email within a few minutes? Check spam, or just "
-        "<a href='/' style='color:var(--greend)'>head back to the picks</a>.</p>")
+        "<a href='/' style='color:var(--greend)'>head back to the picks</a>.</p>",
+        description="Confirm your evmax newsletter subscription — check your inbox for the double opt-in email.")
 
 
 def confirmed_page():
@@ -1875,7 +1878,8 @@ def confirmed_page():
         "<p>From the next round on, the sims land in your inbox before lock — "
         "captains, expected points and match predictions, all graded publicly on our "
         "<a href='/track-record/' style='color:var(--greend)'>track record</a> page.</p>"
-        "<p><a href='/' style='color:var(--greend)'>Back to this round's picks →</a></p>")
+        "<p><a href='/' style='color:var(--greend)'>Back to this round's picks →</a></p>",
+        description="Subscription confirmed — evmax simulations land in your inbox before every round locks.")
 
 
 # --- /rate/ -- the site's first first-party JavaScript ---------------------

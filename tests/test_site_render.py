@@ -904,6 +904,23 @@ class RatePageTest(unittest.TestCase):
             t = re.search(r"<title>(.*?)</title>", h).group(1)
             self.assertLessEqual(len(t), 65, f"title too long: {t!r}")
 
+    def test_all_page_meta_descriptions_within_bing_length_limits(self):
+        # Bing flags meta descriptions outside ~25-160 chars (and missing ones)
+        import re
+        pages = [
+            render.rate_page(5),
+            render.about_page(),
+            render.privacy_page(),
+            render.thanks_page(),
+            render.confirmed_page(),
+        ]
+        for h in pages:
+            m = re.search(r'<meta name="description" content="(.*?)">', h)
+            self.assertIsNotNone(m, "page missing meta description")
+            d = m.group(1)
+            self.assertGreaterEqual(len(d), 25, f"description too short: {d!r}")
+            self.assertLessEqual(len(d), 160, f"description too long: {d!r}")
+
     def test_nav_has_rate_link_on_other_pages(self):
         h = render.about_page()
         self.assertIn('href="/rate/"', h)
