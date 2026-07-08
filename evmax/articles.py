@@ -142,33 +142,33 @@ def select_xi(rows: list, key: str) -> list:
     return chosen
 
 
+def legal_xi_formations() -> list:
+    """All (DEF, MID, FWD) XI counts allowed by POS_MIN/POS_MAX that sum to 10
+    outfielders. Derived, not hand-listed, so a scoring-rule change to the
+    min/max table automatically changes the sweep."""
+    out = []
+    for d in range(POS_MIN["DEF"], POS_MAX["DEF"] + 1):
+        for m in range(POS_MIN["MID"], POS_MAX["MID"] + 1):
+            f = (XI_SIZE - 1) - d - m
+            if POS_MIN["FWD"] <= f <= POS_MAX["FWD"]:
+                out.append({"DEF": d, "MID": m, "FWD": f})
+    return out
+
+
 def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
     """A budget-legal 15-man squad (2 GK / 5 DEF / 5 MID / 3 FWD) for wildcard/
     full-rebuild managers, split into a starting XI (ranked 1-11 by x_points)
     and a 4-man bench (ranked 12-15).
 
-    This is a GREEDY HEURISTIC, not a MILP solver — it does not guarantee the
-    globally optimal 15 for a given budget (an exact knapsack-with-quotas
-    solve is on the roadmap). The approach:
+    FORMATION SWEEP: the greedy builder below is run once per legal XI
+    formation (3-4-3, 3-5-2, 4-3-3, ...) and the best xi_xpoints wins. A
+    single greedy pass can only swap same-position players, so it could never
+    trade a midfielder for a forward -- which left ~1 xPts on the table in R6
+    (owner spotted Mbappe belonged in over Dembele + a cheaper mid; the
+    3-5-2-anchored greedy build structurally couldn't consider it).
 
-      1. Build the cheapest legal BENCH first: the cheapest backup GK, plus the
-         3 cheapest outfield players, chosen so the remaining outfield pool can
-         still fill an XI (>= POS_MIN at each outfield position). Bench players
-         only need to exist on the pitch, not perform -- the philosophy is
-         "spend nothing on the bench, spend everything on the XI".
-      2. Spend the rest of the budget on the best-x_points XI (select_xi) drawn
-         from an affordability-filtered pool: 1 starting GK + 10 outfielders
-         completing the squad's position quotas.
-      3. REPAIR LOOP:
-         - If the 15 is over budget, repeatedly downgrade the XI player with
-           the smallest (x_points lost) / (money saved) ratio -- i.e. the
-           cheapest points to give up per pound freed -- swapping in the
-           cheapest affordable same-position replacement not already in the
-           squad, until the squad is legal.
-         - If the 15 leaves a lot of budget unspent, repeatedly upgrade
-           whichever squad slot buys the most extra x_points per pound spent,
-           swapping in the best affordable same-position player not already
-           in the squad, until no affordable upgrade improves the XI.
+    Within one formation this is still a GREEDY HEURISTIC, not a MILP solver
+    (an exact knapsack-with-quotas solve remains on the roadmap).
 
     Rows missing `price` are excluded from consideration entirely.
 
@@ -178,8 +178,8 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
                x_points desc).
       meta:    {"total_cost", "xi_xpoints", "formation", "budget", "left_over"}
 
-    Raises ValueError if no legal 15-man squad can be assembled at all (e.g.
-    insufficient players at some position), independent of budget.
+    Raises ValueError if no legal 15-man squad can be assembled under budget
+    in ANY formation.
     """
     pool = [r for r in rows if r.get("price") is not None]
     by_pos = {pos: [r for r in pool if r.get("position") == pos] for pos in SQUAD_QUOTA}
@@ -189,51 +189,55 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
                 f"insufficient {pos} pool for a wildcard squad: need {need}, "
                 f"have {len(by_pos[pos])}")
 
-    # --- Step 1: cheapest legal bench -----------------------------------
-    # Backup GK: the 2nd-cheapest GK overall (cheapest GK is reserved as a
-    # candidate starter -- outfield bench spots are chosen the same way).
+    best = None
+    last_err = None
+    for xi_counts in legal_xi_formations():
+        try:
+            entries, meta = _wildcard_for_formation(pool, by_pos, xi_counts, budget)
+        except ValueError as e:
+            last_err = e
+            continue
+        key = (meta["xi_xpoints"], -meta["total_cost"])
+        if best is None or key > best[0]:
+            best = (key, entries, meta)
+    if best is None:
+        raise ValueError(f"no legal squad in any formation: {last_err}")
+    return best[1], best[2]
+
+
+def _wildcard_for_formation(pool: list, by_pos: dict, xi_counts: dict,
+                            budget: float) -> tuple:
+    """One greedy build with the XI formation FIXED: cheapest legal bench for
+    that formation, best-xPts XI, then the downgrade/upgrade repair loops
+    (same-position swaps, so the formation is preserved throughout).
+
+      1. Bench: cheapest backup GK (2nd-cheapest overall; the cheapest is
+         reserved as a candidate starter) + the cheapest players at each
+         outfield position the formation does NOT field (SQUAD_QUOTA minus
+         xi_counts). Bench players only need to exist -- the philosophy is
+         "spend nothing on the bench, spend everything on the XI".
+      2. XI: the best-x_points players at each position, xi_counts of them.
+      3a. Over budget: repeatedly downgrade the slot with the smallest
+          xPts-lost per pound saved (cheapest same-position replacement).
+      3b. Left-over budget: repeatedly upgrade the XI slot with the most
+          xPts gained per pound spent (best affordable same-position player).
+    """
     gks_by_price = sorted(by_pos["GK"], key=lambda r: r["price"])
     bench_gk = gks_by_price[1]
     starter_gk_candidate = gks_by_price[0]
 
-    # Cheapest 3 outfielders overall, subject to leaving >= POS_MIN at every
-    # outfield position for the XI. Two separate constraints, both required:
-    #   1. the PLAYER POOL must retain enough bodies at that position to fill
-    #      the remaining squad quota (or step 2 can't complete the 15), and
-    #   2. the XI's FORMATION slots must stay legal: the XI at a position is
-    #      SQUAD_QUOTA[pos] minus its benched players, and that must stay
-    #      >= POS_MIN[pos]. This is the constraint the original code missed --
-    #      it only checked the pool, so with hundreds of cheap defenders
-    #      available it happily benched 3 DEFs and published a 2-5-3 XI
-    #      (illegal: minimum 3 defenders).
-    outfield_pool = by_pos["DEF"] + by_pos["MID"] + by_pos["FWD"]
-    outfield_pool_sorted = sorted(outfield_pool, key=lambda r: r["price"])
-    remaining_at_pos = {pos: len(by_pos[pos]) for pos in ("DEF", "MID", "FWD")}
-    bench_count = {pos: 0 for pos in ("DEF", "MID", "FWD")}
     bench_outfield = []
-    for r in outfield_pool_sorted:
-        if len(bench_outfield) >= 3:
-            break
-        pos = r["position"]
-        if remaining_at_pos[pos] - 1 < POS_MIN[pos]:
-            continue  # would starve the pool below the XI's position minimum
-        if SQUAD_QUOTA[pos] - bench_count[pos] - 1 < POS_MIN[pos]:
-            continue  # would leave the XI itself short at this position
-        bench_outfield.append(r)
-        remaining_at_pos[pos] -= 1
-        bench_count[pos] += 1
-    if len(bench_outfield) < 3:
-        raise ValueError("insufficient outfield pool to fill a legal bench")
+    for pos in ("DEF", "MID", "FWD"):
+        need = SQUAD_QUOTA[pos] - xi_counts[pos]
+        cheapest = sorted(by_pos[pos], key=lambda r: (r["price"], -r["x_points"]))
+        if len(cheapest) < SQUAD_QUOTA[pos]:
+            raise ValueError(f"insufficient {pos} pool for formation {xi_counts}")
+        bench_outfield += cheapest[:need]
 
     bench = [bench_gk] + bench_outfield
     bench_ids = {id(r) for r in bench}
 
     # --- Step 2: best-xPts XI from the rest, completing the quotas -------
-    remaining_quota = dict(SQUAD_QUOTA)
-    remaining_quota["GK"] -= 1  # starter_gk_candidate fills the 1 starting GK slot
-    for r in bench:
-        remaining_quota[r["position"]] -= 1
-
     xi_pool_by_pos = {
         pos: sorted([r for r in pool if r["position"] == pos and id(r) not in bench_ids
                      and r is not starter_gk_candidate],
@@ -242,8 +246,8 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
     }
     xi_outfield = []
     for pos in ("DEF", "MID", "FWD"):
-        take = xi_pool_by_pos[pos][:remaining_quota[pos]]
-        if len(take) < remaining_quota[pos]:
+        take = xi_pool_by_pos[pos][:xi_counts[pos]]
+        if len(take) < xi_counts[pos]:
             raise ValueError(f"insufficient {pos} pool to complete the squad quota")
         xi_outfield += take
 
@@ -258,7 +262,6 @@ def wildcard_squad(rows: list, budget: float = SQUAD_BUDGET) -> tuple:
     bench_names_prices = {(r["name"], r["price"], r["position"]) for r in bench}
     for r in squad:
         r["_bench"] = (r["name"], r["price"], r["position"]) in bench_names_prices
-
     # --- Step 3a: repair loop -- downgrade until legal on budget ---------
     def _cheapest_affordable_replacement(sq, slot, budget_left):
         """Cheapest pool player at slot's position, not already in sq, that

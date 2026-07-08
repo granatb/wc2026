@@ -204,6 +204,27 @@ class WildcardSquadTest(unittest.TestCase):
         self.assertEqual(xi_counts.get("GK", 0), 1)
         self.assertNotEqual(meta["formation"], "2-5-3")
 
+    def test_formation_sweep_finds_cross_position_upgrade(self):
+        # Regression (owner-spotted, R6): three premium FWDs clearly worth
+        # fielding, mediocre expensive MIDs -- the optimal XI is a 3-4-3 with
+        # all three forwards, funded by a cheap 4th/5th mid. The old single-
+        # pass greedy anchored on one formation and could never trade a MID
+        # slot for a FWD (it left Mbappe out for Dembele + Pedri money).
+        rows = []
+        rows += [_row(f"GK{i}", "GK", 4.0 - i * 0.2, price=4.5) for i in range(3)]
+        rows += [_row(f"DEF{i}", "DEF", 3.5 - i * 0.1, price=4.0) for i in range(8)]
+        # expensive, mediocre mids + genuinely cheap fillers
+        rows += [_row(f"MID{i}", "MID", 3.8 - i * 0.05, price=9.0) for i in range(4)]
+        rows += [_row(f"CHEAPMID{i}", "MID", 3.0 - i * 0.1, price=4.5) for i in range(4)]
+        # three premium forwards well above every mid
+        rows += [_row(f"STAR{i}", "FWD", 5.5 - i * 0.05, price=10.0) for i in range(3)]
+        rows += [_row(f"FWD{i}", "FWD", 3.0 - i * 0.1, price=4.5) for i in range(3)]
+        entries, meta = articles.wildcard_squad(rows, budget=100.0)
+        xi = [e for e in entries if e["role"] == "XI"]
+        fwds = [e["name"] for e in xi if e["position"] == "FWD"]
+        self.assertEqual(len(fwds), 3, f"expected 3-X-3, got {meta['formation']}")
+        self.assertTrue(all(n.startswith("STAR") for n in fwds))
+
     def test_budget_respected(self):
         entries, meta = articles.wildcard_squad(self._pool(), budget=100.0)
         total = sum(e["price"] for e in entries)
