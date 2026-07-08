@@ -494,10 +494,12 @@ class LiveXiStripTest(unittest.TestCase):
 
     def test_target_row_hidden_once_all_played(self):
         # 11/11 played -> so-far IS the round total; the target row would
-        # just repeat it
+        # just repeat it, and the badge flips from Live to Final
         h = render._live_xi_html(self._panel(played=11), round_no=5)
-        self.assertIn("11/11 played", h)
+        self.assertIn("round complete", h)
+        self.assertIn("Final", h)
         self.assertNotIn("Full-round target", h)
+        self.assertNotIn("live-tag", h)
 
     def test_empty_when_no_data(self):
         self.assertEqual(render._live_xi_html(None, 5), "")

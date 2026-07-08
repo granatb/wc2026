@@ -191,3 +191,50 @@ class BackfillLatestRoundLinkTest(unittest.TestCase):
         build._backfill_latest_round_link(self.tmp, os.path.join(self.tmp, "nope"),
                                           current_round=5)  # must not raise
 
+
+class RefreshOldRoundDynamicBitsTest(unittest.TestCase):
+    """Old rounds keep frozen articles, but their round-switcher must gain
+    later rounds and their landing live-XI strip must show the round's FINAL
+    numbers (or vanish) instead of fossilizing mid-round."""
+
+    _LANDING = ('<html><body><div class="round-switcher"><span class="rs-label">Rounds'
+               '</span><a class="round-tab" href="/round/3/">R3</a>'
+               '<a class="round-tab active" href="/round/5/">R5</a></div>'
+               '<div class="live-xi"><div class="lx-row">old 9/11 played</div>'
+               '<div class="lx-row lx-target">old target</div></div>'
+               '<section class="feat"><h1>Frozen headline — must not change</h1>'
+               '</section></body></html>')
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="evmax_refresh_test_")
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, ignore_errors=True)
+        self.round_root = os.path.join(self.tmp, "round")
+        d = os.path.join(self.round_root, "5")
+        os.makedirs(d)
+        self.landing = os.path.join(d, "index.html")
+        with open(self.landing, "w", encoding="utf-8") as fh:
+            fh.write(self._LANDING)
+
+    def test_switcher_gains_new_round_and_strip_goes_final(self):
+        panel = {"played": 11, "total": 11, "realized": 55.0, "expected": 59.4,
+                 "ceiling": 91.2, "expected_total": 59.4, "ceiling_total": 91.2}
+        build._refresh_old_round_dynamic_bits(
+            self.round_root, current_round=6, available_rounds=[3, 5, 6],
+            live_xi_by_round={5: panel})
+        with open(self.landing, encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertIn('href="/round/6/"', html)          # switcher gained R6
+        self.assertNotIn("9/11 played", html)            # stale strip gone
+        self.assertIn("round complete", html)            # final variant
+        self.assertIn("55", html)                        # final realized total
+        self.assertIn("Frozen headline — must not change", html)
+
+    def test_strip_removed_when_no_data(self):
+        build._refresh_old_round_dynamic_bits(
+            self.round_root, current_round=6, available_rounds=[3, 5, 6],
+            live_xi_by_round={})
+        with open(self.landing, encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertNotIn("live-xi", html)
+        self.assertIn("Frozen headline — must not change", html)
+

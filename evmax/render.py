@@ -449,10 +449,14 @@ def _live_xi_html(live_xi: dict, round_no: int) -> str:
     diff = realized - expected
     diff_cls = "up" if diff >= 0 else "down"
     diff_str = f"{'+' if diff >= 0 else '−'}{abs(diff):.1f}"
+    done = live_xi["played"] >= live_xi["total"]
+    badge = ('<span class="mx-badge final">Final</span>' if done
+             else '<span class="live-tag">Live</span>')
+    label = ("Our XI — round complete" if done
+             else f'Our XI so far · {live_xi["played"]}/{live_xi["total"]} played')
     so_far_row = (
         f'<div class="lx-row">'
-        f'<span class="lx-label"><span class="live-tag">Live</span> Our XI so far '
-        f'· {live_xi["played"]}/{live_xi["total"]} played</span>'
+        f'<span class="lx-label">{badge} {label}</span>'
         f'<span class="lx-stats">'
         f'<span class="lx-stat"><b>{realized:.0f}</b> scored</span>'
         f'<span class="lx-stat">{expected:.1f} expected '

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from datetime import datetime, timezone
 
 from core import engine_events, espn, fifa_api, fixtures, research
@@ -82,6 +83,50 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
 
 
 _BACK_TO_LATEST_MARKER = 'id="back-to-latest"'
+
+# Matches the round-switcher pill row (contains only <a>/<span>, never nested
+# divs) and the live-xi strip up to the landing hero it always precedes.
+_SWITCHER_RE = re.compile(r'<div class="round-switcher">.*?</div>', re.DOTALL)
+_LIVE_XI_RE = re.compile(r'<div class="live-xi">.*?<section class="feat">', re.DOTALL)
+
+
+def _refresh_old_round_dynamic_bits(round_root: str, current_round: int,
+                                    available_rounds: list,
+                                    live_xi_by_round: dict) -> None:
+    """Old rounds' ARTICLES are frozen, but two page elements are navigation/
+    reality-panels that must not fossilize (owner report, 07-08: R5's landing
+    still said '9/11 played' and its switcher had no R6 button):
+
+      - the round-switcher pill row: regenerated to include every round built
+        since, so an archived round always links forward;
+      - the landing page's live-XI strip: rewritten with the round's FINAL
+        realized-vs-expected-vs-ceiling numbers (from the frozen snapshot +
+        official points), or removed when there's no data. Once a round is
+        over, live_xi_progress reports all players played, so the strip shows
+        the completed round's reality check -- which is the point of it.
+
+    Pure text surgery on already-built HTML: the regexes match elements that
+    never contain nested <div>s (switcher) or the unique hero anchor that
+    always follows the strip (live-xi), so no article content is touched."""
+    for entry in os.listdir(round_root) if os.path.isdir(round_root) else []:
+        if not entry.isdigit() or int(entry) == current_round:
+            continue
+        old_round = int(entry)
+        switcher = render._round_switcher_html(available_rounds, old_round)
+        for dirpath, _dirs, filenames in os.walk(os.path.join(round_root, entry)):
+            if "index.html" not in filenames:
+                continue
+            path = os.path.join(dirpath, "index.html")
+            with open(path, encoding="utf-8") as fh:
+                html = fh.read()
+            new_html = _SWITCHER_RE.sub(switcher, html) if switcher else html
+            if os.path.dirname(path) == os.path.join(round_root, entry):
+                # the round's landing copy -- refresh/remove the live strip
+                strip = render._live_xi_html(live_xi_by_round.get(old_round), old_round)
+                new_html = _LIVE_XI_RE.sub(strip + '<section class="feat">', new_html)
+            if new_html != html:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(new_html)
 
 
 def _backfill_latest_round_link(out: str, round_root: str, current_round: int) -> None:
@@ -619,6 +664,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # Old rounds are frozen and never get this build's nav/switcher -- patch
     # in a minimal way back to the current round (see docstring).
     _backfill_latest_round_link(out, round_root, fantasy_round)
+    _refresh_old_round_dynamic_bits(
+        round_root, fantasy_round, available_rounds,
+        {r: backtest.live_xi_progress(r) for r in available_rounds if r != fantasy_round})
 
     # --- Agent / meta files ---
     w("/api/latest.json", json.dumps(
