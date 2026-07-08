@@ -645,9 +645,14 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         indexnow_key = fh.read().strip()
     w(f"/{indexnow_key}.txt", indexnow_key + "\n")
 
+    # Warnings ride on the FINAL line: the detailed guard output above gets
+    # cut off by `... | tail -1`-style ops filtering (which is exactly how an
+    # expired Nico Williams note shipped as the R6 differential, 07-08 --
+    # the guard fired, the operator's pipe hid it).
+    warn_suffix = f" | !!! {len(flags)} EXPIRED RISK NOTE(S) — see above / rerun without filters" if flags else ""
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles) "
-          f"| reddit kit → {reddit_kit_path}")
+          f"| reddit kit → {reddit_kit_path}{warn_suffix}")
 
 
 # ---------------------------------------------------------------------------
