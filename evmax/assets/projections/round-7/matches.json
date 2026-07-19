@@ -1,0 +1,50 @@
+{
+  "competition": "fifa_world_cup_fantasy",
+  "round": 7,
+  "article": "matches",
+  "title": "Match predictions & games to watch — Round 7",
+  "generated_at": "2026-07-14T17:20:05.236996+00:00",
+  "sims": 50000,
+  "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
+  "entries": [
+    {
+      "match": "France vs Spain",
+      "home": "France",
+      "away": "Spain",
+      "kickoff": "2026-07-14T19:00:00+00:00",
+      "exp_home_goals": 1.42,
+      "exp_away_goals": 1.27,
+      "exp_total": 2.69,
+      "top_scoreline": "1-1",
+      "p_home": 0.41,
+      "p_draw": 0.26,
+      "p_away": 0.34,
+      "close": true,
+      "p_cs_home": 0.281,
+      "p_cs_away": 0.241,
+      "p_advance_home": 0.542,
+      "p_advance_away": 0.458
+    },
+    {
+      "match": "England vs Argentina",
+      "home": "England",
+      "away": "Argentina",
+      "kickoff": "2026-07-15T19:00:00+00:00",
+      "exp_home_goals": 1.21,
+      "exp_away_goals": 1.11,
+      "exp_total": 2.32,
+      "top_scoreline": "1-1",
+      "p_home": 0.38,
+      "p_draw": 0.29,
+      "p_away": 0.33,
+      "close": true,
+      "p_cs_home": 0.329,
+      "p_cs_away": 0.299,
+      "p_advance_home": 0.529,
+      "p_advance_away": 0.471
+    }
+  ],
+  "source": "https://evmax.ai",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)"
+}

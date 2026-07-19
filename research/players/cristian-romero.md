@@ -12,3 +12,6 @@ updated: 2026-07-04
 
 R5: FULLY RECOVERED — knee scare vs Austria, MRI clear, R4 absence was precautionary
 rest. Back in full training, expected to start CB vs Egypt. Supersedes the R4 'out'.
+
+History: was OUT for R32 (round 4, injured, missed Cape Verde game). Consolidated
+from cristian-romero-r4.md, retired (renamed with a leading `_`) rather than deleted.

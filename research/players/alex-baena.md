@@ -1,15 +1,19 @@
 ---
 entity: player
 name: Alex Baena
-status: rotation_risk
-start_prob_override: 0.25
+status: nailed
+start_prob_override: null
 lambda_multiplier: 1.0
+round: 8
 sources:
-  - R1 Holdet score -5.000 (did-not-play penalty)
-updated: 2026-06-18
+  - https://www.nbcsports.com/soccer/news/world-cup-final-predicted-lineups-how-will-argentina-spain-line-up
+updated: 2026-07-19
 ---
-Did **not** play in Round 1 (−5k did-not-play penalty on the Holdet card). Spain's
-midfield is stacked (Pedri, Fabián Ruiz, Zubimendi, Dani Olmo) so Baena is a fringe/
-bench option, not a nailed starter. Start probability cut to 0.25 — his expected
-growth collapses (mostly the −5k risk), making him a transfer-out in GOLD + YOLO.
-Owned in both as "Alex Baena".
+
+FINAL (vs Argentina): predicted starter, wide left in Spain's 4-3-3 alongside Yamal
+and Oyarzabal. Confirms the QF/SF starting run (predicted/confirmed starter since
+round 6) continuing into the final — no rotation signal.
+
+History: benched Round 1 (Holdet, dead-rubber), predicted starter from round 6
+onward once Nico Williams lost his place. Consolidated from alex-baena-r6.md,
+retired (renamed with a leading `_`) rather than deleted.

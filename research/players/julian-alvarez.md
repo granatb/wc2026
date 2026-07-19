@@ -1,13 +1,19 @@
 ---
 entity: player
 name: Julian Alvarez
-status: rotation_risk
-start_prob_override: 0.5
+status: nailed
+start_prob_override: null
 lambda_multiplier: 1.0
-round: 3
+round: 8
 sources:
-  - https://www.rotowire.com/soccer/article/2026-world-cup-group-j-preview-argentina-algeria-austria-jordan-tactics-lineups-set-pieces-odds-109964
-updated: 2026-06-24
+  - https://www.nbcsports.com/soccer/news/world-cup-final-predicted-lineups-how-will-argentina-spain-line-up
+updated: 2026-07-19
 ---
 
-R3: Argentina dead rubber — rotation candidate. (auto from R3 news-research workflow.)
+FINAL (vs Spain): predicted starter alongside Messi and Giuliano Simeone in
+Argentina's front three. Continues the starting run confirmed since round 6 (front
+three alongside Messi/Lautaro then) — no rotation signal.
+
+History: R3 dead-rubber rotation candidate (group stage, Argentina already through).
+Consolidated from julian-alvarez-r6.md, retired (renamed with a leading `_`) rather
+than deleted.

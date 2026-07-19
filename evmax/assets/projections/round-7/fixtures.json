@@ -1,0 +1,62 @@
+{
+  "competition": "fifa_world_cup_fantasy",
+  "round": 7,
+  "article": "fixtures",
+  "title": "Fixture guide — clean sheets & blowouts — Round 7",
+  "generated_at": "2026-07-14T17:20:05.236996+00:00",
+  "sims": 50000,
+  "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
+  "entries": [
+    {
+      "name": "England",
+      "team": "vs Argentina",
+      "position": "—",
+      "p_clean_sheet": 0.329,
+      "exp_goals_for": 1.21,
+      "exp_goals_against": 1.11,
+      "env": "balanced",
+      "top_def": "Ezri Konsa (3.1)",
+      "top_gk": "Jordan Pickford (3.7)",
+      "rank": 1
+    },
+    {
+      "name": "Argentina",
+      "team": "vs England",
+      "position": "—",
+      "p_clean_sheet": 0.299,
+      "exp_goals_for": 1.11,
+      "exp_goals_against": 1.21,
+      "env": "balanced",
+      "top_def": "Lisandro Martinez (2.4)",
+      "top_gk": "Emiliano Martinez (3.5)",
+      "rank": 2
+    },
+    {
+      "name": "France",
+      "team": "vs Spain",
+      "position": "—",
+      "p_clean_sheet": 0.281,
+      "exp_goals_for": 1.42,
+      "exp_goals_against": 1.27,
+      "env": "balanced",
+      "top_def": "Dayot Upamecano (2.9)",
+      "top_gk": "Mike Maignan (3.4)",
+      "rank": 3
+    },
+    {
+      "name": "Spain",
+      "team": "vs France",
+      "position": "—",
+      "p_clean_sheet": 0.241,
+      "exp_goals_for": 1.27,
+      "exp_goals_against": 1.42,
+      "env": "balanced",
+      "top_def": "M. Llorente (2.7)",
+      "top_gk": "Unai Simon (3.2)",
+      "rank": 4
+    }
+  ],
+  "source": "https://evmax.ai",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)"
+}

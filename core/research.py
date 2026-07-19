@@ -113,10 +113,15 @@ def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dic
     If `fantasy_round` is given, notes pinned to a *different* round are dropped, so
     an R3-specific rotation flag never leaks into an R2 (or knockout) simulation.
     Notes with no `round:` field apply to every round.
+
+    Sorted glob so the winner of a same-name collision (see find_duplicate_names)
+    is at least stable across machines/runs -- filesystem enumeration order is
+    otherwise arbitrary, which previously meant which of several round-pinned
+    Nico Williams notes was "active" depended on directory listing order.
     """
     out: dict[str, ResearchEntry] = {}
     pattern = os.path.join(RESEARCH_DIR, kind, "*.md")
-    for path in glob.glob(pattern):
+    for path in sorted(glob.glob(pattern)):
         if os.path.basename(path).startswith("_"):
             continue
         with open(path, encoding="utf-8") as fh:
@@ -129,3 +134,25 @@ def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dic
             continue
         out[meta["name"]] = entry
     return out
+
+
+def find_duplicate_names(kind: str = "players") -> dict:
+    """{name: [file paths]} for every name backed by more than one active
+    (non-underscore) note file. load_entries() silently lets the LAST file
+    in sorted order win a same-name collision -- fine for an intentional
+    "supersedes" pair that agrees, dangerous when the files disagree (found
+    2026-07-19: 4 separate Nico Williams files pinned to rounds 4/6/6/7 with
+    different status/start_prob -- only one was ever actually live, and
+    which one was down to which file the OS listed last)."""
+    by_name: dict[str, list] = {}
+    pattern = os.path.join(RESEARCH_DIR, kind, "*.md")
+    for path in sorted(glob.glob(pattern)):
+        if os.path.basename(path).startswith("_"):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            meta, _ = parse_frontmatter(fh.read())
+        name = meta.get("name")
+        if not name:
+            continue
+        by_name.setdefault(name, []).append(path)
+    return {name: paths for name, paths in by_name.items() if len(paths) > 1}

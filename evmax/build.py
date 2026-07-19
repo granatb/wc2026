@@ -85,9 +85,15 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
 _BACK_TO_LATEST_MARKER = 'id="back-to-latest"'
 
 # Matches the round-switcher pill row (contains only <a>/<span>, never nested
-# divs) and the live-xi strip up to the landing hero it always precedes.
+# divs), and an OPTIONAL existing live-xi strip immediately before the unique
+# hero anchor -- optional because a round with no finished fixtures at its own
+# build time never emitted a live-xi div at all (_live_xi_html(None, ...) ==
+# ""), so a strict "must already exist" pattern silently no-ops forever on
+# rounds that finish only after they're archived. The lazy `.*?` is safe with
+# nested <div>s inside the strip because the match terminates on the literal
+# anchor text, not on a `</div>` count.
 _SWITCHER_RE = re.compile(r'<div class="round-switcher">.*?</div>', re.DOTALL)
-_LIVE_XI_RE = re.compile(r'<div class="live-xi">.*?<section class="feat">', re.DOTALL)
+_LIVE_XI_RE = re.compile(r'(?:<div class="live-xi">.*?)?<section class="feat">', re.DOTALL)
 
 
 def _refresh_old_round_dynamic_bits(round_root: str, current_round: int,
@@ -188,6 +194,29 @@ def _article_entries(rows: list, fantasy_round: int) -> dict[str, list]:
     }
 
 
+def _unpriced_scheduled_fixtures(fx: list) -> list:
+    """Fixtures with no market odds (lam_home/lam_away is None) that are NOT
+    already finished. The engine falls back to a symmetric coin-flip prior
+    for an unpriced fixture, which publishes visibly wrong probabilities
+    (R6 Argentina-Switzerland shipped as 37/26/37 because the tie was
+    decided hours earlier and ESPN hadn't priced it yet) -- a real problem
+    worth a loud warning, since pre-lock builds before every game is priced
+    are otherwise legitimate.
+
+    An ALREADY-FINISHED fixture with no odds is a different, expected case
+    (the book closed the market once the result was known) that a naive
+    "lambda is None" check can't distinguish -- the bronze+final round (R8)
+    exposed this: the bronze match had already been played and lost its
+    odds by the time we built, which isn't "hasn't posted odds yet".
+
+    getattr defaults treat objects WITHOUT stage/lam_home/lam_away
+    attributes (test doubles) as priced and not-yet-final."""
+    return [f for f in fx
+            if not backtest._is_final_status(getattr(f, "stage", ""))
+            and (getattr(f, "lam_home", 0) is None
+                 or getattr(f, "lam_away", 0) is None)]
+
+
 def expired_risk_flags(entries_map: dict, notes: dict, fantasy_round: int,
                        top_n: int = 20) -> list:
     """Names of published picks carrying an out/doubtful/suspended note pinned to a
@@ -248,17 +277,9 @@ def _preflight(fantasy_round: int) -> None:
         raise SystemExit("evmax.build preflight failed:\n- " +
                          "\n- ".join(problems))
 
-    # WARN (don't abort) on fixtures with no market odds: the engine falls
-    # back to a symmetric coin-flip prior, which publishes visibly wrong
-    # probabilities (R6 Argentina-Switzerland shipped as 37/26/37 because the
-    # tie was decided hours earlier and ESPN hadn't priced it yet). Pre-lock
-    # builds before every game is priced are legitimate, so this is a loud
-    # warning + a re-run instruction, not a failure.
-    # getattr defaults treat objects WITHOUT the attribute (test doubles) as
-    # priced; only a real fixture whose lambda is explicitly None is unpriced.
-    unpriced = [f for f in fixtures.by_round(fantasy_round)
-                if getattr(f, "lam_home", 0) is None
-                or getattr(f, "lam_away", 0) is None]
+    # WARN (don't abort) on fixtures with no market odds -- see
+    # _unpriced_scheduled_fixtures() docstring.
+    unpriced = _unpriced_scheduled_fixtures(fixtures.by_round(fantasy_round))
     if unpriced:
         names = ", ".join(f"{f.home} vs {f.away}" for f in unpriced)
         print(f"\n!!! UNPRICED FIXTURE(S) — coin-flip fallback in effect: {names}\n"
@@ -352,6 +373,19 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
         for f in flags:
             print("    " + f)
         print("!!! Update research/players/<name>.md (re-pin round or clear status) to silence.\n")
+
+    # --- Duplicate-note guard (Nico Williams collision, 2026-07-19) -------
+    # research.load_entries() lets same-name files silently overwrite each
+    # other; found 4 separate Nico Williams notes (rounds 4/6/6/7,
+    # disagreeing status/start_prob) where only one was ever actually live
+    # and WHICH one was down to filesystem enumeration order.
+    dupes = research.find_duplicate_names("players")
+    if dupes:
+        print("\n!!! DUPLICATE PLAYER NOTES (same-name files silently overwrite each other):")
+        for name, paths in sorted(dupes.items()):
+            print(f"    {name}: {', '.join(paths)}")
+        print("!!! Consolidate to one file; retire the rest with a leading `_`.\n")
+
     nav = [(slug, articles.ARTICLE_TITLES[slug]) for slug in articles.ARTICLES]
 
     def w(path: str, text: str) -> None:
@@ -697,7 +731,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     # cut off by `... | tail -1`-style ops filtering (which is exactly how an
     # expired Nico Williams note shipped as the R6 differential, 07-08 --
     # the guard fired, the operator's pipe hid it).
-    warn_suffix = f" | !!! {len(flags)} EXPIRED RISK NOTE(S) — see above / rerun without filters" if flags else ""
+    warn_bits = []
+    if flags:
+        warn_bits.append(f"!!! {len(flags)} EXPIRED RISK NOTE(S)")
+    if dupes:
+        warn_bits.append(f"!!! {len(dupes)} DUPLICATE PLAYER NOTE(S)")
+    warn_suffix = f" | {' / '.join(warn_bits)} — see above / rerun without filters" if warn_bits else ""
     print(f"Built round {fantasy_round} → {out}/ "
           f"({len(rows)} players, {len(articles.ARTICLES)} articles) "
           f"| reddit kit → {reddit_kit_path}{warn_suffix}")

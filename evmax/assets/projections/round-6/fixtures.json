@@ -1,0 +1,110 @@
+{
+  "competition": "fifa_world_cup_fantasy",
+  "round": 6,
+  "article": "fixtures",
+  "title": "Fixture guide — clean sheets & blowouts — Round 6",
+  "generated_at": "2026-07-08T09:14:18.247434+00:00",
+  "sims": 50000,
+  "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official FIFA World Cup Fantasy points table.",
+  "entries": [
+    {
+      "name": "Argentina",
+      "team": "vs Switzerland",
+      "position": "—",
+      "p_clean_sheet": 0.452,
+      "exp_goals_for": 1.57,
+      "exp_goals_against": 0.79,
+      "env": "balanced",
+      "top_def": "Lisandro Martinez (3.3)",
+      "top_gk": "Emiliano Martinez (4.3)",
+      "rank": 1
+    },
+    {
+      "name": "France",
+      "team": "vs Morocco",
+      "position": "—",
+      "p_clean_sheet": 0.44,
+      "exp_goals_for": 1.8,
+      "exp_goals_against": 0.82,
+      "env": "balanced",
+      "top_def": "Dayot Upamecano (4.0)",
+      "top_gk": "Mike Maignan (4.3)",
+      "rank": 2
+    },
+    {
+      "name": "Spain",
+      "team": "vs Belgium",
+      "position": "—",
+      "p_clean_sheet": 0.4,
+      "exp_goals_for": 1.87,
+      "exp_goals_against": 0.91,
+      "env": "balanced",
+      "top_def": "Aymeric Laporte (3.6)",
+      "top_gk": "Unai Simon (4.1)",
+      "rank": 3
+    },
+    {
+      "name": "England",
+      "team": "vs Norway",
+      "position": "—",
+      "p_clean_sheet": 0.323,
+      "exp_goals_for": 1.75,
+      "exp_goals_against": 1.13,
+      "env": "balanced",
+      "top_def": "Ezri Konsa (3.1)",
+      "top_gk": "Jordan Pickford (3.7)",
+      "rank": 4
+    },
+    {
+      "name": "Switzerland",
+      "team": "vs Argentina",
+      "position": "—",
+      "p_clean_sheet": 0.205,
+      "exp_goals_for": 0.79,
+      "exp_goals_against": 1.57,
+      "env": "balanced",
+      "top_def": "R. Rodriguez (2.2)",
+      "top_gk": "Gregor Kobel (2.8)",
+      "rank": 5
+    },
+    {
+      "name": "Norway",
+      "team": "vs England",
+      "position": "—",
+      "p_clean_sheet": 0.172,
+      "exp_goals_for": 1.13,
+      "exp_goals_against": 1.75,
+      "env": "balanced",
+      "top_def": "David Møller Wolfe (1.6)",
+      "top_gk": "Ørjan Nyland (2.2)",
+      "rank": 6
+    },
+    {
+      "name": "Morocco",
+      "team": "vs France",
+      "position": "—",
+      "p_clean_sheet": 0.162,
+      "exp_goals_for": 0.82,
+      "exp_goals_against": 1.8,
+      "env": "balanced",
+      "top_def": "Achraf Hakimi (2.5)",
+      "top_gk": "Yassine 'Bono' Bounou (2.7)",
+      "rank": 7
+    },
+    {
+      "name": "Belgium",
+      "team": "vs Spain",
+      "position": "—",
+      "p_clean_sheet": 0.155,
+      "exp_goals_for": 0.91,
+      "exp_goals_against": 1.87,
+      "env": "balanced",
+      "top_def": "Maxim De Cuyper (1.9)",
+      "top_gk": "Thibaut Courtois (2.6)",
+      "rank": 8
+    }
+  ],
+  "source": "https://evmax.ai",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)"
+}

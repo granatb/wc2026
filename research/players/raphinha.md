@@ -12,7 +12,8 @@ updated: 2026-07-04
 ---
 
 R5 (R16 vs Norway): RULED OUT — did not recover in time from the muscle-fiber tear
-(right thigh, suffered vs Haiti in R3). Back in individual pitch training; possible
-return at a QF on July 11 if Brazil advance — REASSESS for round 6, do not carry this
-note forward blindly. Market still listed an AGS prop for him (rate 0.37) — squad
-pricing, not confirmation of fitness; confirmed team news wins per our reliability rule.
+(right thigh, suffered vs Haiti in R3). Brazil lost that R16 tie to Norway; the
+tournament ended for them before he could return. Note is now purely historical.
+
+Consolidated from raphinha-r4.md and raphinha-r5.md, retired (renamed with a
+leading `_`) rather than deleted.

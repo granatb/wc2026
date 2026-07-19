@@ -137,6 +137,33 @@ class CheckRowsTest(unittest.TestCase):
                           meta={"Kane": {}})  # must not raise
 
 
+class UnpricedScheduledFixturesTest(unittest.TestCase):
+    """_unpriced_scheduled_fixtures(): flag a fixture with no market odds
+    ONLY if it hasn't already been played -- a finished match legitimately
+    has no market left (regression: R8's bronze+final round false-positived
+    on the already-decided bronze game)."""
+
+    class _F:
+        def __init__(self, stage, lam_home=1.0, lam_away=1.0, home="H", away="A"):
+            self.stage, self.lam_home, self.lam_away = stage, lam_home, lam_away
+            self.home, self.away = home, away
+
+    def test_unpriced_and_scheduled_is_flagged(self):
+        fx = [self._F("STATUS_SCHEDULED", lam_home=None, lam_away=None)]
+        self.assertEqual(len(build._unpriced_scheduled_fixtures(fx)), 1)
+
+    def test_unpriced_but_finished_is_not_flagged(self):
+        fx = [self._F("STATUS_FULL_TIME", lam_home=None, lam_away=None)]
+        self.assertEqual(build._unpriced_scheduled_fixtures(fx), [])
+
+    def test_priced_and_scheduled_is_not_flagged(self):
+        fx = [self._F("STATUS_SCHEDULED")]
+        self.assertEqual(build._unpriced_scheduled_fixtures(fx), [])
+
+    def test_object_without_attrs_treated_as_priced(self):
+        self.assertEqual(build._unpriced_scheduled_fixtures([object()]), [])
+
+
 class BackfillLatestRoundLinkTest(unittest.TestCase):
     """build._backfill_latest_round_link: old rounds are frozen and never
     rebuilt, so they never pick up new nav features -- this patches ONLY a
@@ -236,5 +263,32 @@ class RefreshOldRoundDynamicBitsTest(unittest.TestCase):
         with open(self.landing, encoding="utf-8") as fh:
             html = fh.read()
         self.assertNotIn("live-xi", html)
+        self.assertIn("Frozen headline — must not change", html)
+
+    def test_strip_inserted_for_a_round_that_never_had_one(self):
+        # Regression (owner report, R8 build): a round built while ALL its
+        # fixtures were still scheduled never emits a live-xi div at all
+        # (_live_xi_html(None, ...) == ""). Once that round finishes after
+        # being archived, the strip must still appear -- a "must already
+        # exist to be replaced" pattern silently no-ops forever otherwise.
+        no_strip_landing = (
+            '<html><body><div class="round-switcher"><span class="rs-label">Rounds'
+            '</span><a class="round-tab active" href="/round/6/">R6</a></div>'
+            '<section class="feat"><h1>Frozen headline — must not change</h1>'
+            '</section></body></html>')
+        d = os.path.join(self.round_root, "6")
+        os.makedirs(d)
+        path = os.path.join(d, "index.html")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(no_strip_landing)
+        panel = {"played": 11, "total": 11, "realized": 69.0, "expected": 48.0,
+                 "ceiling": 69.1, "expected_total": 48.0, "ceiling_total": 69.1}
+        build._refresh_old_round_dynamic_bits(
+            self.round_root, current_round=8, available_rounds=[6, 8],
+            live_xi_by_round={6: panel})
+        with open(path, encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertIn("round complete", html)
+        self.assertIn("69", html)
         self.assertIn("Frozen headline — must not change", html)
 
