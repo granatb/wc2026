@@ -17,6 +17,8 @@ the engine's existing `prior_share` blend slot. If props ever appear, the engine
 
 from __future__ import annotations
 
+import collections
+
 import config
 
 from . import ratings
@@ -109,6 +111,43 @@ def _rates(player: dict) -> tuple[float, float]:
     return player.get("xg_per90") or 0.0, player.get("xa_per90") or 0.0
 
 
+def _disambiguate_names(players: list[dict]) -> None:
+    """Give every player a `name` that is unique across the whole pool, in place.
+
+    FPL's `web_name` collides across clubs -- 14 collisions in the real GW1 pool,
+    the worst being Cole Palmer (CHE, MID) and Alex Palmer (IPS, GK) both keying
+    the shared engine's per-player accumulator as "Palmer". The engine keys
+    strictly by name (core/engine_events.simulate_round), so uniqueness has to be
+    established here, at the FPL boundary, before names ever reach it.
+
+    Escalates only as far as needed so the common case (a unique web_name) is left
+    completely untouched:
+
+      1. web_name, if it is unique in the pool
+      2. otherwise full_name, if THAT disambiguates
+      3. otherwise f"{web_name} ({team})" -- guaranteed unique, because a single
+         club cannot field two players sharing a web_name.
+
+    Mutates the player dicts' "name" key in place (rather than returning a
+    separate mapping) so that every existing caller keying off `p["name"]` --
+    `games/fpl/model.py`'s `players_by_name = {p["name"]: p for p in players}`
+    chief among them -- keeps working unmodified as long as it reads `name` AFTER
+    this runs, which it already does.
+    """
+    web_counts = collections.Counter(p["name"] for p in players)
+    colliding = [p for p in players if web_counts[p["name"]] > 1]
+    if not colliding:
+        return
+
+    full_counts = collections.Counter(p.get("full_name") or p["name"] for p in players)
+    for p in colliding:
+        full = p.get("full_name") or p["name"]
+        if full_counts[full] == 1:
+            p["name"] = full
+        else:
+            p["name"] = f"{p['name']} ({p['team']})"
+
+
 def build_with_flags(players: list[dict], team_matches: int
                      ) -> tuple[dict[str, list], list[dict]]:
     """Build priors grouped by club, plus a list of cold-start flags for preflight.
@@ -117,7 +156,12 @@ def build_with_flags(players: list[dict], team_matches: int
     goals among its own players, so what matters is a player's share of his club's
     attacking output, not an absolute rate. Shares need not sum to 1 — the engine
     treats the remainder as unmodelled teammates.
+
+    Mutates `players` to disambiguate colliding names before anything else reads
+    them -- see `_disambiguate_names`.
     """
+    _disambiguate_names(players)
+
     by_team: dict[str, list] = {}
     flags: list[dict] = []
 

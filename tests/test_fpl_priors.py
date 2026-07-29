@@ -173,3 +173,66 @@ class TestBuildPriors(unittest.TestCase):
         _by_team, flagged = fpl_priors.build_with_flags(self.players, team_matches=38)
         self.assertEqual([f["name"] for f in flagged], ["Newboy"])
         self.assertEqual(flagged[0]["reason"], "no_pl_history")
+
+
+class TestNameDisambiguation(unittest.TestCase):
+    """FPL's web_name collides across clubs (14 collisions in the real GW1 pool,
+    the worst being Cole Palmer/CHE/MID vs Alex Palmer/IPS/GK both keying the
+    engine's accumulator as "Palmer"). build_with_flags must hand every player a
+    name that is unique across the whole pool, escalating only as far as needed.
+    """
+
+    def test_unique_web_name_is_left_untouched(self):
+        players = [
+            _player(id=1, name="Salah", full_name="Mohamed Salah", team="LIV"),
+            _player(id=2, name="Watkins", full_name="Ollie Watkins", team="AVL"),
+        ]
+        fpl_priors.build_with_flags(players, team_matches=38)
+        by_id = {p["id"]: p["name"] for p in players}
+        self.assertEqual(by_id[1], "Salah")
+        self.assertEqual(by_id[2], "Watkins")
+
+    def test_palmer_collision_resolved_and_recoverable_by_name(self):
+        # The real GW1 collision: both survive, both are recoverable to the
+        # correct club/position via the mutated player dicts.
+        players = [
+            _player(id=1, name="Palmer", full_name="Cole Palmer", team="CHE",
+                    position="MID", price=9.5, minutes=1954),
+            _player(id=2, name="Palmer", full_name="Alex Palmer", team="IPS",
+                    position="GK", price=4.0, minutes=0, starts=0),
+        ]
+        fpl_priors.build_with_flags(players, team_matches=38)
+        by_name = {p["name"]: p for p in players}
+
+        self.assertEqual(len(by_name), 2)
+        self.assertEqual(by_name["Cole Palmer"]["position"], "MID")
+        self.assertEqual(by_name["Cole Palmer"]["team"], "CHE")
+        self.assertEqual(by_name["Alex Palmer"]["position"], "GK")
+        self.assertEqual(by_name["Alex Palmer"]["team"], "IPS")
+
+        # ... and the priors built from those same players carry the same names.
+        by_team, _flags = fpl_priors.build_with_flags(players, team_matches=38)
+        prior_names = {p.position: p.name for squad in by_team.values() for p in squad}
+        self.assertEqual(prior_names["MID"], "Cole Palmer")
+        self.assertEqual(prior_names["GK"], "Alex Palmer")
+
+    def test_three_way_collision_produces_three_distinct_names(self):
+        players = [
+            _player(id=1, name="Phillips", full_name="Kalvin Phillips", team="WHU"),
+            _player(id=2, name="Phillips", full_name="Nathan Phillips", team="BOU"),
+            _player(id=3, name="Phillips", full_name="Matty Phillips", team="WBA"),
+        ]
+        by_team, _flags = fpl_priors.build_with_flags(players, team_matches=38)
+        resolved = [p.name for squad in by_team.values() for p in squad]
+        self.assertEqual(len(resolved), 3)
+        self.assertEqual(len(set(resolved)), 3)
+
+    def test_collision_sharing_both_names_falls_back_to_team_qualified(self):
+        players = [
+            _player(id=1, name="King", full_name="Josh King", team="FUL"),
+            _player(id=2, name="King", full_name="Josh King", team="EVE"),
+        ]
+        by_team, _flags = fpl_priors.build_with_flags(players, team_matches=38)
+        self.assertEqual(by_team["FUL"][0].name, "King (FUL)")
+        self.assertEqual(by_team["EVE"][0].name, "King (EVE)")
+        self.assertNotEqual(by_team["FUL"][0].name, by_team["EVE"][0].name)
