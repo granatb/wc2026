@@ -93,6 +93,25 @@ BASE_GOALS = 1.35
 HOME_ADV = 1.07               # host-nation home advantage multiplier
 
 
+# ---------------------------------------------------------------------------
+# FPL priors
+# ---------------------------------------------------------------------------
+# How fast in-season per-90 rates displace last season's. Higher = trust the new
+# season sooner. Set deliberately high for 2026/27: eight new managers, three
+# British-record transfers, Salah gone from the league and three promoted clubs
+# make last season's rates weaker priors than in a normal year. This is a
+# judgement call, not a measured value — revisit once GW1-5 data exists.
+FPL_PRIOR_SHRINKAGE_MATCHES = 6.0
+
+# Cold-start fallback: expected non-penalty xG per 90 for a league-median-priced
+# player, by position. Scaled by price relative to the position median, because
+# FPL's price is itself a forecast of output. Used only for players with no
+# Premier League history (promoted clubs, foreign signings).
+FPL_COLD_START_XG90 = {"GK": 0.0, "DEF": 0.05, "MID": 0.12, "FWD": 0.28}
+FPL_COLD_START_XA90 = {"GK": 0.0, "DEF": 0.06, "MID": 0.14, "FWD": 0.12}
+FPL_MEDIAN_PRICE = {"GK": 4.5, "DEF": 4.5, "MID": 5.5, "FWD": 6.0}
+
+
 def game(name: str) -> dict:
     return GAMES[name]
 

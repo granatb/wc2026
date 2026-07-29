@@ -102,3 +102,74 @@ class TestMinutesModel(unittest.TestCase):
         p = _player(minutes=3420, starts=38)
         sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
         self.assertLessEqual(sp, 1.0)
+
+
+class TestColdStartFallback(unittest.TestCase):
+    def test_player_with_history_does_not_use_the_fallback(self):
+        p = _player(minutes=2700, xg_per90=0.55)
+        self.assertFalse(fpl_priors.needs_cold_start(p))
+
+    def test_player_with_no_minutes_uses_the_fallback(self):
+        self.assertTrue(fpl_priors.needs_cold_start(_player(minutes=0, starts=0)))
+
+    def test_fallback_rate_scales_with_price(self):
+        cheap = fpl_priors.price_prior_xg(_player(price=4.5, position="FWD"))
+        dear = fpl_priors.price_prior_xg(_player(price=11.0, position="FWD"))
+        self.assertGreater(dear, cheap)
+
+    def test_fallback_rate_respects_position(self):
+        fwd = fpl_priors.price_prior_xg(_player(price=7.0, position="FWD"))
+        dfn = fpl_priors.price_prior_xg(_player(price=7.0, position="DEF"))
+        self.assertGreater(fwd, dfn)
+
+    def test_goalkeeper_fallback_expects_no_goals(self):
+        self.assertEqual(fpl_priors.price_prior_xg(_player(price=5.5, position="GK")), 0.0)
+
+
+class TestBuildPriors(unittest.TestCase):
+    def setUp(self):
+        self.players = [
+            _player(id=1, name="Striker", position="FWD", team="LIV",
+                    xg_per90=0.8, xa_per90=0.2, minutes=2700, starts=30),
+            _player(id=2, name="Winger", position="MID", team="LIV",
+                    xg_per90=0.3, xa_per90=0.4, minutes=2400, starts=27),
+            _player(id=3, name="Keeper", position="GK", team="LIV",
+                    xg_per90=0.0, xa_per90=0.0, saves_per90=2.8,
+                    minutes=3420, starts=38),
+            _player(id=4, name="Newboy", position="FWD", team="COV",
+                    xg_per90=0.0, xa_per90=0.0, minutes=0, starts=0, price=6.0),
+        ]
+
+    def test_returns_player_prior_objects_keyed_by_team(self):
+        by_team = fpl_priors.build(self.players, team_matches=38)
+        self.assertIn("LIV", by_team)
+        self.assertEqual(len(by_team["LIV"]), 3)
+        self.assertIsInstance(by_team["LIV"][0], ratings.PlayerPrior)
+
+    def test_goal_share_is_normalised_within_the_club(self):
+        by_team = fpl_priors.build(self.players, team_matches=38)
+        shares = {p.name: p.goal_share for p in by_team["LIV"]}
+        # the striker out-shoots the winger, and both are fractions
+        self.assertGreater(shares["Striker"], shares["Winger"])
+        self.assertLess(shares["Striker"], 1.0)
+
+    def test_goalkeeper_carries_saves_rate_and_no_goal_share(self):
+        by_team = fpl_priors.build(self.players, team_matches=38)
+        gk = next(p for p in by_team["LIV"] if p.position == "GK")
+        self.assertAlmostEqual(gk.saves_per90, 2.8)
+        self.assertEqual(gk.goal_share, 0.0)
+
+    def test_defcon_rate_carried_onto_the_prior(self):
+        by_team = fpl_priors.build(self.players, team_matches=38)
+        mid = next(p for p in by_team["LIV"] if p.name == "Winger")
+        self.assertAlmostEqual(mid.defcon_per90, 4.0)
+
+    def test_cold_start_player_still_gets_a_usable_prior(self):
+        by_team = fpl_priors.build(self.players, team_matches=38)
+        newboy = by_team["COV"][0]
+        self.assertGreater(newboy.goal_share, 0.0)
+
+    def test_cold_start_players_are_reported_for_preflight(self):
+        _by_team, flagged = fpl_priors.build_with_flags(self.players, team_matches=38)
+        self.assertEqual([f["name"] for f in flagged], ["Newboy"])
+        self.assertEqual(flagged[0]["reason"], "no_pl_history")
