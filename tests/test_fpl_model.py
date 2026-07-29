@@ -143,3 +143,116 @@ class TestDefconThreshold(unittest.TestCase):
 
     def test_goalkeeper_scores_no_defcon(self):
         self.assertAlmostEqual(model.defcon_points("GK", [20, 20]), 0.0)
+
+
+class TestBpsFromEvents(unittest.TestCase):
+    """Event-driven BPS deltas, from the official BPS table in games/fpl/rules.md."""
+
+    def _row(self, **kw):
+        base = {"name": "P", "position": "MID", "goals": 0, "assists": 0,
+                "minutes": 90, "clean_sheet": False, "conceded": 0, "saves": 0,
+                "yellow": 0, "red": 0}
+        base.update(kw)
+        return (base["name"], base["position"], base["goals"], base["assists"],
+                base["minutes"], base["clean_sheet"], base["conceded"],
+                base["saves"], base["yellow"], base["red"])
+
+    def test_over_sixty_minutes_is_six_bps(self):
+        self.assertEqual(model.bps_from_row(self._row(), baseline=0.0), 6)
+
+    def test_under_sixty_minutes_is_three_bps(self):
+        self.assertEqual(model.bps_from_row(self._row(minutes=45), baseline=0.0), 3)
+
+    def test_forward_goal_is_twenty_four_bps(self):
+        got = model.bps_from_row(self._row(position="FWD", goals=1), baseline=0.0)
+        self.assertEqual(got, 6 + 24)
+
+    def test_midfielder_goal_is_eighteen_bps(self):
+        got = model.bps_from_row(self._row(position="MID", goals=1), baseline=0.0)
+        self.assertEqual(got, 6 + 18)
+
+    def test_defender_goal_is_twelve_bps(self):
+        got = model.bps_from_row(self._row(position="DEF", goals=1), baseline=0.0)
+        self.assertEqual(got, 6 + 12)
+
+    def test_assist_is_nine_bps(self):
+        self.assertEqual(model.bps_from_row(self._row(assists=1), baseline=0.0), 6 + 9)
+
+    def test_defender_clean_sheet_is_twelve_bps(self):
+        got = model.bps_from_row(
+            self._row(position="DEF", clean_sheet=True), baseline=0.0)
+        self.assertEqual(got, 6 + 12)
+
+    def test_midfielder_clean_sheet_earns_no_bps(self):
+        got = model.bps_from_row(
+            self._row(position="MID", clean_sheet=True), baseline=0.0)
+        self.assertEqual(got, 6)
+
+    def test_each_save_is_two_bps(self):
+        got = model.bps_from_row(self._row(position="GK", saves=4), baseline=0.0)
+        self.assertEqual(got, 6 + 8)
+
+    def test_conceding_costs_a_defender_four_bps_each(self):
+        got = model.bps_from_row(
+            self._row(position="DEF", conceded=2), baseline=0.0)
+        self.assertEqual(got, 6 - 8)
+
+    def test_cards_cost_three_and_nine_bps(self):
+        self.assertEqual(model.bps_from_row(self._row(yellow=1), baseline=0.0), 6 - 3)
+        self.assertEqual(model.bps_from_row(self._row(red=1), baseline=0.0), 6 - 9)
+
+    def test_baseline_rate_is_prorated_by_minutes(self):
+        # baseline 18 BPS per 90 over 45 minutes contributes 9
+        self.assertEqual(model.bps_from_row(self._row(minutes=45), baseline=18.0),
+                         3 + 9)
+
+
+class TestBonusAccumulator(unittest.TestCase):
+    def _rows(self, scores):
+        """Build rows whose BPS ordering is controlled by goal counts."""
+        return [(name, "FWD", goals, 0, 90, False, 0, 0, 0, 0)
+                for name, goals in scores]
+
+    def test_top_three_take_three_two_one(self):
+        acc = model.BonusAccumulator(baselines={})
+        acc.observe("m1", self._rows([("A", 3), ("B", 2), ("C", 1), ("D", 0)]))
+        self.assertAlmostEqual(acc.expected("A"), 3.0)
+        self.assertAlmostEqual(acc.expected("B"), 2.0)
+        self.assertAlmostEqual(acc.expected("C"), 1.0)
+        self.assertAlmostEqual(acc.expected("D"), 0.0)
+
+    def test_expected_bonus_averages_across_sims(self):
+        acc = model.BonusAccumulator(baselines={})
+        acc.observe("m1", self._rows([("A", 3), ("B", 0)]))
+        acc.observe("m1", self._rows([("A", 0), ("B", 3)]))
+        # A tops one sim (3) and is second in the other (2) -> 2.5
+        self.assertAlmostEqual(acc.expected("A"), 2.5)
+        self.assertAlmostEqual(acc.expected("B"), 2.5)
+
+    def test_tie_for_first_gives_both_three_and_the_next_player_one(self):
+        # Official rule: two tied on top both get 3, and the THIRD-most BPS gets 1
+        # (not 2 — the tie consumes two award positions).
+        acc = model.BonusAccumulator(baselines={})
+        acc.observe("m1", self._rows([("A", 2), ("B", 2), ("C", 0)]))
+        self.assertAlmostEqual(acc.expected("A"), 3.0)
+        self.assertAlmostEqual(acc.expected("B"), 3.0)
+        self.assertAlmostEqual(acc.expected("C"), 1.0)
+
+    def test_tie_for_second_gives_both_two_and_awards_no_one(self):
+        acc = model.BonusAccumulator(baselines={})
+        acc.observe("m1", self._rows([("A", 3), ("B", 1), ("C", 1), ("D", 0)]))
+        self.assertAlmostEqual(acc.expected("A"), 3.0)
+        self.assertAlmostEqual(acc.expected("B"), 2.0)
+        self.assertAlmostEqual(acc.expected("C"), 2.0)
+        self.assertAlmostEqual(acc.expected("D"), 0.0)
+
+    def test_unknown_player_has_no_expected_bonus(self):
+        acc = model.BonusAccumulator(baselines={})
+        acc.observe("m1", self._rows([("A", 1)]))
+        self.assertAlmostEqual(acc.expected("nobody"), 0.0)
+
+    def test_baselines_break_ties_between_equal_event_lines(self):
+        # identical events, but B has the higher season BPS rate
+        acc = model.BonusAccumulator(baselines={"A": 10.0, "B": 30.0})
+        acc.observe("m1", self._rows([("A", 1), ("B", 1), ("C", 0)]))
+        self.assertGreater(acc.expected("B"), acc.expected("A"))

@@ -102,3 +102,101 @@ def defcon_points(position: str, defcon_samples: list) -> float:
         return 0.0
     hits = sum(1 for c in defcon_samples if c >= threshold)
     return DEFCON_PTS * hits / float(len(defcon_samples))
+
+
+# --- Bonus points ---------------------------------------------------------
+# The official BPS table has 30+ components: successful crosses, dribbles,
+# pass-completion tiers, fouls won, errors leading to an attempt. We have NO data
+# for most of them, so reconstructing BPS from components is impossible.
+#
+# Instead: a per-90 baseline from each player's own realized BPS history carries
+# everything we cannot see, and the components we DO sample are applied as exact
+# deltas from the table. Rank all players in the match, award 3/2/1.
+#
+# Deliberately NOT applied per event: the +1 for a save inside the box and the +1
+# for a save from a big chance both need shot-location data we lack, so they are
+# absorbed into the baseline rate. Same for goalline clearances and errors.
+BPS_PLAY_60 = 6
+BPS_PLAY_SHORT = 3
+BPS_GOAL = {"GK": 12, "DEF": 12, "MID": 18, "FWD": 24}
+BPS_ASSIST = 9
+BPS_CLEAN_SHEET = {"GK": 12, "DEF": 12, "MID": 0, "FWD": 0}
+BPS_SAVE = 2
+BPS_CONCEDED = -4          # per goal, goalkeepers and defenders only
+BPS_YELLOW = -3
+BPS_RED = -9
+
+# Row layout produced by engine_events' per_match_hook.
+_NAME, _POS, _GOALS, _ASSISTS, _MINUTES, _CS, _CONCEDED, _SAVES, _YELLOW, _RED = range(10)
+
+
+def bps_from_row(row: tuple, baseline: float) -> int:
+    """BPS for one player in one simulated match.
+
+    `baseline` is the player's realized BPS per 90, prorated by minutes played. It
+    stands in for every component we cannot sample.
+    """
+    pos = row[_POS]
+    bps = BPS_PLAY_60 if row[_MINUTES] >= 60 else BPS_PLAY_SHORT
+    bps += row[_GOALS] * BPS_GOAL.get(pos, 18)
+    bps += row[_ASSISTS] * BPS_ASSIST
+    if row[_CS]:
+        bps += BPS_CLEAN_SHEET.get(pos, 0)
+    bps += row[_SAVES] * BPS_SAVE
+    if pos in _CONCEDE_POSITIONS:
+        bps += row[_CONCEDED] * BPS_CONCEDED
+    bps += row[_YELLOW] * BPS_YELLOW
+    bps += row[_RED] * BPS_RED
+    bps += int(round(baseline * row[_MINUTES] / 90.0))
+    return bps
+
+
+class BonusAccumulator:
+    """Accumulates expected bonus points across sims via rank-within-match.
+
+    Pass `observe` as engine_events' per_match_hook. After the sim completes,
+    `expected(name)` gives that player's mean bonus.
+
+    Ties consume award POSITIONS, matching the official rule: two players tied on
+    top both take 3 and the third-most BPS takes 1 (not 2, because the tie has
+    already used two positions). Two tied for second both take 2 and no 1 is
+    awarded at all.
+    """
+
+    def __init__(self, baselines: dict):
+        self.baselines = baselines or {}
+        self._total: dict = {}
+        self._sims: dict = {}
+
+    def observe(self, _match_id: str, rows: list) -> None:
+        scored = [(bps_from_row(r, self.baselines.get(r[_NAME], 0.0)), r[_NAME])
+                  for r in rows]
+        for _bps, name in scored:
+            self._sims[name] = self._sims.get(name, 0) + 1
+        if not scored:
+            return
+        # Group by BPS, highest first. Each group takes the award for the next
+        # open position, then consumes as many positions as it has members.
+        groups: dict = {}
+        for bps, name in scored:
+            groups.setdefault(bps, []).append(name)
+
+        placed = 0
+        for bps in sorted(groups, reverse=True):
+            if placed == 0:
+                award = 3
+            elif placed == 1:
+                award = 2
+            elif placed == 2:
+                award = 1
+            else:
+                break
+            for name in groups[bps]:
+                self._total[name] = self._total.get(name, 0) + award
+            placed += len(groups[bps])
+
+    def expected(self, name: str) -> float:
+        sims = self._sims.get(name, 0)
+        if not sims:
+            return 0.0
+        return self._total.get(name, 0) / float(sims)
