@@ -2884,6 +2884,11 @@ git commit -m "docs: changelog for FPL port phases 1-2"
 - **Phase 3** — sim caching (`core/simcache.py`) keyed on odds, priors, config and a model-source fingerprint. Independent of this plan.
 - **Phase 4** — the six GW1 articles, `/fpl/gw{N}/` URLs, preflight extensions. Depends on this plan and Phase 3.
 
+## Verified behaviours that look like bugs but are not
+
+- **Some goalkeepers carry a tiny non-zero `goal_share` / `assist_share`.** Verified against the real 563-player feed: five keepers (Pickford, Kelleher, Bayindir, Pope, Ellborg) have `expected_goals_per_90` or `expected_assists_per_90` of 0.01. That is real — keepers assist from long kicks and very occasionally score. Pope's resulting goal share is 0.008, worth roughly 0.1 xPts. Do NOT zero it: a GK goal pays 10 points in FPL and the model should reflect that it can happen. `test_goalkeeper_carries_saves_rate_and_no_goal_share` passes only because its fixture GK has `xg_per90=0.0`; it is not asserting that all real keepers do.
+- **Per-club weighted goal-share mass normalises to exactly 1.000.** Mathematically implied by `goal_share = xg90 / sum(start_prob x xg90)`. On-pitch shares then sum to ~1.0 in expectation, so `_distribute`'s unmodelled-teammate leak is near zero on average — correct here, because unlike the World Cup (~28 of a squad modelled) the FPL path models every player at every club.
+
 ## Known deferrals carried into Phase 3 or later
 
 - **Pure substitutes get `start_prob == 0`.** A player with zero starts yields a start rate of 0, so the engine never puts him on the pitch and his `exp_minutes` is never used. Slightly understates cheap bench-fodder, who would in reality bank an appearance point now and then. Not worth fixing now — the feed carries `starts` and `minutes` but no appearance count, so minutes-per-appearance is not directly computable, and nobody picks a pure substitute for points. Revisit if Phase 4's budget-enabler article needs it.
