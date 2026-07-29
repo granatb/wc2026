@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+from unittest import mock
 
 from core import engine_events, fixtures, ratings
 from games.fpl import model
@@ -624,3 +625,100 @@ class TestZeroSimsGuard(unittest.TestCase):
         self.assertAlmostEqual(pts, 0.0)
         ceiling = model.ceiling_points(means, ps, conceded_samples=[], bonus=0.0)
         self.assertAlmostEqual(ceiling, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# build_rows / sim cache wiring
+# ---------------------------------------------------------------------------
+
+_TINY_PRIORS = {
+    "H": [ratings.PlayerPrior("A1", "H", "FWD", start_prob=1.0, exp_minutes=90,
+                              goal_share=0.5)],
+    "A": [ratings.PlayerPrior("B1", "A", "DEF", start_prob=1.0, exp_minutes=90,
+                              defcon_per90=9.0)],
+}
+_TINY_META = {"A1": {"price": 7.0, "ownership": 5.0, "minutes": 2700, "bps": 600},
+              "B1": {"price": 4.5, "ownership": 2.0, "minutes": 2700, "bps": 500}}
+
+
+class TestRunUsesTheSimCache(unittest.TestCase):
+    """The run path must skip simulate_round entirely on a cache hit."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        from core import simcache
+
+        self.tmp = tempfile.mkdtemp(prefix="fpl_cache_test_")
+        p = mock.patch.object(simcache, "CACHE_DIR", self.tmp)
+        p.start()
+        self.addCleanup(p.stop)
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+        # A registered fixture for the test gameweek, following the pattern in
+        # tests/test_engine_priors.py: append to the shared schedule in setUp,
+        # remove it via addCleanup so this test can't leak state into others.
+        self.fx = fixtures.Fixture(
+            "FPLCACHE1", "H", "A",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=901, neutral=False,
+            lam_home=1.6, lam_away=1.1,
+        )
+        fixtures.SCHEDULE.append(self.fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(self.fx))
+
+    def test_second_call_with_identical_inputs_does_not_simulate(self):
+        # Drive build_rows twice; the second must be served from cache.
+        calls = []
+        real = model.engine_events.simulate_round
+
+        def counting(*a, **kw):
+            calls.append(1)
+            return real(*a, **kw)
+
+        with mock.patch.object(model.engine_events, "simulate_round",
+                              side_effect=counting):
+            model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+            model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+        self.assertEqual(len(calls), 1, "second call should have hit the cache")
+
+    def test_changed_priors_force_a_fresh_simulation(self):
+        calls = []
+        real = model.engine_events.simulate_round
+
+        def counting(*a, **kw):
+            calls.append(1)
+            return real(*a, **kw)
+
+        changed = {"H": [ratings.PlayerPrior("A1", "H", "FWD", start_prob=0.4,
+                                            exp_minutes=90, goal_share=0.5)]}
+        with mock.patch.object(model.engine_events, "simulate_round",
+                              side_effect=counting):
+            model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+            model.build_rows(changed, _TINY_META, gameweek=901, sims=50)
+        self.assertEqual(len(calls), 2, "changed priors must invalidate the cache")
+
+    def test_cache_can_be_bypassed(self):
+        calls = []
+        real = model.engine_events.simulate_round
+
+        def counting(*a, **kw):
+            calls.append(1)
+            return real(*a, **kw)
+
+        with mock.patch.object(model.engine_events, "simulate_round",
+                              side_effect=counting):
+            model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+            model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50,
+                             use_cache=False)
+        self.assertEqual(len(calls), 2, "use_cache=False must always simulate")
+
+    def test_cached_rows_match_freshly_simulated_rows(self):
+        fresh = model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50,
+                                 use_cache=False)
+        model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+        cached = model.build_rows(_TINY_PRIORS, _TINY_META, gameweek=901, sims=50)
+        self.assertEqual([r["name"] for r in fresh], [r["name"] for r in cached])
+        for a, b in zip(fresh, cached):
+            self.assertAlmostEqual(a["x_points"], b["x_points"], places=6)

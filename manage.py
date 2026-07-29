@@ -107,12 +107,15 @@ def refresh(fantasy_round: int, with_props: bool = False) -> None:
     print(f"  cached goal rates for {len(rates)} players.")
 
 
-def run_game(game: str, fantasy_round: int, sims: int) -> None:
+def run_game(game: str, fantasy_round: int, sims: int, no_cache: bool = False) -> None:
     state = load_state(game)
     # Inject the tunables from config.py (the single control panel) so state.json
     # only ever holds squad data, never behaviour.
     state["research_weight"] = config.weight(game)
     state["ceiling_percentile"] = config.CEILING_PERCENTILE
+    # Only games with a sim cache (currently just fpl) look at this; the rest
+    # ignore it, same as they already ignore other games' tunables.
+    state["no_cache"] = no_cache
     model = importlib.import_module(f"games.{game}.model")
     model.run(state, fantasy_round, sims=sims or config.DEFAULT_SIMS)
 
@@ -130,6 +133,8 @@ def main() -> None:
                     help="pull fresh schedule + match odds into data/ cache before running")
     ap.add_argument("--props", action="store_true",
                     help="also fetch ESPN anytime-goal player props (slower; with --refresh)")
+    ap.add_argument("--no-cache", action="store_true", dest="no_cache",
+                    help="(fpl) skip the sim cache and force a fresh simulation")
     args = ap.parse_args()
 
     if args.game == "config":
@@ -148,7 +153,7 @@ def main() -> None:
 
     targets = GAMES if args.game == "all" else [args.game]
     for g in targets:
-        run_game(g, args.fantasy_round, args.sims)
+        run_game(g, args.fantasy_round, args.sims, no_cache=args.no_cache)
 
 
 if __name__ == "__main__":

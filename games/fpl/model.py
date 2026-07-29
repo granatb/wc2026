@@ -333,28 +333,112 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     return priors_by_team, {p["name"]: p for p in players}, flags
 
 
-def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
-    """Print the FPL order book for one gameweek."""
-    from core import engine_events
+# The seed engine_events.simulate_round defaults to. Kept as an explicit local
+# constant (rather than relying on the default) so it can participate in the
+# cache key -- a silent change to that default would otherwise change every
+# player's numbers without changing the key.
+_SEED = 12345
 
-    priors_by_team, players_by_name, flags = load_gameweek(fantasy_round)
-    if flags:
-        print(f"  [fpl] {len(flags)} player(s) on the price-based cold-start prior "
-              f"(no PL history): "
-              f"{', '.join(f['name'] for f in flags[:6])}"
-              f"{' ...' if len(flags) > 6 else ''}")
+# PlayerPrior fields that feed the sim, in a fixed order so the cache key's
+# projection is stable regardless of dataclass field order.
+_PRIOR_FIELDS = ("start_prob", "exp_minutes", "goal_share", "assist_share",
+                 "sot_per90", "pen_taker", "defcon_per90", "saves_per90")
 
+
+def _priors_projection(priors_by_team: dict) -> dict:
+    """{player_name: tuple of every PlayerPrior field that affects the sim}.
+
+    Keyed by name (not team) because that is how the sim and the row output are
+    keyed; a player changing team would already show up via a different squad
+    list membership, and this dict does not need to duplicate that.
+    """
+    out = {}
+    for squad in priors_by_team.values():
+        for p in squad:
+            out[p.name] = tuple(getattr(p, f) for f in _PRIOR_FIELDS)
+    return out
+
+
+def _bps_baselines(players_by_name: dict) -> dict:
+    """{player_name: realized BPS per 90}, the input to BonusAccumulator.
+
+    Prorated by minutes exactly as `run` computes it -- see the loop below. This
+    lives here (not just inline in build_rows) so the exact same computation
+    backs both the simulation input and the cache-key projection: baselines are
+    NOT passed to cache_key as a separate argument, they are folded into the
+    `priors` projection (see build_rows), because they are derived from
+    players_by_name and change sim output just as much as PlayerPrior fields do.
+    """
     baselines = {}
     for name, p in players_by_name.items():
         minutes = p.get("minutes") or 0
         if minutes > 0:
             baselines[name] = (p.get("bps") or 0) * 90.0 / minutes
+    return baselines
 
+
+def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
+              sims: int, use_cache: bool = True) -> list:
+    """Simulate (or fetch from cache) and return the sorted order-book rows.
+
+    Consults core.simcache before running the Monte Carlo: the cache key covers
+    every input that determines the derived rows (see the `priors`, `research`,
+    `lambdas` and `config` projections below) plus a fingerprint of this file and
+    the shared engine's source, so an edit to a scoring constant can never
+    silently serve a stale artifact. `use_cache=False` always simulates, for an
+    operator who wants to force a fresh run regardless of the cache.
+    """
+    import config
+    from core import fixtures, research, simcache
+
+    fx = fixtures.by_round(gameweek)
+    lambdas = {f.match_id: f.lambdas() for f in fx}
+    research_entries = research.load_entries("players", gameweek)
+    research_projection = {
+        name: (e.status, e.start_prob_override, e.lambda_multiplier)
+        for name, e in research_entries.items()
+    }
+    priors_projection = {
+        "players": _priors_projection(priors_by_team),
+        # Folded in here rather than as a separate cache_key argument: BPS
+        # baselines derive from players_by_name and affect BonusAccumulator's
+        # output just as much as any PlayerPrior field, so they must be part of
+        # whatever gets hashed as "priors" or a bps/minutes edit could silently
+        # serve a stale bonus-points figure.
+        "bps_baselines": _bps_baselines(players_by_name),
+    }
+    research_weight = config.weight("fpl")
+    sim_config = {
+        "GOAL_CONCENTRATION": config.GOAL_CONCENTRATION,
+        "PEN_TAKER_GOAL_BONUS": config.PEN_TAKER_GOAL_BONUS,
+        "DEVIG_METHOD": config.DEVIG_METHOD,
+        # Not in the plan's literal list of three dials, but it plainly is one:
+        # research_weight (w) is fed straight into effective_goal_weight's blend
+        # and into ResearchEntry.adjust's soft lambda nudge, so retuning it in
+        # config.py changes simulated output exactly like GOAL_CONCENTRATION
+        # does. Leaving it out would mean a config edit could silently serve a
+        # stale artifact -- the one failure mode this cache exists to prevent.
+        "research_weight": research_weight,
+    }
+
+    key = simcache.cache_key(
+        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=lambdas,
+        priors=priors_projection, research=research_projection,
+        config=sim_config,
+    )
+
+    if use_cache:
+        cached = simcache.load(key)
+        if cached is not None:
+            return cached["rows"]
+
+    baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
     samples, _matches = engine_events.simulate_round(
-        fantasy_round, sims=sims,
+        gameweek, sims=sims, seed=_SEED,
         priors=lambda team: priors_by_team.get(team, []),
-        research_weight=state.get("research_weight", 0.3),
+        research=research_entries,
+        research_weight=research_weight,
         per_match_hook=bonus.observe,
     )
     means = engine_events.event_means(samples)
@@ -381,6 +465,25 @@ def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
                      * appearance_probability(ps),
         })
     rows.sort(key=lambda r: -r["x_points"])
+
+    if use_cache:
+        simcache.store(key, {"rows": rows}, meta={"gameweek": gameweek, "sims": sims})
+
+    return rows
+
+
+def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
+    """Print the FPL order book for one gameweek."""
+    priors_by_team, players_by_name, flags = load_gameweek(fantasy_round)
+    if flags:
+        print(f"  [fpl] {len(flags)} player(s) on the price-based cold-start prior "
+              f"(no PL history): "
+              f"{', '.join(f['name'] for f in flags[:6])}"
+              f"{' ...' if len(flags) > 6 else ''}")
+
+    use_cache = not state.get("no_cache", False)
+    rows = build_rows(priors_by_team, players_by_name, fantasy_round, sims,
+                      use_cache=use_cache)
 
     print(f"\n=== FPL — gameweek {fantasy_round} order book ===")
     print(f"\n{'xPts':>6} {'ceil':>6} {'bon':>5} {'dfc':>5}  "
