@@ -30,6 +30,7 @@ def utc(y: int, mo: int, d: int, h: int, mi: int = 0) -> datetime:
 STAGES = [
     "GROUP_MD1", "GROUP_MD2", "GROUP_MD3",
     "R32", "R16", "QF", "SF", "BRONZE", "FINAL",
+    "GW",   # FPL gameweek
 ]
 
 
@@ -112,8 +113,25 @@ def get(match_id: str) -> Fixture | None:
     return next((f for f in SCHEDULE if f.match_id == match_id), None)
 
 
+# Registered gameweek deadlines, {fantasy_round: UTC-aware datetime}. FPL locks on a
+# published deadline that PRECEDES the first kickoff (GW1: 17:30Z deadline, evening
+# kickoff), so lock logic must prefer this over min(kickoff). Populated from
+# core.fpl_api.parse_events — never scraped from the rules page, which localises times.
+DEADLINES: dict = {}
+
+
+def set_deadline(fantasy_round: int, when: datetime) -> None:
+    DEADLINES[fantasy_round] = when
+
+
 def round_lock_time(fantasy_round: int) -> datetime | None:
-    """First kickoff of a round -- the global lock for holdet games."""
+    """When a round locks: the registered deadline if known, else first kickoff.
+
+    The WC had no separate deadline, so first kickoff was the lock. FPL publishes
+    one, and the frozen-at-lock rule depends on using it.
+    """
+    if fantasy_round in DEADLINES:
+        return DEADLINES[fantasy_round]
     fx = by_round(fantasy_round)
     return min((f.kickoff for f in fx), default=None)
 
@@ -127,3 +145,26 @@ def is_single_match_round(fantasy_round: int) -> bool:
     """True for rounds with exactly one match (bronze final, final) -- used by
     malspillet to auto-assign Chance Bamse."""
     return len(by_round(fantasy_round)) == 1
+
+
+def fixture_count_by_team(fantasy_round: int) -> dict:
+    """{team: number of fixtures} for a round. Absent teams have a blank."""
+    counts: dict = {}
+    for f in by_round(fantasy_round):
+        counts[f.home] = counts.get(f.home, 0) + 1
+        counts[f.away] = counts.get(f.away, 0) + 1
+    return counts
+
+
+def teams_with_double(fantasy_round: int) -> set:
+    """Teams playing more than once — a 'double gameweek'."""
+    return {t for t, c in fixture_count_by_team(fantasy_round).items() if c > 1}
+
+
+def teams_with_blank(fantasy_round: int, all_teams) -> set:
+    """Teams in `all_teams` with no fixture — a 'blank gameweek'.
+
+    Requires the league's full team set, because a team with no fixture is by
+    definition absent from the schedule rows and cannot be inferred from them.
+    """
+    return set(all_teams) - set(fixture_count_by_team(fantasy_round))
