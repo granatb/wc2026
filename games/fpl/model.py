@@ -233,3 +233,134 @@ def ceiling_points(means: dict, goal_samples: list, q: float = 0.85) -> float:
     p_goals = engine_events.percentile(goal_samples, q)
     raw = base - means.get("goals", 0.0) * goal_pts + p_goals * goal_pts
     return max(base, raw)
+
+
+# --- run path -------------------------------------------------------------
+
+def load_gameweek(gameweek: int, refresh: bool = False):
+    """Load FPL data, register the gameweek's fixtures and deadline, build priors.
+
+    Returns (priors_by_team, players_by_name, cold_start_flags).
+    """
+    from core import fixtures, fpl_api, fpl_priors
+
+    boot = fpl_api.read_cache("bootstrap")
+    raw_fx = fpl_api.read_cache("fixtures")
+    if refresh or boot is None or raw_fx is None:
+        boot, raw_fx = fpl_api.refresh()
+
+    teams = fpl_api.parse_teams(boot)
+    events = fpl_api.parse_events(boot)
+    players = fpl_api.parse_players(boot)
+
+    # Register this gameweek's fixtures with the shared schedule.
+    rows = [r for r in fpl_api.parse_fixtures(raw_fx, teams)
+            if r["fantasy_round"] == gameweek]
+    existing = {f.match_id for f in fixtures.SCHEDULE}
+    for r in rows:
+        if r["match_id"] in existing:
+            continue
+        fixtures.SCHEDULE.append(fixtures.Fixture(
+            match_id=r["match_id"], home=r["home"], away=r["away"],
+            kickoff=fpl_api._parse_utc(r["kickoff_utc"]),
+            stage="GW", fantasy_round=r["fantasy_round"], neutral=False,
+        ))
+    if gameweek in events:
+        fixtures.set_deadline(gameweek, events[gameweek]["deadline"])
+
+    # team_matches: how many matches the per-90 sample covers. Preseason the feed
+    # carries last season's totals, so a full 38. Once the season starts this should
+    # become matches played so far -- tracked by the caller as history accumulates.
+    team_matches = 38
+    priors_by_team, flags = fpl_priors.build_with_flags(players, team_matches)
+    return priors_by_team, {p["name"]: p for p in players}, flags
+
+
+def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
+    """Print the FPL order book for one gameweek."""
+    from core import engine_events
+
+    priors_by_team, players_by_name, flags = load_gameweek(fantasy_round)
+    if flags:
+        print(f"  [fpl] {len(flags)} player(s) on the price-based cold-start prior "
+              f"(no PL history): "
+              f"{', '.join(f['name'] for f in flags[:6])}"
+              f"{' ...' if len(flags) > 6 else ''}")
+
+    baselines = {}
+    for name, p in players_by_name.items():
+        minutes = p.get("minutes") or 0
+        if minutes > 0:
+            baselines[name] = (p.get("bps") or 0) * 90.0 / minutes
+
+    bonus = BonusAccumulator(baselines)
+    samples, _matches = engine_events.simulate_round(
+        fantasy_round, sims=sims,
+        priors=lambda team: priors_by_team.get(team, []),
+        research_weight=state.get("research_weight", 0.3),
+        per_match_hook=bonus.observe,
+    )
+    means = engine_events.event_means(samples)
+
+    rows = []
+    for name, ps in samples.items():
+        m = means[name]
+        # conceded is accumulated as a running total; rebuild the per-sim series
+        # the threshold needs from the mean over the sims the player appeared in.
+        conceded_samples = _conceded_series(ps)
+        pts = total_points(m, ps, conceded_samples, bonus=bonus.expected(name))
+        meta = players_by_name.get(name, {})
+        rows.append({
+            "name": name, "team": m["team"], "position": m["position"],
+            "x_points": pts, "price": meta.get("price"),
+            "ownership_pct": meta.get("ownership"),
+            "ceiling": ceiling_points(m, ps.goal_samples),
+            "bonus": bonus.expected(name),
+            "defcon": defcon_points(m["position"], ps.defcon_samples),
+        })
+    rows.sort(key=lambda r: -r["x_points"])
+
+    print(f"\n=== FPL — gameweek {fantasy_round} order book ===")
+    print(f"\n{'xPts':>6} {'ceil':>6} {'bon':>5} {'dfc':>5}  "
+          f"{'player':<20} {'team':<5} pos  price")
+    for r in rows[:30]:
+        price = f"{r['price']:.1f}" if r["price"] else "  - "
+        print(f"{r['x_points']:6.2f} {r['ceiling']:6.2f} {r['bonus']:5.2f} "
+              f"{r['defcon']:5.2f}  {r['name']:<20} {r['team']:<5} "
+              f"{r['position']:<4} {price}")
+
+    if state.get("squad") and not state["squad"][0].get("_example"):
+        _print_squad_view(state, {r["name"]: r for r in rows})
+    else:
+        print("\n  [fpl] state.json not populated — add your 15 to see the squad view.")
+
+
+def _conceded_series(sample) -> list:
+    """Per-sim conceded counts for the -1-per-2 threshold.
+
+    The engine accumulates `conceded` as a total rather than a list (goals conceded
+    is a team-level quantity, so keeping 50k per-player copies would waste memory).
+    Reconstruct a two-point series around the mean, which preserves the threshold's
+    convexity better than applying the divisor to the mean alone.
+    """
+    if not sample.played:
+        return []
+    mean = sample.conceded / sample.played
+    lo, hi = int(mean), int(mean) + 1
+    frac = mean - lo
+    return [lo] * max(1, int(round((1 - frac) * 100))) + [hi] * max(0, int(round(frac * 100)))
+
+
+def _print_squad_view(state: dict, by_name: dict) -> None:
+    print("\nYour squad:")
+    total = 0.0
+    for p in state["squad"]:
+        r = by_name.get(p["name"])
+        xp = r["x_points"] if r else 0.0
+        tag = " (B)" if not p.get("is_starter") else ""
+        if p.get("is_starter"):
+            total += xp
+        flag = "" if r else "  <- not modelled (name mismatch?)"
+        print(f"  {xp:6.2f}  {p['name']:<20} {p.get('team', ''):<5}"
+              f"{p.get('position', ''):<4}{tag}{flag}")
+    print(f"\n  projected XI total: {total:.1f}")

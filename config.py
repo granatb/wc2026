@@ -22,6 +22,7 @@ from __future__ import annotations
 #   "odds"    -> pure market scoreline math (Målspillet)
 # ---------------------------------------------------------------------------
 GAMES = {
+    "fpl":         {"team": "Granat65",     "research_weight": 0.30, "objective": "mean"},
     "fifa":        {"team": "Granat65",     "research_weight": 0.30, "objective": "mean"},
     "holdet_gold": {"team": "Alwaysss 2nd", "research_weight": 0.10, "objective": "mean"},
     "holdet_yolo": {"team": "Always 2nd 2", "research_weight": 0.50, "objective": "ceiling"},
