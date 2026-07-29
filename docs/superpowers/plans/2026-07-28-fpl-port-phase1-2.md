@@ -294,7 +294,7 @@ def parse_events(raw: dict) -> dict[int, dict]:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `python3 -m unittest tests.test_fpl_api -v`
-Expected: PASS (4 tests)
+Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -465,7 +465,7 @@ def parse_squad_rules(raw: dict) -> dict:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `python3 -m unittest tests.test_fpl_api -v`
-Expected: PASS (13 tests)
+Expected: PASS (12 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -581,7 +581,7 @@ def refresh(write: bool = True) -> tuple[dict, list]:
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `python3 -m unittest tests.test_fpl_api -v`
-Expected: PASS (17 tests)
+Expected: PASS (16 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -1382,7 +1382,7 @@ def build(players: list[dict], team_matches: int) -> dict[str, list]:
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `python3 -m unittest tests.test_fpl_priors -v`
-Expected: PASS (29 tests)
+Expected: PASS (28 tests)
 
 - [ ] **Step 6: Commit**
 
