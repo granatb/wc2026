@@ -59,6 +59,11 @@ class PlayerPrior:
     assist_share: float = 0.0
     sot_per90: float = 0.8   # shots on target per 90, for holdet SoT scoring
     pen_taker: bool = False
+    # FPL-only rate fields. Zero for World Cup priors, which don't model them.
+    # defcon_per90 counts CBIT for defenders, CBIRT for midfielders and forwards
+    # (the two DefCon stat sets differ by position); saves_per90 is GK-only.
+    defcon_per90: float = 0.0
+    saves_per90: float = 0.0
 
 
 # ---------------------------------------------------------------------------
