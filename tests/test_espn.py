@@ -133,5 +133,21 @@ class TestEspnProps(unittest.TestCase):
         self.assertGreater(weights["Patrik Schick"], weights["Tomas Chory"])
 
 
+class TestLeagueParameterisation(unittest.TestCase):
+    def test_default_league_is_the_world_cup(self):
+        self.assertEqual(espn.league_slug(), "fifa.world")
+
+    def test_scoreboard_url_follows_the_configured_league(self):
+        with mock.patch.object(config, "ESPN_LEAGUE", "eng.1"):
+            self.assertIn("/soccer/eng.1/scoreboard", espn.scoreboard_url())
+
+    def test_core_url_follows_the_configured_league(self):
+        with mock.patch.object(config, "ESPN_LEAGUE", "eng.1"):
+            self.assertIn("/leagues/eng.1", espn.core_url())
+
+    def test_world_cup_urls_unchanged_by_default(self):
+        self.assertIn("/soccer/fifa.world/scoreboard", espn.scoreboard_url())
+
+
 if __name__ == "__main__":
     unittest.main()

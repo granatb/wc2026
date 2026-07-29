@@ -20,7 +20,7 @@ import json
 import os
 import sys
 
-GAMES = ["fifa", "holdet_gold", "holdet_yolo", "holdet_free", "malspillet"]
+GAMES = ["fpl", "fifa", "holdet_gold", "holdet_yolo", "holdet_free", "malspillet"]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:

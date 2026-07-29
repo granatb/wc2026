@@ -71,6 +71,17 @@ class PlayerSample:
     # Per-sim goal tallies, for games that need the full distribution (e.g. captaincy
     # variance, hat-trick bonuses). Kept compact.
     goal_samples: list[int] = field(default_factory=list)
+    # --- fields added for FPL. The engine samples RAW events; each game applies its
+    # own rules to them. Zero/empty for World Cup games, which don't read them.
+    conceded: float = 0.0            # raw goals conceded while on the pitch (GK/DEF).
+                                     # conc_beyond is FIFA's max(0, ga-1); FPL needs
+                                     # floor(ga/2), which that cannot express.
+    played_60: float = 0.0           # times the player reached 60 minutes. FPL pays 1
+                                     # point under 60 and 2 at 60+.
+    save_samples: list[int] = field(default_factory=list)    # GK only.
+                                     # E[floor(saves/3)] != floor(E[saves]/3).
+    defcon_samples: list[int] = field(default_factory=list)  # DefCon is a threshold
+                                     # crossing, so a mean count cannot give P(>= 10).
 
     def mean(self, attr: str) -> float:
         return getattr(self, attr) / self.sims if self.sims else 0.0
@@ -186,13 +197,27 @@ def percentile(values: list[float], q: float) -> float:
 
 def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                    market_rates: dict | None = None, research: dict | None = None,
-                   research_weight: float = 0.0, concentration: float | None = None):
+                   research_weight: float = 0.0, concentration: float | None = None,
+                   priors=None, per_match_hook=None):
     """Run the shared Monte Carlo for every fixture in a round.
 
     market_rates:    optional {player_name: goal_rate} from bookmaker player props.
     research:        optional {player_name: ResearchEntry} overrides.
     research_weight: the game's `w` dial (0 = pure odds, 1 = full expert overlay).
     concentration:   goal-split sharpening γ; None -> config.GOAL_CONCENTRATION.
+    priors:          optional callable(team) -> [PlayerPrior]. Defaults to
+                     ratings.players_for_team. FPL injects xG-derived priors here;
+                     the World Cup uses the registry. Resolved ONCE per team below,
+                     never inside the sim loop.
+    per_match_hook:  optional callable(match_id, rows) invoked once per match per
+                     sim, where rows is a list of tuples
+                       (name, position, goals, assists, minutes, clean_sheet,
+                        conceded, saves, yellow, red)
+                     for every on-pitch player across BOTH sides. Exists for
+                     rank-within-match quantities — FPL bonus points depend on all
+                     22 players' events in one sim, which per-player accumulators
+                     cannot reconstruct. The engine knows nothing about what the
+                     callback computes.
 
     Returns (player_samples, match_samples).
     """
@@ -202,18 +227,22 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
     fx = fixtures.by_round(fantasy_round)
     market_rates = market_rates or {}
     research = research or {}
+    prior_of = priors or ratings.players_for_team
 
     player_samples: dict[str, PlayerSample] = {}
     match_samples: dict[str, MatchSample] = {}
     eff_weight: dict[str, float] = {}     # multinomial goal weight per player
     eff_start: dict[str, float] = {}      # blended start probability
     assist_weight: dict[str, float] = {}
+    squads: dict[str, list] = {}   # team -> resolved priors, looked up once
 
     # Pre-index priors per team + precompute blended per-player params once.
     for f in fx:
         match_samples[f.match_id] = MatchSample(f.match_id, f.home, f.away)
         for team in (f.home, f.away):
-            for p in ratings.players_for_team(team):
+            if team not in squads:
+                squads[team] = prior_of(team)
+            for p in squads[team]:
                 ps0 = player_samples.setdefault(
                     p.name, PlayerSample(p.name, p.team, p.position))
                 ps0.goal_share, ps0.assist_share = p.goal_share, p.assist_share
@@ -236,8 +265,9 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
             ms.scorelines[(hg, ag)] += 1
 
             motm_pool: list[tuple[str, float]] = []  # one MOTM per match across both teams
+            hook_rows: list[tuple] = [] if per_match_hook else None
             for team, gf, ga in ((f.home, hg, ag), (f.away, ag, hg)):
-                squad = ratings.players_for_team(team)
+                squad = squads.get(team, ())
                 if not squad:
                     continue
                 # Who is on the pitch this sim (blended start probabilities).
@@ -254,23 +284,40 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                     mins = min(90, max(0, rng.gauss(p.exp_minutes, 12)))
                     ps.minutes += mins
                     ps.played += 1
+                    if mins >= 60:
+                        ps.played_60 += 1
                     g = goals.get(p.name, 0)
                     a = assists.get(p.name, 0)
                     ps.goals += g
                     ps.assists += a
                     ps.goal_samples.append(g)
                     ps.sot += _poisson(p.sot_per90 * mins / 90, rng) + g  # goals are SoT
-                    if p.position in ("DEF", "GK") and mins >= 60:
-                        if clean:
-                            ps.clean_sheet += 1
-                        ps.conc_beyond += max(0, ga - 1)  # -pts per goal after the first
+                    if p.position in ("DEF", "GK"):
+                        ps.conceded += ga
+                        if mins >= 60:
+                            if clean:
+                                ps.clean_sheet += 1
+                            ps.conc_beyond += max(0, ga - 1)  # -pts per goal after the first
                     if p.position == "GK":
-                        ps.saves += _poisson(max(0.0, ga + 1.5), rng)
+                        s = _poisson(max(0.0, ga + 1.5), rng)
+                        ps.saves += s
+                        ps.save_samples.append(s)
+                    if p.defcon_per90 > 0:
+                        ps.defcon_samples.append(
+                            _poisson(p.defcon_per90 * mins / 90.0, rng))
                     # Discipline.
-                    if rng.random() < 0.12:
-                        ps.yellow += 1
-                    if rng.random() < 0.012:
-                        ps.red += 1
+                    yel = 1 if rng.random() < 0.12 else 0
+                    red = 1 if rng.random() < 0.012 else 0
+                    ps.yellow += yel
+                    ps.red += red
+                    if hook_rows is not None:
+                        hook_rows.append((
+                            p.name, p.position, g, a, mins,
+                            bool(clean and mins >= 60 and p.position in ("DEF", "GK")),
+                            ga if p.position in ("DEF", "GK") else 0,
+                            ps.save_samples[-1] if p.position == "GK" else 0,
+                            yel, red,
+                        ))
                     # MOTM candidacy: contributions + result bias (one winner per match).
                     motm_pool.append((p.name, 1.0 + 3.0 * g + 1.5 * a
                                       + (1.2 if won else 0.4 if drew else 0.0)))
@@ -288,6 +335,8 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                                 else:
                                     player_samples[nm].decisive_draw += 1
                                 break
+            if hook_rows:
+                per_match_hook(f.match_id, hook_rows)
             if motm_pool:  # award exactly one MOTM this sim, weighted
                 r, acc = rng.random() * sum(wt for _, wt in motm_pool), 0.0
                 for nm, wt in motm_pool:
@@ -309,6 +358,8 @@ def event_means(player_samples: dict[str, PlayerSample]) -> dict[str, dict]:
             "sot": ps.mean("sot"), "minutes": ps.mean("minutes"),
             "played": ps.mean("played"), "clean_sheet": ps.mean("clean_sheet"),
             "conc_beyond": ps.mean("conc_beyond"),
+            "conceded": ps.mean("conceded"),
+            "played_60": ps.mean("played_60"),
             "decisive_win": ps.mean("decisive_win"),
             "decisive_draw": ps.mean("decisive_draw"),
             "yellow": ps.mean("yellow"), "red": ps.mean("red"),
