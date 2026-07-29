@@ -2792,6 +2792,56 @@ git commit -m "feat(fpl): gameweek run path — load, simulate, print the order 
 
 ---
 
+## Defects found by running Task 18 (added 2026-07-28)
+
+Running the order book end to end surfaced three problems no unit test caught, because
+each only appears against the real 563-player feed. Tasks 18a-18c fix them; Task 19 runs
+after.
+
+### 18a — FPL `web_name` is not unique across clubs
+
+`engine_events.simulate_round` keys its accumulator by name alone:
+`player_samples.setdefault(p.name, ...)`. That is safe for hand-curated national-team
+rosters but **not** for FPL: 14 `web_name` collisions exist in the GW1 pool, including
+**Cole Palmer (CHE, MID, GBP 9.5m)** and **Alex Palmer (IPS, GK, GBP 4.0m)**. Both clubs play
+in GW1, so both players' events land in one accumulator — which is why a GBP 4.0m backup
+goalkeeper appeared 4th on expected points with a ceiling of 11.57.
+
+**Fix at the FPL boundary, not in the shared engine.** Disambiguating inside
+`engine_events` would mean re-keying research lookups, `market_rates` and every game's
+`means.get(name)` — and would break the determinism digest. `core/fpl_priors` already owns
+the translation from FPL's vocabulary into the engine's, so uniqueness belongs there.
+
+### 18b — the ceiling is not comparable to expected points
+
+`ceiling_points()` re-derives only the goal slice and floors at `expected_points(means)`,
+which excludes saves, conceded, DefCon and bonus. But `total_points()` — the `xPts` column —
+includes all of them. So `ceil < xPts` on roughly 1 row in 6 (Szoboszlai 3.76 vs 3.21,
+Pickford 3.46 vs 2.88). A ceiling below its own mean is meaningless, and the two numbers sit
+in adjacent columns.
+
+### 18c — DefCon is zero for every player, so the differentiator article has no data
+
+`bootstrap-static` backfills last season's `minutes`, `expected_goals` and `bps`, but
+**zeroes `defensive_contribution`, `clearances_blocks_interceptions`, `recoveries` and
+`tackles` for all 563 players.** Verified: 0 of 563 non-zero. `defcon_points()` therefore
+returns 0.0 for everyone, and the DefCon-leaders article — the chosen differentiator — would
+be computed entirely from zeros.
+
+The data does exist, in `element-summary/{id}/history_past`: Gabriel's 2025/26 season shows
+`defensive_contribution: 277` over 2750 minutes = **9.07 per 90**, just under the 10-CBIT
+threshold. `defensive_contribution` is already the correct positional aggregate (for Gabriel,
+CBI 239 + tackles 38 = 277).
+
+**Cost and the polite-fetching guardrail (§4.5).** This needs one `element-summary` call per
+player, but only **once, ever** — last season's history is immutable, and in-season the
+bootstrap field populates itself. Scoped to players with non-zero minutes that is ~400 calls,
+cached to `data/fpl/`. The repo already does exactly this shape of one-time cached resolution
+for the World Cup (README: "resolves ~1000 athlete names, cached to `data/athletes.json`"),
+so it is consistent with existing practice rather than a new posture.
+
+---
+
 ## Task 19: Full-suite verification and CHANGELOG
 
 **Files:**
