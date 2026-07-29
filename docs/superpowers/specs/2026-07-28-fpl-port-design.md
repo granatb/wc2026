@@ -86,7 +86,7 @@ Last-season per-90 rates are weaker priors than in a normal season.
 
 ### Changed, surgically
 
-- `core/engine_events.py` — add a `priors` provider parameter, default `ratings.players_for_team`, resolved **once outside the sim loop**. `simulate_round` currently calls `ratings.players_for_team(team)` at two points including inside the per-sim loop.
+- `core/engine_events.py` — three additions, detailed in §4.1. Larger than first estimated: the original plan of "one priors parameter" cannot support §7.2's threshold scoring or §7.3's bonus model.
 - `core/espn.py` — parameterise the league slug (`fifa.world` → configurable); replace the hand-maintained `ROUND_DATES` with a per-league date resolver, since FPL dates come from its own fixtures feed.
 - `core/fixtures.py` — gameweek semantics (§5).
 - `core/ratings.py` — `PlayerPrior` gains `defcon_per90` and `saves_per90`, defaults 0, non-breaking.
@@ -98,6 +98,44 @@ Last-season per-90 rates are weaker priors than in a normal season.
 `core/odds_math.py`, `core/blend.py`, `core/research.py`, and every WC game model. This is
 deliberate: the `/track-record/` page keeps grading WC history off unchanged code, and the
 existing suite passing is the regression gate.
+
+### 4.1 The `engine_events` extension
+
+Discovered while reading the sim loop for the implementation plan. All three changes are
+additive and leave WC behaviour byte-identical; the guiding principle is **the engine samples
+raw events, games apply their own rules to them.**
+
+**(a) Priors provider.** A `priors` parameter defaulting to `ratings.players_for_team`.
+`simulate_round` currently calls it at line 240, *inside* the per-sim loop — resolve once
+outside and pass the resolved squads down.
+
+**(b) Four additive `PlayerSample` fields.** Each exists because a WC-shaped field cannot be
+remapped to FPL's rule:
+
+| Field | Why |
+|---|---|
+| `conceded` | `conc_beyond` stores `max(0, ga − 1)` — FIFA's rule. FPL needs `floor(ga / 2)`, not derivable from it. Store the raw count; let each game map it. |
+| `played_60` | FPL pays 1 point under 60 minutes and 2 at 60+. Minutes are sampled per sim (line 254) but only the total is kept, so `P(60+)` is unrecoverable. |
+| `save_samples` | `E[floor(saves/3)] ≠ floor(E[saves]/3)`. GK only, so the memory cost is ~20 players. |
+| `defcon_samples` | DefCon is a threshold crossing, not a rate. A mean count cannot yield `P(count ≥ 10)`. Only populated when `defcon_per90 > 0`. |
+
+**(c) A per-match per-sim hook.** `per_match_hook(match_id, rows)` called once per match per
+sim, where `rows` is a list of cheap tuples — `(name, position, goals, assists, minutes,
+clean_sheet, conceded, saves, yellow, red)` — for all players on both sides.
+
+This exists solely because bonus is a **rank-within-match** quantity (§7.3). It depends on
+all 22 players' events within a single sim of a single match, which no per-player accumulator
+can reconstruct. The alternatives were rejected: computing bonus post-hoc from marginals
+destroys the rank correlation that is the entire point, and giving the FPL model its own sim
+loop duplicates the engine.
+
+The engine stays game-agnostic — it passes raw events to a callback and knows nothing about
+BPS. `None` by default, so WC runs are unaffected.
+
+**Performance note.** The hook fires `sims × matches` times (500k at 50k sims over 10
+fixtures), each call sorting 22 rows. If this proves slow, bonus tolerates a lower sim count
+than the rest of the model — it is a small share of total points and does not need 50k
+precision. A `config.BONUS_SIMS` dial is the mitigation; measure before reaching for it.
 
 ### Module boundaries
 
@@ -167,11 +205,13 @@ Mirrors `expected_points()` in the FIFA model. Two places the WC's shortcuts do 
 - **The divisors are integer thresholds on counts, not linear rates.**
   `E[floor(saves/3)] ≠ floor(E[saves]/3)`. The FIFA model takes the linear shortcut
   (`SAVE_PTS = 1/3` × mean saves), a small bias there. With a GK goal at 10 and clean sheet
-  at 4, goalkeepers carry more weight in FPL — compute saves and conceded points **inside
-  the sim from sampled counts**.
-- **DefCon is a threshold, so it is a probability.** `P(CBIT ≥ 10)` / `P(CBIRT ≥ 12)` from a
-  per-90 rate with a count distribution scaled by minutes, paying exactly 2, capped.
-  `2 × rate/threshold` is wrong in both tails. This is the differentiator article's engine.
+  at 4, goalkeepers carry more weight in FPL — so points come from the per-sim counts in
+  `save_samples` and `conceded` (§4.1b), never from means.
+- **DefCon is a threshold, so it is a probability.** `P(CBIT ≥ 10)` / `P(CBIRT ≥ 12)`
+  computed from `defcon_samples` (§4.1b), paying exactly 2, capped. `2 × rate/threshold` is
+  wrong in both tails. This is the differentiator article's engine.
+- **Appearance points** use `played_60` for the 2-point tier and `played` for the 1-point
+  tier, rather than the FIFA model's blanket "treat appearance as 60+" simplification.
 
 ### 7.3 Bonus points
 
@@ -179,7 +219,8 @@ The BPS table has 30+ components — crosses, dribbles, pass-completion tiers, f
 errors leading to an attempt. **We have none of that data and no route to it.**
 Reconstructing BPS from components is not possible.
 
-Instead, bonus is a **rank-within-match** problem. Per sim, per match: each player's BPS =
+Instead, bonus is a **rank-within-match** problem, computed in the `per_match_hook` of §4.1c.
+Per sim, per match: each player's BPS =
 a baseline per-90 rate (from FPL's own `bps` history) × minutes, plus event-driven deltas
 for the components we *do* sample — non-penalty goal (FWD +24, MID +18, GK/DEF +12),
 penalty goal +12, assist +9, GK/DEF clean sheet +12, conceding −4, yellow −3, red −9, own
