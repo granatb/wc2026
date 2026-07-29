@@ -1,0 +1,19 @@
+{
+  "team": "Granat65",
+  "research_weight": 0.3,
+  "budget": 100.0,
+  "free_transfers": 1,
+  "chips_used": [],
+  "squad": [
+    {
+      "_example": true,
+      "name": "Haaland",
+      "team": "MCI",
+      "position": "FWD",
+      "price": 15.5,
+      "ownership_pct": 75.2,
+      "is_starter": true,
+      "bench_order": null
+    }
+  ]
+}
