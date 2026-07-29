@@ -91,6 +91,26 @@ Guiding principle: **the engine samples raw events, each game applies its own ru
   would silently zero injury returns and arrivals from abroad. Goalkeepers are gated to zero
   at three independent layers.
 
+### Caught in final code review
+
+- **Conditional components were added to an unconditional expectation.** `expected_points`
+  divides by total sims, but `save_samples` / `defcon_samples` / `conceded` / the bonus
+  accumulator are all populated only on sims where the player featured — so four
+  `E[x | played]` terms were being added to an `E[x]` term. Measured: three defenders with an
+  identical DefCon rate but start probabilities of 1.0 / 0.5 / 0.2 all received the same
+  0.47 DefCon points. A player featuring one week in five was paid like a nailed starter,
+  which corrupted the DefCon-leaders ranking specifically. Now scaled by `played / sims`.
+  Invisible to every prior test because they all used `start_prob=1.0` fixtures.
+- Penalty goals are not distinguished from open-play goals in the BPS credit (the official
+  table pays 12 for a penalty regardless of position, vs 24 for a forward's non-penalty
+  goal). The engine does not sample penalty goals separately, so this is now recorded in the
+  not-modelled list rather than silently wrong.
+- **Open question, not fixed:** `ceiling_points` mixes an unconditional mean-goal term with a
+  conditional percentile term, so a fringe player keeps ~75% of a nailed starter's ceiling on
+  20% of the minutes. This is inherited World Cup behaviour (`games/fifa/model.py` has the
+  same shape) and is a product decision about what "ceiling" should mean, so it is deferred
+  to Phase 4 where the risky/differentials article is its consumer. See the plan document.
+
 ### Status and known gaps
 
 - **Uncalibrated.** No realized FPL data exists until GW1 completes; the backtest harness

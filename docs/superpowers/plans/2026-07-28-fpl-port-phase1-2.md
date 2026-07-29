@@ -2939,6 +2939,38 @@ git commit -m "docs: changelog for FPL port phases 1-2"
 - **Some goalkeepers carry a tiny non-zero `goal_share` / `assist_share`.** Verified against the real 563-player feed: five keepers (Pickford, Kelleher, Bayindir, Pope, Ellborg) have `expected_goals_per_90` or `expected_assists_per_90` of 0.01. That is real — keepers assist from long kicks and very occasionally score. Pope's resulting goal share is 0.008, worth roughly 0.1 xPts. Do NOT zero it: a GK goal pays 10 points in FPL and the model should reflect that it can happen. `test_goalkeeper_carries_saves_rate_and_no_goal_share` passes only because its fixture GK has `xg_per90=0.0`; it is not asserting that all real keepers do.
 - **Per-club weighted goal-share mass normalises to exactly 1.000.** Mathematically implied by `goal_share = xg90 / sum(start_prob x xg90)`. On-pitch shares then sum to ~1.0 in expectation, so `_distribute`'s unmodelled-teammate leak is near zero on average — correct here, because unlike the World Cup (~28 of a squad modelled) the FPL path models every player at every club.
 
+## Open question for Phase 4: what does "ceiling" mean for a rotation player?
+
+Found in final review, after the T18e appearance-scaling fix. `ceiling_points` subtracts an
+**unconditional** mean-goal term but adds a **conditional** q-percentile term taken from
+`goal_samples`, which the engine only appends on played sims. Whichever definition of
+"ceiling" you want, those two halves should agree — currently they do not.
+
+Measured, three forwards with identical `goal_share` at 30k sims:
+
+| | P(play) | xPts | ceiling | ceiling/xPts |
+|---|---|---|---|---|
+| Nailed | 1.000 | 4.323 | 5.838 | 1.35 |
+| Rotator | 0.504 | 2.199 | 4.928 | 2.24 |
+| Fringe | 0.202 | 0.880 | 4.372 | **4.97** |
+
+xPts now scales correctly with appearance probability; the ceiling does not — the fringe
+player keeps 75% of the nailed starter's ceiling on 20% of the minutes.
+
+**Not fixed, deliberately.** This is a product decision, not an unambiguous defect:
+
+- *Conditional* reading ("if he starts and it goes well") is genuinely what an FPL manager
+  chasing a differential wants, and would justify the current numbers — but then the base
+  should be conditional too.
+- *Unconditional* reading ("85th-percentile outcome") would scale the ceiling like xPts.
+
+Note this is **inherited World Cup behaviour**, not introduced by the port —
+`games/fifa/model.py::ceiling_points` has the same shape, and the WC "risky ceilings"
+article ran on it.
+
+Decide it in Phase 4, when the risky/differentials article — the actual consumer — gets
+built. Whichever way it goes, the site must label which definition it is using.
+
 ## Known deferrals carried into Phase 3 or later
 
 - **Pure substitutes get `start_prob == 0`.** A player with zero starts yields a start rate of 0, so the engine never puts him on the pitch and his `exp_minutes` is never used. Slightly understates cheap bench-fodder, who would in reality bank an appearance point now and then. Not worth fixing now — the feed carries `starts` and `minutes` but no appearance count, so minutes-per-appearance is not directly computable, and nobody picks a pure substitute for points. Revisit if Phase 4's budget-enabler article needs it.
