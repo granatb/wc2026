@@ -1093,7 +1093,11 @@ class TestMinutesModel(unittest.TestCase):
         self.assertLessEqual(mins, 90)
 
     def test_substitute_gets_low_expected_minutes(self):
-        p = _player(minutes=450, starts=1)      # cameos
+        # A pure substitute: real minutes, zero starts. This is the shape the feed
+        # actually produces for bench players, and it exercises the starts == 0
+        # branch. (minutes=450 with starts=1 would be impossible — 450 minutes in
+        # one match — and would take the minutes-per-start path to 90.)
+        p = _player(minutes=450, starts=0)
         _sp, mins = fpl_priors.minutes_model(p, team_matches=38)
         self.assertLess(mins, 60)
 
@@ -2882,6 +2886,7 @@ git commit -m "docs: changelog for FPL port phases 1-2"
 
 ## Known deferrals carried into Phase 3 or later
 
+- **Pure substitutes get `start_prob == 0`.** A player with zero starts yields a start rate of 0, so the engine never puts him on the pitch and his `exp_minutes` is never used. Slightly understates cheap bench-fodder, who would in reality bank an appearance point now and then. Not worth fixing now — the feed carries `starts` and `minutes` but no appearance count, so minutes-per-appearance is not directly computable, and nobody picks a pure substitute for points. Revisit if Phase 4's budget-enabler article needs it.
 - **Spec §7.1's last-season/in-season rate blend is only partially implemented.** The dial (`config.FPL_PRIOR_SHRINKAGE_MATCHES`) is defined but not yet consumed, and `team_matches` is hard-coded to 38 in `load_gameweek`. This is deliberate, not an oversight: preseason there is no in-season data to blend toward, so the shrinkage is a no-op for GW1 and implementing it now would be untestable against real numbers. It must be wired before GW2, when `team_matches` becomes matches-played-so-far and the blend starts to bite.
 - `_conceded_series` reconstructs a two-point distribution around the mean rather than keeping per-sim counts. Deliberate memory trade — goals conceded is team-level, so per-player copies would be wasteful. If Phase 4's defender articles prove sensitive to it, promote `conceded` to a sampled list.
 - ESPN odds are not yet wired into the FPL path; fixtures fall back to `ratings.py` priors for lambdas. Wiring `--refresh` through `core/espn.py` with `ESPN_LEAGUE="eng.1"` belongs with Phase 4's fixture ticker, which is the first consumer that needs real clean-sheet probabilities.
