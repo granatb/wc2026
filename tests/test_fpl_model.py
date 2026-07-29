@@ -256,3 +256,59 @@ class TestBonusAccumulator(unittest.TestCase):
         acc = model.BonusAccumulator(baselines={"A": 10.0, "B": 30.0})
         acc.observe("m1", self._rows([("A", 1), ("B", 1), ("C", 0)]))
         self.assertGreater(acc.expected("B"), acc.expected("A"))
+
+
+from core import engine_events
+
+
+class TestTotalPoints(unittest.TestCase):
+    def _sample(self, **kw):
+        ps = engine_events.PlayerSample("K", "LIV", kw.pop("position", "GK"))
+        ps.sims = 2
+        ps.played = 2.0
+        ps.played_60 = 2.0
+        for key, value in kw.items():
+            setattr(ps, key, value)
+        return ps
+
+    def test_total_sums_direct_and_threshold_components(self):
+        ps = self._sample(position="GK", save_samples=[3, 3], conceded=0.0)
+        means = {"position": "GK", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 1.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[0, 0], bonus=0.0)
+        # appearance 2 + clean sheet 4 + one saves point
+        self.assertAlmostEqual(pts, 2.0 + 4.0 + 1.0)
+
+    def test_bonus_is_added_verbatim(self):
+        ps = self._sample(position="MID", save_samples=[])
+        means = {"position": "MID", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[], bonus=1.4)
+        self.assertAlmostEqual(pts, 2.0 + 1.4)
+
+    def test_defcon_included_when_samples_present(self):
+        ps = self._sample(position="DEF", save_samples=[], defcon_samples=[10, 10])
+        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[0, 0], bonus=0.0)
+        self.assertAlmostEqual(pts, 2.0 + 2.0)
+
+
+class TestCeiling(unittest.TestCase):
+    def test_ceiling_is_never_below_the_mean(self):
+        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.9,
+                 "yellow": 0.0, "red": 0.0}
+        mean_pts = model.expected_points(means)
+        ceiling = model.ceiling_points(means, goal_samples=[0, 0, 0, 0])
+        self.assertGreaterEqual(ceiling, mean_pts)
+
+    def test_ceiling_lifts_a_scorer_above_his_mean(self):
+        means = {"position": "FWD", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.5, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        ceiling = model.ceiling_points(means, goal_samples=[0, 0, 1, 2])
+        self.assertGreater(ceiling, model.expected_points(means))

@@ -15,6 +15,8 @@ E[floor(x/n)] != floor(E[x]/n).
 
 from __future__ import annotations
 
+from core import engine_events
+
 # --- confirmed scoring values (games/fpl/rules.md) -------------------------
 GOAL_PTS = {"GK": 10, "DEF": 6, "MID": 5, "FWD": 4}
 ASSIST_PTS = 3
@@ -200,3 +202,34 @@ class BonusAccumulator:
         if not sims:
             return 0.0
         return self._total.get(name, 0) / float(sims)
+
+
+def total_points(means: dict, sample, conceded_samples: list,
+                 bonus: float = 0.0) -> float:
+    """Full expected FPL points for one player.
+
+    `means` comes from engine_events.event_means; `sample` is the PlayerSample
+    carrying per-sim threshold counts. Bonus is supplied by BonusAccumulator.
+    """
+    pts = expected_points(means)
+    pts += saves_points(getattr(sample, "save_samples", []))
+    pts += conceded_points(means["position"], conceded_samples)
+    pts += defcon_points(means["position"], getattr(sample, "defcon_samples", []))
+    pts += bonus
+    return pts
+
+
+def ceiling_points(means: dict, goal_samples: list, q: float = 0.85) -> float:
+    """Goal-variance ceiling: mean points with the mean-goal contribution swapped
+    for the q-percentile goal contribution, floored at the mean.
+
+    Mirrors the FIFA and Holdet ceilings so all three are defined the same way.
+    The floor removes an artefact: for non-scoring defenders the raw ceiling dips
+    below the mean, because it models only goal upside and not clean-sheet variance.
+    """
+    pos = means["position"]
+    goal_pts = GOAL_PTS.get(pos, 4)
+    base = expected_points(means)
+    p_goals = engine_events.percentile(goal_samples, q)
+    raw = base - means.get("goals", 0.0) * goal_pts + p_goals * goal_pts
+    return max(base, raw)
