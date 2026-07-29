@@ -186,13 +186,18 @@ def percentile(values: list[float], q: float) -> float:
 
 def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                    market_rates: dict | None = None, research: dict | None = None,
-                   research_weight: float = 0.0, concentration: float | None = None):
+                   research_weight: float = 0.0, concentration: float | None = None,
+                   priors=None):
     """Run the shared Monte Carlo for every fixture in a round.
 
     market_rates:    optional {player_name: goal_rate} from bookmaker player props.
     research:        optional {player_name: ResearchEntry} overrides.
     research_weight: the game's `w` dial (0 = pure odds, 1 = full expert overlay).
     concentration:   goal-split sharpening γ; None -> config.GOAL_CONCENTRATION.
+    priors:          optional callable(team) -> [PlayerPrior]. Defaults to
+                     ratings.players_for_team. FPL injects xG-derived priors here;
+                     the World Cup uses the registry. Resolved ONCE per team below,
+                     never inside the sim loop.
 
     Returns (player_samples, match_samples).
     """
@@ -202,18 +207,22 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
     fx = fixtures.by_round(fantasy_round)
     market_rates = market_rates or {}
     research = research or {}
+    prior_of = priors or ratings.players_for_team
 
     player_samples: dict[str, PlayerSample] = {}
     match_samples: dict[str, MatchSample] = {}
     eff_weight: dict[str, float] = {}     # multinomial goal weight per player
     eff_start: dict[str, float] = {}      # blended start probability
     assist_weight: dict[str, float] = {}
+    squads: dict[str, list] = {}   # team -> resolved priors, looked up once
 
     # Pre-index priors per team + precompute blended per-player params once.
     for f in fx:
         match_samples[f.match_id] = MatchSample(f.match_id, f.home, f.away)
         for team in (f.home, f.away):
-            for p in ratings.players_for_team(team):
+            if team not in squads:
+                squads[team] = prior_of(team)
+            for p in squads[team]:
                 ps0 = player_samples.setdefault(
                     p.name, PlayerSample(p.name, p.team, p.position))
                 ps0.goal_share, ps0.assist_share = p.goal_share, p.assist_share
@@ -237,7 +246,7 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
 
             motm_pool: list[tuple[str, float]] = []  # one MOTM per match across both teams
             for team, gf, ga in ((f.home, hg, ag), (f.away, ag, hg)):
-                squad = ratings.players_for_team(team)
+                squad = squads.get(team, ())
                 if not squad:
                     continue
                 # Who is on the pitch this sim (blended start probabilities).
