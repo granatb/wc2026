@@ -117,7 +117,13 @@ def defcon_points(position: str, defcon_samples: list) -> float:
 #
 # Deliberately NOT applied per event: the +1 for a save inside the box and the +1
 # for a save from a big chance both need shot-location data we lack, so they are
-# absorbed into the baseline rate. Same for goalline clearances and errors.
+# absorbed into the baseline rate. Same for goalline clearances and errors. Also
+# NOT applied: the rules page pays a goal scored direct from a penalty a flat 12
+# BPS for any position, separate from the position-scaled non-penalty rows below
+# (GK/DEF 12, MID 18, FWD 24) -- the engine does not distinguish penalty from
+# open-play goals, so bps_from_row always uses the position-scaled value and a
+# forward's penalty is over-credited (24 instead of 12). Deferred, not fixed,
+# until the engine can tell the two apart.
 BPS_PLAY_60 = 6
 BPS_PLAY_SHORT = 3
 BPS_GOAL = {"GK": 12, "DEF": 12, "MID": 18, "FWD": 24}
@@ -204,19 +210,54 @@ class BonusAccumulator:
         return self._total.get(name, 0) / float(sims)
 
 
+def appearance_probability(sample) -> float:
+    """P(played) for one player: sample.played / sample.sims.
+
+    `sims` is incremented for every player on every sim BEFORE the on-pitch
+    guard, so it is the total sim count. `played` only grows when the player
+    was actually on the pitch. Their ratio is exactly the probability this
+    player appears in a given sim.
+
+    This exists because saves_points, conceded_points, defcon_points and
+    BonusAccumulator.expected are all CONDITIONAL expectations -- E[x |
+    played] -- computed over lists/counters (save_samples, defcon_samples,
+    sample.played itself, BonusAccumulator._sims) that only accumulate on
+    sims where the player appeared. expected_points(means), by contrast, is
+    UNCONDITIONAL: engine_events.event_means divides by ps.sims. Adding a
+    conditional expectation straight to an unconditional one silently assumes
+    P(played) == 1 for every player. Multiplying the conditional component by
+    this probability converts it to E[x | played] * P(played) == E[x], the
+    correct unconditional contribution -- and is a no-op for any player who
+    appears in every sim, which is exactly the case every prior fixture in
+    this suite tested.
+    """
+    sims = getattr(sample, "sims", 0)
+    if not sims:
+        return 0.0
+    return getattr(sample, "played", 0.0) / sims
+
+
 def total_points(means: dict, sample, conceded_samples: list,
                  bonus: float = 0.0) -> float:
     """Full expected FPL points for one player.
 
     `means` comes from engine_events.event_means; `sample` is the PlayerSample
     carrying per-sim threshold counts. Bonus is supplied by BonusAccumulator.
+
+    saves_points, conceded_points, defcon_points and `bonus` are all
+    conditional on having played (see appearance_probability's docstring for
+    why), so each is scaled by P(played) before being added to the
+    unconditional expected_points(means) -- otherwise a player who starts one
+    game in five gets paid as if he started every game.
     """
-    pts = expected_points(means)
-    pts += saves_points(getattr(sample, "save_samples", []))
-    pts += conceded_points(means["position"], conceded_samples)
-    pts += defcon_points(means["position"], getattr(sample, "defcon_samples", []))
-    pts += bonus
-    return pts
+    p_played = appearance_probability(sample)
+    conditional = (
+        saves_points(getattr(sample, "save_samples", []))
+        + conceded_points(means["position"], conceded_samples)
+        + defcon_points(means["position"], getattr(sample, "defcon_samples", []))
+        + bonus
+    )
+    return expected_points(means) + conditional * p_played
 
 
 def ceiling_points(means: dict, sample, conceded_samples: list,
@@ -333,7 +374,11 @@ def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
             "ownership_pct": meta.get("ownership"),
             "ceiling": ceiling_points(m, ps, conceded_samples, bonus=player_bonus),
             "bonus": player_bonus,
-            "defcon": defcon_points(m["position"], ps.defcon_samples),
+            # Scaled by P(played): defcon_points on its own is E[DefCon points
+            # | played], which would show a rotation player as if he started
+            # every game. See appearance_probability's docstring.
+            "defcon": defcon_points(m["position"], ps.defcon_samples)
+                     * appearance_probability(ps),
         })
     rows.sort(key=lambda r: -r["x_points"])
 
@@ -359,6 +404,19 @@ def _conceded_series(sample) -> list:
     is a team-level quantity, so keeping 50k per-player copies would waste memory).
     Reconstruct a two-point series around the mean, which preserves the threshold's
     convexity better than applying the divisor to the mean alone.
+
+    Design choice: `sample.conceded / sample.played` is deliberate, not
+    `/ sample.sims`. save_samples and defcon_samples are also collected only on
+    sims where the player was on the pitch (appended after the on-pitch guard),
+    so they are already E[x | played] -- this series matches that convention
+    exactly, and total_points/ceiling_points scale conceded_points' result by
+    appearance_probability(sample) afterward, identically to saves and DefCon.
+    Centring on `conceded / sims` instead would make this series unconditional
+    already, and it would then need to be the ONE component NOT scaled --
+    correct in principle, but a special case that is easy to get wrong later.
+    Keeping every conditional component conditional, and applying one uniform
+    scaling step in total_points, is the same amount of correctness with one
+    fewer way to reintroduce this bug.
     """
     if not sample.played:
         return []

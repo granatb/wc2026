@@ -1,5 +1,7 @@
 import unittest
+from datetime import datetime, timezone
 
+from core import engine_events, fixtures, ratings
 from games.fpl import model
 
 
@@ -258,9 +260,6 @@ class TestBonusAccumulator(unittest.TestCase):
         self.assertGreater(acc.expected("B"), acc.expected("A"))
 
 
-from core import engine_events
-
-
 class TestTotalPoints(unittest.TestCase):
     def _sample(self, **kw):
         ps = engine_events.PlayerSample("K", "LIV", kw.pop("position", "GK"))
@@ -377,3 +376,251 @@ class TestCeiling(unittest.TestCase):
         # defcon_points("DEF", [4,4]) == 0.0, defcon_points("DEF", [10,10]) == 2.0
         # bonus delta is 2.0 -> total delta must be exactly 4.0
         self.assertAlmostEqual(high - low, 4.0)
+
+
+# ---------------------------------------------------------------------------
+# Appearance-probability scaling (denominator-mismatch regression).
+#
+# saves_points, conceded_points, defcon_points and BonusAccumulator.expected all
+# divide by counts that only grow when a player is ON THE PITCH (len(save_samples),
+# len(defcon_samples), sample.played, self._sims[name]) -- i.e. they are
+# E[component | played]. expected_points(means), by contrast, divides by
+# ps.sims -- the total sim count, incremented for every player on every sim
+# BEFORE the on-pitch guard -- so it is E[component] unconditionally. Adding a
+# conditional expectation to an unconditional one overpays (or, for the negative
+# conceded penalty, over-penalises) any player who does not start every single
+# sim.
+#
+# Every fixture above uses played_60=played=sims (start_prob=1.0), which makes
+# P(played) == 1 and hides the bug completely. These tests deliberately vary
+# start_prob and use a REAL simulate_round run rather than hand-built
+# PlayerSample objects, because hand-built fixtures are exactly what let the
+# original bug hide from the whole existing suite.
+# ---------------------------------------------------------------------------
+
+
+class _RealSimMixin:
+    """Builds real simulate_round output with varied start probabilities."""
+
+    SIMS = 20000
+
+    def _register(self, fx):
+        fixtures.SCHEDULE.append(fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(fx))
+
+    def _shared_match_squads(self, fantasy_round, position, rate_kw):
+        """Nailed/Rotator/Fringe (start_prob 1.0/0.5/0.2) share ONE team and
+        match, exactly like the reviewer's three-defender proof."""
+        fx = fixtures.Fixture(
+            f"SHARE{fantasy_round}", "Home", "Away",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=fantasy_round, neutral=False,
+            lam_home=1.4, lam_away=1.1,
+        )
+        self._register(fx)
+        squads = {
+            "Home": [
+                ratings.PlayerPrior("Nailed", "Home", position, start_prob=1.0,
+                                    exp_minutes=90, **rate_kw),
+                ratings.PlayerPrior("Rotator", "Home", position, start_prob=0.5,
+                                    exp_minutes=90, **rate_kw),
+                ratings.PlayerPrior("Fringe", "Home", position, start_prob=0.2,
+                                    exp_minutes=90, **rate_kw),
+            ],
+            "Away": [
+                ratings.PlayerPrior("Filler", "Away", "FWD", start_prob=1.0,
+                                    exp_minutes=90, goal_share=0.3),
+            ],
+        }
+        return engine_events.simulate_round(
+            fantasy_round, sims=self.SIMS, priors=lambda t: squads.get(t, []))
+
+    def _independent_matches_squads(self, fantasy_round, position, rate_kw,
+                                    per_match_hook=None):
+        """Nailed/Rotator/Fringe each get their OWN match against an identical
+        filler opponent, for quantities (saves, bonus) that need one occupant
+        per team/rank rather than three team-mates competing for one slot."""
+        squads = {}
+        for i, (name, sp) in enumerate(
+                [("Nailed", 1.0), ("Rotator", 0.5), ("Fringe", 0.2)]):
+            home, away = f"H{fantasy_round}_{i}", f"A{fantasy_round}_{i}"
+            fx = fixtures.Fixture(
+                f"INDEP{fantasy_round}_{i}", home, away,
+                kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=fantasy_round, neutral=False,
+                lam_home=1.4, lam_away=1.1,
+            )
+            self._register(fx)
+            squads[home] = [ratings.PlayerPrior(name, home, position,
+                                                start_prob=sp, exp_minutes=90,
+                                                **rate_kw)]
+            squads[away] = [ratings.PlayerPrior(f"Filler{i}", away, "MID",
+                                                start_prob=1.0, exp_minutes=90)]
+        return engine_events.simulate_round(
+            fantasy_round, sims=self.SIMS, priors=lambda t: squads.get(t, []),
+            per_match_hook=per_match_hook)
+
+    def _p_play(self, players, names):
+        return {n: players[n].played / players[n].sims for n in names}
+
+    def _assert_scales_with_appearance(self, deltas, p_play, tol=0.05):
+        for name in ("Rotator", "Fringe"):
+            expected_ratio = p_play[name] / p_play["Nailed"]
+            actual_ratio = deltas[name] / deltas["Nailed"]
+            self.assertAlmostEqual(
+                actual_ratio, expected_ratio, delta=tol,
+                msg=f"{name}: expected ratio ~{expected_ratio:.3f} "
+                    f"(P(play) proportional), got {actual_ratio:.3f}")
+        # The flat-conditional bug: a fringe player (P(play) ~= 0.2) landing at
+        # ~same magnitude as a nailed starter, rather than ~20% of it.
+        self.assertLess(abs(deltas["Fringe"]), abs(deltas["Nailed"]) * 0.35)
+
+
+class TestDefconAppearanceScaling(_RealSimMixin, unittest.TestCase):
+    def test_defcon_points_scale_with_appearance_probability(self):
+        players, _ = self._shared_match_squads(970, "DEF", {"defcon_per90": 8.0})
+        means = engine_events.event_means(players)
+        deltas = {}
+        for name in ("Nailed", "Rotator", "Fringe"):
+            m = means[name]
+            total = model.total_points(m, players[name], conceded_samples=[],
+                                       bonus=0.0)
+            # conceded_samples=[] and no save_samples/bonus on a DEF player
+            # isolate the DefCon contribution exactly.
+            deltas[name] = total - model.expected_points(m)
+
+        p_play = self._p_play(players, deltas)
+        self._assert_scales_with_appearance(deltas, p_play)
+
+
+class TestSavesAppearanceScaling(_RealSimMixin, unittest.TestCase):
+    def test_saves_points_scale_with_appearance_probability(self):
+        players, _ = self._independent_matches_squads(
+            971, "GK", {"saves_per90": 3.0})
+        means = engine_events.event_means(players)
+        deltas = {}
+        for name in ("Nailed", "Rotator", "Fringe"):
+            m = means[name]
+            total = model.total_points(m, players[name], conceded_samples=[],
+                                       bonus=0.0)
+            # conceded_samples=[] isolates saves (GK has no DefCon eligibility
+            # and bonus is 0 here).
+            deltas[name] = total - model.expected_points(m)
+
+        p_play = self._p_play(players, deltas)
+        self._assert_scales_with_appearance(deltas, p_play)
+
+
+class TestBonusAppearanceScaling(_RealSimMixin, unittest.TestCase):
+    def test_bonus_scales_with_appearance_probability(self):
+        acc = model.BonusAccumulator(baselines={})
+        players, _ = self._independent_matches_squads(
+            972, "FWD", {"goal_share": 0.4}, per_match_hook=acc.observe)
+        means = engine_events.event_means(players)
+        deltas = {}
+        for name in ("Nailed", "Rotator", "Fringe"):
+            m = means[name]
+            b = acc.expected(name)
+            total = model.total_points(m, players[name], conceded_samples=[],
+                                       bonus=b)
+            # conceded_samples=[] and a FWD with no DefCon rate isolate bonus.
+            deltas[name] = total - model.expected_points(m)
+
+        p_play = self._p_play(players, deltas)
+        self._assert_scales_with_appearance(deltas, p_play)
+
+
+class TestConcededAppearanceScaling(_RealSimMixin, unittest.TestCase):
+    def test_conceded_penalty_scales_with_appearance_and_stays_negative(self):
+        players, _ = self._shared_match_squads(973, "DEF", {})
+        means = engine_events.event_means(players)
+        deltas = {}
+        for name in ("Nailed", "Rotator", "Fringe"):
+            m = means[name]
+            ps = players[name]
+            conceded_samples = model._conceded_series(ps)
+            total = model.total_points(m, ps, conceded_samples, bonus=0.0)
+            deltas[name] = total - model.expected_points(m)
+            self.assertLess(deltas[name], 0.0, f"{name}: penalty must stay negative")
+
+        p_play = self._p_play(players, deltas)
+        self._assert_scales_with_appearance(deltas, p_play)
+
+
+class TestCeilingAppearanceScaling(_RealSimMixin, unittest.TestCase):
+    def test_ceiling_not_inflated_for_a_rotation_player(self):
+        players, _ = self._shared_match_squads(974, "DEF", {"defcon_per90": 8.0})
+        means = engine_events.event_means(players)
+        nailed, fringe = players["Nailed"], players["Fringe"]
+        cs_nailed = model._conceded_series(nailed)
+        cs_fringe = model._conceded_series(fringe)
+
+        total_nailed = model.total_points(means["Nailed"], nailed, cs_nailed, bonus=0.0)
+        total_fringe = model.total_points(means["Fringe"], fringe, cs_fringe, bonus=0.0)
+        ceiling_nailed = model.ceiling_points(means["Nailed"], nailed, cs_nailed, bonus=0.0)
+        ceiling_fringe = model.ceiling_points(means["Fringe"], fringe, cs_fringe, bonus=0.0)
+
+        self.assertGreaterEqual(ceiling_nailed, total_nailed)
+        self.assertGreaterEqual(ceiling_fringe, total_fringe)
+        # Old bug: fringe's DefCon (and hence total/ceiling) looked like a
+        # nailed starter's. P(play) ~= 0.2 for Fringe vs 1.0 for Nailed, so the
+        # ceiling must land well below, not "essentially the same".
+        self.assertLess(ceiling_fringe, ceiling_nailed * 0.5)
+
+    def test_ceiling_still_at_least_total_for_every_appearance_probability(self):
+        players, _ = self._shared_match_squads(975, "DEF", {"defcon_per90": 8.0})
+        means = engine_events.event_means(players)
+        for name in ("Nailed", "Rotator", "Fringe"):
+            ps = players[name]
+            conceded_samples = model._conceded_series(ps)
+            total = model.total_points(means[name], ps, conceded_samples, bonus=0.3)
+            ceiling = model.ceiling_points(means[name], ps, conceded_samples, bonus=0.3)
+            self.assertGreaterEqual(ceiling, total, f"{name}: ceiling < total")
+
+
+class TestNailedStarterUnaffectedByAppearanceScaling(unittest.TestCase):
+    """A player who appears in every sim (played == sims, P(play) == 1) must
+    produce EXACTLY the same total as before the fix -- this was already the
+    correct case and scaling by 1.0 must be a no-op."""
+
+    def _sample(self, **kw):
+        ps = engine_events.PlayerSample("K", "LIV", kw.pop("position", "DEF"))
+        ps.sims = 4
+        ps.played = 4.0
+        ps.played_60 = 4.0
+        for key, value in kw.items():
+            setattr(ps, key, value)
+        return ps
+
+    def test_defcon_unaffected_when_always_played(self):
+        ps = self._sample(defcon_samples=[10, 10, 4, 10])
+        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[], bonus=0.0)
+        # defcon_points("DEF", [10,10,4,10]) == 2 * 3/4 == 1.5; P(play) == 1
+        self.assertAlmostEqual(pts, 2.0 + 1.5)
+
+    def test_saves_conceded_and_bonus_unaffected_when_always_played(self):
+        ps = self._sample(position="GK", save_samples=[3, 3, 6, 0])
+        means = {"position": "GK", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[2, 2, 4, 0], bonus=1.4)
+        # saves_points([3,3,6,0]) == (1+1+2+0)/4 == 1.0
+        # conceded_points("GK", [2,2,4,0]) == -(1+1+2+0)/4 == -1.0
+        self.assertAlmostEqual(pts, 2.0 + 1.0 - 1.0 + 1.4)
+
+
+class TestZeroSimsGuard(unittest.TestCase):
+    def test_sims_zero_does_not_raise(self):
+        ps = engine_events.PlayerSample("K", "LIV", "DEF")
+        ps.sims = 0
+        ps.played = 0.0
+        means = {"position": "DEF", "played": 0.0, "played_60": 0.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        pts = model.total_points(means, ps, conceded_samples=[], bonus=0.0)
+        self.assertAlmostEqual(pts, 0.0)
+        ceiling = model.ceiling_points(means, ps, conceded_samples=[], bonus=0.0)
+        self.assertAlmostEqual(ceiling, 0.0)
