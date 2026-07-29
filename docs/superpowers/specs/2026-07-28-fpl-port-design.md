@@ -173,11 +173,21 @@ Cache key = hash over everything determining sim output:
 The source fingerprint is load-bearing. Without it, editing a scoring constant silently
 reuses stale sims and publishes a number that was never recomputed.
 
-Stored artifact is a compact summary, not 50k raw samples: mean events, goal-sample
-quantiles, the bonus distribution, DefCon probabilities. That set is sufficient for all six
-articles. Old gameweeks are never rebuilt — `_refresh_old_round_dynamic_bits` already owns
-the archive-refresh path. Tests reuse the memoised-sim mechanism that took the suite from
-530s to 67s (07-06).
+Stored artifact is a compact summary, not 50k raw samples. **Corrected 2026-07-28 after
+reading the code:** rather than raw samples plus quantiles, cache the per-player *derived*
+rows the articles actually consume — expected points, ceiling, bonus, DefCon, price,
+ownership — plus the per-match scoreline distribution. That is strictly simpler, sufficient
+for all six articles, and means a copy or layout change re-renders with no sim at all.
+
+Old gameweeks are never rebuilt — `_refresh_old_round_dynamic_bits` already owns the
+archive-refresh path.
+
+**Also corrected:** an earlier draft of this section claimed tests already run on a memoised
+sim mechanism credited with taking the suite from 530s to 67s. **No such mechanism exists.**
+Tests keep their cost down by passing `sims=200` and sharing one build across a `setUpClass`
+(`tests/test_site_rate.py:221`), and by patching `fixtures.by_round` to return an empty or
+tiny list. STRATEGY.md's 07-06 note refers to that, not to a cache. Phase 3 therefore builds
+the cache from scratch rather than extending something.
 
 ## 7. The model
 
