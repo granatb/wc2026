@@ -107,3 +107,55 @@ class TestAdditiveSampleFields(unittest.TestCase):
         row = means["A-Back"]
         self.assertIn("conceded", row)
         self.assertIn("played_60", row)
+
+
+class TestPerMatchHook(unittest.TestCase):
+    def setUp(self):
+        self.fx = fixtures.Fixture(
+            "PRIORS3", "Alphaland", "Betaland",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=903, neutral=False,
+            lam_home=1.4, lam_away=1.2,
+        )
+        fixtures.SCHEDULE.append(self.fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(self.fx))
+        self.squads = {
+            "Alphaland": [ratings.PlayerPrior("A1", "Alphaland", "FWD",
+                                              start_prob=1.0, exp_minutes=90,
+                                              goal_share=0.4)],
+            "Betaland": [ratings.PlayerPrior("B1", "Betaland", "DEF",
+                                             start_prob=1.0, exp_minutes=90)],
+        }
+
+    def test_hook_fires_once_per_match_per_sim(self):
+        calls = []
+        engine_events.simulate_round(
+            903, sims=50, priors=lambda t: self.squads.get(t, []),
+            per_match_hook=lambda match_id, rows: calls.append((match_id, len(rows))))
+        self.assertEqual(len(calls), 50)
+        self.assertEqual({c[0] for c in calls}, {"PRIORS3"})
+
+    def test_hook_receives_both_sides_in_one_call(self):
+        seen = []
+        engine_events.simulate_round(
+            903, sims=20, priors=lambda t: self.squads.get(t, []),
+            per_match_hook=lambda _mid, rows: seen.append({r[0] for r in rows}))
+        # every call carries players from both teams
+        self.assertTrue(all(names == {"A1", "B1"} for names in seen))
+
+    def test_hook_rows_carry_the_documented_field_order(self):
+        captured = []
+        engine_events.simulate_round(
+            903, sims=5, priors=lambda t: self.squads.get(t, []),
+            per_match_hook=lambda _mid, rows: captured.extend(rows))
+        name, position, goals, assists, minutes, clean_sheet, conceded, saves, yellow, red = captured[0]
+        self.assertIn(name, {"A1", "B1"})
+        self.assertIn(position, {"FWD", "DEF"})
+        self.assertIsInstance(goals, int)
+        self.assertIsInstance(clean_sheet, bool)
+        self.assertGreaterEqual(minutes, 0)
+
+    def test_no_hook_is_the_default_and_changes_nothing(self):
+        players, _ = engine_events.simulate_round(
+            903, sims=50, priors=lambda t: self.squads.get(t, []))
+        self.assertIn("A1", players)

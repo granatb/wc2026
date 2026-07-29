@@ -198,7 +198,7 @@ def percentile(values: list[float], q: float) -> float:
 def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                    market_rates: dict | None = None, research: dict | None = None,
                    research_weight: float = 0.0, concentration: float | None = None,
-                   priors=None):
+                   priors=None, per_match_hook=None):
     """Run the shared Monte Carlo for every fixture in a round.
 
     market_rates:    optional {player_name: goal_rate} from bookmaker player props.
@@ -209,6 +209,15 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                      ratings.players_for_team. FPL injects xG-derived priors here;
                      the World Cup uses the registry. Resolved ONCE per team below,
                      never inside the sim loop.
+    per_match_hook:  optional callable(match_id, rows) invoked once per match per
+                     sim, where rows is a list of tuples
+                       (name, position, goals, assists, minutes, clean_sheet,
+                        conceded, saves, yellow, red)
+                     for every on-pitch player across BOTH sides. Exists for
+                     rank-within-match quantities — FPL bonus points depend on all
+                     22 players' events in one sim, which per-player accumulators
+                     cannot reconstruct. The engine knows nothing about what the
+                     callback computes.
 
     Returns (player_samples, match_samples).
     """
@@ -256,6 +265,7 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
             ms.scorelines[(hg, ag)] += 1
 
             motm_pool: list[tuple[str, float]] = []  # one MOTM per match across both teams
+            hook_rows: list[tuple] = [] if per_match_hook else None
             for team, gf, ga in ((f.home, hg, ag), (f.away, ag, hg)):
                 squad = squads.get(team, ())
                 if not squad:
@@ -296,10 +306,18 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                         ps.defcon_samples.append(
                             _poisson(p.defcon_per90 * mins / 90.0, rng))
                     # Discipline.
-                    if rng.random() < 0.12:
-                        ps.yellow += 1
-                    if rng.random() < 0.012:
-                        ps.red += 1
+                    yel = 1 if rng.random() < 0.12 else 0
+                    red = 1 if rng.random() < 0.012 else 0
+                    ps.yellow += yel
+                    ps.red += red
+                    if hook_rows is not None:
+                        hook_rows.append((
+                            p.name, p.position, g, a, mins,
+                            bool(clean and mins >= 60 and p.position in ("DEF", "GK")),
+                            ga if p.position in ("DEF", "GK") else 0,
+                            ps.save_samples[-1] if p.position == "GK" else 0,
+                            yel, red,
+                        ))
                     # MOTM candidacy: contributions + result bias (one winner per match).
                     motm_pool.append((p.name, 1.0 + 3.0 * g + 1.5 * a
                                       + (1.2 if won else 0.4 if drew else 0.0)))
@@ -317,6 +335,8 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                                 else:
                                     player_samples[nm].decisive_draw += 1
                                 break
+            if hook_rows:
+                per_match_hook(f.match_id, hook_rows)
             if motm_pool:  # award exactly one MOTM this sim, weighted
                 r, acc = rng.random() * sum(wt for _, wt in motm_pool), 0.0
                 for nm, wt in motm_pool:
