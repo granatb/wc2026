@@ -29,9 +29,22 @@ _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(_HERE, "data")
 ODDS_CACHE = os.path.join(DATA_DIR, "odds")
 
-SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
-CORE = "https://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.world"
+_SCOREBOARD_TMPL = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
+_CORE_TMPL = "https://sports.core.api.espn.com/v2/sports/soccer/leagues/{league}"
 DRAFTKINGS = 100
+
+
+def league_slug() -> str:
+    return getattr(config, "ESPN_LEAGUE", "fifa.world")
+
+
+def scoreboard_url() -> str:
+    return _SCOREBOARD_TMPL.format(league=league_slug())
+
+
+def core_url() -> str:
+    return _CORE_TMPL.format(league=league_slug())
+
 
 # Which fantasy round maps to which calendar dates (WC2026). Refresh queries these and
 # stamps the round, so we don't depend on ESPN's round labels (which don't split group
@@ -58,12 +71,12 @@ def _get_json(url: str, params: dict | None = None) -> object:
 # --- network ---------------------------------------------------------------
 
 def fetch_scoreboard(date_yyyymmdd: str) -> dict:
-    return _get_json(SCOREBOARD, {"dates": date_yyyymmdd})
+    return _get_json(scoreboard_url(), {"dates": date_yyyymmdd})
 
 
 def fetch_propbets(event_id: str, provider: int = DRAFTKINGS) -> dict:
     """All prop-bet pages for an event (the feed paginates at ~1000 items)."""
-    base = f"{CORE}/events/{event_id}/competitions/{event_id}/odds/{provider}/propBets"
+    base = f"{core_url()}/events/{event_id}/competitions/{event_id}/odds/{provider}/propBets"
     first = _get_json(base, {"lang": "en", "region": "us", "limit": 1000})
     items = list(first.get("items", []))
     for pg in range(2, (first.get("pageCount") or 1) + 1):

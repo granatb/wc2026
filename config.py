@@ -78,6 +78,13 @@ SCORER_MARGIN_SHRINK = 0.92   # de-margin factor for 2-way player props (anytime
 # on realized results with n>=40 matches (see bake-off script + commit history).
 DEVIG_METHOD = "proportional"
 
+# Which ESPN soccer league the odds client reads. "fifa.world" = 2026 World Cup,
+# "eng.1" = Premier League. ESPN carries match odds (1X2 + totals) for both, but
+# NO player-level props for eng.1 — verified 2026-07-28, all 172 prop markets on a
+# sampled GW1 fixture were match-level. FPL player differentiation therefore comes
+# from core/fpl_priors (xG-derived), not from props.
+ESPN_LEAGUE = "fifa.world"
+
 # ---------------------------------------------------------------------------
 # Priors — the expert fallback used when no market odds exist (e.g. knockouts
 # before teams are known). Multiplicative goal model around BASE_GOALS.
