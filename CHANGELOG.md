@@ -1,7 +1,109 @@
 # Changelog
 
-Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests`
-(44 tests). App: `streamlit run app.py`.
+Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
+(501 tests). App: `streamlit run app.py`.
+
+## 2026-07-28 — FPL port, phases 1-2 (data layer + model)
+
+Spec: `docs/superpowers/specs/2026-07-28-fpl-port-design.md`.
+Plan: `docs/superpowers/plans/2026-07-28-fpl-port-phase1-2.md`.
+Target: GW1 lock `2026-08-21T17:30:00Z`. Public evmax site is the deliverable; the
+private order book is the instrument for validating the model by playing the game.
+
+### Data layer
+
+- **`core/fpl_api.py`** — official FPL API client for `bootstrap-static` / `fixtures` /
+  `element-summary`, cached to `data/fpl/`. Network isolated in `fetch_*`; every `parse_*`
+  pure and fixture-tested offline. **Deadlines are read in UTC from
+  `events[].deadline_time`** — the official rules page localises them to the viewer's
+  timezone (it rendered GW1 as 19:30 CEST against the true 17:30Z) and must never be
+  scraped.
+- **`core/fpl_priors.py`** — the player layer inverts from market-derived to **xG-derived**.
+  ESPN carries NO player-level props for `eng.1`: all 172 prop markets on a sampled GW1
+  fixture were match-level, so the World Cup's anytime-goalscorer path is empty at build
+  time. FPL's own feed ships last season's per-90 rates instead, which slot into the
+  engine's existing `prior_share` blend slot — if props ever appear, the `market_rate` path
+  lights up with no code change. Availability gating from `status` +
+  `chance_of_playing_next_round` addresses the crude-minutes weakness logged in
+  STRATEGY.md §9. Promoted-club players and new signings (163 of 563) fall back to a
+  position-and-price prior and are flagged in the run output.
+- **Gameweek semantics** (`core/fixtures.py`) — `round_lock_time` now prefers a registered
+  deadline over first kickoff (they differ: GW1 locks 17:30Z, first kickoff 19:00Z), plus
+  blank/double helpers. The live feed is a clean 10 fixtures per gameweek and will not
+  exhibit blanks or doubles for months, so those are tested against synthetic fixtures.
+- **`config.ESPN_LEAGUE`** parameterises the odds client's league slug.
+
+### Engine extensions (all additive; World Cup behaviour unchanged)
+
+Guiding principle: **the engine samples raw events, each game applies its own rules.**
+
+- Injectable `priors` provider, resolved once per team instead of inside the sim loop.
+- `PlayerSample` gains `conceded` (FIFA's `conc_beyond` stores `max(0, ga-1)`, from which
+  FPL's `floor(ga/2)` is not derivable), `played_60` (FPL pays 1 under 60 minutes and 2 at
+  60+), and per-sim `save_samples` / `defcon_samples` (because
+  `E[floor(x/n)] != floor(E[x]/n)`, and a threshold crossing cannot come from a mean).
+- `per_match_hook(match_id, rows)` for rank-within-match quantities.
+- **`tests/test_engine_determinism.py`** pins the engine's exact output for a fixed seed.
+  Added because the existing suite could NOT have caught an RNG-sequence change: every
+  other test of `simulate_round` asserts directionally or with a tolerance, so a shifted
+  sequence leaves distributions statistically identical and all tests green — while moving
+  every published projection. Verified by direct byte-for-byte comparison against the
+  pre-extension commit: identical across every accumulator and the full scoreline
+  distribution over 4000 sims.
+
+### FPL scoring (`games/fpl/model.py`)
+
+- 2026/27 table with **GK goals at 10** and DefCon paying forwards. Both divisors
+  (1 point per 3 saves, -1 per 2 conceded) are pinned from the official rules page, **not**
+  from `game_config.scoring`, which reports unit values and mis-prices every goalkeeper if
+  read literally. Provenance per row in `games/fpl/rules.md`.
+- DefCon modelled as `2 x P(count >= threshold)`, not as a rate — `2 x rate/threshold` is
+  wrong in both tails.
+- **Bonus points** — rank-within-match from a per-90 BPS baseline plus exact event deltas.
+  Reconstructing BPS from components is impossible (30+ components including crosses,
+  dribbles and pass-completion tiers, none observable), so unobservable components ride in
+  the baseline. Ties consume award positions per the official rule: two tied on top both
+  take 3 and the third-most BPS takes 1, not 2.
+
+### Defects found by RUNNING the order book (no unit test caught these)
+
+- **FPL `web_name` is not unique across clubs.** 14 collisions in the GW1 pool; the shared
+  engine keys its accumulator by name alone, so Cole Palmer (CHE, MID, £9.5m) and Alex
+  Palmer (IPS, GK, £4.0m) merged into one player — putting a £4.0m backup keeper 4th on
+  expected points. Fixed at the FPL boundary (`core/fpl_priors`), NOT in the shared engine,
+  which would have broken research/`market_rates` lookups and the determinism pin.
+  14 collisions -> 0; the 533 already-unique names are untouched.
+- **The ceiling was not comparable to the mean beside it** — `ceiling_points` omitted saves,
+  conceded, DefCon and bonus that `total_points` includes, so `ceil < xPts` on ~1 row in 6.
+- **`bootstrap-static` zeroes every DefCon field for all 563 players** (verified: 0 of 563
+  non-zero for `defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`,
+  `tackles`) while backfilling `minutes`, `expected_goals` and `bps`. The DefCon-leaders
+  article — the chosen differentiator — would have been computed entirely from zeros. Data
+  recovered from `element-summary/{id}/history_past` via a **one-time** incremental cached
+  backfill (400 fetched, 0 failed); last season's history is immutable and in-season the
+  bootstrap field populates itself. Same shape as the existing one-time `data/athletes.json`
+  resolution, so consistent with §4.5 polite fetching.
+- **Raw per-90 DefCon rates from tiny samples are meaningless** — a player with 1 minute of
+  history scored 90.00 per 90, and 14 players under 200 minutes carried rates above the 12
+  threshold, which would have topped the leaderboard on pure noise. Now shrunk toward
+  measured position priors (DEF 7.72, MID 7.96, FWD 4.46, GK 0.00, from the 267 players with
+  >=900 minutes) with `K = 3` pseudo-appearances. Chosen over a hard minutes cutoff, which
+  would silently zero injury returns and arrivals from abroad. Goalkeepers are gated to zero
+  at three independent layers.
+
+### Status and known gaps
+
+- **Uncalibrated.** No realized FPL data exists until GW1 completes; the backtest harness
+  grades from GW1 forward (spec §7.4).
+- **No fixture-difficulty signal yet.** ESPN `eng.1` odds are not wired in, so every GW1
+  fixture gets identical lambdas (1.445 home / 1.35 away from `BASE_GOALS` and `HOME_ADV`) —
+  Arsenal-Coventry is priced exactly like Hull-Man Utd. Rankings are driven entirely by each
+  player's own rates. Belongs with Phase 4's fixture ticker, its first real consumer.
+- `manage.py --refresh` silently runs the World Cup ESPN path for `fpl` and writes WC data
+  into `data/schedule.json`. Harmless but misleading; not yet fixed.
+- Spec §7.1's last-season/in-season rate blend is only half-built: the dial
+  (`FPL_PRIOR_SHRINKAGE_MATCHES`) exists but is unconsumed and `team_matches` is hard-coded
+  to 38. Correct preseason, must be wired before GW2.
 
 ## 2026-07-06 — QF prep: slot-life weighting (the USA lesson)
 
