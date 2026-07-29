@@ -1,7 +1,7 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(501 tests). App: `streamlit run app.py`.
+(510 tests). App: `streamlit run app.py`.
 
 ## 2026-07-28 — FPL port, phases 1-2 (data layer + model)
 
