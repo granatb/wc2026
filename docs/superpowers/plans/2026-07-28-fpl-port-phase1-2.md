@@ -14,9 +14,15 @@
 
 **Repo layout.** `core/` holds the shared engine (odds math, Monte Carlo, fixtures, research overlay). `games/<name>/` holds one thin layer per fantasy competition — each has `model.py`, `rules.md`, `state.json`. `config.py` holds every tunable. `manage.py` is the CLI dispatcher. Run everything from the repo root.
 
+**Environment (verified 2026-07-28 on this machine):** Python **3.9.6**, and the interpreter is `python3` — there is no bare `python` on PATH. Every command below uses `python3`.
+
+3.9 matters for one reason: `dict[int, str]`, `list[dict]` and `int | None` are only legal in *annotation* position, which works because every module here carries `from __future__ import annotations`. Do not use those forms in a runtime expression, and do not remove that import.
+
+**Baseline suite before any of this work: 350 tests, OK, ~96s.** Every task must leave it at 350-plus-new, all passing.
+
 **Run the test suite:**
 ```bash
-python -m unittest discover -s tests -t .
+python3 -m unittest discover -s tests -t .
 ```
 This must stay green throughout. It is the regression gate proving the World Cup track-record grading still works — the WC code is deliberately untouched by this plan.
 
@@ -193,7 +199,7 @@ class TestParseEvents(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'core.fpl_api'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -287,7 +293,7 @@ def parse_events(raw: dict) -> dict[int, dict]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -375,7 +381,7 @@ class TestScoringConfig(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: FAIL — `AttributeError: module 'core.fpl_api' has no attribute 'parse_players'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -458,7 +464,7 @@ def parse_squad_rules(raw: dict) -> dict:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: PASS (13 tests)
 
 - [ ] **Step 5: Commit**
@@ -515,7 +521,7 @@ class TestParseFixtures(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: FAIL — `AttributeError: module 'core.fpl_api' has no attribute 'parse_fixtures'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -574,7 +580,7 @@ def refresh(write: bool = True) -> tuple[dict, list]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m unittest tests.test_fpl_api -v`
+Run: `python3 -m unittest tests.test_fpl_api -v`
 Expected: PASS (17 tests)
 
 - [ ] **Step 5: Commit**
@@ -670,7 +676,7 @@ class TestGameweekDeadline(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fixtures_gameweek -v`
+Run: `python3 -m unittest tests.test_fixtures_gameweek -v`
 Expected: FAIL — `AttributeError: module 'core.fixtures' has no attribute 'teams_with_blank'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -737,12 +743,12 @@ def teams_with_blank(fantasy_round: int, all_teams) -> set:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fixtures_gameweek -v`
+Run: `python3 -m unittest tests.test_fixtures_gameweek -v`
 Expected: PASS (7 tests)
 
 Then confirm nothing regressed:
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK — the pre-existing test count, all passing
 
 - [ ] **Step 5: Commit**
@@ -783,7 +789,7 @@ class TestLeagueParameterisation(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_espn -v`
+Run: `python3 -m unittest tests.test_espn -v`
 Expected: FAIL — `AttributeError: module 'core.espn' has no attribute 'league_slug'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -832,10 +838,10 @@ builds its base from `CORE`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_espn -v`
+Run: `python3 -m unittest tests.test_espn -v`
 Expected: PASS
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK — no regressions
 
 - [ ] **Step 5: Commit**
@@ -882,7 +888,7 @@ class TestPlayerPriorNewFields(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: FAIL — `AttributeError: 'PlayerPrior' object has no attribute 'defcon_per90'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -918,10 +924,10 @@ class PlayerPrior:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: PASS (3 tests)
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK
 
 - [ ] **Step 5: Commit**
@@ -992,7 +998,7 @@ class TestAvailabilityGating(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'core.fpl_priors'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1044,7 +1050,7 @@ def availability_factor(player: dict) -> float:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: PASS (10 tests)
 
 - [ ] **Step 5: Commit**
@@ -1110,7 +1116,7 @@ class TestMinutesModel(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: FAIL — `AttributeError: module 'core.fpl_priors' has no attribute 'minutes_model'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1155,7 +1161,7 @@ def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: PASS (17 tests)
 
 - [ ] **Step 5: Commit**
@@ -1252,7 +1258,7 @@ class TestBuildPriors(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: FAIL — `AttributeError: module 'core.fpl_priors' has no attribute 'needs_cold_start'`
 
 - [ ] **Step 3: Add the config dials**
@@ -1375,7 +1381,7 @@ def build(players: list[dict], team_matches: int) -> dict[str, list]:
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_priors -v`
+Run: `python3 -m unittest tests.test_fpl_priors -v`
 Expected: PASS (29 tests)
 
 - [ ] **Step 6: Commit**
@@ -1460,7 +1466,7 @@ class TestPriorsInjection(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: FAIL — `TypeError: simulate_round() got an unexpected keyword argument 'priors'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1519,10 +1525,10 @@ And in the per-sim loop, replace `squad = ratings.players_for_team(team)` with:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: PASS (3 tests)
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK — World Cup behaviour unchanged
 
 - [ ] **Step 5: Commit**
@@ -1606,7 +1612,7 @@ class TestAdditiveSampleFields(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: FAIL — `AttributeError: 'PlayerSample' object has no attribute 'conceded'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1678,10 +1684,10 @@ Finally, extend `event_means` to expose the two scalar additions:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: PASS (9 tests)
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK — `conc_beyond` semantics are unchanged, so FIFA scoring is unaffected
 
 - [ ] **Step 5: Commit**
@@ -1762,7 +1768,7 @@ class TestPerMatchHook(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: FAIL — `TypeError: simulate_round() got an unexpected keyword argument 'per_match_hook'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1826,10 +1832,10 @@ After the two-team loop closes and before the MOTM award, fire the hook:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_engine_priors -v`
+Run: `python3 -m unittest tests.test_engine_priors -v`
 Expected: PASS (13 tests)
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK
 
 - [ ] **Step 5: Commit**
@@ -1913,7 +1919,7 @@ Create `games/fpl/state.json`. This mirrors the shape the other games use — an
 
 - [ ] **Step 4: Verify the package imports**
 
-Run: `python -c "import games.fpl; print('ok')"`
+Run: `python3 -c "import games.fpl; print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 5: Commit**
@@ -2085,7 +2091,7 @@ class TestDefconThreshold(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'games.fpl.model'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2201,7 +2207,7 @@ def defcon_points(position: str, defcon_samples: list) -> float:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: PASS (31 tests)
 
 - [ ] **Step 5: Commit**
@@ -2339,7 +2345,7 @@ class TestBonusAccumulator(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: FAIL — `AttributeError: module 'games.fpl.model' has no attribute 'bps_from_row'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2447,7 +2453,7 @@ class BonusAccumulator:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: PASS (49 tests)
 
 - [ ] **Step 5: Commit**
@@ -2528,7 +2534,7 @@ class TestCeiling(unittest.TestCase):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: FAIL — `AttributeError: module 'games.fpl.model' has no attribute 'total_points'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2570,7 +2576,7 @@ def ceiling_points(means: dict, goal_samples: list, q: float = 0.85) -> float:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m unittest tests.test_fpl_model -v`
+Run: `python3 -m unittest tests.test_fpl_model -v`
 Expected: PASS (54 tests)
 
 - [ ] **Step 5: Commit**
@@ -2756,7 +2762,7 @@ GAMES = ["fpl", "fifa", "holdet_gold", "holdet_yolo", "holdet_free", "malspillet
 This hits the network once to populate `data/fpl/`, then runs a small sim:
 
 ```bash
-python manage.py fpl --round 1 --sims 2000
+python3 manage.py fpl --round 1 --sims 2000
 ```
 
 Expected: an `=== FPL — gameweek 1 order book ===` header followed by 30 rows ordered by
@@ -2770,7 +2776,7 @@ Sanity checks to eyeball:
 
 - [ ] **Step 5: Confirm no regressions**
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK
 
 - [ ] **Step 6: Commit**
@@ -2789,7 +2795,7 @@ git commit -m "feat(fpl): gameweek run path — load, simulate, print the order 
 
 - [ ] **Step 1: Run the whole suite and record the count**
 
-Run: `python -m unittest discover -s tests -t .`
+Run: `python3 -m unittest discover -s tests -t .`
 Expected: OK. Note the total test count — it should be the pre-existing count plus roughly
 100 new tests.
 
@@ -2798,7 +2804,7 @@ Expected: OK. Note the total test count — it should be the pre-existing count 
 The regression gate is that WC grading is untouched:
 
 ```bash
-python manage.py fifa --round 5 --sims 2000
+python3 manage.py fifa --round 5 --sims 2000
 ```
 
 Expected: the FIFA order book prints as before, unaffected by the engine changes.
@@ -2860,9 +2866,9 @@ git commit -m "docs: changelog for FPL port phases 1-2"
 
 ## Definition of done
 
-- [ ] `python -m unittest discover -s tests -t .` passes, with the pre-existing tests still green
-- [ ] `python manage.py fpl --round 1 --sims 2000` prints a plausible order book
-- [ ] `python manage.py fifa --round 5 --sims 2000` still works — the regression gate
+- [ ] `python3 -m unittest discover -s tests -t .` passes, with the pre-existing tests still green
+- [ ] `python3 manage.py fpl --round 1 --sims 2000` prints a plausible order book
+- [ ] `python3 manage.py fifa --round 5 --sims 2000` still works — the regression gate
 - [ ] Goalkeeper saves and goals conceded are computed from per-sim counts, never from means
 - [ ] DefCon is a threshold probability, is 0 for every goalkeeper, and is capped at 2
 - [ ] Bonus is non-zero and rank-derived
