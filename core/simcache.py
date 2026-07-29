@@ -53,3 +53,31 @@ def source_fingerprint() -> str:
         h.update(_read_source(path).encode())
         h.update(b"\0")
     return h.hexdigest()
+
+
+def _canonical(value) -> str:
+    """Deterministic JSON for hashing.
+
+    `sort_keys` makes dict iteration order irrelevant, so two runs that build the
+    same inputs in a different order still hit the same key. Tuples serialise as
+    lists, which is fine — we only need determinism, not round-tripping.
+    """
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def cache_key(*, gameweek: int, sims: int, seed: int, lambdas: dict,
+              priors: dict, research: dict, config: dict) -> str:
+    """SHA-256 over every input that determines simulated output.
+
+    lambdas:  {match_id: (lam_home, lam_away)} — the match layer.
+    priors:   {player_name: tuple of prior fields} — the player layer.
+    research: {player_name: whatever the overlay contributes}.
+    config:   sim-affecting dials only. Do NOT pass the whole config module —
+              unrelated dials (site URL, article copy) would cause spurious misses.
+    """
+    h = hashlib.sha256()
+    for part in (gameweek, sims, seed, lambdas, priors, research, config):
+        h.update(_canonical(part).encode())
+        h.update(b"\0")
+    h.update(source_fingerprint().encode())
+    return h.hexdigest()
