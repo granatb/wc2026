@@ -110,3 +110,49 @@ class TestCacheKey(unittest.TestCase):
             after = simcache.cache_key(**self._inputs())
         self.assertNotEqual(before, after,
                             "editing the model source MUST invalidate the cache")
+
+
+import shutil
+import tempfile
+
+
+class TestArtifactRoundTrip(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="simcache_test_")
+        patcher = mock.patch.object(simcache, "CACHE_DIR", self.tmp)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_miss_returns_none(self):
+        self.assertIsNone(simcache.load("nosuchkey"))
+
+    def test_store_then_load_round_trips(self):
+        artifact = {"rows": [{"name": "Haaland", "x_points": 5.8}],
+                    "matches": {"m1": {"H": 0.6, "D": 0.2, "A": 0.2}}}
+        simcache.store("k1", artifact, meta={"gameweek": 1})
+        got = simcache.load("k1")
+        self.assertEqual(got["rows"], artifact["rows"])
+        self.assertEqual(got["matches"], artifact["matches"])
+
+    def test_stored_artifact_carries_its_meta(self):
+        simcache.store("k2", {"rows": []}, meta={"gameweek": 7, "sims": 200})
+        got = simcache.load("k2")
+        self.assertEqual(got["meta"]["gameweek"], 7)
+        self.assertEqual(got["meta"]["sims"], 200)
+
+    def test_a_different_key_is_a_miss(self):
+        simcache.store("k3", {"rows": [{"name": "X"}]})
+        self.assertIsNone(simcache.load("k4"))
+
+    def test_corrupt_artifact_is_treated_as_a_miss_not_a_crash(self):
+        path = simcache._path("k5")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("{not valid json")
+        self.assertIsNone(simcache.load("k5"))
+
+    def test_store_creates_the_cache_directory(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        simcache.store("k6", {"rows": []})
+        self.assertIsNotNone(simcache.load("k6"))

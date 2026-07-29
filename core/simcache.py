@@ -81,3 +81,36 @@ def cache_key(*, gameweek: int, sims: int, seed: int, lambdas: dict,
         h.update(b"\0")
     h.update(source_fingerprint().encode())
     return h.hexdigest()
+
+
+def _path(key: str) -> str:
+    return os.path.join(CACHE_DIR, f"{key}.json")
+
+
+def load(key: str):
+    """The cached artifact for `key`, or None on a miss.
+
+    A corrupt or unreadable artifact is a MISS, not an error: the cost of a miss is
+    re-running the sim, whereas raising would break a build over a recoverable
+    problem.
+    """
+    path = _path(key)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def store(key: str, artifact: dict, meta: dict | None = None) -> str:
+    """Persist `artifact` under `key`. Returns the path written."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    payload = dict(artifact)
+    payload["meta"] = dict(meta or {})
+    payload["meta"]["fingerprint"] = source_fingerprint()
+    path = _path(key)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    return path
