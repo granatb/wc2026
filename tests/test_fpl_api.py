@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from unittest import mock
 
 from core import fpl_api
 
@@ -134,3 +135,120 @@ class TestParseFixtures(unittest.TestCase):
                               "kickoff_time": None}]
         rows = fpl_api.parse_fixtures(raw, self.teams)
         self.assertEqual(len(rows), 20)
+
+
+class TestDefconRateFromHistory(unittest.TestCase):
+    """bootstrap-static zeroes every DefCon field; element-summary's history_past
+    carries last season's real numbers instead. defensive_contribution is already
+    the correct positional aggregate (CBIT for defenders, CBIRT for mid/fwd) --
+    this just converts it to a per-90 rate."""
+
+    def test_per90_conversion_matches_known_value(self):
+        # Gabriel, 2025/26: 277 DefCon over 2750 minutes -> 9.07 per 90.
+        history_past = [
+            {"season_name": "2024/25", "minutes": 3200, "defensive_contribution": 210},
+            {"season_name": "2025/26", "minutes": 2750, "defensive_contribution": 277},
+        ]
+        rate, minutes = fpl_api.defcon_rate_from_history(history_past)
+        self.assertAlmostEqual(rate, 9.07, places=2)
+        self.assertEqual(minutes, 2750)
+
+    def test_picks_most_recent_season_regardless_of_array_order(self):
+        history_past = [
+            {"season_name": "2025/26", "minutes": 2750, "defensive_contribution": 277},
+            {"season_name": "2024/25", "minutes": 1000, "defensive_contribution": 999},
+        ]
+        rate, minutes = fpl_api.defcon_rate_from_history(history_past)
+        self.assertEqual(minutes, 2750)
+        self.assertAlmostEqual(rate, 9.07, places=2)
+
+    def test_seasons_with_zero_minutes_are_skipped(self):
+        history_past = [{"season_name": "2025/26", "minutes": 0,
+                         "defensive_contribution": 0}]
+        self.assertEqual(fpl_api.defcon_rate_from_history(history_past), (0.0, 0))
+
+    def test_empty_or_missing_history_returns_zero(self):
+        self.assertEqual(fpl_api.defcon_rate_from_history([]), (0.0, 0))
+        self.assertEqual(fpl_api.defcon_rate_from_history(None), (0.0, 0))
+
+    def test_matches_the_real_element_summary_fixture(self):
+        raw = _load("fpl_element_summary.json")
+        rate, minutes = fpl_api.defcon_rate_from_history(raw["history_past"])
+        self.assertAlmostEqual(rate, 9.07, places=2)
+        self.assertEqual(minutes, 2750)
+
+
+class TestFetchDefconBackfill(unittest.TestCase):
+    """The one-time backfill: fetch element-summary only for ids the cache is
+    missing, cache to data/fpl/, skip zero-minute players, tolerate failures."""
+
+    CACHE_NAME = "defcon_backfill_test"
+
+    def _cache_path(self):
+        return os.path.join(fpl_api.DATA_DIR, f"{self.CACHE_NAME}.json")
+
+    def tearDown(self):
+        path = self._cache_path()
+        if os.path.exists(path):
+            os.remove(path)
+
+    @staticmethod
+    def _players(id_minutes):
+        return [{"id": i, "name": f"P{i}", "minutes": m} for i, m in id_minutes]
+
+    @staticmethod
+    def _summary(**overrides):
+        row = {"season_name": "2025/26", "minutes": 2750,
+               "defensive_contribution": 277}
+        row.update(overrides)
+        return {"history_past": [row]}
+
+    def test_fetches_and_caches_then_a_rerun_fetches_nothing(self):
+        players = self._players([(1, 2000), (2, 1500)])
+        fetch_mock = mock.Mock(return_value=self._summary())
+
+        result = fpl_api.fetch_defcon_backfill(
+            players, fetch=fetch_mock, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        self.assertEqual(fetch_mock.call_count, 2)
+        self.assertAlmostEqual(result[1]["defcon_per90"], 9.07, places=2)
+        self.assertEqual(result[1]["minutes"], 2750)
+
+        fetch_mock2 = mock.Mock(return_value=self._summary())
+        result2 = fpl_api.fetch_defcon_backfill(
+            players, fetch=fetch_mock2, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        fetch_mock2.assert_not_called()
+        self.assertAlmostEqual(result2[1]["defcon_per90"], result[1]["defcon_per90"])
+        self.assertAlmostEqual(result2[2]["defcon_per90"], result[2]["defcon_per90"])
+
+    def test_zero_minute_players_are_never_fetched(self):
+        players = self._players([(3, 0)])
+        fetch_mock = mock.Mock()
+
+        result = fpl_api.fetch_defcon_backfill(
+            players, fetch=fetch_mock, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        fetch_mock.assert_not_called()
+        self.assertNotIn(3, result)
+
+    def test_player_absent_from_result_when_fetch_fails(self):
+        players = self._players([(10, 2000), (11, 2000)])
+
+        def flaky(pid):
+            if pid == 10:
+                raise RuntimeError("simulated network failure")
+            return self._summary()
+
+        fetch_mock = mock.Mock(side_effect=flaky)
+        result = fpl_api.fetch_defcon_backfill(
+            players, fetch=fetch_mock, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        self.assertEqual(fetch_mock.call_count, 2)
+        self.assertNotIn(10, result)
+        self.assertIn(11, result)
+        self.assertAlmostEqual(result[11]["defcon_per90"], 9.07, places=2)

@@ -1,5 +1,6 @@
 import unittest
 
+import config
 from core import fpl_priors, ratings
 
 
@@ -236,3 +237,128 @@ class TestNameDisambiguation(unittest.TestCase):
         self.assertEqual(by_team["FUL"][0].name, "King (FUL)")
         self.assertEqual(by_team["EVE"][0].name, "King (EVE)")
         self.assertNotEqual(by_team["FUL"][0].name, by_team["EVE"][0].name)
+
+
+class TestDefconBackfill(unittest.TestCase):
+    """bootstrap-static zeroes every DefCon field preseason; core.fpl_api's
+    element-summary backfill supplies last season's rate instead. Live bootstrap
+    data must always win when it is actually non-zero.
+    """
+
+    def test_zero_bootstrap_defcon_picks_up_the_backfilled_rate(self):
+        players = [_player(id=1, name="Gabriel", team="ARS", position="DEF",
+                           defcon_per90=0.0)]
+        backfill = {1: {"defcon_per90": 9.07, "minutes": 2750}}
+        by_team = fpl_priors.build(players, team_matches=38, defcon_backfill=backfill)
+        # Shrunk toward the DEF prior, not the raw 9.07 -- see TestDefconShrinkage.
+        # 2750 minutes is a real season though, so it should stay close to 9.07.
+        expected = fpl_priors.shrink_defcon_rate("DEF", 9.07, 2750)
+        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, expected, places=2)
+        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, 9.07, delta=0.5)
+
+    def test_nonzero_bootstrap_defcon_wins_over_the_backfill(self):
+        # in-season live data must never be overridden by last season's history
+        players = [_player(id=1, name="Live", team="ARS", position="DEF",
+                           defcon_per90=5.0)]
+        backfill = {1: {"defcon_per90": 9.07, "minutes": 2750}}
+        by_team = fpl_priors.build(players, team_matches=38, defcon_backfill=backfill)
+        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, 5.0)
+
+    def test_player_absent_from_backfill_gets_zero_without_raising(self):
+        players = [_player(id=99, name="Nobody", team="ARS", position="DEF",
+                           defcon_per90=0.0)]
+        backfill = {1: {"defcon_per90": 9.07, "minutes": 2750}}
+        by_team = fpl_priors.build(players, team_matches=38, defcon_backfill=backfill)
+        self.assertEqual(by_team["ARS"][0].defcon_per90, 0.0)
+
+    def test_backfill_argument_is_optional(self):
+        # existing callers of build()/build_with_flags() must keep working unmodified
+        players = [_player(id=1, name="X", team="ARS", position="DEF",
+                           defcon_per90=0.0)]
+        by_team = fpl_priors.build(players, team_matches=38)
+        self.assertEqual(by_team["ARS"][0].defcon_per90, 0.0)
+
+    def test_build_with_flags_also_accepts_the_backfill(self):
+        players = [_player(id=1, name="Gabriel", team="ARS", position="DEF",
+                           defcon_per90=0.0)]
+        backfill = {1: {"defcon_per90": 9.07, "minutes": 2750}}
+        by_team, _flags = fpl_priors.build_with_flags(
+            players, team_matches=38, defcon_backfill=backfill)
+        # Shrunk toward the DEF prior, not the raw 9.07 -- see TestDefconShrinkage.
+        expected = fpl_priors.shrink_defcon_rate("DEF", 9.07, 2750)
+        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, expected, places=2)
+
+    def test_goalkeeper_never_gets_a_nonzero_defcon_rate(self):
+        # Defect D self-review question: can a keeper ever get a non-zero rate?
+        # Answer must be no, even if bootstrap's live field or the backfill cache
+        # somehow carries a stray non-zero value for one.
+        players = [_player(id=1, name="Keeper", team="ARS", position="GK",
+                           defcon_per90=4.0)]
+        backfill = {1: {"defcon_per90": 12.0, "minutes": 3000}}
+        by_team = fpl_priors.build(players, team_matches=38, defcon_backfill=backfill)
+        self.assertEqual(by_team["ARS"][0].defcon_per90, 0.0)
+
+
+class TestDefconShrinkage(unittest.TestCase):
+    """Empirical-Bayes shrinkage of the raw per-90 DefCon rate toward the
+    position prior, in units of 90-minute appearances (config.FPL_DEFCON_PRIOR /
+    config.FPL_DEFCON_SHRINKAGE_K). Fixes defect D: a raw rate from a handful of
+    minutes is noise (a 1-minute cameo with one CBIT action prints 90.0 per 90)
+    that would otherwise top the DefCon leaderboard ahead of genuine defensive
+    midfielders with thousands of minutes of real signal.
+    """
+
+    def test_one_minute_sample_lands_on_the_prior(self):
+        # One minute of history (0.011 90-minute appearances) is essentially no
+        # signal at all -- the shrunk rate must land close to the MID prior
+        # regardless of how extreme the single-minute observed rate is.
+        rate = fpl_priors.shrink_defcon_rate("MID", observed=90.0, minutes=1)
+        self.assertAlmostEqual(rate, config.FPL_DEFCON_PRIOR["MID"], delta=0.5)
+
+    def test_high_minutes_sample_stays_close_to_observed(self):
+        # 3000+ minutes (33+ appearances) is a real season's worth of signal --
+        # the prior should barely move it.
+        observed = 13.91  # measured rate for a real >=900-minute MID
+        rate = fpl_priors.shrink_defcon_rate("MID", observed=observed, minutes=3000)
+        self.assertAlmostEqual(rate, observed, delta=1.0)
+        # and it must have moved meaningfully less than a barely-sampled player would
+        self.assertGreater(rate, config.FPL_DEFCON_PRIOR["MID"] + 3.0)
+
+    def test_mid_sample_falls_strictly_between_observed_and_prior(self):
+        # 450 minutes (5 appearances) is neither noise nor a full sample -- the
+        # 200-900 minute band the task calls out as needing a meaningful, not total,
+        # pull toward the prior.
+        prior = config.FPL_DEFCON_PRIOR["DEF"]
+        observed = 15.0
+        rate = fpl_priors.shrink_defcon_rate("DEF", observed=observed, minutes=450)
+        self.assertGreater(rate, prior)
+        self.assertLess(rate, observed)
+
+    def test_goalkeeper_gets_zero_regardless_of_history(self):
+        self.assertEqual(
+            fpl_priors.shrink_defcon_rate("GK", observed=999.0, minutes=5000), 0.0)
+        self.assertEqual(
+            fpl_priors.shrink_defcon_rate("GK", observed=0.0, minutes=1), 0.0)
+
+    def test_shrunk_rate_is_never_negative_or_above_the_larger_input(self):
+        cases = [
+            ("DEF", 0.0, 5), ("DEF", 20.0, 10), ("MID", 5.0, 3000),
+            ("FWD", 0.0, 0), ("FWD", 25.0, 1), ("MID", 0.0, 3000),
+        ]
+        for position, observed, minutes in cases:
+            prior = config.FPL_DEFCON_PRIOR[position]
+            rate = fpl_priors.shrink_defcon_rate(position, observed, minutes)
+            with self.subTest(position=position, observed=observed, minutes=minutes):
+                self.assertGreaterEqual(rate, 0.0)
+                self.assertLessEqual(rate, max(observed, prior) + 1e-9)
+
+    def test_monotonic_in_sample_size_at_a_fixed_observed_rate(self):
+        # More minutes at the same observed rate must pull the estimate steadily
+        # closer to that observed rate, never further away.
+        position, observed = "MID", 20.0
+        prev_gap = abs(observed - config.FPL_DEFCON_PRIOR[position])
+        for minutes in (90, 450, 900, 1800, 3000, 6000):
+            rate = fpl_priors.shrink_defcon_rate(position, observed, minutes)
+            gap = abs(observed - rate)
+            self.assertLessEqual(gap, prev_gap + 1e-9)
+            prev_gap = gap

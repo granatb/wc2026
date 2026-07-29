@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from datetime import datetime, timezone
 
@@ -126,6 +127,31 @@ def parse_players(raw: dict) -> list[dict]:
     return out
 
 
+def defcon_rate_from_history(history_past: list | None) -> tuple[float, int]:
+    """(defcon_per90, minutes) from the most recent PAST season with minutes played.
+
+    bootstrap-static zeroes every DefCon field (defensive_contribution and its
+    components) for all players preseason -- verified on the cached 2026/27
+    payload, 0 of 563 non-zero. element-summary/{id}'s history_past DOES carry
+    real numbers for prior seasons. `defensive_contribution` there is already the
+    correct positional aggregate (CBIT for defenders, CBIRT for midfielders and
+    forwards) -- use it directly, do not re-derive it from the CBI/recoveries/
+    tackles components.
+
+    Picks the season with the lexicographically greatest `season_name` (e.g.
+    "2025/26" > "2024/25") among seasons with minutes > 0, rather than trusting
+    array order, since the feed's ordering is not part of any documented
+    contract. Returns (0.0, 0) when there is no usable season.
+    """
+    candidates = [s for s in (history_past or []) if (s.get("minutes") or 0) > 0]
+    if not candidates:
+        return 0.0, 0
+    season = max(candidates, key=lambda s: s.get("season_name", ""))
+    minutes = season.get("minutes") or 0
+    dc = season.get("defensive_contribution") or 0
+    return dc * 90.0 / minutes, minutes
+
+
 def parse_scoring(raw: dict) -> dict:
     """The scoring table from game_config, with GKP keys remapped to GK.
 
@@ -202,3 +228,60 @@ def refresh(write: bool = True) -> tuple[dict, list]:
         write_cache("bootstrap", boot)
         write_cache("fixtures", fx)
     return boot, fx
+
+
+# --- DefCon backfill ---------------------------------------------------------
+# See defcon_rate_from_history's docstring for WHY this exists: bootstrap zeroes
+# the DefCon fields, element-summary's history_past has them. Follows core.espn's
+# fetch_athlete_name precedent -- a one-time, incrementally-cached per-id resolve.
+
+DEFCON_CACHE_NAME = "defcon_backfill"
+DEFCON_REQUEST_DELAY = 0.4  # seconds between element-summary requests -- be polite
+
+
+def fetch_defcon_backfill(players: list[dict], fetch=fetch_element_summary,
+                           delay: float = DEFCON_REQUEST_DELAY, sleep=time.sleep,
+                           cache_name: str = DEFCON_CACHE_NAME) -> dict[int, dict]:
+    """Backfill last season's DefCon rate for players bootstrap-static zeroed.
+
+    Reads the cache (data/fpl/{cache_name}.json, keyed by element id) and fetches
+    ONLY ids missing from it, so a re-run against a fully-populated cache costs no
+    network calls at all. Players with zero bootstrap minutes are skipped entirely
+    -- no minutes means no Premier League history to fetch. A failed fetch for one
+    id is recorded and skipped; it does not abort the run, and it is simply
+    retried on the next call (not cached as a permanent failure, since most
+    failures here are transient network hiccups, not "this player has no data").
+
+    Returns {element_id: {"defcon_per90": float, "minutes": int}}, merging newly
+    fetched ids into whatever was already cached.
+    """
+    raw_cache = read_cache(cache_name) or {}
+    cache: dict[int, dict] = {int(k): v for k, v in raw_cache.items()}
+
+    todo = [p for p in players
+            if (p.get("minutes") or 0) > 0 and p["id"] not in cache]
+
+    total = len(todo)
+    if total:
+        print(f"  [fpl] defcon backfill: {total} player(s) missing from cache "
+              f"'{cache_name}', fetching...")
+
+    failed = []
+    for i, p in enumerate(todo, start=1):
+        pid = p["id"]
+        print(f"  [fpl] defcon backfill {i}/{total}: {p.get('name', pid)} (id {pid})")
+        try:
+            summary = fetch(pid)
+            rate, minutes = defcon_rate_from_history(summary.get("history_past", []))
+            cache[pid] = {"defcon_per90": rate, "minutes": minutes}
+        except Exception as exc:  # noqa: BLE001 -- one bad id must not abort the rest
+            failed.append(pid)
+            print(f"  [fpl] defcon backfill: FAILED id {pid} ({exc}); will retry next run")
+        if delay and i < total:
+            sleep(delay)
+
+    if todo:
+        write_cache(cache_name, {str(k): v for k, v in cache.items()})
+        print(f"  [fpl] defcon backfill done: {total - len(failed)} fetched, "
+              f"{len(failed)} failed.")
+    return cache

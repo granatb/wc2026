@@ -1,0 +1,38 @@
+{
+  "fixtures": [],
+  "history": [],
+  "history_past": [
+    {
+      "season_name": "2024/25",
+      "element_code": 78830,
+      "start_cost": 55,
+      "end_cost": 60,
+      "total_points": 180,
+      "minutes": 3200,
+      "goals_scored": 4,
+      "assists": 2,
+      "clean_sheets": 15,
+      "bps": 900,
+      "defensive_contribution": 210,
+      "clearances_blocks_interceptions": 180,
+      "recoveries": 20,
+      "tackles": 30
+    },
+    {
+      "season_name": "2025/26",
+      "element_code": 78830,
+      "start_cost": 60,
+      "end_cost": 62,
+      "total_points": 210,
+      "minutes": 2750,
+      "goals_scored": 3,
+      "assists": 1,
+      "clean_sheets": 13,
+      "bps": 850,
+      "defensive_contribution": 277,
+      "clearances_blocks_interceptions": 239,
+      "recoveries": 64,
+      "tackles": 38
+    }
+  ]
+}

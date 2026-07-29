@@ -261,6 +261,13 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     events = fpl_api.parse_events(boot)
     players = fpl_api.parse_players(boot)
 
+    # DefCon backfill: bootstrap-static zeroes defensive_contribution for every
+    # player preseason, so without this the DefCon model (and the order book's
+    # `dfc` column) is uniformly zero. See core.fpl_api.fetch_defcon_backfill.
+    # Incrementally cached to data/fpl/ -- only the first run pays the ~400-call
+    # cost; every run after that is instant.
+    defcon_backfill = fpl_api.fetch_defcon_backfill(players)
+
     # Register this gameweek's fixtures with the shared schedule.
     rows = [r for r in fpl_api.parse_fixtures(raw_fx, teams)
             if r["fantasy_round"] == gameweek]
@@ -280,7 +287,8 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     # carries last season's totals, so a full 38. Once the season starts this should
     # become matches played so far -- tracked by the caller as history accumulates.
     team_matches = 38
-    priors_by_team, flags = fpl_priors.build_with_flags(players, team_matches)
+    priors_by_team, flags = fpl_priors.build_with_flags(
+        players, team_matches, defcon_backfill=defcon_backfill)
     return priors_by_team, {p["name"]: p for p in players}, flags
 
 

@@ -148,7 +148,64 @@ def _disambiguate_names(players: list[dict]) -> None:
             p["name"] = f"{p['name']} ({p['team']})"
 
 
-def build_with_flags(players: list[dict], team_matches: int
+def shrink_defcon_rate(position: str, observed: float, minutes: float) -> float:
+    """Empirical-Bayes shrinkage of a raw per-90 DefCon rate toward its position
+    prior, in units of 90-minute appearances (defect D).
+
+    `defensive_contribution * 90 / minutes` from a handful of minutes is noise,
+    not signal -- a 1-minute cameo with a single alert action prints a 90.0
+    per-90 rate. Blending it with `config.FPL_DEFCON_PRIOR` in proportion to how
+    much of it is actually measured (`config.FPL_DEFCON_SHRINKAGE_K` pseudo-
+    appearances of prior) degrades gracefully as the sample grows, rather than a
+    hard minutes cutoff that would zero out real players returning from injury or
+    arriving from abroad. See config.py for the K derivation and the measured
+    priors.
+
+    Goalkeepers are hard-gated to 0.0 no matter what `observed` says: they do not
+    accrue CBIT/CBIRT actions and are not DefCon-eligible at all.
+    """
+    if position == "GK":
+        return 0.0
+    prior = config.FPL_DEFCON_PRIOR.get(position, 0.0)
+    appearances = max(0.0, minutes) / 90.0
+    k = config.FPL_DEFCON_SHRINKAGE_K
+    return (observed * appearances + prior * k) / (appearances + k)
+
+
+def _defcon_rate(player: dict, backfill: dict | None) -> float:
+    """The DefCon per-90 rate to carry onto this player's prior.
+
+    Bootstrap's own `defcon_per90` wins whenever it is non-zero -- in-season,
+    live data always beats last season's history. Only when bootstrap has
+    nothing (preseason, when bootstrap-static zeroes the field for everyone) do
+    we fall back to `backfill`, the core.fpl_api.fetch_defcon_backfill mapping of
+    element id -> {"defcon_per90", "minutes"}. A player missing from `backfill`
+    (no backfill supplied, or the id wasn't in it) safely falls through to 0.0.
+
+    The backfilled rate is shrunk toward the position prior before it reaches the
+    prior (see shrink_defcon_rate) -- raw per-90 rates from the tiny samples
+    common in the backfill (61 of 400 real players under 200 minutes) are noise
+    that would otherwise dominate the DefCon ranking. Goalkeepers are gated to
+    0.0 up front, regardless of what `player["defcon_per90"]` or `backfill` say --
+    they are not DefCon-eligible.
+    """
+    if player.get("position") == "GK":
+        return 0.0
+    live = player.get("defcon_per90") or 0.0
+    if live:
+        return live
+    if not backfill:
+        return 0.0
+    entry = backfill.get(player.get("id"))
+    if not entry:
+        return 0.0
+    observed = entry.get("defcon_per90") or 0.0
+    minutes = entry.get("minutes") or 0
+    return shrink_defcon_rate(player.get("position", "MID"), observed, minutes)
+
+
+def build_with_flags(players: list[dict], team_matches: int,
+                     defcon_backfill: dict[int, dict] | None = None
                      ) -> tuple[dict[str, list], list[dict]]:
     """Build priors grouped by club, plus a list of cold-start flags for preflight.
 
@@ -156,6 +213,11 @@ def build_with_flags(players: list[dict], team_matches: int
     goals among its own players, so what matters is a player's share of his club's
     attacking output, not an absolute rate. Shares need not sum to 1 — the engine
     treats the remainder as unmodelled teammates.
+
+    `defcon_backfill` is optional -- see `_defcon_rate` for the precedence rule
+    (live bootstrap data always wins over it). Existing callers that don't pass it
+    are unaffected: they get bootstrap's own defcon_per90 (0.0 preseason) exactly
+    as before.
 
     Mutates `players` to disambiguate colliding names before anything else reads
     them -- see `_disambiguate_names`.
@@ -193,7 +255,7 @@ def build_with_flags(players: list[dict], team_matches: int
                 assist_share=(xa90 / assist_mass) if xa90 else 0.0,
                 sot_per90=0.0,          # FPL does not score shots on target
                 pen_taker=bool(p.get("pen_taker")),
-                defcon_per90=p.get("defcon_per90") or 0.0,
+                defcon_per90=_defcon_rate(p, defcon_backfill),
                 saves_per90=p.get("saves_per90") or 0.0,
             ))
         by_team[team] = priors
@@ -201,7 +263,8 @@ def build_with_flags(players: list[dict], team_matches: int
     return by_team, flags
 
 
-def build(players: list[dict], team_matches: int) -> dict[str, list]:
+def build(players: list[dict], team_matches: int,
+         defcon_backfill: dict[int, dict] | None = None) -> dict[str, list]:
     """build_with_flags without the flags, for callers that don't need preflight."""
-    by_team, _flags = build_with_flags(players, team_matches)
+    by_team, _flags = build_with_flags(players, team_matches, defcon_backfill)
     return by_team
