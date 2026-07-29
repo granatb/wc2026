@@ -1,7 +1,43 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(510 tests). App: `streamlit run app.py`.
+(535 tests). App: `streamlit run app.py`.
+
+## 2026-07-28 — FPL port, phase 3 (sim caching)
+
+Plan: `docs/superpowers/plans/2026-07-28-fpl-port-phase3.md`. Implements STRATEGY.md's
+07-06 owner requirement that per-round build artifacts become incremental, while staying
+static-first on the CDN — no database, no server.
+
+- **`core/simcache.py`** — content-addressed cache for per-gameweek sim output. Stores the
+  DERIVED per-player rows (not 50k raw samples), so a copy or layout change re-renders with
+  no sim at all.
+- **Measured on GW1 at 8,000 sims: 7.79s cold, 0.17s warm — ~46x.** `--no-cache` forces a
+  fresh run (7.68s) as an operator escape hatch.
+- **The key covers everything that determines the numbers:** gameweek, sim count, seed,
+  per-match lambdas, a projection of every sim-affecting `PlayerPrior` field, the research
+  entries, the four sim-affecting config dials (`GOAL_CONCENTRATION`,
+  `PEN_TAKER_GOAL_BONUS`, `DEVIG_METHOD`, `research_weight`) — and a **fingerprint of the
+  model source itself** (`engine_events.py`, `fpl_priors.py`, `blend.py`, `research.py`,
+  `games/fpl/model.py`).
+- **Why the source fingerprint is load-bearing:** without it, editing a scoring constant
+  would silently serve a stale artifact and publish a number that was never recomputed —
+  the worst available failure for a site whose positioning is published methodology.
+  Verified by touching `games/fpl/model.py` and observing a full re-simulation.
+  `blend.py` and `research.py` were added to the fingerprint after review: both shape sim
+  output (`effective_goal_weight` calls `blend.blend_rate`; `ResearchEntry.adjust` applies
+  the overlay), and hashing research entries as *data* does not cover the logic that
+  interprets them. `odds_math.py` and `ratings.py` stay out deliberately — they reach the
+  sim only through the lambdas, which are hashed as computed values.
+- A corrupt or unreadable artifact is a **miss, not an error**: the cost of a miss is
+  re-running the sim, whereas raising would break a build over a recoverable problem.
+- **`run()` refactored** to expose `build_rows(priors_by_team, players_by_name, gameweek,
+  sims, use_cache=True)`. The old shape could not be tested without full integration setup,
+  which is precisely how the phase-1/2 defects hid.
+- **Gap closed in passing:** the FPL path never passed `research=` to `simulate_round` (only
+  `research_weight`), unlike `games/fifa/model.py`. Now wired. Behaviourally inert today —
+  no overlap between existing `research/players/*.md` names and the FPL pool — but it means
+  the per-gameweek research pass will actually reach the engine.
 
 ## 2026-07-28 — FPL port, phases 1-2 (data layer + model)
 
