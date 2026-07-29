@@ -80,3 +80,76 @@ def parse_events(raw: dict) -> dict[int, dict]:
             "finished": bool(e.get("finished")),
         }
     return out
+
+
+def _f(value, default: float = 0.0) -> float:
+    """FPL returns several numeric fields as strings ('25.50'). Coerce safely."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_players(raw: dict) -> list[dict]:
+    """Flatten `elements` into the fields the prior builder needs.
+
+    NOTE on preseason: bootstrap's per-player totals carry LAST season's numbers
+    until the new season starts, so xg_per90/minutes/starts are populated on day
+    one. Players with minutes == 0 have no Premier League history at all (promoted
+    clubs, foreign signings) and are handled by the cold-start fallback in
+    core/fpl_priors.
+    """
+    teams = parse_teams(raw)
+    out = []
+    for e in raw.get("elements", []):
+        out.append({
+            "id": e["id"],
+            "name": e["web_name"],
+            "full_name": f"{e.get('first_name', '')} {e.get('second_name', '')}".strip(),
+            "team": teams.get(e["team"], "???"),
+            "position": POSITIONS.get(e["element_type"], "MID"),
+            "price": e["now_cost"] / 10.0,
+            "ownership": _f(e.get("selected_by_percent")),
+            "status": e.get("status", "a"),
+            "chance_of_playing": e.get("chance_of_playing_next_round"),
+            "news": e.get("news", ""),
+            "minutes": e.get("minutes", 0),
+            "starts": e.get("starts", 0),
+            "xg_per90": _f(e.get("expected_goals_per_90")),
+            "xa_per90": _f(e.get("expected_assists_per_90")),
+            "saves_per90": _f(e.get("saves_per_90")),
+            "defcon_per90": _f(e.get("defensive_contribution_per_90")),
+            "bps": e.get("bps", 0),
+            "ep_next": _f(e.get("ep_next")),
+            "pen_taker": e.get("penalties_order") == 1,
+        })
+    return out
+
+
+def parse_scoring(raw: dict) -> dict:
+    """The scoring table from game_config, with GKP keys remapped to GK.
+
+    WARNING: this block carries UNIT values only. `saves: 1` means one point per
+    THREE saves and `goals_conceded: -1` means minus one per TWO conceded. The
+    divisors are not in the feed — they are pinned in games/fpl/model.py from the
+    official rules page. Reading this block literally mis-prices every goalkeeper.
+    """
+    sc = dict(raw.get("game_config", {}).get("scoring", {}))
+    for key, value in list(sc.items()):
+        if isinstance(value, dict) and "GKP" in value:
+            remapped = {("GK" if k == "GKP" else k): v for k, v in value.items()}
+            sc[key] = remapped
+    return sc
+
+
+def parse_squad_rules(raw: dict) -> dict:
+    r = raw.get("game_config", {}).get("rules", {}) or raw.get("game_settings", {})
+    multiplier = r.get("ui_currency_multiplier", 10)
+    return {
+        "squad_size": r.get("squad_squadsize", 15),
+        "squad_play": r.get("squad_squadplay", 11),
+        "team_limit": r.get("squad_team_limit", 3),
+        "budget": r.get("squad_total_spend", 1000) / multiplier,
+        "max_extra_free_transfers": r.get("max_extra_free_transfers", 4),
+        "sell_on_fee": r.get("transfers_sell_on_fee", 0.5),
+    }
