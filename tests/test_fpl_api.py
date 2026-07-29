@@ -102,3 +102,35 @@ class TestScoringConfig(unittest.TestCase):
         self.assertEqual(r["squad_play"], 11)
         self.assertEqual(r["team_limit"], 3)
         self.assertEqual(r["budget"], 100.0)
+
+
+class TestParseFixtures(unittest.TestCase):
+    def setUp(self):
+        self.raw_fx = _load("fpl_fixtures.json")
+        self.teams = fpl_api.parse_teams(_load("fpl_bootstrap.json"))
+
+    def test_parse_fixtures_shape(self):
+        rows = fpl_api.parse_fixtures(self.raw_fx, self.teams)
+        self.assertEqual(len(rows), 20)
+        r = rows[0]
+        for key in ("match_id", "home", "away", "kickoff_utc", "fantasy_round", "stage"):
+            self.assertIn(key, r)
+
+    def test_stage_is_gw_and_round_is_the_gameweek(self):
+        rows = fpl_api.parse_fixtures(self.raw_fx, self.teams)
+        self.assertEqual({r["stage"] for r in rows}, {"GW"})
+        self.assertEqual({r["fantasy_round"] for r in rows}, {1, 2})
+
+    def test_home_and_away_are_short_codes(self):
+        rows = fpl_api.parse_fixtures(self.raw_fx, self.teams)
+        codes = set(self.teams.values())
+        for r in rows:
+            self.assertIn(r["home"], codes)
+            self.assertIn(r["away"], codes)
+
+    def test_unscheduled_fixtures_are_skipped(self):
+        # a fixture with event=None is not yet assigned to a gameweek
+        raw = self.raw_fx + [{"id": 999, "event": None, "team_h": 1, "team_a": 2,
+                              "kickoff_time": None}]
+        rows = fpl_api.parse_fixtures(raw, self.teams)
+        self.assertEqual(len(rows), 20)

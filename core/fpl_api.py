@@ -153,3 +153,52 @@ def parse_squad_rules(raw: dict) -> dict:
         "max_extra_free_transfers": r.get("max_extra_free_transfers", 4),
         "sell_on_fee": r.get("transfers_sell_on_fee", 0.5),
     }
+
+
+def parse_fixtures(raw: list, teams: dict[int, str]) -> list[dict]:
+    """Flatten the fixtures feed into schedule rows.
+
+    Fixtures with `event: None` are not yet assigned to a gameweek (postponed or
+    awaiting a cup outcome) and are skipped — they are the mechanism by which
+    blanks and doubles appear later in the season.
+    """
+    out = []
+    for f in raw:
+        gw = f.get("event")
+        if gw is None:
+            continue
+        out.append({
+            "match_id": str(f["id"]),
+            "home": teams.get(f["team_h"], "???"),
+            "away": teams.get(f["team_a"], "???"),
+            "kickoff_utc": f.get("kickoff_time"),
+            "fantasy_round": gw,
+            "stage": "GW",
+        })
+    return out
+
+
+def write_cache(name: str, payload) -> str:
+    """Persist a raw payload under data/fpl/ so models can run offline."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    path = os.path.join(DATA_DIR, f"{name}.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    return path
+
+
+def read_cache(name: str):
+    path = os.path.join(DATA_DIR, f"{name}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def refresh(write: bool = True) -> tuple[dict, list]:
+    """Fetch bootstrap + fixtures and cache them. Returns the raw payloads."""
+    boot, fx = fetch_bootstrap(), fetch_fixtures()
+    if write:
+        write_cache("bootstrap", boot)
+        write_cache("fixtures", fx)
+    return boot, fx
