@@ -219,18 +219,26 @@ def total_points(means: dict, sample, conceded_samples: list,
     return pts
 
 
-def ceiling_points(means: dict, goal_samples: list, q: float = 0.85) -> float:
-    """Goal-variance ceiling: mean points with the mean-goal contribution swapped
-    for the q-percentile goal contribution, floored at the mean.
+def ceiling_points(means: dict, sample, conceded_samples: list,
+                   bonus: float = 0.0, q: float = 0.85) -> float:
+    """Goal-variance ceiling, comparable to total_points (the xPts column).
 
-    Mirrors the FIFA and Holdet ceilings so all three are defined the same way.
-    The floor removes an artefact: for non-scoring defenders the raw ceiling dips
-    below the mean, because it models only goal upside and not clean-sheet variance.
+    Takes the SAME inputs as total_points, rather than just goal_samples, because
+    the ceiling has to include the same non-goal components its own mean does --
+    saves, conceded, DefCon and bonus -- or it can print below xPts whenever those
+    dominate over goal threat (observed live: a keeper's ceiling reading below his
+    own expected points). Swaps the mean-goal contribution for the q-percentile
+    goal contribution and floors at the total.
+
+    Mirrors the FIFA and Holdet ceilings' shape, extended with the threshold
+    components those games don't have. The floor removes an artefact: for players
+    with no goal threat the raw ceiling can dip below the total, because it models
+    only goal upside and not clean-sheet/DefCon/bonus variance.
     """
     pos = means["position"]
     goal_pts = GOAL_PTS.get(pos, 4)
-    base = expected_points(means)
-    p_goals = engine_events.percentile(goal_samples, q)
+    base = total_points(means, sample, conceded_samples, bonus)
+    p_goals = engine_events.percentile(sample.goal_samples, q)
     raw = base - means.get("goals", 0.0) * goal_pts + p_goals * goal_pts
     return max(base, raw)
 
@@ -308,14 +316,15 @@ def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
         # conceded is accumulated as a running total; rebuild the per-sim series
         # the threshold needs from the mean over the sims the player appeared in.
         conceded_samples = _conceded_series(ps)
-        pts = total_points(m, ps, conceded_samples, bonus=bonus.expected(name))
+        player_bonus = bonus.expected(name)
+        pts = total_points(m, ps, conceded_samples, bonus=player_bonus)
         meta = players_by_name.get(name, {})
         rows.append({
             "name": name, "team": m["team"], "position": m["position"],
             "x_points": pts, "price": meta.get("price"),
             "ownership_pct": meta.get("ownership"),
-            "ceiling": ceiling_points(m, ps.goal_samples),
-            "bonus": bonus.expected(name),
+            "ceiling": ceiling_points(m, ps, conceded_samples, bonus=player_bonus),
+            "bonus": player_bonus,
             "defcon": defcon_points(m["position"], ps.defcon_samples),
         })
     rows.sort(key=lambda r: -r["x_points"])

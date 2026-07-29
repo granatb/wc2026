@@ -298,17 +298,82 @@ class TestTotalPoints(unittest.TestCase):
 
 
 class TestCeiling(unittest.TestCase):
-    def test_ceiling_is_never_below_the_mean(self):
-        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.9,
-                 "yellow": 0.0, "red": 0.0}
-        mean_pts = model.expected_points(means)
-        ceiling = model.ceiling_points(means, goal_samples=[0, 0, 0, 0])
-        self.assertGreaterEqual(ceiling, mean_pts)
+    """The ceiling column must be comparable to total_points (xPts): it has to
+    include the SAME non-goal components (saves, conceded, DefCon, bonus), or a
+    ceiling can silently print below its own expected value. Regression observed
+    live: Szoboszlai 3.76 xPts / 3.21 ceil, Verbruggen 3.59 / 2.92, Rice 3.57 /
+    2.73, Pickford 3.46 / 2.88 -- all ceil < xPts.
+    """
 
-    def test_ceiling_lifts_a_scorer_above_his_mean(self):
-        means = {"position": "FWD", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.5, "assists": 0.0, "clean_sheet": 0.0,
+    def _sample(self, **kw):
+        ps = engine_events.PlayerSample("K", "LIV", kw.pop("position", "GK"))
+        ps.sims = 2
+        ps.played = 2.0
+        ps.played_60 = 2.0
+        for key, value in kw.items():
+            setattr(ps, key, value)
+        return ps
+
+    def test_ceiling_at_least_matches_total_for_a_keeper_with_no_goal_threat(self):
+        # The exact failing shape: saves + bonus dominate, goals are irrelevant,
+        # so the old goal-only ceiling floored at expected_points() (which drops
+        # saves/conceded/DefCon/bonus) and printed below the real total.
+        means = {"position": "GK", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.6,
                  "yellow": 0.0, "red": 0.0}
-        ceiling = model.ceiling_points(means, goal_samples=[0, 0, 1, 2])
-        self.assertGreater(ceiling, model.expected_points(means))
+        sample = self._sample(position="GK", goal_samples=[0, 0, 0, 0],
+                              save_samples=[3, 3, 3, 3])
+        conceded_samples = [0, 0]
+        bonus = 1.4
+
+        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
+        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
+        self.assertGreaterEqual(ceiling, total)
+
+    def test_ceiling_at_least_matches_total_for_a_creative_midfielder(self):
+        # High bonus and DefCon, low goal threat.
+        means = {"position": "MID", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.05, "assists": 0.3, "clean_sheet": 0.3,
+                 "yellow": 0.0, "red": 0.0}
+        sample = self._sample(position="MID", goal_samples=[0, 0, 0, 1],
+                              defcon_samples=[13, 13])
+        conceded_samples = []
+        bonus = 1.8
+
+        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
+        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
+        self.assertGreaterEqual(ceiling, total)
+
+    def test_ceiling_is_strictly_above_total_for_a_striker_with_goal_variance(self):
+        # The fix must not turn the ceiling into a no-op that just returns total.
+        means = {"position": "FWD", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.4, "assists": 0.0, "clean_sheet": 0.0,
+                 "yellow": 0.0, "red": 0.0}
+        sample = self._sample(position="FWD", goal_samples=[0, 0, 1, 2, 3])
+        conceded_samples: list = []
+        bonus = 0.0
+
+        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
+        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
+        self.assertGreater(ceiling, total)
+
+    def test_defcon_and_bonus_both_move_the_ceiling(self):
+        # Same (zero) goal variance in both scenarios, so the entire delta must
+        # come from DefCon and bonus -- proof those components are IN the ceiling,
+        # not just floored against.
+        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
+                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.4,
+                 "yellow": 0.0, "red": 0.0}
+        conceded_samples = [0, 0]
+
+        low_sample = self._sample(position="DEF", goal_samples=[0, 0, 0, 0],
+                                  defcon_samples=[4, 4])
+        high_sample = self._sample(position="DEF", goal_samples=[0, 0, 0, 0],
+                                   defcon_samples=[10, 10])
+
+        low = model.ceiling_points(means, low_sample, conceded_samples, bonus=0.5)
+        high = model.ceiling_points(means, high_sample, conceded_samples, bonus=2.5)
+
+        # defcon_points("DEF", [4,4]) == 0.0, defcon_points("DEF", [10,10]) == 2.0
+        # bonus delta is 2.0 -> total delta must be exactly 4.0
+        self.assertAlmostEqual(high - low, 4.0)
