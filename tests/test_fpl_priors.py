@@ -57,3 +57,48 @@ class TestAvailabilityGating(unittest.TestCase):
         # FPL sometimes leaves status 'a' while chance_of_playing is 0
         p = _player(status="a", chance_of_playing=0)
         self.assertEqual(fpl_priors.availability_factor(p), 0.0)
+
+
+class TestMinutesModel(unittest.TestCase):
+    def test_nailed_starter_has_high_start_probability(self):
+        # 34 starts from a 38-game season
+        p = _player(minutes=3000, starts=34)
+        sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertGreater(sp, 0.85)
+
+    def test_rotation_player_has_middling_start_probability(self):
+        p = _player(minutes=1400, starts=15)
+        sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertGreater(sp, 0.3)
+        self.assertLess(sp, 0.6)
+
+    def test_expected_minutes_reflect_minutes_per_start(self):
+        p = _player(minutes=2700, starts=30)   # 90 per start
+        _sp, mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertGreater(mins, 80)
+        self.assertLessEqual(mins, 90)
+
+    def test_substitute_gets_low_expected_minutes(self):
+        # A pure substitute: real minutes, zero starts. This is the shape the feed
+        # actually produces for bench players, and it exercises the starts == 0
+        # branch. (minutes=450 with starts=1 would be impossible — 450 minutes in
+        # one match — and would take the minutes-per-start path to 90.)
+        p = _player(minutes=450, starts=0)
+        _sp, mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertLess(mins, 60)
+
+    def test_injury_gates_start_probability_to_zero(self):
+        p = _player(minutes=3000, starts=34, status="i")
+        sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertEqual(sp, 0.0)
+
+    def test_no_history_falls_back_without_dividing_by_zero(self):
+        p = _player(minutes=0, starts=0)
+        sp, mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertGreaterEqual(sp, 0.0)
+        self.assertGreater(mins, 0.0)
+
+    def test_start_probability_never_exceeds_one(self):
+        p = _player(minutes=3420, starts=38)
+        sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
+        self.assertLessEqual(sp, 1.0)

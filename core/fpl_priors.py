@@ -38,3 +38,38 @@ def availability_factor(player: dict) -> float:
     if player.get("status") == "d":
         return 0.5   # doubtful with no published percentage
     return 1.0
+
+
+# Fallback expected minutes when a player has no history to measure.
+_DEFAULT_EXP_MINUTES = 70.0
+_DEFAULT_START_PROB = 0.25   # unknown player: assume a squad role, not a starter
+
+
+def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
+    """(start_prob, exp_minutes) for one player.
+
+    start_prob is the observed start rate over `team_matches`, then multiplied by
+    FPL's availability signal. exp_minutes is minutes-per-start, which separates a
+    90-minute nailed starter from a player who starts but is routinely withdrawn,
+    and drops toward a cameo figure for players who mostly come off the bench.
+
+    `team_matches` is how many matches the sample covers — 38 for a full prior
+    season, or matches played so far once the new season is under way.
+    """
+    starts = player.get("starts") or 0
+    minutes = player.get("minutes") or 0
+    gate = availability_factor(player)
+
+    if team_matches <= 0 or (starts == 0 and minutes == 0):
+        return _DEFAULT_START_PROB * gate, _DEFAULT_EXP_MINUTES
+
+    start_rate = min(1.0, starts / float(team_matches))
+
+    if starts > 0:
+        exp_minutes = min(90.0, minutes / float(starts))
+    else:
+        # Never started in the sample: a substitute. Spread the minutes over the
+        # appearances we can infer, floored so the sim still gives him some time.
+        exp_minutes = max(15.0, min(59.0, minutes / float(team_matches)))
+
+    return start_rate * gate, exp_minutes
