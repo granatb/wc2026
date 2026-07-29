@@ -28,8 +28,19 @@ CACHE_DIR = os.path.join(_HERE, "data", "fpl", "simcache")
 FINGERPRINT_SOURCES = [
     os.path.join(_HERE, "core", "engine_events.py"),
     os.path.join(_HERE, "core", "fpl_priors.py"),
+    os.path.join(_HERE, "core", "blend.py"),
+    os.path.join(_HERE, "core", "research.py"),
     os.path.join(_HERE, "games", "fpl", "model.py"),
 ]
+# blend.py and research.py were added after review. Both are genuinely
+# sim-affecting: engine_events.effective_goal_weight calls blend.blend_rate, and
+# ResearchEntry.adjust applies the research overlay's hard facts and soft nudges.
+# Research ENTRIES are hashed as data by cache_key, but the logic that interprets
+# them lives here, so editing either file must invalidate the cache too.
+#
+# Deliberately NOT fingerprinted: core/odds_math.py and core/ratings.py. They only
+# reach the sim through the per-match lambdas, and cache_key hashes those as
+# computed VALUES — so any change to how they are derived already shows up.
 
 
 def _read_source(path: str) -> str:

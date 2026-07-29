@@ -24,6 +24,12 @@ class TestSourceFingerprint(unittest.TestCase):
                             for p in simcache.FINGERPRINT_SOURCES))
         self.assertTrue(any(p.endswith("fpl_priors.py")
                             for p in simcache.FINGERPRINT_SOURCES))
+        # blend.py and research.py shape sim output too — engine_events calls
+        # blend.blend_rate, and ResearchEntry.adjust applies the overlay.
+        self.assertTrue(any(p.endswith("blend.py")
+                            for p in simcache.FINGERPRINT_SOURCES))
+        self.assertTrue(any(p.endswith("research.py")
+                            for p in simcache.FINGERPRINT_SOURCES))
 
     def test_changing_a_source_file_changes_the_fingerprint(self):
         before = simcache.source_fingerprint()
