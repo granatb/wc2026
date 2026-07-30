@@ -621,3 +621,28 @@ git commit -m "docs: changelog for FPL port phase 3"
 ## Out of scope
 
 Caching for the World Cup games (the tournament is over; they are never rebuilt). Cross-gameweek caching. Any change to `core/engine_events.py`.
+
+## Carried into Phase 4: is `BonusAccumulator.expected()` right for a double gameweek?
+
+Flagged by the tail-mean implementer, and I could not settle it either way without data.
+
+`BonusAccumulator.expected()` divides accumulated bonus by the number of MATCH appearances,
+giving a per-match average. `total_points` then scales it by `sample.played / sample.sims`
+(the T18e appearance fix). For a double gameweek `played` increments once per match, so
+`played / sims` approaches 2.0 — which multiplied by a per-match average yields the sum
+across both matches. **That may already be correct by construction.**
+
+But it is unverified, because the fixture feed has no double gameweeks yet and will not for
+months. The new `SimPointsAccumulator` sums per sim explicitly and has a dedicated
+double-gameweek test, so the `ceiling` column is definitely right; the `x_points` column
+goes through the older assembly path and is the one in question.
+
+**Do not guess-fix this.** Two concrete ways to settle it:
+1. Build a synthetic double-gameweek fixture pair and assert `total_points` agrees with
+   `SimPointsAccumulator.mean()` for a player appearing in both — the cross-check that
+   already exists for single fixtures, extended to doubles.
+2. Or retire the assembly path for `x_points` and read both columns off the distribution,
+   which removes the whole class of question. That was deliberately not done here to keep
+   `total_points` as an independent cross-check of the per-sim path.
+
+Option 1 first — it is cheap and tells you whether option 2 is even needed.
