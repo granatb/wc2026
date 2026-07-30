@@ -722,3 +722,66 @@ class TestRunUsesTheSimCache(unittest.TestCase):
         self.assertEqual([r["name"] for r in fresh], [r["name"] for r in cached])
         for a, b in zip(fresh, cached):
             self.assertAlmostEqual(a["x_points"], b["x_points"], places=6)
+
+
+class TestCeilingIsUnconditional(unittest.TestCase):
+    """Owner decision 2026-07-28: the ceiling is an expected-upside figure, so its
+    goal percentile is taken over ALL sims, not only the ones the player featured in.
+
+    Before this, a fringe player's percentile was conditional on playing while the
+    mean it replaced was unconditional, so he kept ~75% of a nailed starter's
+    ceiling on 20% of the minutes."""
+
+    def setUp(self):
+        self.fx = fixtures.Fixture(
+            "CEILUNC", "H", "A",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=905, neutral=False,
+            lam_home=1.8, lam_away=1.2)
+        fixtures.SCHEDULE.append(self.fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(self.fx))
+        self.squads = {
+            "H": [ratings.PlayerPrior("Nailed", "H", "FWD", start_prob=1.0,
+                                      exp_minutes=90, goal_share=0.35),
+                  ratings.PlayerPrior("Fringe", "H", "FWD", start_prob=0.2,
+                                      exp_minutes=90, goal_share=0.35)],
+            "A": [ratings.PlayerPrior("Opp", "A", "FWD", start_prob=1.0,
+                                      exp_minutes=90, goal_share=0.4)],
+        }
+        self.players, _ = engine_events.simulate_round(
+            905, sims=8000, priors=lambda t: self.squads.get(t, []))
+        self.means = engine_events.event_means(self.players)
+
+    def _pair(self, name):
+        ps = self.players[name]
+        m = self.means[name]
+        cs = model._conceded_series(ps)
+        return (model.total_points(m, ps, cs, bonus=0.0),
+                model.ceiling_points(m, ps, cs, bonus=0.0))
+
+    def test_padding_makes_the_sample_length_match_total_sims(self):
+        ps = self.players["Fringe"]
+        self.assertLess(len(ps.goal_samples), ps.sims)
+        self.assertEqual(len(model._unconditional_goal_samples(ps)), ps.sims)
+
+    def test_a_nailed_starter_is_unaffected_by_the_padding(self):
+        ps = self.players["Nailed"]
+        self.assertEqual(model._unconditional_goal_samples(ps), ps.goal_samples)
+
+    def test_fringe_ceiling_scales_with_appearance_probability(self):
+        n_total, n_ceil = self._pair("Nailed")
+        f_total, f_ceil = self._pair("Fringe")
+        p = self.players["Fringe"].played / self.players["Fringe"].sims
+        # xPts already scaled correctly; the ceiling must now scale the same way.
+        self.assertAlmostEqual(f_total / n_total, p, delta=0.06)
+        self.assertLess(f_ceil / n_ceil, 0.45,
+                        "a 20%-appearance player must not keep most of the ceiling")
+
+    def test_ceiling_still_exceeds_the_total_for_a_real_scorer(self):
+        total, ceil = self._pair("Nailed")
+        self.assertGreater(ceil, total)
+
+    def test_ceiling_never_below_total(self):
+        for name in ("Nailed", "Fringe"):
+            total, ceil = self._pair(name)
+            self.assertGreaterEqual(ceil, total)

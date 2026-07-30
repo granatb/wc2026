@@ -275,13 +275,56 @@ def ceiling_points(means: dict, sample, conceded_samples: list,
     components those games don't have. The floor removes an artefact: for players
     with no goal threat the raw ceiling can dip below the total, because it models
     only goal upside and not clean-sheet/DefCon/bonus variance.
+
+    The goal percentile is UNCONDITIONAL -- taken over all sims, not just the ones
+    the player featured in. Owner decision 2026-07-28. `goal_samples` only holds
+    entries for played sims, so the percentile is computed over that list padded
+    with a zero per non-appearance. Without the padding a fringe player kept ~75%
+    of a nailed starter's ceiling on 20% of the minutes, because his percentile was
+    conditional on playing while the mean it replaced was not. The site must label
+    the ceiling as an expected-upside figure, not an if-he-starts figure.
+
+    KNOWN LIMITATION, measured 2026-07-28 — do not ship the ceiling to an article
+    before reading this. A percentile over a DISCRETE goal count is a step function,
+    so making it unconditional turned the ceiling into a cliff rather than a
+    gradient. Sweeping appearance probability at goal_share 0.35 over 40k sims:
+
+        P(play) 1.00-0.61 -> p85(goals) = 1.0, ceiling/xPts 1.84-2.72
+        P(play) 0.50-0.20 -> p85(goals) = 0.0, ceiling/xPts = 1.00 exactly
+
+    Above ~55% appearance probability every player's ceiling lands in a narrow
+    5.1-5.8 band; below it the ceiling collapses onto xPts and carries no signal at
+    all. That makes this a poor ranking column for a high-ceiling or differentials
+    article even though it is now internally coherent.
+
+    The likely fix is a different upside statistic rather than a different
+    conditioning: a TAIL MEAN (average simulated points across the top (1-q) of
+    sims) is smooth over discrete outcomes, is still unconditional, and reads
+    naturally as "what this player does when it goes well". That needs per-sim point
+    totals, which the engine does not currently retain. Decide in Phase 4.
     """
     pos = means["position"]
     goal_pts = GOAL_PTS.get(pos, 4)
     base = total_points(means, sample, conceded_samples, bonus)
-    p_goals = engine_events.percentile(sample.goal_samples, q)
+    p_goals = engine_events.percentile(
+        _unconditional_goal_samples(sample), q)
     raw = base - means.get("goals", 0.0) * goal_pts + p_goals * goal_pts
     return max(base, raw)
+
+
+def _unconditional_goal_samples(sample) -> list:
+    """`goal_samples` padded with a zero for every sim the player did not feature.
+
+    The engine appends to `goal_samples` only after the on-pitch guard, so the raw
+    list is a distribution conditional on playing. Padding to `sims` length makes
+    it the unconditional distribution, which is what a percentile comparable to an
+    unconditional mean needs.
+    """
+    played = len(sample.goal_samples)
+    missing = max(0, int(getattr(sample, "sims", 0)) - played)
+    if not missing:
+        return sample.goal_samples
+    return [0] * missing + list(sample.goal_samples)
 
 
 # --- run path -------------------------------------------------------------
