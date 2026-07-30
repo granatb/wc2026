@@ -209,15 +209,23 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                      ratings.players_for_team. FPL injects xG-derived priors here;
                      the World Cup uses the registry. Resolved ONCE per team below,
                      never inside the sim loop.
-    per_match_hook:  optional callable(match_id, rows) invoked once per match per
-                     sim, where rows is a list of tuples
+    per_match_hook:  optional callable(match_id, rows, sim_index) invoked once per
+                     match per sim, where rows is a list of tuples
                        (name, position, goals, assists, minutes, clean_sheet,
-                        conceded, saves, yellow, red)
-                     for every on-pitch player across BOTH sides. Exists for
-                     rank-within-match quantities — FPL bonus points depend on all
-                     22 players' events in one sim, which per-player accumulators
-                     cannot reconstruct. The engine knows nothing about what the
-                     callback computes.
+                        conceded, saves, yellow, red, defcon)
+                     for every on-pitch player across BOTH sides, and sim_index is
+                     this match's position in the outer sim loop (0..sims-1).
+                     Exists for rank-within-match quantities — FPL bonus points
+                     depend on all 22 players' events in one sim, which per-player
+                     accumulators cannot reconstruct. `sim_index` is what lets a
+                     hook tell "two matches in the SAME sim" (a double gameweek,
+                     where a player's points for that sim are the sum across both)
+                     apart from "two different sims" -- without it the callback has
+                     no way to group matches by sim. `defcon` is the player's
+                     already-sampled DefCon count for this sim (0 if the player has
+                     no defcon_per90); it is passed through, not resampled, so
+                     reading it never consumes extra rng. The engine knows nothing
+                     about what the callback computes.
 
     Returns (player_samples, match_samples).
     """
@@ -255,7 +263,7 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                 eff_start[p.name] = w_start
                 assist_weight[p.name] = p.assist_share
 
-    for _ in range(sims):
+    for sim_index in range(sims):
         for f in fx:
             lam_h, lam_a = f.lambdas()
             hg = _poisson(lam_h, rng)
@@ -302,9 +310,10 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                         s = _poisson(max(0.0, ga + 1.5), rng)
                         ps.saves += s
                         ps.save_samples.append(s)
+                    defcon_count = 0
                     if p.defcon_per90 > 0:
-                        ps.defcon_samples.append(
-                            _poisson(p.defcon_per90 * mins / 90.0, rng))
+                        defcon_count = _poisson(p.defcon_per90 * mins / 90.0, rng)
+                        ps.defcon_samples.append(defcon_count)
                     # Discipline.
                     yel = 1 if rng.random() < 0.12 else 0
                     red = 1 if rng.random() < 0.012 else 0
@@ -316,7 +325,7 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                             bool(clean and mins >= 60 and p.position in ("DEF", "GK")),
                             ga if p.position in ("DEF", "GK") else 0,
                             ps.save_samples[-1] if p.position == "GK" else 0,
-                            yel, red,
+                            yel, red, defcon_count,
                         ))
                     # MOTM candidacy: contributions + result bias (one winner per match).
                     motm_pool.append((p.name, 1.0 + 3.0 * g + 1.5 * a
@@ -336,7 +345,7 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                                     player_samples[nm].decisive_draw += 1
                                 break
             if hook_rows:
-                per_match_hook(f.match_id, hook_rows)
+                per_match_hook(f.match_id, hook_rows, sim_index)
             if motm_pool:  # award exactly one MOTM this sim, weighted
                 r, acc = rng.random() * sum(wt for _, wt in motm_pool), 0.0
                 for nm, wt in motm_pool:
