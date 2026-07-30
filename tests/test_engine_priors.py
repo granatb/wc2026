@@ -131,7 +131,8 @@ class TestPerMatchHook(unittest.TestCase):
         calls = []
         engine_events.simulate_round(
             903, sims=50, priors=lambda t: self.squads.get(t, []),
-            per_match_hook=lambda match_id, rows: calls.append((match_id, len(rows))))
+            per_match_hook=lambda match_id, rows, sim_index: calls.append(
+                (match_id, len(rows))))
         self.assertEqual(len(calls), 50)
         self.assertEqual({c[0] for c in calls}, {"PRIORS3"})
 
@@ -139,7 +140,8 @@ class TestPerMatchHook(unittest.TestCase):
         seen = []
         engine_events.simulate_round(
             903, sims=20, priors=lambda t: self.squads.get(t, []),
-            per_match_hook=lambda _mid, rows: seen.append({r[0] for r in rows}))
+            per_match_hook=lambda _mid, rows, _sim_index: seen.append(
+                {r[0] for r in rows}))
         # every call carries players from both teams
         self.assertTrue(all(names == {"A1", "B1"} for names in seen))
 
@@ -147,13 +149,49 @@ class TestPerMatchHook(unittest.TestCase):
         captured = []
         engine_events.simulate_round(
             903, sims=5, priors=lambda t: self.squads.get(t, []),
-            per_match_hook=lambda _mid, rows: captured.extend(rows))
-        name, position, goals, assists, minutes, clean_sheet, conceded, saves, yellow, red = captured[0]
+            per_match_hook=lambda _mid, rows, _sim_index: captured.extend(rows))
+        (name, position, goals, assists, minutes, clean_sheet, conceded, saves,
+         yellow, red, defcon) = captured[0]
         self.assertIn(name, {"A1", "B1"})
         self.assertIn(position, {"FWD", "DEF"})
         self.assertIsInstance(goals, int)
         self.assertIsInstance(clean_sheet, bool)
         self.assertGreaterEqual(minutes, 0)
+        # Neither prior sets defcon_per90, so the passed-through count is 0.
+        self.assertEqual(defcon, 0)
+
+    def test_hook_receives_the_sim_index_as_a_third_argument(self):
+        seen = []
+        engine_events.simulate_round(
+            903, sims=10, priors=lambda t: self.squads.get(t, []),
+            per_match_hook=lambda _mid, _rows, sim_index: seen.append(sim_index))
+        self.assertEqual(seen, list(range(10)))
+
+    def test_sim_index_is_shared_across_two_matches_in_the_same_sim(self):
+        # A double-gameweek proxy: two independent fixtures in the SAME round.
+        # A hook that groups by sim_index must see both matches land on the
+        # same index for a given sim, not on two different ones.
+        fx2 = fixtures.Fixture(
+            "PRIORS3B", "Gammaland", "Deltaland",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=903, neutral=False,
+            lam_home=1.3, lam_away=1.0,
+        )
+        fixtures.SCHEDULE.append(fx2)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(fx2))
+        squads = dict(self.squads)
+        squads["Gammaland"] = [ratings.PlayerPrior(
+            "C1", "Gammaland", "FWD", start_prob=1.0, exp_minutes=90)]
+        squads["Deltaland"] = [ratings.PlayerPrior(
+            "D1", "Deltaland", "DEF", start_prob=1.0, exp_minutes=90)]
+
+        seen: dict = {}
+        engine_events.simulate_round(
+            903, sims=15, priors=lambda t: squads.get(t, []),
+            per_match_hook=lambda match_id, _rows, sim_index: seen.setdefault(
+                sim_index, set()).add(match_id))
+        self.assertEqual(len(seen), 15)
+        self.assertTrue(all(v == {"PRIORS3", "PRIORS3B"} for v in seen.values()))
 
     def test_no_hook_is_the_default_and_changes_nothing(self):
         players, _ = engine_events.simulate_round(

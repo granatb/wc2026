@@ -135,7 +135,8 @@ BPS_YELLOW = -3
 BPS_RED = -9
 
 # Row layout produced by engine_events' per_match_hook.
-_NAME, _POS, _GOALS, _ASSISTS, _MINUTES, _CS, _CONCEDED, _SAVES, _YELLOW, _RED = range(10)
+(_NAME, _POS, _GOALS, _ASSISTS, _MINUTES, _CS, _CONCEDED, _SAVES, _YELLOW, _RED,
+ _DEFCON) = range(11)
 
 
 def bps_from_row(row: tuple, baseline: float) -> int:
@@ -159,16 +160,51 @@ def bps_from_row(row: tuple, baseline: float) -> int:
     return bps
 
 
-class BonusAccumulator:
-    """Accumulates expected bonus points across sims via rank-within-match.
+def _bonus_awards(rows: list, baselines: dict) -> dict:
+    """{name: bonus points} for the players in ONE match in ONE sim, via BPS rank.
 
-    Pass `observe` as engine_events' per_match_hook. After the sim completes,
-    `expected(name)` gives that player's mean bonus.
+    Extracted out of BonusAccumulator so the tie-handling logic backs both the
+    cross-sim bonus average (BonusAccumulator, below) and the per-sim points
+    total (SimPointsAccumulator) from a single place — bonus must not be
+    reimplemented twice, only consumed twice.
 
     Ties consume award POSITIONS, matching the official rule: two players tied on
     top both take 3 and the third-most BPS takes 1 (not 2, because the tie has
     already used two positions). Two tied for second both take 2 and no 1 is
     awarded at all.
+    """
+    scored = [(bps_from_row(r, baselines.get(r[_NAME], 0.0)), r[_NAME])
+              for r in rows]
+    if not scored:
+        return {}
+    # Group by BPS, highest first. Each group takes the award for the next
+    # open position, then consumes as many positions as it has members.
+    groups: dict = {}
+    for bps, name in scored:
+        groups.setdefault(bps, []).append(name)
+
+    awards: dict = {}
+    placed = 0
+    for bps in sorted(groups, reverse=True):
+        if placed == 0:
+            award = 3
+        elif placed == 1:
+            award = 2
+        elif placed == 2:
+            award = 1
+        else:
+            break
+        for name in groups[bps]:
+            awards[name] = award
+        placed += len(groups[bps])
+    return awards
+
+
+class BonusAccumulator:
+    """Accumulates expected bonus points across sims via rank-within-match.
+
+    Pass `observe` as engine_events' per_match_hook. After the sim completes,
+    `expected(name)` gives that player's mean bonus.
     """
 
     def __init__(self, baselines: dict):
@@ -176,38 +212,142 @@ class BonusAccumulator:
         self._total: dict = {}
         self._sims: dict = {}
 
-    def observe(self, _match_id: str, rows: list) -> None:
-        scored = [(bps_from_row(r, self.baselines.get(r[_NAME], 0.0)), r[_NAME])
-                  for r in rows]
-        for _bps, name in scored:
+    def observe(self, _match_id: str, rows: list, _sim_index: int | None = None) -> None:
+        for r in rows:
+            name = r[_NAME]
             self._sims[name] = self._sims.get(name, 0) + 1
-        if not scored:
-            return
-        # Group by BPS, highest first. Each group takes the award for the next
-        # open position, then consumes as many positions as it has members.
-        groups: dict = {}
-        for bps, name in scored:
-            groups.setdefault(bps, []).append(name)
-
-        placed = 0
-        for bps in sorted(groups, reverse=True):
-            if placed == 0:
-                award = 3
-            elif placed == 1:
-                award = 2
-            elif placed == 2:
-                award = 1
-            else:
-                break
-            for name in groups[bps]:
-                self._total[name] = self._total.get(name, 0) + award
-            placed += len(groups[bps])
+        for name, award in _bonus_awards(rows, self.baselines).items():
+            self._total[name] = self._total.get(name, 0) + award
 
     def expected(self, name: str) -> float:
         sims = self._sims.get(name, 0)
         if not sims:
             return 0.0
         return self._total.get(name, 0) / float(sims)
+
+
+def _row_points(row: tuple, bonus_award: int) -> float:
+    """Total FPL points for ONE player in ONE simulated match, bonus included.
+
+    This is the per-match building block SimPointsAccumulator sums across a
+    sim's matches (for double gameweeks). It mirrors expected_points +
+    saves_points + conceded_points + defcon_points, but evaluated directly on a
+    single sim's row rather than on a mean or a threshold series, because that
+    is exactly what a per-sim points DISTRIBUTION (as opposed to an expectation)
+    needs.
+    """
+    pos = row[_POS]
+    pts = APPEARANCE_60 if row[_MINUTES] >= 60 else APPEARANCE_SHORT
+    pts += row[_GOALS] * GOAL_PTS.get(pos, 4)
+    pts += row[_ASSISTS] * ASSIST_PTS
+    if row[_CS]:
+        pts += CS_PTS.get(pos, 0)
+    pts += row[_YELLOW] * YELLOW_PTS
+    pts += row[_RED] * RED_PTS
+    pts += row[_SAVES] // SAVES_PER_POINT
+    if pos in _CONCEDE_POSITIONS:
+        pts -= row[_CONCEDED] // CONCEDED_PER_MINUS
+    threshold = DEFCON_THRESHOLD.get(pos)
+    if threshold is not None and row[_DEFCON] >= threshold:
+        pts += DEFCON_PTS
+    pts += bonus_award
+    return pts
+
+
+def _tail_mean(values: list, q: float = 0.85) -> float:
+    """Mean of the top (1 - q) fraction of an already zero-padded `values` list.
+
+    Pulled out as a standalone, list-in/float-out function (mirroring
+    engine_events.percentile) so the statistic itself -- given a known
+    distribution -- can be unit-tested directly, independent of the per-sim
+    scoring machinery that builds the distribution in the first place.
+
+    Tail size floors at 1 element so a single-sim (or otherwise tiny) input
+    never produces an empty slice.
+    """
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    n = max(1, round((1 - q) * len(ordered)))
+    tail = ordered[-n:]
+    return sum(tail) / len(tail)
+
+
+class SimPointsAccumulator:
+    """Per-sim, per-player TOTAL FPL points, summed across matches within a sim.
+
+    Pass `observe` as (one leg of) engine_events' per_match_hook. Unlike
+    BonusAccumulator, this needs the sim boundary: a double-gameweek player's
+    points for one sim are the sum of both his matches' points in THAT sim, and
+    sim_index is the only thing that tells "two matches, one sim" apart from
+    "two matches, two different sims".
+
+    Design choices:
+
+    - Kept as a SEPARATE class from BonusAccumulator, rather than merging the
+      two, so BonusAccumulator's existing cross-sim-average API (and its test
+      suite) is untouched. Both classes need a match's bonus award, so the
+      ranking/tie logic lives once in the module-level `_bonus_awards` and is
+      called from each `observe` -- reused, not duplicated. (`_bonus_awards`
+      does get *evaluated* twice per match-sim, once per accumulator, but each
+      evaluation is independent bookkeeping for a different question; neither
+      accumulator's own total double-counts a bonus award.)
+    - `sims` (the total sim count) is a REQUIRED CONSTRUCTOR ARGUMENT rather than
+      inferred from what gets observed or supplied via a later finalise() call.
+      mean() and tail_mean() both need to zero-pad every player's per-sim series
+      out to the true sim count, and this pipeline has no separate "finalise"
+      step -- build_rows reads mean()/tail_mean() straight after
+      simulate_round() returns -- so the constructor is the one place that
+      value is available before it is needed, and cannot be forgotten.
+    """
+
+    def __init__(self, baselines: dict, sims: int):
+        self.baselines = baselines or {}
+        self.sims = sims
+        self._per_sim: dict = {}  # name -> {sim_index: points accumulated that sim}
+
+    def observe(self, _match_id: str, rows: list, sim_index: int) -> None:
+        awards = _bonus_awards(rows, self.baselines)
+        for row in rows:
+            name = row[_NAME]
+            pts = _row_points(row, awards.get(name, 0))
+            bucket = self._per_sim.setdefault(name, {})
+            bucket[sim_index] = bucket.get(sim_index, 0.0) + pts
+
+    def _distribution(self, name: str) -> list:
+        """Per-sim totals for `name`, zero-padded to the full `sims` length.
+
+        Zero-padding is what makes mean()/tail_mean() UNCONDITIONAL: a sim the
+        player did not feature in (no row in any match that sim) never creates
+        an entry in `_per_sim`, so it must default to 0 rather than being
+        excluded from the distribution -- exactly the same reasoning the old
+        (now-retired) _unconditional_goal_samples used for the goal-count
+        ceiling.
+        """
+        bucket = self._per_sim.get(name, {})
+        values = [0.0] * self.sims
+        for sim_index, pts in bucket.items():
+            values[sim_index] = pts
+        return values
+
+    def mean(self, name: str) -> float:
+        """Unconditional mean points per sim, zero-padded for non-appearances."""
+        if not self.sims:
+            return 0.0
+        return sum(self._per_sim.get(name, {}).values()) / self.sims
+
+    def tail_mean(self, name: str, q: float = 0.85) -> float:
+        """Mean of the top (1 - q) fraction of the zero-padded per-sim totals.
+
+        Smooth in appearance probability (unlike a percentile over a discrete
+        goal count) because it averages, rather than reading off, the sims in
+        the tail -- see the RETIRED ceiling_points note above for the
+        motivating cliff. The statistic itself lives in module-level
+        `_tail_mean`; this just supplies it the zero-padded distribution.
+        """
+        if not self.sims:
+            return 0.0
+        return _tail_mean(self._distribution(name), q)
 
 
 def appearance_probability(sample) -> float:
@@ -260,71 +400,22 @@ def total_points(means: dict, sample, conceded_samples: list,
     return expected_points(means) + conditional * p_played
 
 
-def ceiling_points(means: dict, sample, conceded_samples: list,
-                   bonus: float = 0.0, q: float = 0.85) -> float:
-    """Goal-variance ceiling, comparable to total_points (the xPts column).
-
-    Takes the SAME inputs as total_points, rather than just goal_samples, because
-    the ceiling has to include the same non-goal components its own mean does --
-    saves, conceded, DefCon and bonus -- or it can print below xPts whenever those
-    dominate over goal threat (observed live: a keeper's ceiling reading below his
-    own expected points). Swaps the mean-goal contribution for the q-percentile
-    goal contribution and floors at the total.
-
-    Mirrors the FIFA and Holdet ceilings' shape, extended with the threshold
-    components those games don't have. The floor removes an artefact: for players
-    with no goal threat the raw ceiling can dip below the total, because it models
-    only goal upside and not clean-sheet/DefCon/bonus variance.
-
-    The goal percentile is UNCONDITIONAL -- taken over all sims, not just the ones
-    the player featured in. Owner decision 2026-07-28. `goal_samples` only holds
-    entries for played sims, so the percentile is computed over that list padded
-    with a zero per non-appearance. Without the padding a fringe player kept ~75%
-    of a nailed starter's ceiling on 20% of the minutes, because his percentile was
-    conditional on playing while the mean it replaced was not. The site must label
-    the ceiling as an expected-upside figure, not an if-he-starts figure.
-
-    KNOWN LIMITATION, measured 2026-07-28 — do not ship the ceiling to an article
-    before reading this. A percentile over a DISCRETE goal count is a step function,
-    so making it unconditional turned the ceiling into a cliff rather than a
-    gradient. Sweeping appearance probability at goal_share 0.35 over 40k sims:
-
-        P(play) 1.00-0.61 -> p85(goals) = 1.0, ceiling/xPts 1.84-2.72
-        P(play) 0.50-0.20 -> p85(goals) = 0.0, ceiling/xPts = 1.00 exactly
-
-    Above ~55% appearance probability every player's ceiling lands in a narrow
-    5.1-5.8 band; below it the ceiling collapses onto xPts and carries no signal at
-    all. That makes this a poor ranking column for a high-ceiling or differentials
-    article even though it is now internally coherent.
-
-    The likely fix is a different upside statistic rather than a different
-    conditioning: a TAIL MEAN (average simulated points across the top (1-q) of
-    sims) is smooth over discrete outcomes, is still unconditional, and reads
-    naturally as "what this player does when it goes well". That needs per-sim point
-    totals, which the engine does not currently retain. Decide in Phase 4.
-    """
-    pos = means["position"]
-    goal_pts = GOAL_PTS.get(pos, 4)
-    base = total_points(means, sample, conceded_samples, bonus)
-    p_goals = engine_events.percentile(
-        _unconditional_goal_samples(sample), q)
-    raw = base - means.get("goals", 0.0) * goal_pts + p_goals * goal_pts
-    return max(base, raw)
-
-
-def _unconditional_goal_samples(sample) -> list:
-    """`goal_samples` padded with a zero for every sim the player did not feature.
-
-    The engine appends to `goal_samples` only after the on-pitch guard, so the raw
-    list is a distribution conditional on playing. Padding to `sims` length makes
-    it the unconditional distribution, which is what a percentile comparable to an
-    unconditional mean needs.
-    """
-    played = len(sample.goal_samples)
-    missing = max(0, int(getattr(sample, "sims", 0)) - played)
-    if not missing:
-        return sample.goal_samples
-    return [0] * missing + list(sample.goal_samples)
+# RETIRED 2026-07-30: ceiling_points(means, sample, conceded_samples, bonus, q) and
+# its helper _unconditional_goal_samples(sample) used to swap the mean-goal
+# contribution for the UNCONDITIONAL 85th percentile of a player's simulated goal
+# COUNT. Measured cliff (goal_share 0.35, 40k sims):
+#
+#     P(play) 1.00-0.61 -> p85(goals) = 1.0, ceiling/xPts 1.84-2.72
+#     P(play) 0.50-0.20 -> p85(goals) = 0.0, ceiling/xPts = 1.00 exactly
+#
+# A percentile over a DISCRETE count is a step function, so above ~55%
+# appearance probability every player's ceiling sat in a narrow band and below
+# it the ceiling collapsed onto xPts with no signal -- useless as a ranking
+# column. Replaced by SimPointsAccumulator.tail_mean: the mean of simulated
+# TOTAL points across the top (1-q) fraction of sims, which is smooth over
+# discrete outcomes because it averages the tail rather than reading off a
+# single order statistic of it. Confirmed nothing outside this module and its
+# tests called either retired function before deleting them.
 
 
 # --- run path -------------------------------------------------------------
@@ -477,12 +568,18 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
 
     baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
+    points = SimPointsAccumulator(baselines, sims)
+
+    def _hook(match_id: str, rows: list, sim_index: int) -> None:
+        bonus.observe(match_id, rows, sim_index)
+        points.observe(match_id, rows, sim_index)
+
     samples, _matches = engine_events.simulate_round(
         gameweek, sims=sims, seed=_SEED,
         priors=lambda team: priors_by_team.get(team, []),
         research=research_entries,
         research_weight=research_weight,
-        per_match_hook=bonus.observe,
+        per_match_hook=_hook,
     )
     means = engine_events.event_means(samples)
 
@@ -499,7 +596,7 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
             "name": name, "team": m["team"], "position": m["position"],
             "x_points": pts, "price": meta.get("price"),
             "ownership_pct": meta.get("ownership"),
-            "ceiling": ceiling_points(m, ps, conceded_samples, bonus=player_bonus),
+            "ceiling": points.tail_mean(name),
             "bonus": player_bonus,
             # Scaled by P(played): defcon_points on its own is E[DefCon points
             # | played], which would show a rotation player as if he started
@@ -555,7 +652,7 @@ def _conceded_series(sample) -> list:
     `/ sample.sims`. save_samples and defcon_samples are also collected only on
     sims where the player was on the pitch (appended after the on-pitch guard),
     so they are already E[x | played] -- this series matches that convention
-    exactly, and total_points/ceiling_points scale conceded_points' result by
+    exactly, and total_points scales conceded_points' result by
     appearance_probability(sample) afterward, identically to saves and DefCon.
     Centring on `conceded / sims` instead would make this series unconditional
     already, and it would then need to be the ONE component NOT scaled --

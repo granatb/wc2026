@@ -297,88 +297,6 @@ class TestTotalPoints(unittest.TestCase):
         self.assertAlmostEqual(pts, 2.0 + 2.0)
 
 
-class TestCeiling(unittest.TestCase):
-    """The ceiling column must be comparable to total_points (xPts): it has to
-    include the SAME non-goal components (saves, conceded, DefCon, bonus), or a
-    ceiling can silently print below its own expected value. Regression observed
-    live: Szoboszlai 3.76 xPts / 3.21 ceil, Verbruggen 3.59 / 2.92, Rice 3.57 /
-    2.73, Pickford 3.46 / 2.88 -- all ceil < xPts.
-    """
-
-    def _sample(self, **kw):
-        ps = engine_events.PlayerSample("K", "LIV", kw.pop("position", "GK"))
-        ps.sims = 2
-        ps.played = 2.0
-        ps.played_60 = 2.0
-        for key, value in kw.items():
-            setattr(ps, key, value)
-        return ps
-
-    def test_ceiling_at_least_matches_total_for_a_keeper_with_no_goal_threat(self):
-        # The exact failing shape: saves + bonus dominate, goals are irrelevant,
-        # so the old goal-only ceiling floored at expected_points() (which drops
-        # saves/conceded/DefCon/bonus) and printed below the real total.
-        means = {"position": "GK", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.6,
-                 "yellow": 0.0, "red": 0.0}
-        sample = self._sample(position="GK", goal_samples=[0, 0, 0, 0],
-                              save_samples=[3, 3, 3, 3])
-        conceded_samples = [0, 0]
-        bonus = 1.4
-
-        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
-        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
-        self.assertGreaterEqual(ceiling, total)
-
-    def test_ceiling_at_least_matches_total_for_a_creative_midfielder(self):
-        # High bonus and DefCon, low goal threat.
-        means = {"position": "MID", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.05, "assists": 0.3, "clean_sheet": 0.3,
-                 "yellow": 0.0, "red": 0.0}
-        sample = self._sample(position="MID", goal_samples=[0, 0, 0, 1],
-                              defcon_samples=[13, 13])
-        conceded_samples = []
-        bonus = 1.8
-
-        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
-        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
-        self.assertGreaterEqual(ceiling, total)
-
-    def test_ceiling_is_strictly_above_total_for_a_striker_with_goal_variance(self):
-        # The fix must not turn the ceiling into a no-op that just returns total.
-        means = {"position": "FWD", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.4, "assists": 0.0, "clean_sheet": 0.0,
-                 "yellow": 0.0, "red": 0.0}
-        sample = self._sample(position="FWD", goal_samples=[0, 0, 1, 2, 3])
-        conceded_samples: list = []
-        bonus = 0.0
-
-        total = model.total_points(means, sample, conceded_samples, bonus=bonus)
-        ceiling = model.ceiling_points(means, sample, conceded_samples, bonus=bonus)
-        self.assertGreater(ceiling, total)
-
-    def test_defcon_and_bonus_both_move_the_ceiling(self):
-        # Same (zero) goal variance in both scenarios, so the entire delta must
-        # come from DefCon and bonus -- proof those components are IN the ceiling,
-        # not just floored against.
-        means = {"position": "DEF", "played": 1.0, "played_60": 1.0,
-                 "goals": 0.0, "assists": 0.0, "clean_sheet": 0.4,
-                 "yellow": 0.0, "red": 0.0}
-        conceded_samples = [0, 0]
-
-        low_sample = self._sample(position="DEF", goal_samples=[0, 0, 0, 0],
-                                  defcon_samples=[4, 4])
-        high_sample = self._sample(position="DEF", goal_samples=[0, 0, 0, 0],
-                                   defcon_samples=[10, 10])
-
-        low = model.ceiling_points(means, low_sample, conceded_samples, bonus=0.5)
-        high = model.ceiling_points(means, high_sample, conceded_samples, bonus=2.5)
-
-        # defcon_points("DEF", [4,4]) == 0.0, defcon_points("DEF", [10,10]) == 2.0
-        # bonus delta is 2.0 -> total delta must be exactly 4.0
-        self.assertAlmostEqual(high - low, 4.0)
-
-
 # ---------------------------------------------------------------------------
 # Appearance-probability scaling (denominator-mismatch regression).
 #
@@ -548,37 +466,6 @@ class TestConcededAppearanceScaling(_RealSimMixin, unittest.TestCase):
         self._assert_scales_with_appearance(deltas, p_play)
 
 
-class TestCeilingAppearanceScaling(_RealSimMixin, unittest.TestCase):
-    def test_ceiling_not_inflated_for_a_rotation_player(self):
-        players, _ = self._shared_match_squads(974, "DEF", {"defcon_per90": 8.0})
-        means = engine_events.event_means(players)
-        nailed, fringe = players["Nailed"], players["Fringe"]
-        cs_nailed = model._conceded_series(nailed)
-        cs_fringe = model._conceded_series(fringe)
-
-        total_nailed = model.total_points(means["Nailed"], nailed, cs_nailed, bonus=0.0)
-        total_fringe = model.total_points(means["Fringe"], fringe, cs_fringe, bonus=0.0)
-        ceiling_nailed = model.ceiling_points(means["Nailed"], nailed, cs_nailed, bonus=0.0)
-        ceiling_fringe = model.ceiling_points(means["Fringe"], fringe, cs_fringe, bonus=0.0)
-
-        self.assertGreaterEqual(ceiling_nailed, total_nailed)
-        self.assertGreaterEqual(ceiling_fringe, total_fringe)
-        # Old bug: fringe's DefCon (and hence total/ceiling) looked like a
-        # nailed starter's. P(play) ~= 0.2 for Fringe vs 1.0 for Nailed, so the
-        # ceiling must land well below, not "essentially the same".
-        self.assertLess(ceiling_fringe, ceiling_nailed * 0.5)
-
-    def test_ceiling_still_at_least_total_for_every_appearance_probability(self):
-        players, _ = self._shared_match_squads(975, "DEF", {"defcon_per90": 8.0})
-        means = engine_events.event_means(players)
-        for name in ("Nailed", "Rotator", "Fringe"):
-            ps = players[name]
-            conceded_samples = model._conceded_series(ps)
-            total = model.total_points(means[name], ps, conceded_samples, bonus=0.3)
-            ceiling = model.ceiling_points(means[name], ps, conceded_samples, bonus=0.3)
-            self.assertGreaterEqual(ceiling, total, f"{name}: ceiling < total")
-
-
 class TestNailedStarterUnaffectedByAppearanceScaling(unittest.TestCase):
     """A player who appears in every sim (played == sims, P(play) == 1) must
     produce EXACTLY the same total as before the fix -- this was already the
@@ -623,8 +510,11 @@ class TestZeroSimsGuard(unittest.TestCase):
                  "yellow": 0.0, "red": 0.0}
         pts = model.total_points(means, ps, conceded_samples=[], bonus=0.0)
         self.assertAlmostEqual(pts, 0.0)
-        ceiling = model.ceiling_points(means, ps, conceded_samples=[], bonus=0.0)
-        self.assertAlmostEqual(ceiling, 0.0)
+
+    def test_sim_points_accumulator_with_zero_sims_does_not_raise(self):
+        acc = model.SimPointsAccumulator(baselines={}, sims=0)
+        self.assertAlmostEqual(acc.mean("nobody"), 0.0)
+        self.assertAlmostEqual(acc.tail_mean("nobody"), 0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -724,64 +614,232 @@ class TestRunUsesTheSimCache(unittest.TestCase):
             self.assertAlmostEqual(a["x_points"], b["x_points"], places=6)
 
 
-class TestCeilingIsUnconditional(unittest.TestCase):
-    """Owner decision 2026-07-28: the ceiling is an expected-upside figure, so its
-    goal percentile is taken over ALL sims, not only the ones the player featured in.
+class TestTailMeanStatistic(unittest.TestCase):
+    """The tail-mean arithmetic itself, over hand-built distributions -- proves
+    the statistic in isolation, independent of the engine or the per-sim row
+    scoring that normally produces its input."""
 
-    Before this, a fringe player's percentile was conditional on playing while the
-    mean it replaced was unconditional, so he kept ~75% of a nailed starter's
-    ceiling on 20% of the minutes."""
+    def test_hand_built_distribution_matches_hand_computed_value(self):
+        # 10 sims' worth of totals; q=0.85 -> tail size = max(1, round(0.15*10))
+        # = max(1, round(1.5)) = 2 -> top two values [8, 10] -> mean 9.0
+        values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10]
+        self.assertAlmostEqual(model._tail_mean(values, q=0.85), 9.0)
 
-    def setUp(self):
-        self.fx = fixtures.Fixture(
-            "CEILUNC", "H", "A",
+    def test_tail_size_never_degenerates_to_empty(self):
+        # round((1-0.85)*3) == round(0.45) == 0 without the floor -> must clamp
+        # to 1, taking just the single highest value.
+        values = [1.0, 2.0, 3.0]
+        self.assertAlmostEqual(model._tail_mean(values, q=0.85), 3.0)
+
+    def test_empty_distribution_is_zero(self):
+        self.assertAlmostEqual(model._tail_mean([], q=0.85), 0.0)
+
+    def test_matches_via_sim_points_accumulator_with_synthetic_rows(self):
+        # Drive the accumulator through observe() with hand-built rows so the
+        # SAME known distribution is produced via the real per-sim path, not
+        # just by poking at the bare statistic.
+        acc = model.SimPointsAccumulator(baselines={}, sims=4)
+        # position FWD, 90 minutes -> appearance 2 pts; goals * GOAL_PTS["FWD"]==4.
+        # Each row is the ONLY player in its match, so _bonus_awards ranks him
+        # first every time -> +3 bonus on every observed sim.
+        # sim 0: 0 goals -> 2 + 3       = 5.
+        # sim 1: 1 goal  -> 2 + 4 + 3   = 9.
+        # sim 2: 2 goals -> 2 + 8 + 3   = 13.
+        # sim 3: player never observed (did not feature) -> zero-padded.
+        for sim_index, goals in ((0, 0), (1, 1), (2, 2)):
+            row = ("P", "FWD", goals, 0, 90, False, 0, 0, 0, 0, 0)
+            acc.observe("m", [row], sim_index)
+        # distribution (zero-padded) = [5, 9, 13, 0]; q=0.85 -> tail size
+        # max(1, round(0.15 * 4)) = max(1, round(0.6)) = 1 -> top value only.
+        self.assertAlmostEqual(acc.tail_mean("P", q=0.85), 13.0)
+        self.assertAlmostEqual(acc.mean("P"), (5 + 9 + 13 + 0) / 4.0)
+
+
+class TestNeverFeaturingPlayerHasZeroMeanAndTailMean(unittest.TestCase):
+    def test_zero_start_prob_yields_zero_for_both_statistics(self):
+        fx = fixtures.Fixture(
+            "NEVER1", "H", "A",
             kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
-            stage="GW", fantasy_round=905, neutral=False,
-            lam_home=1.8, lam_away=1.2)
-        fixtures.SCHEDULE.append(self.fx)
-        self.addCleanup(lambda: fixtures.SCHEDULE.remove(self.fx))
-        self.squads = {
-            "H": [ratings.PlayerPrior("Nailed", "H", "FWD", start_prob=1.0,
-                                      exp_minutes=90, goal_share=0.35),
-                  ratings.PlayerPrior("Fringe", "H", "FWD", start_prob=0.2,
+            stage="GW", fantasy_round=960, neutral=False,
+            lam_home=1.5, lam_away=1.2)
+        fixtures.SCHEDULE.append(fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(fx))
+        squads = {
+            "H": [ratings.PlayerPrior("Bench", "H", "FWD", start_prob=0.0,
+                                      exp_minutes=90, goal_share=0.4)],
+            "A": [ratings.PlayerPrior("Opp", "A", "FWD", start_prob=1.0,
+                                      exp_minutes=90, goal_share=0.4)],
+        }
+        points = model.SimPointsAccumulator(baselines={}, sims=2000)
+        engine_events.simulate_round(
+            960, sims=2000, priors=lambda t: squads.get(t, []),
+            per_match_hook=points.observe)
+        self.assertAlmostEqual(points.mean("Bench"), 0.0)
+        self.assertAlmostEqual(points.tail_mean("Bench"), 0.0)
+
+
+class TestTailMeanSmoothnessAcrossAppearanceProbability(unittest.TestCase):
+    """The statistic this replaces (an unconditional percentile over a discrete
+    goal count) was a CLIFF in appearance probability -- see the RETIRED
+    ceiling_points note in games/fpl/model.py for the measured numbers
+    (ceiling/xPts 1.84-2.72 above ~55% start probability, exactly 1.00 flat
+    below it). The tail mean must instead be smooth: strictly decreasing as
+    appearance probability falls, with no jump between adjacent points larger
+    than ~2x."""
+
+    SIMS = 20000
+
+    def _tail_mean_for_start_prob(self, fantasy_round, start_prob):
+        fx = fixtures.Fixture(
+            f"SMOOTH{fantasy_round}", "H", "A",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=fantasy_round, neutral=False,
+            lam_home=1.6, lam_away=1.2)
+        fixtures.SCHEDULE.append(fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(fx))
+        squads = {
+            "H": [ratings.PlayerPrior("Subject", "H", "FWD", start_prob=start_prob,
                                       exp_minutes=90, goal_share=0.35)],
             "A": [ratings.PlayerPrior("Opp", "A", "FWD", start_prob=1.0,
                                       exp_minutes=90, goal_share=0.4)],
         }
-        self.players, _ = engine_events.simulate_round(
-            905, sims=8000, priors=lambda t: self.squads.get(t, []))
-        self.means = engine_events.event_means(self.players)
+        points = model.SimPointsAccumulator(baselines={}, sims=self.SIMS)
+        engine_events.simulate_round(
+            fantasy_round, sims=self.SIMS, priors=lambda t: squads.get(t, []),
+            per_match_hook=points.observe)
+        return points.mean("Subject"), points.tail_mean("Subject")
 
-    def _pair(self, name):
-        ps = self.players[name]
-        m = self.means[name]
-        cs = model._conceded_series(ps)
-        return (model.total_points(m, ps, cs, bonus=0.0),
-                model.ceiling_points(m, ps, cs, bonus=0.0))
+    def test_ceiling_is_smooth_across_the_old_cliff_region(self):
+        start_probs = [1.0, 0.8, 0.6, 0.4, 0.2]
+        ceilings = [self._tail_mean_for_start_prob(940 + i, sp)[1]
+                   for i, sp in enumerate(start_probs)]
 
-    def test_padding_makes_the_sample_length_match_total_sims(self):
-        ps = self.players["Fringe"]
-        self.assertLess(len(ps.goal_samples), ps.sims)
-        self.assertEqual(len(model._unconditional_goal_samples(ps)), ps.sims)
+        for a, b in zip(ceilings, ceilings[1:]):
+            self.assertGreater(a, b, f"ceiling must strictly decrease: {ceilings}")
+        for a, b in zip(ceilings, ceilings[1:]):
+            self.assertLess(a / b, 2.0,
+                            f"adjacent step is a cliff, not a gradient: {ceilings}")
 
-    def test_a_nailed_starter_is_unaffected_by_the_padding(self):
-        ps = self.players["Nailed"]
-        self.assertEqual(model._unconditional_goal_samples(ps), ps.goal_samples)
+    def test_tail_mean_never_below_the_mean(self):
+        for i, sp in enumerate([1.0, 0.6, 0.2]):
+            mean, tail = self._tail_mean_for_start_prob(950 + i, sp)
+            self.assertGreaterEqual(tail, mean)
 
-    def test_fringe_ceiling_scales_with_appearance_probability(self):
-        n_total, n_ceil = self._pair("Nailed")
-        f_total, f_ceil = self._pair("Fringe")
-        p = self.players["Fringe"].played / self.players["Fringe"].sims
-        # xPts already scaled correctly; the ceiling must now scale the same way.
-        self.assertAlmostEqual(f_total / n_total, p, delta=0.06)
-        self.assertLess(f_ceil / n_ceil, 0.45,
-                        "a 20%-appearance player must not keep most of the ceiling")
 
-    def test_ceiling_still_exceeds_the_total_for_a_real_scorer(self):
-        total, ceil = self._pair("Nailed")
-        self.assertGreater(ceil, total)
+class TestDoubleGameweekPointsSumBothMatches(unittest.TestCase):
+    """A double-gameweek player's per-sim total must be the SUM across both of
+    that sim's matches -- the reason the hook now carries a sim_index at all."""
 
-    def test_ceiling_never_below_total(self):
-        for name in ("Nailed", "Fringe"):
-            total, ceil = self._pair(name)
-            self.assertGreaterEqual(ceil, total)
+    SIMS = 15000
+
+    def test_doubled_players_mean_exceeds_a_single_fixture_equivalent(self):
+        fantasy_round = 970
+        fixtures_to_add = [
+            fixtures.Fixture(
+                "DGW1", "DoubleTeam", "Opp1",
+                kickoff=datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=fantasy_round, neutral=False,
+                lam_home=1.5, lam_away=1.1),
+            fixtures.Fixture(
+                "DGW2", "DoubleTeam", "Opp2",
+                kickoff=datetime(2026, 8, 22, 18, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=fantasy_round, neutral=False,
+                lam_home=1.5, lam_away=1.1),
+            fixtures.Fixture(
+                "SGW1", "SingleTeam", "Opp3",
+                kickoff=datetime(2026, 8, 22, 12, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=fantasy_round, neutral=False,
+                lam_home=1.5, lam_away=1.1),
+        ]
+        for fx in fixtures_to_add:
+            fixtures.SCHEDULE.append(fx)
+            self.addCleanup(lambda fx=fx: fixtures.SCHEDULE.remove(fx))
+
+        squads = {
+            "DoubleTeam": [ratings.PlayerPrior("Doubled", "DoubleTeam", "FWD",
+                                               start_prob=1.0, exp_minutes=90,
+                                               goal_share=0.4)],
+            "SingleTeam": [ratings.PlayerPrior("Single", "SingleTeam", "FWD",
+                                               start_prob=1.0, exp_minutes=90,
+                                               goal_share=0.4)],
+            "Opp1": [ratings.PlayerPrior("O1", "Opp1", "MID",
+                                        start_prob=1.0, exp_minutes=90)],
+            "Opp2": [ratings.PlayerPrior("O2", "Opp2", "MID",
+                                        start_prob=1.0, exp_minutes=90)],
+            "Opp3": [ratings.PlayerPrior("O3", "Opp3", "MID",
+                                        start_prob=1.0, exp_minutes=90)],
+        }
+
+        points = model.SimPointsAccumulator(baselines={}, sims=self.SIMS)
+        engine_events.simulate_round(
+            fantasy_round, sims=self.SIMS, priors=lambda t: squads.get(t, []),
+            per_match_hook=points.observe)
+
+        doubled_mean = points.mean("Doubled")
+        single_mean = points.mean("Single")
+        # Both players are identical (same goal_share, start_prob, opponent
+        # strength) except that Doubled has TWO fixtures this gameweek. If the
+        # accumulator failed to distinguish "two matches, one sim" from "two
+        # matches, two different sims" -- i.e. did not use sim_index -- his
+        # mean would come out roughly equal to Single's, not close to double it.
+        self.assertGreater(doubled_mean, single_mean * 1.7)
+
+
+class TestDistributionMeanAgreesWithTotalPoints(unittest.TestCase):
+    """mean() must reproduce total_points() -- an end-to-end cross-check of the
+    per-sim scoring path (SimPointsAccumulator) against the mean/threshold path
+    (total_points) that is already well tested on its own. A MID subject with
+    no DefCon rate is used so neither side has to go through the goals-conceded
+    or DefCon threshold APPROXIMATIONS (_conceded_series, defcon_points'
+    per-sim counts) -- those are exact per-sim quantities on both sides here,
+    so the two paths should agree almost exactly, not just approximately."""
+
+    SIMS = 20000
+
+    def _run(self, fantasy_round, start_prob):
+        fx = fixtures.Fixture(
+            f"MEANCHK{fantasy_round}", "H", "A",
+            kickoff=datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=fantasy_round, neutral=False,
+            lam_home=1.6, lam_away=1.2)
+        fixtures.SCHEDULE.append(fx)
+        self.addCleanup(lambda: fixtures.SCHEDULE.remove(fx))
+        squads = {
+            "H": [ratings.PlayerPrior("Subject", "H", "MID", start_prob=start_prob,
+                                      exp_minutes=90, goal_share=0.3,
+                                      assist_share=0.2)],
+            "A": [ratings.PlayerPrior("Opp", "A", "FWD", start_prob=1.0,
+                                      exp_minutes=90, goal_share=0.4)],
+        }
+        baselines = {"Subject": 20.0, "Opp": 25.0}
+        bonus = model.BonusAccumulator(baselines)
+        points = model.SimPointsAccumulator(baselines, sims=self.SIMS)
+
+        def hook(match_id, rows, sim_index):
+            bonus.observe(match_id, rows, sim_index)
+            points.observe(match_id, rows, sim_index)
+
+        players, _ = engine_events.simulate_round(
+            fantasy_round, sims=self.SIMS, priors=lambda t: squads.get(t, []),
+            per_match_hook=hook)
+        means = engine_events.event_means(players)
+        ps = players["Subject"]
+        player_bonus = bonus.expected("Subject")
+        # MID is exempt from the conceded penalty regardless of the samples
+        # passed, so an empty list sidesteps the _conceded_series approximation
+        # entirely rather than needing it to agree with the per-sim path too.
+        total = model.total_points(means["Subject"], ps, conceded_samples=[],
+                                   bonus=player_bonus)
+        return total, points.mean("Subject")
+
+    def test_agrees_for_a_nailed_starter(self):
+        total, dist_mean = self._run(980, 1.0)
+        self.assertAlmostEqual(total, dist_mean, delta=0.03)
+
+    def test_agrees_at_moderate_appearance_probability(self):
+        total, dist_mean = self._run(981, 0.6)
+        self.assertAlmostEqual(total, dist_mean, delta=0.03)
+
+    def test_agrees_at_low_appearance_probability(self):
+        total, dist_mean = self._run(982, 0.3)
+        self.assertAlmostEqual(total, dist_mean, delta=0.03)

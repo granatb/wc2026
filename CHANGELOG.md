@@ -1,7 +1,65 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(535 tests). App: `streamlit run app.py`.
+(543 tests). App: `streamlit run app.py`.
+
+## 2026-07-30 — FPL ceiling: tail mean replaces the goal-percentile (phase 4)
+
+The 2026-07-28 fix that made the goal-percentile ceiling unconditional exposed the flaw
+it had been hiding: a percentile over a **discrete** goal count is a step function.
+Measured at `goal_share=0.35`, 40k sims: `P(play) 1.00→0.61` gave `p85(goals)=1.0`
+(ceiling/xPts 1.84–2.72), while `P(play) 0.50→0.20` gave `p85(goals)=0.0` — ceiling
+pinned to xPts exactly. Above ~55% start probability every player's ceiling sat in a
+narrow 5.1–5.8 band; below it the column carried no signal at all. Confirmed live on
+GW1: Senesi, Tarkowski, Rice, Virgil, Szoboszlai, Verbruggen, Gabriel and others all
+printed `ceil == xPts` to two decimal places.
+
+Replaced with a **tail mean**: the mean of simulated total FPL points across the top
+`(1 − q)` fraction of sims (q=0.85), taken over the player's full, zero-padded per-sim
+distribution. A mean over a tail averages many sims rather than reading off one order
+statistic of a small integer-valued variable, so it stays smooth as appearance
+probability moves through the region that broke the percentile.
+
+- **`core/engine_events.py`** — `per_match_hook` gained a third argument, `sim_index`
+  (the match's position in the outer sim loop), and each hook row gained an 11th field,
+  the player's already-sampled DefCon count. Both are additive and consume no extra
+  `rng` calls — `tests/test_engine_determinism.py`'s pinned digest is unchanged.
+  `sim_index` exists so a hook can tell "two matches in the same sim" (a double
+  gameweek, where a player's points for that sim are the sum across both) apart from
+  "two matches in two different sims" — impossible to do correctly without it.
+- **`games/fpl/model.py`** — new `SimPointsAccumulator`, a `per_match_hook` consumer
+  that records each player's total FPL points per sim, summing across matches within a
+  sim for double gameweeks. `mean(name)` is the unconditional mean (zero-padded for
+  non-appearances, `sims` passed at construction since this pipeline has no separate
+  finalise step); `tail_mean(name, q=0.85)` is the new ceiling. The tail-size floor
+  (`max(1, round((1-q) * sims))`) is pulled into a standalone `_tail_mean(values, q)`
+  so the statistic itself is unit-tested against hand-built distributions, independent
+  of the engine.
+  Kept as a class SEPARATE from `BonusAccumulator` (whose existing cross-sim-average API
+  and test suite stay untouched) rather than merging the two. Both need a match's bonus
+  award, so the BPS rank/tie logic was pulled out of `BonusAccumulator.observe` into a
+  module-level `_bonus_awards(rows, baselines)` that both classes call — reused, not
+  duplicated; each accumulator's own total does not double-count a bonus award.
+  `BonusAccumulator.observe` gained the same third `sim_index` parameter (unused —
+  bonus is already correctly per-match) purely to match the new hook signature.
+- **Retired `ceiling_points` and `_unconditional_goal_samples`** — confirmed nothing
+  outside `games/fpl/model.py` and its tests called either. `build_rows`'s `ceiling`
+  column now reads `points.tail_mean(name)`; `x_points` is unchanged (`total_points`).
+  `total_points` and the component assembly it exercises were kept and cross-checked
+  against the new distribution's `mean()` (`TestDistributionMeanAgreesWithTotalPoints`)
+  — the two paths agree to within ~0.03 pts across start probabilities 1.0/0.6/0.3,
+  which is real end-to-end validation of the whole per-sim scoring path.
+- **Verified on GW1, 8,000 sims:** the appearance-probability cliff is gone (40k-sim
+  sweep, `goal_share=0.35`: tail mean 12.31 → 11.68 → 11.02 → 10.67 → 10.33 → 7.79 as
+  `P(play)` runs 1.00 → 0.80 → 0.61 → 0.50 → 0.40 → 0.20 — strictly decreasing, no
+  adjacent step over 2x). `ceil >= xPts` holds on all 563 modelled players, not just
+  the printed top 30. The **order book's own sort key is `x_points`**, so the printed
+  ranking is byte-identical to before this change; only the `ceil` values move — up
+  across the board, most for the previously-flat rotation/defensive players (Senesi
+  4.44→10.51, Tarkowski 4.40→10.82, Rice 4.12→9.58, Virgil 4.01→10.21). Ranked BY
+  ceiling instead, the top 12 does reorder: Enzo/Tavernier/Mbeumo drop out and
+  Welbeck/Calvert-Lewin/Mateta enter, because forwards' variance is now weighed by
+  actual point upside rather than a floored goal percentile.
 
 ## 2026-07-28 — FPL port, phase 3 (sim caching)
 
