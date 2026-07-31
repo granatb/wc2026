@@ -183,3 +183,35 @@ class TestFplColumnLabels(unittest.TestCase):
             with self.subTest(col=col):
                 self.assertIn(col, render._COL_LABEL)
                 self.assertNotEqual(render._COL_LABEL[col], col)
+
+
+class TestSectionMethodology(unittest.TestCase):
+    def test_world_cup_methodology_is_the_global_default(self):
+        self.assertEqual(render.WC.methodology, render.METHODOLOGY)
+
+    def test_fpl_methodology_does_not_mention_the_world_cup(self):
+        self.assertNotIn("World Cup", render.FPL.methodology)
+
+    def test_fpl_article_page_carries_fpl_methodology(self):
+        html = render.article_page(1, "defcon", "T", _PROSE, _ENTRIES,
+                                   ["x_points"], "/api/fpl/gw1/defcon.json", "",
+                                   section=render.FPL)
+        self.assertNotIn("World Cup", html)
+
+    def test_fpl_article_json_carries_fpl_methodology(self):
+        env = render.article_json("fantasy_premier_league", 1, "defcon", "T",
+                                  "2026-08-20T00:00:00+00:00", 50000, _ENTRIES,
+                                  section=render.FPL)
+        self.assertNotIn("World Cup", env["methodology"])
+
+    def test_fpl_markdown_twin_carries_fpl_methodology(self):
+        md = render.article_md(1, "defcon", "T", _PROSE, _ENTRIES, ["x_points"],
+                               "2026-08-20T00:00:00+00:00", "20 August 2026",
+                               canonical_path="/fpl/gw1/defcon/",
+                               section=render.FPL)
+        self.assertNotIn("World Cup", md)
+
+    def test_world_cup_article_page_is_unchanged(self):
+        html = render.article_page(5, "captains", "T", _PROSE, _ENTRIES,
+                                   ["x_points"], "/api/round/5/captains.json", "")
+        self.assertIn(render.METHODOLOGY, html)

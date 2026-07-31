@@ -76,8 +76,11 @@ WC = Section("round", "World Cup Fantasy", "Round", "R",
 FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
               "/fpl/gw{r}", "/api/fpl/gw{r}",
               methodology=(
-                  "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
-                  "simulations, scored on the official Fantasy Premier League points table."))
+                  "Player scoring rates (goals, assists, defensive contributions) come from "
+                  "each player's own FPL data, not betting markets; match outcomes (de-vigged "
+                  "market odds, or a team-strength rating when a fixture isn't priced) drive "
+                  "50k Monte-Carlo simulations, scored on the official Fantasy Premier League "
+                  "points table."))
 
 # Favicons + mobile theme color, on every page. Google Search needs a raster icon
 # of AT LEAST 48px (multiples of 48 preferred) declared via rel="icon" -- its
@@ -143,7 +146,7 @@ def article_json(competition, fantasy_round, article, title, generated_at, sims,
         "title": title,
         "generated_at": generated_at,
         "sims": sims,
-        "methodology": METHODOLOGY,
+        "methodology": section.methodology,
         "entries": entries,
         "source": SITE_URL,
         "license": DATA_LICENSE_URL,
@@ -959,7 +962,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
         table_md,
         "",
         "---",
-        f"Method: {METHODOLOGY}",
+        f"Method: {section.methodology}",
         f"Data license: CC BY 4.0 (attribution: evmax, {SITE_URL}). "
         f"Machine-readable JSON: {json_url}",
     ]
@@ -1390,7 +1393,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     dataset_ld_raw = _json.dumps({
         "@context": "https://schema.org", "@type": "Dataset",
         "name": title,
-        "description": METHODOLOGY,
+        "description": section.methodology,
         "url": f"{SITE_URL}{json_url}",
         "creator": {"@type": "Organization", "name": "evmax"},
         "variableMeasured": [_COL_LABEL.get(c, c) for c in columns],
@@ -1472,7 +1475,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
 {_newsletter_html()}
-<p class="method"><b>How we get these numbers.</b> {METHODOLOGY}
+<p class="method"><b>How we get these numbers.</b> {section.methodology}
 {ceiling_method_html}Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
 </article>
