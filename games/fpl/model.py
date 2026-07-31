@@ -220,6 +220,19 @@ class BonusAccumulator:
             self._total[name] = self._total.get(name, 0) + award
 
     def expected(self, name: str) -> float:
+        """Mean bonus per MATCH APPEARANCE, not per sim.
+
+        Do not feed this into a per-gameweek total via total_points. Verified
+        2026-07-31 (tests/test_fpl_model.TestDoubleGameweekTotalPoints): for a
+        two-fixture team the assembly path returns exactly half the gameweek's
+        points, because ps.sims increments once per FIXTURE
+        (engine_events.py:289) — so played/sims stays at the per-match start
+        probability rather than approaching 2.0, and every event_means value is a
+        per-match mean. The published x_points column reads
+        SimPointsAccumulator.mean() instead, which sums a sim's matches
+        explicitly. This accumulator is still correct for what it measures:
+        expected bonus in a single match.
+        """
         sims = self._sims.get(name, 0)
         if not sims:
             return 0.0
@@ -590,7 +603,13 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
         # the threshold needs from the mean over the sims the player appeared in.
         conceded_samples = _conceded_series(ps)
         player_bonus = bonus.expected(name)
-        pts = total_points(m, ps, conceded_samples, bonus=player_bonus)
+        # x_points comes off the per-sim distribution, NOT total_points. The
+        # assembly path values a double gameweek as a single match: ps.sims
+        # increments once per FIXTURE (engine_events.py:289), so every
+        # event_means value is a per-match mean and expected_points(means)
+        # under-counts a two-fixture team by exactly 2x. points.mean() sums each
+        # sim's matches explicitly and is the same path the ceiling already uses.
+        pts = points.mean(name)
         meta = players_by_name.get(name, {})
         rows.append({
             "name": name, "team": m["team"], "position": m["position"],
