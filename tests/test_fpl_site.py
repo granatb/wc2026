@@ -87,3 +87,99 @@ class TestArticleMdSection(unittest.TestCase):
                                "2026-06-24T00:00:00+00:00", "24 June 2026",
                                canonical_path="/round/5/captains/")
         self.assertIn("/api/round/5/captains.json", md)
+
+
+class TestLandingSection(unittest.TestCase):
+    def _landing(self, section):
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        feed = [{"slug": "defcon", "headline": "H", "teaser": "T",
+                 "stat_value": "0.72", "stat_label": "P(DefCon)"}]
+        return render.landing_page(1, featured, feed, date_str="20 August 2026",
+                                   section=section)
+
+    def test_fpl_landing_brands_and_links_as_fpl(self):
+        html = self._landing(render.FPL)
+        self.assertIn("Fantasy Premier League", html)
+        self.assertIn("Gameweek 1", html)
+        self.assertIn('href="/fpl/gw1/defcon/"', html)
+        self.assertNotIn("World Cup", html)
+
+    def test_world_cup_landing_is_unchanged(self):
+        html = self._landing(render.WC)
+        self.assertIn("World Cup Fantasy", html)
+        self.assertIn('href="/round/1/defcon/"', html)
+
+    def test_landing_defaults_to_world_cup(self):
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        html = render.landing_page(1, featured, [], date_str="1 July 2026")
+        self.assertIn("World Cup Fantasy", html)
+
+
+class TestAgentFilesSection(unittest.TestCase):
+    def test_llms_txt_lists_fpl_urls(self):
+        txt = render.llms_txt(1, [("captains", "Best captain picks")],
+                              section=render.FPL)
+        self.assertIn("/fpl/gw1/captains/", txt)
+        self.assertIn("/api/fpl/gw1/captains.json", txt)
+        self.assertIn("Gameweek 1", txt)
+
+    def test_llms_txt_defaults_to_world_cup(self):
+        txt = render.llms_txt(5, [("captains", "Best captain picks")])
+        self.assertIn("/round/5/captains/", txt)
+
+    def test_sitemap_includes_fpl_urls(self):
+        xml = render.sitemap_xml(1, [("captains", "Best captain picks")],
+                                 lastmod="2026-08-20", section=render.FPL)
+        self.assertIn("/fpl/gw1/", xml)
+        self.assertIn("/fpl/gw1/captains/", xml)
+
+    def test_sitemap_can_carry_extra_urls(self):
+        """The FPL build must keep the World Cup tree in the sitemap — those pages
+        are still live and still indexed, and a sitemap that drops them reads to a
+        crawler as a deindexing request."""
+        xml = render.sitemap_xml(1, [("captains", "T")], lastmod="2026-08-20",
+                                 section=render.FPL,
+                                 extra_urls=["/round/8/", "/round/8/captains/"])
+        self.assertIn("/round/8/captains/", xml)
+
+    def test_sitemap_defaults_have_no_extra_urls(self):
+        xml = render.sitemap_xml(5, [("captains", "T")], lastmod="2026-06-24")
+        self.assertIn("/round/5/captains/", xml)
+
+
+class TestArticleJsonSection(unittest.TestCase):
+    def test_envelope_names_the_unit(self):
+        env = render.article_json("fantasy_premier_league", 1, "defcon", "T",
+                                  "2026-08-20T00:00:00+00:00", 50000, _ENTRIES,
+                                  section=render.FPL)
+        self.assertEqual(env["gameweek"], 1)
+        self.assertNotIn("round", env)
+
+    def test_world_cup_envelope_keeps_the_round_key(self):
+        env = render.article_json("fifa_world_cup_fantasy", 5, "captains", "T",
+                                  "2026-06-24T00:00:00+00:00", 50000, _ENTRIES)
+        self.assertEqual(env["round"], 5)
+        self.assertNotIn("gameweek", env)
+
+
+class TestFeedCardSection(unittest.TestCase):
+    def test_fpl_feed_card_links_into_the_fpl_tree(self):
+        html = render.feed_card("defcon", 1, "H", "T", "0.72", "P(DefCon)",
+                                section=render.FPL)
+        self.assertIn('href="/fpl/gw1/defcon/"', html)
+
+    def test_default_feed_card_is_unchanged(self):
+        html = render.feed_card("captains", 5, "H", "T", "9.9", "Captain EV")
+        self.assertIn('href="/round/5/captains/"', html)
+
+
+class TestFplColumnLabels(unittest.TestCase):
+    def test_every_fpl_column_has_a_reader_facing_label(self):
+        """A missing label falls back to the raw dict key, which ships things like
+        'exp_clean_sheets' as a table header."""
+        for col in ("p_defcon", "cs_points", "exp_clean_sheets", "exp_goals_for",
+                    "exp_goals_against", "fixtures", "basis", "value", "defcon",
+                    "bonus"):
+            with self.subTest(col=col):
+                self.assertIn(col, render._COL_LABEL)
+                self.assertNotEqual(render._COL_LABEL[col], col)
