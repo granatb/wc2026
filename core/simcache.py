@@ -125,3 +125,29 @@ def store(key: str, artifact: dict, meta: dict | None = None) -> str:
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh)
     return path
+
+
+def artifacts_for(gameweek: int) -> list:
+    """Cache keys of every stored artifact whose meta says it is this gameweek's.
+
+    Preflight uses this to tell an EXPECTED miss (nothing built for this gameweek
+    yet) from an UNEXPECTED one (artifacts exist, but an input or the model source
+    changed since) — spec §9's "the sim cache missed unexpectedly" warning.
+
+    Unreadable or meta-less files are skipped, not raised on: this is diagnostics,
+    and it must never be the reason a build dies.
+    """
+    if not os.path.isdir(CACHE_DIR):
+        return []
+    out = []
+    for fname in os.listdir(CACHE_DIR):
+        if not fname.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(CACHE_DIR, fname), encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if (payload.get("meta") or {}).get("gameweek") == gameweek:
+            out.append(fname[:-len(".json")])
+    return out

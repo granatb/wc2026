@@ -162,3 +162,28 @@ class TestArtifactRoundTrip(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
         simcache.store("k6", {"rows": []})
         self.assertIsNotNone(simcache.load("k6"))
+
+
+class TestArtifactsForGameweek(unittest.TestCase):
+    def test_lists_only_this_gameweeks_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(simcache, "CACHE_DIR", tmp):
+                simcache.store("aaa", {"rows": []}, meta={"gameweek": 1})
+                simcache.store("bbb", {"rows": []}, meta={"gameweek": 1})
+                simcache.store("ccc", {"rows": []}, meta={"gameweek": 2})
+                self.assertEqual(sorted(simcache.artifacts_for(1)), ["aaa", "bbb"])
+                self.assertEqual(simcache.artifacts_for(2), ["ccc"])
+                self.assertEqual(simcache.artifacts_for(3), [])
+
+    def test_missing_cache_dir_is_empty_not_an_error(self):
+        with mock.patch.object(simcache, "CACHE_DIR", "/nonexistent/path/xyz"):
+            self.assertEqual(simcache.artifacts_for(1), [])
+
+    def test_corrupt_artifact_is_skipped_not_raised(self):
+        """Diagnostics must never be the reason a build dies."""
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(simcache, "CACHE_DIR", tmp):
+                simcache.store("good", {"rows": []}, meta={"gameweek": 1})
+                with open(os.path.join(tmp, "bad.json"), "w") as fh:
+                    fh.write("{not json")
+                self.assertEqual(simcache.artifacts_for(1), ["good"])

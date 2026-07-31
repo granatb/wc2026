@@ -1113,3 +1113,106 @@ class TestDefconProbability(unittest.TestCase):
 
     def test_no_samples_is_zero(self):
         self.assertEqual(fpl_model.defcon_probability("DEF", []), 0.0)
+
+
+def _tiny_build_artifact(sims=300, gameweek=98, priced=True, use_cache=False):
+    """_tiny_build_rows' fixture, but returning the full (artifact, cache_hit)."""
+    from core import fixtures
+    from core.ratings import PlayerPrior
+
+    squads = {
+        "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                             start_prob=1.0, exp_minutes=90, defcon_per90=9.0)],
+        "Away": [PlayerPrior(name="A-Gk", team="Away", position="GK",
+                             start_prob=1.0, exp_minutes=90, saves_per90=3.5)],
+    }
+    players_by_name = {
+        "H-Def": {"name": "H-Def", "price": 4.5, "ownership": 2.0,
+                  "minutes": 2700, "bps": 500},
+        "A-Gk": {"name": "A-Gk", "price": 5.0, "ownership": 5.0,
+                 "minutes": 3420, "bps": 700},
+    }
+    saved = list(fixtures.SCHEDULE)
+    try:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.append(fixtures.Fixture(
+            match_id="tiny-1", home="Home", away="Away",
+            kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=gameweek, neutral=False,
+            lam_home=1.6 if priced else None,
+            lam_away=1.1 if priced else None))
+        return fpl_model.build_artifact(
+            squads, players_by_name, gameweek, sims, use_cache=use_cache)
+    finally:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend(saved)
+
+
+class TestMatchSummaries(unittest.TestCase):
+    def test_summary_fields_and_probability_normalisation(self):
+        artifact, _hit = _tiny_build_artifact()
+        self.assertEqual(len(artifact["matches"]), 1)
+        m = artifact["matches"][0]
+        for key in ("match_id", "home", "away", "kickoff", "exp_home_goals",
+                    "exp_away_goals", "exp_total", "top_scoreline", "p_home",
+                    "p_draw", "p_away", "p_cs_home", "p_cs_away", "market"):
+            self.assertIn(key, m)
+        self.assertAlmostEqual(m["p_home"] + m["p_draw"] + m["p_away"], 1.0, places=2)
+        self.assertAlmostEqual(m["exp_total"],
+                               m["exp_home_goals"] + m["exp_away_goals"], places=2)
+
+    def test_no_advancement_fields_ever(self):
+        """FPL has no knockout. articles.match_predictions emits p_advance_* for any
+        round >= 4; this path must never grow that field, or GW4 would publish a
+        survival probability for a league season."""
+        artifact, _hit = _tiny_build_artifact(gameweek=7)
+        self.assertNotIn("p_advance_home", artifact["matches"][0])
+        self.assertNotIn("p_advance_away", artifact["matches"][0])
+
+    def test_market_flag_tracks_priced_fixtures(self):
+        """A fixture with odds-derived lambdas is market-derived; one falling back
+        to ratings is not. The ticker labels its columns from this."""
+        priced, _ = _tiny_build_artifact()
+        self.assertTrue(priced["matches"][0]["market"])
+        unpriced, _ = _tiny_build_artifact(priced=False)
+        self.assertFalse(unpriced["matches"][0]["market"])
+
+    def test_clean_sheet_probability_is_the_opponents_zero(self):
+        """A team keeps a clean sheet iff the OPPONENT fails to score — a sign flip
+        here silently swaps every defender recommendation."""
+        artifact, _ = _tiny_build_artifact(sims=2000)
+        m = artifact["matches"][0]
+        # Home lambda 1.6, away lambda 1.1 -> home is the stronger attacking side,
+        # so AWAY is the side that concedes more and away's own clean-sheet
+        # probability (home scores 0) must be the LOWER of the two. Matches
+        # evmax.articles.match_predictions' fallback path (p_cs_home=exp(-lam_a),
+        # p_cs_away=exp(-lam_h)) at evmax/articles.py:705-706.
+        self.assertGreater(m["p_cs_home"], m["p_cs_away"])
+
+    def test_build_rows_still_returns_a_bare_row_list(self):
+        """run() and the existing tests consume rows directly; the match layer is
+        the site's concern only."""
+        rows = _tiny_build_rows()
+        self.assertIsInstance(rows, list)
+        self.assertIn("x_points", rows[0])
+
+
+class TestArtifactCaching(unittest.TestCase):
+    def test_artifact_round_trips_through_the_cache(self):
+        import shutil
+        import tempfile
+        from core import simcache
+
+        tmp = tempfile.mkdtemp(prefix="fpl_artifact_cache_")
+        patcher = mock.patch.object(simcache, "CACHE_DIR", tmp)
+        patcher.start()
+        try:
+            first, hit_first = _tiny_build_artifact(use_cache=True, gameweek=97)
+            second, hit_second = _tiny_build_artifact(use_cache=True, gameweek=97)
+            self.assertFalse(hit_first)
+            self.assertTrue(hit_second)
+            self.assertEqual(first["matches"], second["matches"])
+            self.assertEqual(first["rows"], second["rows"])
+        finally:
+            patcher.stop()
+            shutil.rmtree(tmp, ignore_errors=True)
