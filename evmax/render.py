@@ -203,6 +203,22 @@ def summary_sentence(article, entries):
     if article == "fixtures":
         return (f"{name} ({team}) has the best clean-sheet odds this round: "
                 f"{top['p_clean_sheet'] * 100:.0f}%.")
+    if article == "ticker":
+        # FPL ticker rows are CLUBS, not players: there is no x_points to fall
+        # through to, and `team` holds the opponent list rather than a club, so
+        # the generic sentence below would both crash and read wrong. Clean
+        # sheets are summed across a double, so this can legitimately exceed 1.
+        n_fx = top.get("fixtures", 0)
+        return (f"{name} head the gameweek ticker: "
+                f"{top.get('exp_clean_sheets', 0.0):.2f} expected clean sheets "
+                f"from {n_fx} fixture{'' if n_fx == 1 else 's'}.")
+    if article == "defcon":
+        # Ranked on the PROBABILITY of clearing the defensive-contribution bar,
+        # not on expected points -- the generic sentence would advertise an
+        # ordering this article does not use.
+        return (f"{name} ({team}) leads for defensive contributions: clears the "
+                f"{top.get('defcon_threshold', '')}-action bar in "
+                f"{top.get('p_defcon', 0.0) * 100:.0f}% of simulations.")
     return f"{name} ({team}) tops the list at {top['x_points']:.1f} expected points."
 
 
