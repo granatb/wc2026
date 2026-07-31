@@ -1004,3 +1004,112 @@ class TestDoubleGameweekTotalPoints(unittest.TestCase):
             means["B-Striker"], ps, fpl_model._conceded_series(ps),
             bonus=bonus.expected("B-Striker"))
         self.assertAlmostEqual(assembled, points.mean("B-Striker"), delta=0.35)
+
+
+def _tiny_build_rows(sims=300, gameweek=98):
+    """A 2-team, 1-fixture synthetic gameweek run through build_rows, cache off."""
+    from core import fixtures
+    from core.ratings import PlayerPrior
+
+    squads = {
+        "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                             start_prob=1.0, exp_minutes=90, defcon_per90=9.0),
+                 PlayerPrior(name="H-Fwd", team="Home", position="FWD",
+                             start_prob=1.0, exp_minutes=90, goal_share=0.5)],
+        "Away": [PlayerPrior(name="A-Gk", team="Away", position="GK",
+                             start_prob=1.0, exp_minutes=90, saves_per90=3.5)],
+    }
+    players_by_name = {
+        "H-Def": {"name": "H-Def", "price": 4.5, "ownership": 2.0,
+                  "minutes": 2700, "bps": 500},
+        "H-Fwd": {"name": "H-Fwd", "price": 8.0, "ownership": 30.0,
+                  "minutes": 2700, "bps": 600},
+        "A-Gk": {"name": "A-Gk", "price": 5.0, "ownership": 5.0,
+                 "minutes": 3420, "bps": 700},
+    }
+    saved = list(fixtures.SCHEDULE)
+    try:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.append(fixtures.Fixture(
+            match_id="tiny-1", home="Home", away="Away",
+            kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=gameweek, neutral=False,
+            lam_home=1.6, lam_away=1.1))
+        return fpl_model.build_rows(squads, players_by_name, gameweek, sims,
+                                    use_cache=False)
+    finally:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend(saved)
+
+
+class TestDerivedRowColumns(unittest.TestCase):
+    def test_derived_columns_present_and_consistent(self):
+        row = fpl_model._derive_row(
+            name="Testy", means={"team": "ARS", "position": "DEF",
+                                 "clean_sheet": 0.4},
+            x_points=6.0, ceiling=11.0, bonus=0.5, defcon_pts=1.2,
+            p_defcon=0.6, price=5.5, ownership=12.3,
+            kickoff="2026-08-21T19:00:00+00:00")
+        self.assertEqual(row["captain_ev"], 12.0)
+        self.assertEqual(row["value"], 1.091)          # 6.0 / 5.5
+        self.assertEqual(row["p_defcon"], 0.6)
+        self.assertEqual(row["cs_points"], 1.6)        # 0.4 * CS_PTS["DEF"] == 4
+        self.assertEqual(row["kickoff"], "2026-08-21T19:00:00+00:00")
+
+    def test_value_is_none_without_a_price(self):
+        row = fpl_model._derive_row(
+            name="Pricy", means={"team": "ARS", "position": "MID",
+                                 "clean_sheet": 0.0},
+            x_points=6.0, ceiling=9.0, bonus=0.0, defcon_pts=0.0, p_defcon=0.0,
+            price=None, ownership=None, kickoff=None)
+        self.assertIsNone(row["value"])
+        self.assertEqual(row["captain_ev"], 12.0)
+
+    def test_p_defcon_is_the_points_column_halved(self):
+        """defcon points are exactly 2 x P(threshold) x P(played), so the two
+        columns must never disagree -- the article prints one and the table the
+        other."""
+        row = fpl_model._derive_row(
+            name="Blocker", means={"team": "BUR", "position": "DEF",
+                                   "clean_sheet": 0.2},
+            x_points=4.0, ceiling=7.0, bonus=0.0, defcon_pts=1.44, p_defcon=0.72,
+            price=4.5, ownership=1.0, kickoff=None)
+        self.assertAlmostEqual(row["defcon"], row["p_defcon"] * fpl_model.DEFCON_PTS,
+                               places=6)
+
+    def test_build_rows_carries_the_new_columns(self):
+        rows = _tiny_build_rows()
+        self.assertTrue(rows)
+        for key in ("captain_ev", "value", "p_defcon", "cs_points", "kickoff"):
+            self.assertIn(key, rows[0], f"{key} missing from build_rows output")
+
+    def test_kickoff_is_the_teams_earliest_fixture(self):
+        """A double-gameweek team has two kickoffs; the captains article orders on
+        the first, because that is what a captain decision locks against."""
+        from core import fixtures
+        fx = [
+            fixtures.Fixture(match_id="a", home="Home", away="Away",
+                             kickoff=datetime(2026, 8, 23, 15, 0, tzinfo=timezone.utc),
+                             stage="GW", fantasy_round=1, neutral=False),
+            fixtures.Fixture(match_id="b", home="Third", away="Home",
+                             kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+                             stage="GW", fantasy_round=1, neutral=False),
+        ]
+        kickoffs = fpl_model._kickoffs_by_team(fx)
+        self.assertEqual(kickoffs["Home"], "2026-08-21T19:00:00+00:00")
+        self.assertEqual(kickoffs["Away"], "2026-08-23T15:00:00+00:00")
+
+
+class TestDefconProbability(unittest.TestCase):
+    def test_probability_and_points_agree(self):
+        samples = [12, 8, 11, 3, 15]      # 3 of 5 clear the DEF threshold of 10
+        p = fpl_model.defcon_probability("DEF", samples)
+        self.assertAlmostEqual(p, 0.6)
+        self.assertAlmostEqual(fpl_model.defcon_points("DEF", samples),
+                               p * fpl_model.DEFCON_PTS)
+
+    def test_ineligible_position_is_zero(self):
+        self.assertEqual(fpl_model.defcon_probability("GK", [20, 20]), 0.0)
+
+    def test_no_samples_is_zero(self):
+        self.assertEqual(fpl_model.defcon_probability("DEF", []), 0.0)

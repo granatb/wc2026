@@ -92,6 +92,20 @@ def defcon_threshold(position: str) -> int | None:
     return DEFCON_THRESHOLD.get(position)
 
 
+def defcon_probability(position: str, defcon_samples: list) -> float:
+    """P(defensive-contribution count >= this position's threshold).
+
+    Conditional on having played, like save_samples and defcon_samples generally
+    (they only accumulate on sims where the player was on the pitch). Callers
+    scale by appearance_probability to make it unconditional.
+    """
+    threshold = defcon_threshold(position)
+    if threshold is None or not defcon_samples:
+        return 0.0
+    hits = sum(1 for c in defcon_samples if c >= threshold)
+    return hits / float(len(defcon_samples))
+
+
 def defcon_points(position: str, defcon_samples: list) -> float:
     """Expected DefCon points: 2 x P(count >= threshold).
 
@@ -99,11 +113,7 @@ def defcon_points(position: str, defcon_samples: list) -> float:
     over-paying players who never reach it and under-paying those who always do.
     The payout is capped at 2 no matter how far past the threshold a player goes.
     """
-    threshold = defcon_threshold(position)
-    if threshold is None or not defcon_samples:
-        return 0.0
-    hits = sum(1 for c in defcon_samples if c >= threshold)
-    return DEFCON_PTS * hits / float(len(defcon_samples))
+    return DEFCON_PTS * defcon_probability(position, defcon_samples)
 
 
 # --- Bonus points ---------------------------------------------------------
@@ -524,6 +534,58 @@ def _bps_baselines(players_by_name: dict) -> dict:
     return baselines
 
 
+def _kickoffs_by_team(fx: list) -> dict:
+    """{team: EARLIEST kickoff ISO string} for the gameweek.
+
+    Earliest, not only, because a double-gameweek team has two. The captains
+    article orders by the first fixture — that is the one a manager's captain
+    decision is locked against.
+    """
+    out: dict = {}
+    for f in fx:
+        iso = f.kickoff.isoformat()
+        for team in (f.home, f.away):
+            if team not in out or iso < out[team]:
+                out[team] = iso
+    return out
+
+
+def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
+                bonus: float, defcon_pts: float, p_defcon: float,
+                price, ownership, kickoff) -> dict:
+    """One order-book row with every column the six articles consume.
+
+    Kept as a standalone pure function (rather than an inline dict literal in
+    build_rows) so the derived columns can be unit-tested against hand-computed
+    inputs without running a simulation.
+
+    Rounding happens HERE and only here: these rows are what the cache stores and
+    what the public JSON feed serves, and 14 significant figures of Monte-Carlo
+    noise is not information.
+    """
+    pos = means["position"]
+    return {
+        "name": name,
+        "team": means["team"],
+        "position": pos,
+        "x_points": round(x_points, 2),
+        "captain_ev": round(2 * x_points, 2),
+        "ceiling": round(ceiling, 2),
+        "price": price,
+        "ownership_pct": ownership,
+        "value": round(x_points / price, 3) if price else None,
+        "bonus": round(bonus, 2),
+        # Points and probability are the same quantity in two units
+        # (points == 2 x probability). The DefCon article headlines the
+        # probability; the tables print the points. Emitting both keeps every
+        # surface reading the same number.
+        "defcon": round(defcon_pts, 2),
+        "p_defcon": round(p_defcon, 3),
+        "cs_points": round(means.get("clean_sheet", 0.0) * CS_PTS.get(pos, 0), 2),
+        "kickoff": kickoff,
+    }
+
+
 def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
               sims: int, use_cache: bool = True) -> list:
     """Simulate (or fetch from cache) and return the sorted order-book rows.
@@ -596,12 +658,10 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     )
     means = engine_events.event_means(samples)
 
+    kickoffs = _kickoffs_by_team(fx)
     rows = []
     for name, ps in samples.items():
         m = means[name]
-        # conceded is accumulated as a running total; rebuild the per-sim series
-        # the threshold needs from the mean over the sims the player appeared in.
-        conceded_samples = _conceded_series(ps)
         player_bonus = bonus.expected(name)
         # x_points comes off the per-sim distribution, NOT total_points. The
         # assembly path values a double gameweek as a single match: ps.sims
@@ -610,19 +670,18 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
         # under-counts a two-fixture team by exactly 2x. points.mean() sums each
         # sim's matches explicitly and is the same path the ceiling already uses.
         pts = points.mean(name)
+        # Scaled by P(played): the raw threshold probability is conditional on
+        # appearing, which would show a rotation player as if he started every
+        # week. See appearance_probability's docstring.
+        p_defcon = defcon_probability(m["position"], ps.defcon_samples) \
+                   * appearance_probability(ps)
         meta = players_by_name.get(name, {})
-        rows.append({
-            "name": name, "team": m["team"], "position": m["position"],
-            "x_points": pts, "price": meta.get("price"),
-            "ownership_pct": meta.get("ownership"),
-            "ceiling": points.tail_mean(name),
-            "bonus": player_bonus,
-            # Scaled by P(played): defcon_points on its own is E[DefCon points
-            # | played], which would show a rotation player as if he started
-            # every game. See appearance_probability's docstring.
-            "defcon": defcon_points(m["position"], ps.defcon_samples)
-                     * appearance_probability(ps),
-        })
+        rows.append(_derive_row(
+            name=name, means=m, x_points=pts, ceiling=points.tail_mean(name),
+            bonus=player_bonus, defcon_pts=p_defcon * DEFCON_PTS,
+            p_defcon=p_defcon, price=meta.get("price"),
+            ownership=meta.get("ownership"),
+            kickoff=kickoffs.get(m["team"])))
     rows.sort(key=lambda r: -r["x_points"])
 
     if use_cache:
