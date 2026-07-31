@@ -362,3 +362,116 @@ class TestFplSquadRepairLoops(unittest.TestCase):
                         for e in entries]
                 self.assertEqual(len(keys), len(set(keys)))
                 self.assert_squad_is_legal(entries, meta, budget=budget)
+
+
+def _match(home, away, p_cs_home=0.4, p_cs_away=0.2, gf=1.6, ga=1.1,
+           market=True, kickoff="2026-08-21T19:00:00+00:00"):
+    return {"match_id": f"{home}-{away}", "home": home, "away": away,
+            "kickoff": kickoff, "exp_home_goals": gf, "exp_away_goals": ga,
+            "exp_total": round(gf + ga, 2), "top_scoreline": "2-1",
+            "p_home": 0.5, "p_draw": 0.25, "p_away": 0.25,
+            "p_cs_home": p_cs_home, "p_cs_away": p_cs_away, "market": market}
+
+
+class TestTicker(unittest.TestCase):
+    def test_one_row_per_club_with_opponent_and_both_sides(self):
+        out = fpl_articles.ticker([_match("ARS", "LIV")], ["ARS", "LIV"])
+        self.assertEqual(sorted(e["name"] for e in out), ["ARS", "LIV"])
+        by_name = {e["name"]: e for e in out}
+        self.assertEqual(by_name["ARS"]["opponents"], "LIV (H)")
+        self.assertEqual(by_name["LIV"]["opponents"], "ARS (A)")
+        self.assertAlmostEqual(by_name["ARS"]["exp_goals_for"], 1.6)
+        self.assertAlmostEqual(by_name["ARS"]["exp_goals_against"], 1.1)
+        self.assertAlmostEqual(by_name["LIV"]["exp_goals_for"], 1.1)
+        self.assertAlmostEqual(by_name["LIV"]["exp_goals_against"], 1.6)
+
+    def test_clean_sheet_probability_follows_the_right_side(self):
+        out = fpl_articles.ticker([_match("ARS", "LIV", p_cs_home=0.55,
+                                          p_cs_away=0.15)], ["ARS", "LIV"])
+        by_name = {e["name"]: e for e in out}
+        self.assertAlmostEqual(by_name["ARS"]["exp_clean_sheets"], 0.55)
+        self.assertAlmostEqual(by_name["LIV"]["exp_clean_sheets"], 0.15)
+
+    def test_double_gameweek_sums_goals_and_clean_sheets(self):
+        matches = [_match("ARS", "LIV", p_cs_home=0.4, gf=1.6, ga=1.1),
+                   _match("BUR", "ARS", p_cs_away=0.5, gf=0.9, ga=1.8,
+                          kickoff="2026-08-24T19:00:00+00:00")]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR"])
+        ars = {e["name"]: e for e in out}["ARS"]
+        self.assertEqual(ars["fixtures"], 2)
+        self.assertEqual(ars["opponents"], "LIV (H), BUR (A)")
+        self.assertAlmostEqual(ars["exp_clean_sheets"], 0.9)      # 0.4 + 0.5
+        self.assertAlmostEqual(ars["exp_goals_for"], 3.4)         # 1.6 + 1.8
+        self.assertAlmostEqual(ars["exp_goals_against"], 2.0)     # 1.1 + 0.9
+
+    def test_double_gameweek_opponents_are_kickoff_ordered(self):
+        """Listed in the order they are played, not the order the feed happens to
+        return them."""
+        matches = [_match("BUR", "ARS", kickoff="2026-08-24T19:00:00+00:00"),
+                   _match("ARS", "LIV", kickoff="2026-08-21T19:00:00+00:00")]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR"])
+        self.assertEqual({e["name"]: e for e in out}["ARS"]["opponents"],
+                         "LIV (H), BUR (A)")
+
+    def test_blank_gameweek_club_is_listed_with_zeroes(self):
+        """A blank is the single most actionable thing a ticker can tell a manager
+        — omitting the club entirely hides it."""
+        out = fpl_articles.ticker([_match("ARS", "LIV")], ["ARS", "LIV", "EVE"])
+        eve = {e["name"]: e for e in out}["EVE"]
+        self.assertEqual(eve["fixtures"], 0)
+        self.assertEqual(eve["opponents"], "—")
+        self.assertEqual(eve["exp_clean_sheets"], 0.0)
+        self.assertEqual(eve["env"], "blank")
+
+    def test_club_in_a_fixture_but_not_in_the_club_list_is_still_included(self):
+        """Dropping a real fixture because the club list is stale would silently
+        lose data; better to include it."""
+        out = fpl_articles.ticker([_match("ARS", "LIV")], ["ARS"])
+        self.assertIn("LIV", [e["name"] for e in out])
+
+    def test_sorted_by_expected_clean_sheets_with_ranks(self):
+        matches = [_match("ARS", "LIV", p_cs_home=0.6, p_cs_away=0.1)]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV"])
+        self.assertEqual([e["name"] for e in out], ["ARS", "LIV"])
+        self.assertEqual([e["rank"] for e in out], [1, 2])
+
+    def test_provenance_is_per_club(self):
+        matches = [_match("ARS", "LIV", market=True),
+                   _match("BUR", "EVE", market=False)]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR", "EVE"])
+        by_name = {e["name"]: e for e in out}
+        self.assertEqual(by_name["ARS"]["basis"], "market")
+        self.assertEqual(by_name["BUR"]["basis"], "model")
+        self.assertEqual(by_name["EVE"]["basis"], "model")
+
+    def test_mixed_provenance_double_reports_the_weaker_basis(self):
+        """One priced fixture and one unpriced is not "market" — claiming it would
+        overstate the confidence of the combined number."""
+        matches = [_match("ARS", "LIV", market=True),
+                   _match("BUR", "ARS", market=False,
+                          kickoff="2026-08-24T19:00:00+00:00")]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR"])
+        self.assertEqual({e["name"]: e for e in out}["ARS"]["basis"], "mixed")
+
+    def test_a_blank_club_has_no_provenance_claim(self):
+        out = fpl_articles.ticker([_match("ARS", "LIV")], ["ARS", "LIV", "EVE"])
+        self.assertEqual({e["name"]: e for e in out}["EVE"]["basis"], "—")
+
+    def test_environment_labels(self):
+        matches = [_match("ARS", "LIV", gf=2.2, ga=1.4),     # 3.6 total -> blowout
+                   _match("BUR", "EVE", gf=1.0, ga=0.9)]     # 1.9 total -> avoid
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR", "EVE"])
+        by_name = {e["name"]: e for e in out}
+        self.assertEqual(by_name["ARS"]["env"], "blowout")
+        self.assertEqual(by_name["BUR"]["env"], "avoid")
+
+    def test_a_double_is_labelled_a_double_regardless_of_goals(self):
+        matches = [_match("ARS", "LIV"),
+                   _match("BUR", "ARS", kickoff="2026-08-24T19:00:00+00:00")]
+        out = fpl_articles.ticker(matches, ["ARS", "LIV", "BUR"])
+        self.assertEqual({e["name"]: e for e in out}["ARS"]["env"], "double")
+
+    def test_empty_gameweek_gives_every_club_a_blank_row(self):
+        out = fpl_articles.ticker([], ["ARS", "LIV"])
+        self.assertEqual(len(out), 2)
+        self.assertTrue(all(e["env"] == "blank" for e in out))
