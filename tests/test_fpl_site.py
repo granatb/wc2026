@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from evmax import render
+from evmax import prompts, render, writer
 
 
 class TestSectionDescriptor(unittest.TestCase):
@@ -215,3 +215,132 @@ class TestSectionMethodology(unittest.TestCase):
         html = render.article_page(5, "captains", "T", _PROSE, _ENTRIES,
                                    ["x_points"], "/api/round/5/captains.json", "")
         self.assertIn(render.METHODOLOGY, html)
+
+
+_TICKER_ENTRY = {"name": "ARS", "rank": 1, "opponents": "LIV (H)", "fixtures": 1,
+                 "exp_clean_sheets": 0.42, "exp_goals_for": 1.9,
+                 "exp_goals_against": 0.9, "env": "balanced", "basis": "market"}
+_DEFCON_ENTRY = {"name": "Gabriel", "rank": 1, "position": "DEF", "team": "ARS",
+                 "p_defcon": 0.71, "defcon": 1.42, "defcon_threshold": 10,
+                 "x_points": 5.4, "price": 6.0}
+
+
+class TestProseCacheNamespace(unittest.TestCase):
+    def test_fpl_and_world_cup_caches_do_not_collide(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, headline in (("round-1", "World Cup one"),
+                                   ("fpl-gw1", "Gameweek one")):
+                os.makedirs(os.path.join(tmp, name))
+                with open(os.path.join(tmp, name, "captains.md"), "w",
+                          encoding="utf-8") as fh:
+                    fh.write(f"# {headline}\n\n> Standfirst\n\nBody.\n\n"
+                             f"**Bottom line:** BL\n")
+            wc = writer.article_prose("captains", 1, _ENTRIES, ["x_points"],
+                                      cache_dir=tmp, use_llm=False)
+            fpl = writer.article_prose("captains", 1, _ENTRIES, ["x_points"],
+                                       cache_dir=tmp, use_llm=False,
+                                       cache_name="fpl-gw1")
+            self.assertNotEqual(wc["headline"], fpl["headline"])
+            self.assertIn("Gameweek", fpl["headline"])
+
+
+class TestPromptUnit(unittest.TestCase):
+    def test_default_prompt_says_round(self):
+        p = prompts.build_prompt("captains", 5, _ENTRIES)
+        self.assertIn("Round", p)
+        self.assertIn("5", p)
+
+    def test_fpl_prompt_says_gameweek_and_carries_the_glossary(self):
+        p = prompts.build_prompt("defcon", 1, _ENTRIES, unit="Gameweek")
+        self.assertIn("Gameweek", p)
+        self.assertIn("p_defcon", p)
+        self.assertIn("exp_clean_sheets", p)
+
+    def test_world_cup_prompt_does_not_carry_the_fpl_glossary(self):
+        p = prompts.build_prompt("captains", 5, _ENTRIES)
+        self.assertNotIn("p_defcon", p)
+
+
+class TestFplTemplates(unittest.TestCase):
+    def _prose(self, slug, entries):
+        return writer.article_prose(slug, 1, entries, ["x_points"],
+                                    cache_dir="/nonexistent", use_llm=False,
+                                    cache_name="fpl-gw1", unit="Gameweek")
+
+    def _cases(self):
+        return {
+            "captains": [dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0,
+                              kickoff_order=1, team="ARS", position="FWD"),
+                         dict(_ENTRIES[0], name="B", captain_ev=10.0, ceiling=9.0,
+                              kickoff_order=2, team="LIV", position="MID",
+                              x_points=5.0)],
+            "wildcard": [dict(_ENTRIES[0], role="XI", rank=1, team="ARS",
+                              position="MID", ceiling=9.0)],
+            "ticker": [_TICKER_ENTRY],
+            "defenders": [dict(_ENTRIES[0], position="DEF", team="ARS",
+                               cs_points=1.6, defcon=1.4, bonus=0.5, ceiling=9.0)],
+            "efficiency": [dict(_ENTRIES[0], value=1.2, tier="Budget", team="ARS",
+                                position="MID", ceiling=9.0)],
+            "defcon": [_DEFCON_ENTRY],
+        }
+
+    def test_every_fpl_slug_has_a_real_template(self):
+        for slug, entries in self._cases().items():
+            prose = self._prose(slug, entries)
+            with self.subTest(slug=slug):
+                self.assertNotIn("analysis:", prose["headline"].lower(),
+                                 f"{slug} fell through to the generic template")
+                self.assertTrue(prose["standfirst"])
+                self.assertTrue(prose["bottom_line"])
+                self.assertIn("<p>", prose["body_html"])
+
+    def test_world_cup_slugs_keep_their_own_templates(self):
+        """captains/wildcard/defenders/efficiency exist in BOTH competitions; the
+        WC prose must be unaffected by the FPL table."""
+        wc = writer.article_prose(
+            "captains", 5,
+            [dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0, team="BRA",
+                  position="FWD")],
+            ["x_points"], cache_dir="/nonexistent", use_llm=False)
+        fpl = self._prose("captains", self._cases()["captains"])
+        self.assertNotEqual(wc["headline"], fpl["headline"])
+
+    def test_defcon_prose_states_the_probability_and_threshold(self):
+        prose = self._prose("defcon", [_DEFCON_ENTRY])
+        blob = prose["standfirst"] + prose["body_html"]
+        self.assertIn("71", blob)
+        self.assertIn("10", blob)
+
+    def test_ticker_prose_names_blanks_and_doubles(self):
+        entries = [_TICKER_ENTRY,
+                   dict(_TICKER_ENTRY, name="EVE", rank=2, fixtures=0,
+                        opponents="—", exp_clean_sheets=0.0, env="blank",
+                        basis="—"),
+                   dict(_TICKER_ENTRY, name="MCI", rank=3, fixtures=2,
+                        opponents="BUR (H), TOT (A)", exp_clean_sheets=0.8,
+                        env="double", basis="mixed")]
+        prose = self._prose("ticker", entries)
+        body = prose["body_html"]
+        self.assertIn("EVE", body)
+        self.assertIn("MCI", body)
+        self.assertIn("blank", body.lower())
+        self.assertIn("double", body.lower())
+
+    def test_ticker_prose_omits_the_paragraph_when_there_are_none(self):
+        prose = self._prose("ticker", [_TICKER_ENTRY])
+        self.assertNotIn("blank", prose["body_html"].lower())
+
+    def test_empty_entries_do_not_crash_any_slug(self):
+        for slug in ("captains", "wildcard", "ticker", "defenders", "efficiency",
+                     "defcon"):
+            with self.subTest(slug=slug):
+                prose = self._prose(slug, [])
+                self.assertTrue(prose["headline"])
+
+    def test_names_are_html_escaped(self):
+        entries = [dict(_ENTRIES[0], name="O'Riley & Sons", captain_ev=12.0,
+                        ceiling=10.0, kickoff_order=1, team="BHA", position="MID")]
+        prose = self._prose("captains", entries)
+        self.assertNotIn("O'Riley & Sons", prose["body_html"])
+        self.assertIn("&amp;", prose["body_html"])

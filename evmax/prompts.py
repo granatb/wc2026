@@ -6,7 +6,7 @@ ARTICLE_PROMPT = """\
 You are a tight, data-driven fantasy football analyst writing for evmax.ai.
 
 Article slug : {slug}
-Round        : {round_no}
+{unit:<13}: {round_no}
 {subject_instruction}
 Below is the EXACT dataset for this article. These are the ONLY numbers and player names
 you may reference. Do not invent statistics. Do not mention any player not in this list.
@@ -56,7 +56,7 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
     or ceiling; the pitch to the reader is entirely about the XI and the budget logic.
   - tier → the price bracket ("Budget", "Mid", or "Premium") — quote it as-is when
     naming a per-tier recommendation.
-
+{fpl_glossary}
 Write a tight analytical article with:
   - A punchy headline in SENTENCE CASE (≤ 10 words, only the first word and proper
     nouns capitalised — e.g. "Amad Diallo is the Round 3 captain edge")
@@ -84,11 +84,45 @@ Return STRICT JSON with exactly these keys and no others:
 """
 
 
-def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
+# Field vocabulary that exists ONLY in Fantasy Premier League. It is injected for
+# unit="Gameweek" and left empty otherwise: a World Cup prompt that carried DefCon
+# and blank-gameweek vocabulary would invite the model to reach for concepts its
+# data cannot support.
+_FPL_GLOSSARY = """\
+  - p_defcon → the probability that player records enough defensive actions to earn
+    the 2-point defensive-contribution bonus. Write it as a percentage, e.g. 71%.
+    The threshold is 10 for defenders and 12 for midfielders and forwards; the entry
+    carries it as defcon_threshold. Goalkeepers are not eligible at all.
+  - defcon → the POINTS that probability is worth (exactly 2 x p_defcon). Prefer the
+    probability in prose; the table already prints the points.
+  - cs_points → the share of a defender's or goalkeeper's projection that comes from
+    clean sheets, as opposed to DefCon, bonus or attacking returns. Use it to say
+    WHERE a defensive pick's points come from.
+  - bonus → expected bonus points from the BPS rank-within-match model.
+  - exp_clean_sheets → expected clean sheets for that club this gameweek. It SUMS
+    across a double gameweek, so it can exceed 1.0 — say "1.2 expected clean sheets
+    across two fixtures", never "120% chance of a clean sheet".
+  - fixtures → how many matches that club plays this gameweek. 0 is a BLANK (say so
+    explicitly, it is the most actionable thing on the page); 2 is a DOUBLE.
+  - opponents → already formatted as "LIV (H), BUR (A)" — quote it as-is.
+  - basis → "market" means that club's fixture is priced by the betting market;
+    "model" means it is not yet priced and the numbers come from our own team
+    ratings; "mixed" means one of each across a double. Say which, plainly, when you
+    cite a ticker number — never present model-derived and market-derived numbers as
+    if they carried the same confidence.
+  - kickoff_order → the order this player's match kicks off among the candidates
+    (1 = earliest). Relevant to the vice-captain decision, not the captain one.
+"""
+
+
+def build_prompt(slug: str, round_no: int, entries: list, subject=None,
+                 unit: str = "Round") -> str:
     """Return a filled ARTICLE_PROMPT ready to send to the API.
 
     subject: player name to centre prose on, or None for team-framing
-             (best-xi / wildcard / matches / fixtures).
+             (best-xi / wildcard / matches / fixtures / ticker).
+    unit:    the reader-facing word for the period — "Round" for the World Cup,
+             "Gameweek" for FPL. It also gates the FPL field glossary.
     """
     if subject is not None and slug == "transfers":
         subject_instruction = (
@@ -111,6 +145,26 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
             f"tier) — a reader building on any budget should come away knowing the best "
             f"cheap pick, the best mid-price pick, and the best premium pick, grounded "
             f"only in the numbers supplied.\n"
+        )
+    elif slug == "defcon":
+        subject_instruction = (
+            "Focus      : Rank players by how reliably they earn the 2-point "
+            "defensive-contribution bonus (p_defcon). This is a THRESHOLD, not a "
+            "rate — a player either clears his position's action count in a given "
+            "match or he does not — so frame it as 'hits the threshold in X% of "
+            "simulations', never as an average number of actions. Name the best "
+            "defender and the best midfielder separately: their thresholds differ "
+            "(10 vs 12), so they are not competing for the same slot.\n"
+        )
+    elif slug == "ticker":
+        subject_instruction = (
+            "Focus      : Cover the gameweek club by club — who has the best "
+            "clean-sheet odds (exp_clean_sheets), which fixtures are worth "
+            "targeting attackers in (env=\"blowout\"), which to fade "
+            "(env=\"avoid\"). Call out every club with fixtures=0 (a BLANK) and "
+            "every club with fixtures=2 (a DOUBLE) explicitly and early — those "
+            "are the two facts that change a manager's week. State the `basis` "
+            "for any number you cite.\n"
         )
     elif subject is not None:
         subject_instruction = (
@@ -156,7 +210,9 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None) -> str:
         )
     return ARTICLE_PROMPT.format(
         slug=slug,
+        unit=unit,
         round_no=round_no,
+        fpl_glossary=_FPL_GLOSSARY if unit == "Gameweek" else "",
         subject_instruction=subject_instruction,
         entries_json=json.dumps(entries, ensure_ascii=False, indent=2),
     )

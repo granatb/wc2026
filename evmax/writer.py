@@ -3,7 +3,8 @@
 Public API
 ----------
 article_prose(article, round_no, entries, columns,
-              cache_dir="data/articles", use_llm=True) -> dict
+              cache_dir="data/articles", use_llm=True, subject=None,
+              cache_name=None, unit="Round") -> dict
     Returns {"headline", "standfirst", "body_html", "body_md", "bottom_line", "source"}
     where source is "cache" | "llm" | "template". body_md is the content-only
     Markdown twin of body_html (used for the agent-facing .md article pages).
@@ -659,8 +660,696 @@ _TEMPLATES = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# FPL templates.
+#
+# Four FPL slugs (captains, wildcard, defenders, efficiency) share a name with a
+# World Cup slug whose prose is pinned by tests, so the FPL versions live in their
+# own table rather than overwriting entries in _TEMPLATES. _template_prose picks
+# the table on `unit`.
+#
+# These are the --no-llm output for a real published page, so they are written as
+# copy, not as slot-filling: house style is floor and ceiling in the same breath,
+# whole-number percentages, prices as "5.9m", and no raw dict keys on the page.
+# Everything interpolated into body HTML goes through html.escape (headline,
+# standfirst and bottom_line are escaped by render.py instead — escaping them here
+# too would double-encode).
+#
+# Superlatives ("the best on the board", "tops the table") are gated on the
+# subject actually being entries[0]. The build de-duplicates lead players across
+# articles, so the subject is NOT always the top-ranked row, and a template that
+# assumes otherwise publishes a false claim next to a table that contradicts it.
+# ---------------------------------------------------------------------------
+
+_POS_WORD = {"GK": "goalkeeper", "DEF": "defender", "MID": "midfielder",
+             "FWD": "forward"}
+
+
+def _esc(v) -> str:
+    return html.escape(str(v))
+
+
+def _pos_word(entry) -> str:
+    return _POS_WORD.get(entry.get("position"), "player")
+
+
+def _num(entry, key, default=0.0) -> float:
+    """A numeric field as a float, tolerating None and missing keys."""
+    try:
+        v = entry.get(key)
+        return default if v is None else float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _a(v) -> str:
+    """"a" or "an" in front of a rendered number — 8.10 and 11.21 are spoken
+    "an eight" and "an eleven", and "a 8.10 ceiling" is the kind of thing that
+    makes a page read like a mail merge."""
+    intpart = str(v).lstrip("£").split(".")[0]
+    return "an" if intpart.startswith("8") or intpart in ("11", "18") else "a"
+
+
+def _and_join(items) -> str:
+    """"ARS", "ARS and NFO", "ARS, NFO and LIV"."""
+    items = list(items)
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _fpl_pct(v) -> str:
+    """A 0-1 probability as a whole-number percentage."""
+    try:
+        return f"{float(v) * 100:.0f}%"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _fpl_is_top(entries, lead, key) -> bool:
+    """Whether the subject really does hold the best value of `key` in the pool.
+
+    Checked against the data rather than against rank order: the ranking column and
+    the column the superlative is about are the same in every FPL article, but a
+    superlative is a factual claim and it should be reading the numbers the table
+    prints, not trusting a sort that happened upstream.
+    """
+    if not entries:
+        return False
+    return _num(lead, key) >= max(_num(x, key) for x in entries)
+
+
+def _fpl_runner_up(entries, subj):
+    """The best-ranked entry that is not the subject, or None if there is no other.
+
+    Scans from the top rather than taking entries[1] because the subject is not
+    always entries[0] — so this row is "the alternative", never "the next one down".
+    """
+    for x in entries:
+        if x.get("name") != subj:
+            return x
+    return None
+
+
+def _fpl_ceiling_clause(entry) -> str:
+    """"a 10.26 ceiling — his 85th-percentile score across the simulations —".
+
+    The closing dash is part of the clause: every caller continues the sentence
+    afterwards, and an unclosed aside swallows whatever follows it.
+    """
+    c = _fmt_pts(entry.get("ceiling", 0))
+    return (f"{_a(c)} {c} ceiling — his 85th-percentile score across the "
+            f"simulations —")
+
+
+# --- captains --------------------------------------------------------------
+
+def _fpl_captains_headline(e, r, subj):
+    return f"{subj} takes the armband in Gameweek {r}"
+
+
+def _fpl_captains_standfirst(e, r, subj):
+    lead = _subject_entry(e, subj)
+    other = _fpl_runner_up(e, subj)
+    ev = _fmt_pts(lead.get("captain_ev", 0))
+    ceil = _fmt_pts(lead.get("ceiling", 0))
+    verb = ("leads on captain EV at" if _fpl_is_top(e, lead, "captain_ev")
+            else "is the armband call at")
+    line = f"{subj} {verb} {ev}, with {_a(ceil)} {ceil} ceiling underneath it"
+    if other is not None:
+        return (line + f" and {other['name']} "
+                f"({_fmt_pts(other.get('captain_ev', 0))}) the alternative.")
+    return line + "."
+
+
+def _fpl_captains_body(e, r, subj):
+    lead = _subject_entry(e, subj)
+    other = _fpl_runner_up(e, subj)
+    name = _esc(subj)
+    ceiling = _num(lead, "ceiling")
+    price = _fmt_price(lead.get("price", 0))
+
+    opening = (
+        f"<p>{name} is the captain pick this gameweek: "
+        f"{_fmt_pts(lead.get('captain_ev', 0))} captain EV, doubled off an xPts "
+        f"projection of {_fmt_pts(lead.get('x_points', 0))}, with "
+        f"{_fpl_ceiling_clause(lead)} which the armband turns into "
+        f"{_fmt_pts(ceiling * 2)}. He is {_a(price)} £{price}m "
+        f"{_esc(_pos_word(lead))}"
+    )
+    if lead.get("team"):
+        opening += f" at {_esc(lead['team'])}"
+    if lead.get("ownership_pct") is not None:
+        opening += f", owned by {_fmt_own(lead['ownership_pct'])} of the game.</p>\n"
+    else:
+        opening += ".</p>\n"
+
+    quote = ("<blockquote><p>The armband is the only decision you make twice — "
+             "every other pick scores once, so a captain who is merely fine costs "
+             "you the week silently.</p></blockquote>\n")
+
+    if other is None:
+        return opening + quote + (
+            "<p>Nobody else in the pool is close enough to argue for, which makes "
+            "the vice slot a formality rather than a decision.</p>"
+        )
+
+    o_ceil = _fmt_pts(other.get("ceiling", 0))
+    tail = (
+        f"<p>{_esc(other['name'])} is the alternative at "
+        f"{_fmt_pts(other.get('captain_ev', 0))} captain EV and {_a(o_ceil)} "
+        f"{o_ceil} ceiling"
+    )
+    lead_ko, other_ko = lead.get("kickoff_order"), other.get("kickoff_order")
+    if lead_ko is not None and other_ko is not None and other_ko < lead_ko:
+        tail += (f". He also kicks off first, which is what you want from a vice: "
+                 f"if {name} is a late omission, the fallback score is already on "
+                 f"the board rather than still to come.</p>")
+    elif lead_ko is not None and other_ko is not None and other_ko > lead_ko:
+        tail += (f". He kicks off after {name} though, so as a vice he leaves you "
+                 f"waiting — the safety net only resolves late in the "
+                 f"gameweek.</p>")
+    else:
+        tail += ".</p>"
+    return opening + quote + tail
+
+
+def _fpl_captains_bottom_line(e, r, subj):
+    lead = _subject_entry(e, subj)
+    other = _fpl_runner_up(e, subj)
+    ev = _fmt_pts(lead.get("captain_ev", 0))
+    best = " is the best on the board" if _fpl_is_top(e, lead, "captain_ev") else ""
+    line = (f"Captain {subj} — {ev} EV{best}, and "
+            f"{_fmt_pts(_num(lead, 'ceiling') * 2)} if the ceiling lands.")
+    if other is not None:
+        line += f" Vice it with {other['name']}."
+    return line
+
+
+# --- wildcard --------------------------------------------------------------
+
+def _fpl_best_value(entries):
+    """Highest xPts per million. Computed here rather than read off a `value` key:
+    the squad rows come from fpl_squad, which does not carry one."""
+    priced = [x for x in entries if _num(x, "price") > 0]
+    if not priced:
+        return None
+    return max(priced, key=lambda x: _num(x, "x_points") / _num(x, "price"))
+
+
+def _fpl_clubs_at_cap(entries, cap=3):
+    counts = {}
+    for x in entries:
+        team = x.get("team")
+        if team:
+            counts[team] = counts.get(team, 0) + 1
+    return sorted(t for t, n in counts.items() if n >= cap)
+
+
+def _fpl_xi_phrase(entries):
+    """"a 3-4-3 projecting 61.20 xPts" — falls back to a formation-free phrase when
+    the XI is short, so a partial squad does not print "a 0-1-0"."""
+    xi = _wc_xi(entries)
+    pts = _fmt_pts(_wc_xi_xpoints(entries))
+    if len(xi) == 11:
+        return f"a {_wc_formation(entries)} projecting {pts} xPts"
+    return f"an XI projecting {pts} xPts"
+
+
+def _fpl_bank_phrase(entries) -> str:
+    """"leaves £1.7m in the bank" — the over-budget branch cannot come out of
+    fpl_squad, but a published "£-15.3m in the bank" is worse than a guard."""
+    left = _wc_left_over(entries)
+    if left < 0:
+        return f"runs £{_fmt_price(-left)}m over it"
+    return f"leaves £{_fmt_price(left)}m in the bank"
+
+
+def _fpl_bank_short(entries) -> str:
+    left = _wc_left_over(entries)
+    if left < 0:
+        return f"£{_fmt_price(-left)}m over budget"
+    return f"£{_fmt_price(left)}m banked"
+
+
+def _fpl_wildcard_headline(e, r, subj):
+    return f"The Gameweek {r} wildcard draft"
+
+
+def _fpl_wildcard_standfirst(e, r, subj):
+    phrase = _fpl_xi_phrase(e)
+    return (f"{phrase[:1].upper()}{phrase[1:]}, inside a squad costing "
+            f"£{_fmt_price(_wc_total_cost(e))}m of the £100.0m budget.")
+
+
+def _fpl_wildcard_body(e, r, subj):
+    bench = _wc_bench(e)
+    full = len(e) == 15
+    shape = (" — two goalkeepers, five defenders, five midfielders, three forwards —"
+             if full else "")
+    out = (
+        f"<p>The draft is {_fpl_xi_phrase(e)} from the starting eleven, wrapped in "
+        f"a{' legal fifteen' if full else ' squad'}{shape} that spends "
+        f"£{_fmt_price(_wc_total_cost(e))}m of the £100.0m budget and "
+        f"{_fpl_bank_phrase(e)}.</p>\n"
+    )
+    out += ("<blockquote><p>The four bench places are budget, not squad depth: "
+            "every pound parked there is a pound the eleven that actually scores "
+            "never gets to spend.</p></blockquote>\n")
+    if bench:
+        out += (
+            f"<p>Which is why the bench is the cheapest legal one available — "
+            f"{_and_join(_esc(b['name']) for b in bench)}, "
+            f"£{_fmt_price(sum(_num(b, 'price') for b in bench))}m between them. "
+            f"They exist to make the fifteen legal, not to be picked.</p>\n"
+        )
+    capped = _fpl_clubs_at_cap(e)
+    if capped:
+        out += (
+            f"<p>The rule that forces the compromises is three players per club. "
+            f"{_and_join(_esc(c) for c in capped)} "
+            f"{'is' if len(capped) == 1 else 'are'} already at the cap, so the next "
+            f"upgrade from {'that club' if len(capped) == 1 else 'those clubs'} is "
+            f"unavailable at any price and the budget has to find its points "
+            f"somewhere else.</p>\n"
+        )
+    elif len(e) >= 11:
+        out += ("<p>No club is at the three-player cap in this draft, which is "
+                "rarer than it sounds — the cap is usually what stops a wildcard "
+                "from simply buying the best side's entire defence.</p>\n")
+    else:
+        out += ("<p>Three players per club is the rule that forces most of the "
+                "compromises in a wildcard: the best side's defence cannot all be "
+                "bought, so the budget has to find its points somewhere "
+                "else.</p>\n")
+    best = _fpl_best_value(e)
+    priciest = _wc_priciest(e, 3)
+    if priciest and len(e) >= 11:
+        out += (
+            "<p>The money is concentrated in "
+            + _and_join(f"{_esc(p['name'])} (£{_fmt_price(p.get('price', 0))}m)"
+                        for p in priciest)
+            + "."
+        )
+        if best is not None and best not in priciest:
+            rate = _num(best, "x_points") / _num(best, "price", 1.0)
+            out += (f" The pick doing the most per pound is {_esc(best['name'])}, "
+                    f"{_fmt_pts(rate)} xPts per million at "
+                    f"£{_fmt_price(best.get('price', 0))}m.")
+        out += "</p>"
+    return out
+
+
+def _fpl_wildcard_bottom_line(e, r, subj):
+    return (f"Field {_fpl_xi_phrase(e)}: £{_fmt_price(_wc_total_cost(e))}m spent, "
+            f"{_fpl_bank_short(e)}, and a bench that does nothing but keep the "
+            f"squad legal.")
+
+
+# --- ticker ----------------------------------------------------------------
+
+def _fpl_cs_phrase(entry) -> str:
+    """Expected clean sheets in words. A single fixture reads naturally as a
+    percentage; a double must not, because the figure SUMS across both games and a
+    "120% chance of a clean sheet" is nonsense."""
+    n = int(_num(entry, "fixtures"))
+    cs = _num(entry, "exp_clean_sheets")
+    if n == 0:
+        return "no clean sheet to expect, because there is no fixture"
+    if n == 1:
+        pct = _fpl_pct(cs)
+        return f"{_a(pct)} {pct} clean-sheet chance"
+    return f"{_fmt_pts(cs)} expected clean sheets across {n} fixtures"
+
+
+_BASIS_PHRASE = {
+    "market": "priced off the betting market",
+    "model": "from our own team ratings, not yet priced by the market",
+    "mixed": "one fixture priced by the market, one from our own ratings",
+}
+
+
+def _fpl_basis_phrase(entry) -> str:
+    return _BASIS_PHRASE.get(entry.get("basis"), "")
+
+
+def _fpl_ticker_swings(entries) -> str:
+    """The paragraph naming every club without a fixture and every club with two.
+    Returns "" when the gameweek has neither — an empty paragraph saying nothing
+    happened is worse than no paragraph."""
+    blanks = [x for x in entries if int(_num(x, "fixtures")) == 0]
+    doubles = [x for x in entries if int(_num(x, "fixtures")) > 1]
+    if not blanks and not doubles:
+        return ""
+    parts = []
+    if blanks:
+        names = _and_join(_esc(x["name"]) for x in blanks)
+        if len(blanks) == 1:
+            parts.append(f"{names} do not play at all — a blank, and every player "
+                         f"there scores nothing whatever else happens.")
+        else:
+            parts.append(f"{names} do not play at all — blanks, and every player at "
+                         f"those clubs scores nothing whatever else happens.")
+    if doubles:
+        if len(doubles) == 1:
+            d = doubles[0]
+            parts.append(f"{_esc(d['name'])} play twice "
+                         f"({_esc(d.get('opponents', ''))}) — a double, which is "
+                         f"two shots at every points source rather than one.")
+        else:
+            parts.append(f"{_and_join(_esc(x['name']) for x in doubles)} all play "
+                         f"twice — doubles, and two shots at every points source "
+                         f"rather than one.")
+    return "<p>" + " ".join(parts) + "</p>\n"
+
+
+def _fpl_ticker_headline(e, r, subj):
+    return f"{e[0]['name']} lead the Gameweek {r} ticker"
+
+
+def _fpl_ticker_standfirst(e, r, subj):
+    top = e[0]
+    line = f"{top['name']} have {_fpl_cs_phrase(top)}"
+    blanks = sum(1 for x in e if int(_num(x, "fixtures")) == 0)
+    doubles = sum(1 for x in e if int(_num(x, "fixtures")) > 1)
+    counts = []
+    if blanks:
+        counts.append(f"{blanks} blank{'s' if blanks > 1 else ''}")
+    if doubles:
+        counts.append(f"{doubles} double{'s' if doubles > 1 else ''}")
+    if counts:
+        return line + ", with " + " and ".join(counts) + " to plan around."
+    return line + "."
+
+
+def _fpl_ticker_body(e, r, subj):
+    top = e[0]
+    # The runner-up must actually have a fixture: a club that blanks can still sort
+    # second on a short list, and "next best for a clean sheet" is meaningless for a
+    # side that is not playing.
+    other = next((x for x in e[1:] if int(_num(x, "fixtures")) > 0), None)
+    basis = _fpl_basis_phrase(top)
+    out = (
+        f"<p>{_esc(top['name'])} head the ticker with {_fpl_cs_phrase(top)} against "
+        f"{_esc(top.get('opponents', ''))}, conceding "
+        f"{_fmt_pts(top.get('exp_goals_against', 0))} expected goals"
+    )
+    out += f" — {basis}.</p>\n" if basis else ".</p>\n"
+    if other is not None:
+        o_basis = _fpl_basis_phrase(other)
+        out += (
+            f"<p>{_esc(other['name'])} are the other side worth buying into: "
+            f"{_fpl_cs_phrase(other)} against "
+            f"{_esc(other.get('opponents', ''))}"
+            + (f" — {o_basis}" if o_basis else "")
+            + ".</p>\n"
+        )
+    out += _fpl_ticker_swings(e)
+    blowouts = [x for x in e if x.get("env") == "blowout"]
+    avoids = [x for x in e if x.get("env") == "avoid"]
+    if blowouts:
+        names = _and_join(_esc(b["name"]) for b in blowouts[:3])
+        verb = ("are in the highest-scoring fixture on the board"
+                if len(blowouts[:3]) == 1
+                else "are in the highest-scoring fixtures on the board")
+        out += (f"<blockquote><p>Goals go where the goals are: {names} {verb}, and "
+                f"that is where an attacking punt is worth "
+                f"taking.</p></blockquote>\n")
+    else:
+        out += ("<blockquote><p>No fixture on this board projects the goal total "
+                "that makes chasing an attacker worthwhile — which makes the clean "
+                "sheets, not the punts, where the edge is this "
+                "gameweek.</p></blockquote>\n")
+    if avoids:
+        names = _and_join(_esc(a["name"]) for a in avoids[:3])
+        out += (f"<p>Fade forwards at {names} — the model has "
+                f"{'that game' if len(avoids[:3]) == 1 else 'those games'} "
+                f"low-scoring at both ends.</p>")
+    return out
+
+
+def _fpl_ticker_bottom_line(e, r, subj):
+    top = e[0]
+    line = f"Buy the {top['name']} defence — {_fpl_cs_phrase(top)} is the best on offer"
+    basis = _fpl_basis_phrase(top)
+    line += f", {basis}." if basis else "."
+    blanks = [x["name"] for x in e if int(_num(x, "fixtures")) == 0]
+    doubles = [x["name"] for x in e if int(_num(x, "fixtures")) > 1]
+    if blanks:
+        line += f" Check your squad for {_and_join(blanks)} before the deadline."
+    if doubles:
+        line += f" {_and_join(doubles)} play twice."
+    return line
+
+
+# --- defenders -------------------------------------------------------------
+
+def _fpl_defenders_headline(e, r, subj):
+    return f"{subj} is the defence to own in Gameweek {r}"
+
+
+def _fpl_defenders_standfirst(e, r, subj):
+    lead = _subject_entry(e, subj)
+    ceil = _fmt_pts(lead.get("ceiling", 0))
+    return (f"{subj} projects {_fmt_pts(lead.get('x_points', 0))} xPts with "
+            f"{_a(ceil)} {ceil} ceiling, {_fmt_pts(lead.get('cs_points', 0))} of it "
+            f"from clean sheets.")
+
+
+def _fpl_defenders_body(e, r, subj):
+    lead = _subject_entry(e, subj)
+    name = _esc(subj)
+    xp = _num(lead, "x_points")
+    cs, dc, bon = (_num(lead, "cs_points"), _num(lead, "defcon"),
+                   _num(lead, "bonus"))
+    rest = xp - cs - dc - bon
+    is_gk = lead.get("position") == "GK"
+    verb = ("tops the defensive board at" if _fpl_is_top(e, lead, "x_points")
+            else "is the defensive pick at")
+
+    out = (
+        f"<p>{name} {verb} {_fmt_pts(xp)} xPts and {_fpl_ceiling_clause(lead)} for "
+        f"£{_fmt_price(lead.get('price', 0))}m"
+    )
+    out += f" at {_esc(lead['team'])}.</p>\n" if lead.get("team") else ".</p>\n"
+
+    split = [f"{_fmt_pts(cs)} from clean sheets"]
+    if is_gk:
+        split.append("nothing from defensive contributions, which goalkeepers are "
+                     "not eligible for")
+    elif dc:
+        split.append(f"{_fmt_pts(dc)} from defensive contributions")
+    if bon:
+        split.append(f"{_fmt_pts(bon)} from bonus")
+    tail = (f", and the remaining {_fmt_pts(rest)} from appearances and attacking "
+            f"returns" if rest > 0.05 else "")
+    out += (f"<p>Where those points come from matters as much as the total: "
+            f"{', '.join(split)}{tail}.</p>\n")
+
+    out += ("<blockquote><p>A clean sheet is one fixture's worth of luck — one "
+            "deflection and the whole line is worth nothing. Defensive "
+            "contributions pay whatever the scoreline does, which is why a "
+            "projection built on them is the steadier one.</p></blockquote>\n")
+
+    other = _fpl_runner_up(e, subj)
+    if other is not None:
+        out += (
+            f"<p>{_esc(other['name'])} is the alternative at "
+            f"{_fmt_pts(other.get('x_points', 0))} xPts for "
+            f"£{_fmt_price(other.get('price', 0))}m, "
+            f"{_fmt_pts(other.get('cs_points', 0))} of it from clean sheets"
+            + (" — and as a goalkeeper he earns no defensive contributions at all."
+               if other.get("position") == "GK" else ".")
+            + "</p>"
+        )
+    return out
+
+
+def _fpl_defenders_bottom_line(e, r, subj):
+    lead = _subject_entry(e, subj)
+    return (f"Start {subj} — {_fmt_pts(lead.get('x_points', 0))} xPts at "
+            f"£{_fmt_price(lead.get('price', 0))}m, of which "
+            f"{_fmt_pts(lead.get('cs_points', 0))} rides on the clean sheet and the "
+            f"rest arrives whatever the score.")
+
+
+# --- efficiency ------------------------------------------------------------
+
+def _fpl_efficiency_headline(e, r, subj):
+    return f"{subj} is the best value in Gameweek {r}"
+
+
+def _fpl_efficiency_standfirst(e, r, subj):
+    lead = _subject_entry(e, subj)
+    return (f"{subj} returns {_fmt_pts(lead.get('value', 0))} xPts per million — "
+            f"{_fmt_pts(lead.get('x_points', 0))} xPts at "
+            f"£{_fmt_price(lead.get('price', 0))}m.")
+
+
+def _fpl_efficiency_body(e, r, subj):
+    lead = _subject_entry(e, subj)
+    who = _esc(subj)
+    if lead.get("position"):
+        who += f", a {_esc(_pos_word(lead))}"
+        if lead.get("team"):
+            who += f" at {_esc(lead['team'])}"
+        who += ","
+    verb = ("is the most efficient pick in the pool at" if _fpl_is_top(e, lead, "value")
+            else "returns")
+    out = (
+        f"<p>{who} {verb} {_fmt_pts(lead.get('value', 0))} xPts per million: "
+        f"{_fmt_pts(lead.get('x_points', 0))} xPts with "
+        f"{_fpl_ceiling_clause(lead)} from a "
+        f"£{_fmt_price(lead.get('price', 0))}m price tag.</p>\n"
+    )
+    out += ("<blockquote><p>The budget is the whole game. FPL hands every manager "
+            "the same £100.0m, so points per million is not a bargain-hunter's "
+            "metric — it is what decides which players the rest of the squad can "
+            "afford.</p></blockquote>\n")
+    tiers = _wc_efficiency_tier_paragraph(e)
+    if tiers:
+        out += tiers + "\n"
+    other = _fpl_runner_up(e, subj)
+    if other is not None:
+        out += (f"<p>{_esc(other['name'])} is the other name on the list to weigh, "
+                f"at {_fmt_pts(other.get('value', 0))} xPts per million for "
+                f"£{_fmt_price(other.get('price', 0))}m.</p>")
+    return out
+
+
+def _fpl_efficiency_bottom_line(e, r, subj):
+    lead = _subject_entry(e, subj)
+    best = (" is the best rate in the game" if _fpl_is_top(e, lead, "value")
+            else " funds the rest of the squad")
+    return (f"Buy {subj} first — {_fmt_pts(lead.get('value', 0))} xPts per "
+            f"million{best}." + _wc_efficiency_tier_bottom_line(e))
+
+
+# --- defcon ----------------------------------------------------------------
+
+def _fpl_defcon_bar(entry) -> str:
+    """The threshold in the units the position actually counts."""
+    t = int(_num(entry, "defcon_threshold"))
+    if entry.get("position") == "DEF":
+        return f"{t} clearances, blocks, interceptions and tackles"
+    return f"{t} defensive actions"
+
+
+def _fpl_defcon_short_bar(entry) -> str:
+    return f"{int(_num(entry, 'defcon_threshold'))}-action bar"
+
+
+def _fpl_defcon_headline(e, r, subj):
+    return f"{subj} is the surest DefCon bet in Gameweek {r}"
+
+
+def _fpl_defcon_standfirst(e, r, subj):
+    lead = _subject_entry(e, subj)
+    return (f"{subj} records {_fpl_defcon_bar(lead)} in "
+            f"{_fpl_pct(lead.get('p_defcon', 0))} of simulations — "
+            f"{_fmt_pts(lead.get('defcon', 0))} points before anything else "
+            f"happens.")
+
+
+def _fpl_defcon_body(e, r, subj):
+    lead = _subject_entry(e, subj)
+    name = _esc(subj)
+    out = (
+        f"<p>{name} hits the defensive-contribution threshold — "
+        f"{_fpl_defcon_bar(lead)} for a {_esc(_pos_word(lead))} — in "
+        f"{_fpl_pct(lead.get('p_defcon', 0))} of simulations. That is "
+        f"{_fmt_pts(lead.get('defcon', 0))} points of the "
+        f"{_fmt_pts(lead.get('x_points', 0))} xPts he projects at "
+        f"£{_fmt_price(lead.get('price', 0))}m"
+    )
+    out += (f", playing for {_esc(lead['team'])}.</p>\n" if lead.get("team")
+            else ".</p>\n")
+
+    out += ("<blockquote><p>DefCon is a threshold, not a rate. A player either "
+            "clears the count in a given match or he banks nothing for the actions "
+            "he did make — which is why the number that matters is how often he "
+            "gets over the line, not how busy he looks.</p></blockquote>\n")
+
+    other = _fpl_runner_up(e, subj)
+    if other is None:
+        out += (f"<p>There is no second name on the board this gameweek, so the "
+                f"defensive-contribution call comes down to {name} or "
+                f"nothing.</p>")
+        return out
+
+    o_name = _esc(other["name"])
+    o_pct = _fpl_pct(other.get("p_defcon", 0))
+    if int(_num(other, "defcon_threshold")) != int(_num(lead, "defcon_threshold")):
+        out += (
+            f"<p>{o_name} clears his own bar in {o_pct} of simulations — a "
+            f"different bar, {_fpl_defcon_bar(other)} for a "
+            f"{_esc(_pos_word(other))}. The two are not competing for the same "
+            f"slot, so a squad can carry both.</p>"
+        )
+    else:
+        gap = abs(_num(lead, "p_defcon") - _num(other, "p_defcon")) * 100
+        out += (
+            f"<p>{o_name} clears the same {_fpl_defcon_short_bar(other)} in "
+            f"{o_pct} of simulations, which makes it a straight comparison — and a "
+            f"{gap:.0f}-point gap in how often the bonus actually arrives.</p>"
+        )
+    return out
+
+
+def _fpl_defcon_bottom_line(e, r, subj):
+    lead = _subject_entry(e, subj)
+    best = (" is the most reliable defensive-contribution source on the board, and "
+            "it pays" if _fpl_is_top(e, lead, "p_defcon")
+            else " pays")
+    return (f"Own {subj} — clearing the {_fpl_defcon_short_bar(lead)} in "
+            f"{_fpl_pct(lead.get('p_defcon', 0))} of simulations{best} whether or "
+            f"not the clean sheet holds.")
+
+
+_FPL_TEMPLATES = {
+    "captains": {
+        "headline": _fpl_captains_headline,
+        "standfirst": _fpl_captains_standfirst,
+        "body": _fpl_captains_body,
+        "bottom_line": _fpl_captains_bottom_line,
+    },
+    "wildcard": {
+        "headline": _fpl_wildcard_headline,
+        "standfirst": _fpl_wildcard_standfirst,
+        "body": _fpl_wildcard_body,
+        "bottom_line": _fpl_wildcard_bottom_line,
+    },
+    "ticker": {
+        "headline": _fpl_ticker_headline,
+        "standfirst": _fpl_ticker_standfirst,
+        "body": _fpl_ticker_body,
+        "bottom_line": _fpl_ticker_bottom_line,
+    },
+    "defenders": {
+        "headline": _fpl_defenders_headline,
+        "standfirst": _fpl_defenders_standfirst,
+        "body": _fpl_defenders_body,
+        "bottom_line": _fpl_defenders_bottom_line,
+    },
+    "efficiency": {
+        "headline": _fpl_efficiency_headline,
+        "standfirst": _fpl_efficiency_standfirst,
+        "body": _fpl_efficiency_body,
+        "bottom_line": _fpl_efficiency_bottom_line,
+    },
+    "defcon": {
+        "headline": _fpl_defcon_headline,
+        "standfirst": _fpl_defcon_standfirst,
+        "body": _fpl_defcon_body,
+        "bottom_line": _fpl_defcon_bottom_line,
+    },
+}
+
+
 _GENERIC_TEMPLATE = {
-    "headline": lambda e, r, slug, subj: f"Round analysis: {slug.replace('-', ' ').title()}",
+    "headline": lambda e, r, slug, subj, unit="Round": (
+        f"{unit} analysis: {slug.replace('-', ' ').title()}"
+    ),
     "standfirst": lambda e, r, subj: (
         f"{subj or e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
     ),
@@ -678,15 +1367,18 @@ _GENERIC_TEMPLATE = {
 
 
 def _template_prose(article: str, entries: list, columns: list,
-                    round_no: int = 0, subject=None) -> dict:
+                    round_no: int = 0, subject=None, unit: str = "Round") -> dict:
     """Build deterministic template prose from entries.
 
     subject: the player to centre the prose on (or None for team-framing in best-xi).
+    unit:    "Round" (World Cup) or "Gameweek" (FPL). It selects the template table
+             as well as the reader-facing wording: four FPL slugs share a name with
+             a World Cup slug, so they cannot live in the same dict.
     """
     if not entries:
         body_html = "<p>No entries available for this article.</p>"
         return {
-            "headline": f"Round analysis: {article}",
+            "headline": f"{unit} analysis: {article}",
             "standfirst": "No data available.",
             "body_html": body_html,
             "body_md": _html_to_md(body_html),
@@ -694,23 +1386,26 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi, wildcard, matches and fixtures (no player subject), skip
-    # per-player framing
+    # For best-xi, wildcard, matches, fixtures and ticker (no player subject), skip
+    # per-player framing — ticker's rows are clubs, so entries[0]["name"] would put
+    # a three-letter club abbreviation where a player's name belongs.
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "wildcard", "matches", "fixtures"):
+    elif article in ("best-xi", "wildcard", "matches", "fixtures", "ticker"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None
 
-    tmpl = _TEMPLATES.get(article)
+    table = _FPL_TEMPLATES if unit == "Gameweek" else _TEMPLATES
+    tmpl = table.get(article)
     if tmpl:
         headline = tmpl["headline"](entries, round_no, subj)
         standfirst = tmpl["standfirst"](entries, round_no, subj)
         body_html = tmpl["body"](entries, round_no, subj)
         bottom_line = tmpl["bottom_line"](entries, round_no, subj)
     else:
-        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj)
+        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj,
+                                                 unit)
         standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no, subj)
         body_html = _GENERIC_TEMPLATE["body"](entries, round_no, subj)
         bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no, subj)
@@ -730,7 +1425,7 @@ def _template_prose(article: str, entries: list, columns: list,
 # ---------------------------------------------------------------------------
 
 def _llm_prose(article: str, round_no: int, entries: list, columns: list,
-               cache_dir: str, subject=None):
+               cache_dir: str, subject=None, cache_name=None, unit: str = "Round"):
     """Call the Claude API and return prose dict, or None if we should fall through."""
     if not _ANTHROPIC_AVAILABLE:
         return None
@@ -739,7 +1434,7 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     from evmax.prompts import build_prompt
 
-    prompt = build_prompt(article, round_no, entries, subject=subject)
+    prompt = build_prompt(article, round_no, entries, subject=subject, unit=unit)
 
     try:
         client = _anthropic.Anthropic()
@@ -818,7 +1513,8 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     # Cache the result as markdown
     try:
-        cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+        cache_path = os.path.join(cache_dir, cache_name or f"round-{round_no}",
+                                  f"{article}.md")
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w", encoding="utf-8") as fh:
             fh.write(f"# {data['headline']}\n\n")
@@ -843,33 +1539,44 @@ def article_prose(
     cache_dir: str = "data/articles",
     use_llm: bool = True,
     subject=None,
+    cache_name=None,
+    unit: str = "Round",
 ) -> dict:
     """Generate prose for an article using tiered resolution: cache → LLM → template.
 
     Parameters
     ----------
-    article   : article slug, e.g. "captains"
-    round_no  : fantasy round number
-    entries   : list of ranked row dicts (from articles.py)
-    columns   : list of column keys to feature in prose
-    cache_dir : base directory for cached markdown files
-    use_llm   : whether to attempt the LLM tier (default True)
-    subject   : player name to centre prose on, or None for team-framing (best-xi)
+    article    : article slug, e.g. "captains"
+    round_no   : fantasy round number
+    entries    : list of ranked row dicts (from articles.py)
+    columns    : list of column keys to feature in prose
+    cache_dir  : base directory for cached markdown files
+    use_llm    : whether to attempt the LLM tier (default True)
+    subject    : player name to centre prose on, or None for team-framing (best-xi)
+    cache_name : subdirectory under cache_dir, defaulting to "round-{round_no}".
+                 The FPL build passes "fpl-gw{n}" — without it, FPL gameweek 1 and
+                 World Cup round 1 share a cache entry and one serves the other's
+                 article.
+    unit       : the reader-facing word for the period ("Round" or "Gameweek"),
+                 passed through to the LLM prompt and the templates.
 
     Returns
     -------
     dict with keys: headline, standfirst, body_html, body_md, bottom_line, source
     """
     # Tier 1: cache
-    cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+    cache_path = os.path.join(cache_dir, cache_name or f"round-{round_no}",
+                              f"{article}.md")
     if os.path.isfile(cache_path):
         return _parse_cache_md(cache_path)
 
     # Tier 2: LLM (optional)
     if use_llm:
-        result = _llm_prose(article, round_no, entries, columns, cache_dir, subject=subject)
+        result = _llm_prose(article, round_no, entries, columns, cache_dir,
+                            subject=subject, cache_name=cache_name, unit=unit)
         if result is not None:
             return result
 
     # Tier 3: template
-    return _template_prose(article, entries, columns, round_no=round_no, subject=subject)
+    return _template_prose(article, entries, columns, round_no=round_no,
+                           subject=subject, unit=unit)
