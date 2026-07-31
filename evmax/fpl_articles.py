@@ -138,9 +138,21 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
     Checking at the end would mean rejecting an otherwise-optimal squad with no way
     to repair it; checking inline means the search only ever walks legal states.
 
-    The cap also makes the formation sweep do real work beyond xPts: a formation
-    whose greedy build cannot fill a position under the cap raises and is skipped,
-    so the sweep is what rescues pools dominated by one club.
+    THE SWEEP IS LOAD-BEARING FOR LEGALITY, NOT JUST FOR POINTS -- read this before
+    changing it. In the World Cup builder the sweep is a pure optimisation: every
+    formation builds, and the sweep only picks the highest-scoring one. Here it is
+    also the error-recovery mechanism. _squad_for_formation RAISES when a position
+    cannot be filled under the cap, and which formations raise depends on the pool:
+    if one club owns most of the cheap defenders, the 3-DEF formations exhaust that
+    club on the bench and then cannot field a keeper, while the 5-DEF ones survive.
+    The `except ValueError: continue` below is what turns those raises into a
+    rescued build.
+
+    So: do NOT short-circuit the sweep (e.g. break on the first formation that
+    builds, or skip formations to save time). That converts a pool this function
+    currently handles into a hard "no legal FPL squad" failure. The covering test is
+    test_club_cap_holds_when_one_club_dominates_the_pool, where only 4- and 5-DEF
+    formations build at all.
 
     Still a greedy heuristic, not an exact solver -- same as the World Cup builder,
     and the same caveat applies: it will not always find the true optimum.

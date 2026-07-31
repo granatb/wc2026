@@ -226,3 +226,139 @@ class TestFplSquad(unittest.TestCase):
         for e in entries:
             counts[e["team"]] = counts.get(e["team"], 0) + 1
         self.assertTrue(all(c <= 2 for c in counts.values()), counts)
+
+
+# 20 clubs, so a 15-man squad never runs out of clubs and the BUDGET is the only
+# binding constraint. The cap-binding case is _tier_locked_pool below.
+_CORRELATED_CLUBS = tuple("T%02d" % n for n in range(20))
+
+
+def _correlated_pool():
+    """A pool where price rises WITH xPts, modelled on the real feed: premiums at
+    ~14.8m/8.2xP down to enablers at 4.0m/1.0xP.
+
+    The _pool() fixture above is anti-correlated -- its cheapest player is also its
+    best -- so the naive best-XI build lands miles under budget and NEITHER repair
+    loop ever fires. Here the naive build overshoots 100.0m badly, which is the
+    real-world case and the only way to exercise the repair half of the builder.
+    """
+    rows, i = [], 0
+    for pos in ("GK", "DEF", "MID", "FWD"):
+        for k in range(10):
+            i += 1
+            rows.append(_row(f"{pos}{k}", pos, 1.0 + k * 0.8,
+                             price=4.0 + k * 1.2,
+                             team=_CORRELATED_CLUBS[i % len(_CORRELATED_CLUBS)]))
+    return rows
+
+
+def _tier_locked_pool():
+    """Correlated prices AND a club per price tier, so the three cheapest tiers can
+    supply only 3 players each and the CLUB CAP -- not the budget -- sets the floor
+    on what a legal squad can cost."""
+    clubs = tuple("C%d" % n for n in range(10))
+    rows, i = [], 0
+    for pos in ("GK", "DEF", "MID", "FWD"):
+        for k in range(10):
+            i += 1
+            rows.append(_row(f"{pos}{k}", pos, 2.0 + k * 0.9,
+                             price=4.0 + k * 1.1, team=clubs[i % len(clubs)]))
+    return rows
+
+
+class TestFplSquadRepairLoops(unittest.TestCase):
+    """Cover the budget repair half of fpl_squad.
+
+    Every assertion in TestFplSquad above runs on a pool where the build lands at
+    72.0m of a 100.0m budget, so the downgrade and upgrade loops are never entered
+    at all. These tests drive both.
+    """
+
+    def assert_squad_is_legal(self, entries, meta, cap=3, budget=100.0):
+        """Quota, budget, formation and cap -- the four invariants a swap must
+        preserve. A repair loop that fixes the budget by breaking the quota, the
+        formation or the cap would still be a bug."""
+        self.assertEqual(len(entries), 15)
+        quota = {}
+        for e in entries:
+            quota[e["position"]] = quota.get(e["position"], 0) + 1
+        self.assertEqual(quota, {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3})
+        self.assertLessEqual(meta["total_cost"], budget)
+        clubs = {}
+        for e in entries:
+            clubs[e["team"]] = clubs.get(e["team"], 0) + 1
+        self.assertTrue(all(c <= cap for c in clubs.values()),
+                        f"club cap violated: {clubs}")
+        xi = [e for e in entries if e["role"] == "XI"]
+        self.assertEqual(len(xi), 11)
+        counts = {pos: sum(1 for e in xi if e["position"] == pos)
+                  for pos in ("GK", "DEF", "MID", "FWD")}
+        self.assertEqual(counts["GK"], 1)
+        self.assertTrue(3 <= counts["DEF"] <= 5, counts)
+        self.assertTrue(2 <= counts["MID"] <= 5, counts)
+        self.assertTrue(1 <= counts["FWD"] <= 3, counts)
+
+    def test_downgrade_loop_brings_an_overspent_squad_under_budget(self):
+        rows = _correlated_pool()
+        # With the budget lifted, the greedy build takes the best (and so the most
+        # expensive) XI and overshoots by a wide margin -- this is what the
+        # downgrade loop has to repair, and it is why the loop exists.
+        _unrepaired, naive = fpl_articles.fpl_squad(rows, budget=1e9)
+        self.assertGreater(naive["total_cost"], 150.0)
+
+        entries, meta = fpl_articles.fpl_squad(rows)
+        self.assertLessEqual(meta["total_cost"], 100.0)
+        self.assert_squad_is_legal(entries, meta)
+
+    def test_downgrade_loop_respects_the_club_cap_while_repairing(self):
+        """The cap assertion in the test above cannot fail -- that pool has 20 clubs
+        for 15 places. Here the cap is what sets the floor, so the downgrade loop
+        must refuse cheaper players whose club is already full."""
+        rows = _tier_locked_pool()
+        entries, meta = fpl_articles.fpl_squad(rows)
+        self.assert_squad_is_legal(entries, meta)
+
+        # 93.0m is the cheapest legal squad here: only 3 players may come from each
+        # price tier, so the floor is 3 x (4.0 + 5.1 + 6.2 + 7.3 + 8.4). A
+        # cap-blind builder would reach 88.8m by overloading the cheap tiers.
+        _e, tight = fpl_articles.fpl_squad(rows, budget=93.0)
+        self.assertEqual(tight["total_cost"], 93.0)
+        with self.assertRaises(ValueError):
+            fpl_articles.fpl_squad(rows, budget=92.9)
+
+    def test_upgrade_loop_spends_leftover_budget(self):
+        rows = _correlated_pool()
+        entries, meta = fpl_articles.fpl_squad(rows)
+
+        # Prices sit on a 1.2m grid, so any upgrade costs at least 1.2m more than
+        # the player it replaces. Leftover below one grid step therefore means the
+        # loop stopped because nothing affordable was left, not because it quit early.
+        self.assertGreaterEqual(meta["left_over"], 0.0)
+        self.assertLess(meta["left_over"], 1.2,
+                        f"upgrade loop left {meta['left_over']}m unspent")
+
+        # The load-bearing comparison: a budget too tight to permit any upgrade
+        # yields a strictly worse XI. Without this, "left_over is small" would also
+        # be satisfied by a builder that merely spent money without gaining points.
+        _tight_entries, tight = fpl_articles.fpl_squad(rows, budget=89.0)
+        self.assertGreater(meta["xi_xpoints"], tight["xi_xpoints"])
+
+        # Characterisation of the current greedy heuristic, NOT a mathematical
+        # optimum -- 88.8m is the cheapest legal squad in this pool, and a future
+        # tuning change may legitimately move these. Treat a diff here as expected.
+        self.assertEqual(tight["total_cost"], 88.8)
+
+    def test_repair_loops_never_introduce_a_duplicate(self):
+        """Both loops re-select from the whole pool, so a missing membership check
+        is the one way this builder could field the same player twice. The
+        duplicate test above runs on a pool where neither loop fires."""
+        for budget in (100.0, 95.0, 92.0, 89.0):
+            with self.subTest(budget=budget):
+                entries, meta = fpl_articles.fpl_squad(_correlated_pool(),
+                                                       budget=budget)
+                names = [e["name"] for e in entries]
+                self.assertEqual(len(names), len(set(names)), f"duplicate: {names}")
+                keys = [(e["name"], e["team"], e["position"], e["price"])
+                        for e in entries]
+                self.assertEqual(len(keys), len(set(keys)))
+                self.assert_squad_is_legal(entries, meta, budget=budget)
