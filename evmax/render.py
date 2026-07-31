@@ -18,6 +18,54 @@ DATA_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 DATA_LICENSE_TEXT = ("CC BY 4.0 — free to reuse with attribution to evmax "
                      "(https://evmax.ai)")
 
+
+class Section:
+    """A URL namespace and its reader-facing vocabulary.
+
+    The site serves two competitions from one renderer. Rather than fork the page
+    functions (or bring the September templating refactor forward), each function
+    takes a Section and defaults to WC, so every existing call site keeps producing
+    byte-identical HTML.
+
+    unit_abbr is the round-switcher pill label: "R5" for the World Cup, "GW5" for
+    FPL.
+    """
+
+    def __init__(self, key, label, unit, unit_abbr, base, api_base):
+        self.key = key                # "round" | "fpl"
+        self.label = label            # "World Cup Fantasy" | "Fantasy Premier League"
+        self.unit = unit              # "Round" | "Gameweek"
+        self.unit_abbr = unit_abbr    # "R" | "GW"
+        self.base = base              # "/round/{r}" | "/fpl/gw{r}"
+        self.api_base = api_base      # "/api/round/{r}" | "/api/fpl/gw{r}"
+
+    def landing_path(self, n):
+        return self.base.format(r=n) + "/"
+
+    def article_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}/"
+
+    def md_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}.md"
+
+    def json_path(self, n, slug):
+        return f"{self.api_base.format(r=n)}/{slug}.json"
+
+    def players_json_path(self, n):
+        return f"{self.api_base.format(r=n)}/players.json"
+
+    def kicker(self, n):
+        return f"{self.unit} {n}"
+
+    def switcher_base(self):
+        return self.base + "/"
+
+
+WC = Section("round", "World Cup Fantasy", "Round", "R",
+             "/round/{r}", "/api/round/{r}")
+FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
+              "/fpl/gw{r}", "/api/fpl/gw{r}")
+
 # Favicons + mobile theme color, on every page. Google Search needs a raster icon
 # of AT LEAST 48px (multiples of 48 preferred) declared via rel="icon" -- its
 # favicon pipeline often skips SVG, and a 32px-only PNG gets you the generic globe
@@ -417,7 +465,8 @@ def _nav_html(active=None):
     return "<nav>" + "".join(items) + "</nav>"
 
 
-def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/"):
+def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/",
+                         abbr="R"):
     """Pill row of every round that's actually been built (see build.py's
     available_rounds -- computed from what's on disk, so this never links to
     a round that doesn't exist). Without this, older rounds are still live
@@ -427,10 +476,11 @@ def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/
         return ""
     tabs = "".join(
         f'<a class="round-tab{" active" if r == current_round else ""}" '
-        f'href="{base_path.format(r=r)}">R{r}</a>'
+        f'href="{base_path.format(r=r)}">{abbr}{r}</a>'
         for r in available_rounds
     )
-    return f'<div class="round-switcher"><span class="rs-label">Rounds</span>{tabs}</div>'
+    label = "Rounds" if abbr == "R" else "Gameweeks"
+    return f'<div class="round-switcher"><span class="rs-label">{label}</span>{tabs}</div>'
 
 
 def _rate_cta_html():
@@ -857,7 +907,7 @@ def _article_md_table(article: str, entries: list, columns: list) -> str:
 
 
 def article_md(round_no, slug, title, prose, entries, columns, generated_at,
-               date_str, canonical_path):
+               date_str, canonical_path, section=WC):
     """Content-only Markdown twin of an article, for AI agents (the llms.txt
     convention) -- purpose-built to replace paid edge markdown-conversion.
 
@@ -869,7 +919,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
     body_md = prose.get("body_md", "")
     bottom_line = prose.get("bottom_line", "")
     table_md = _article_md_table(slug, entries, columns)
-    json_url = f"{SITE_URL}/api/round/{round_no}/{slug}.json"
+    json_url = f"{SITE_URL}{section.json_path(round_no, slug)}"
 
     parts = [
         f"# {headline}",
@@ -1294,7 +1344,8 @@ def _split_lede(body_html: str) -> tuple:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True, available_rounds=None):
+                 generated_at=None, date_str=None, show_table=True, available_rounds=None,
+                 section=WC):
     """v2 editorial article page.
 
     Published articles are frozen claims: this page always renders the exact
@@ -1337,7 +1388,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
         article_ld_obj["datePublished"] = generated_at
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
-        _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
+        _COL_LABEL.get(article, article.replace("-", " ").title())
+        + f" · {section.kicker(round_no)}")
     table_html = _rank_table_html(entries, columns) if show_table else ""
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
@@ -1371,8 +1423,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <title>{_html.escape(title)} | {TITLE_BRAND}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
-<link rel="alternate" type="text/markdown" href="/round/{round_no}/{article}.md">
-{_og_meta(prose["headline"], summary, f"/round/{round_no}/{article}/", "article")}
+<link rel="alternate" type="text/markdown" href="{section.md_path(round_no, article)}">
+{_og_meta(prose["headline"], summary, section.article_path(round_no, article), "article")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1386,7 +1438,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <div class="wrap">
 <article class="art">
 <div class="kick">{kicker_label}</div>
-{_round_switcher_html(available_rounds or [round_no], round_no)}
+{_round_switcher_html(available_rounds or [round_no], round_no,
+                      base_path=section.switcher_base(), abbr=section.unit_abbr)}
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
