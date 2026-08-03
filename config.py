@@ -148,6 +148,22 @@ FPL_DEFCON_PRIOR = {"GK": 0.0, "DEF": 7.72, "MID": 7.96, "FWD": 4.46}
 # -- chosen from the appearance-count anchors above, not fit to the leaderboard.
 FPL_DEFCON_SHRINKAGE_K = 3.0
 
+# How far Premier League club ratings spread from the league mean (see
+# core/fpl_ratings.py). A club one whole league-mean of strength above average
+# gets attack = 1 + FPL_RATING_SPREAD and defence = 1 - FPL_RATING_SPREAD; an
+# average club sits at exactly 1.0/1.0 and leaves the goal level untouched, so
+# this dial redistributes goals across clubs without changing their total.
+# 0.0 collapses every club onto the neutral default -- the escape hatch that
+# isolates a regression to the ratings rather than the plumbing.
+#
+# A CALIBRATION KNOB, not a measured value. FPL's published strength scale is a
+# coarse 2-5 integer, and how many goals one step on it is actually worth can
+# only be settled against realized results. 0.25 is a starting point chosen to
+# separate the clubs meaningfully (the top club scores roughly a third more than
+# the bottom one) while staying well short of the spread implied by bookmaker
+# odds -- revisit once GW1-5 results exist to grade it against.
+FPL_RATING_SPREAD = 0.25
+
 
 def game(name: str) -> dict:
     return GAMES[name]

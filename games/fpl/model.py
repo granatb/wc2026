@@ -454,12 +454,23 @@ def load_gameweek(gameweek: int, refresh: bool = False):
 
     Returns (priors_by_team, players_by_name, cold_start_flags).
     """
-    from core import fixtures, fpl_api, fpl_priors
+    from core import fixtures, fpl_api, fpl_priors, fpl_ratings
 
     boot = fpl_api.read_cache("bootstrap")
     raw_fx = fpl_api.read_cache("fixtures")
     if refresh or boot is None or raw_fx is None:
         boot, raw_fx = fpl_api.refresh()
+
+    # Register club ratings BEFORE the fixtures below. core.ratings.TEAM_RATINGS
+    # carries World Cup national teams only, so without this every Premier League
+    # pairing falls through to the neutral default and Fixture.lambdas() returns
+    # the identical (1.445, 1.35) for every tie -- which is what put all twenty
+    # clubs on the same clean-sheet number in the published ticker. Fixture
+    # lambdas are computed lazily (build_artifact calls f.lambdas()), so ordering
+    # against the registration loop below is not strictly load-bearing today; it
+    # is done first anyway so that a future caller reading a lambda straight off a
+    # freshly-registered Fixture cannot get the neutral fallback.
+    fpl_ratings.register(fpl_api.parse_team_strength(boot))
 
     teams = fpl_api.parse_teams(boot)
     events = fpl_api.parse_events(boot)
