@@ -161,6 +161,42 @@ This test may PASS on the first run — that is a legitimate outcome, not a mist
 - **PASS** → the per-match average × `played/sims` really does reconstruct the sum. Record that in Step 3 and move on.
 - **FAIL** → the assembly path under-counts (or over-counts) bonus across a double. Take option 2 from the Phase 3 note: change `build_rows` (Task 2) to read `x_points` off `points.mean(name)` instead of `total_points(...)`, which removes the whole class of question. Do not hand-patch the scaling factor.
 
+### OUTCOME (2026-07-31): the cross-check FAILED — take option 2
+
+Measured on the synthetic double: `assembled=7.149`, `per-sim=14.298` — the assembly
+path returns **exactly half** the gameweek total. The single-fixture control passed,
+isolating the double as the cause.
+
+**The Phase 3 note's hypothesis was wrong.** It supposed `played / sims` approaches
+2.0 for a two-fixture team, making the bonus product correct by construction. It does
+not: `ps.sims += 1` sits inside the per-fixture loop (`core/engine_events.py:289`), so
+a double-gameweek player's `sims` doubles alongside `played`. Their ratio stays at the
+per-match start probability, and every value `event_means` produces is a **per-match**
+mean rather than a per-gameweek one. So the defect is not in the bonus scaling at all
+— it is in the unconditional `expected_points(means)` term, which values a two-match
+gameweek as one match's work. Bonus was a symptom, not the cause.
+
+**Nothing published is affected.** The feed currently has no blanks or doubles (spec
+§3), and the World Cup never has a team playing twice in one round, so `sims == N`
+everywhere the assembly path has ever run. This is latent, not live.
+
+**Remedy: option 2 from the Phase 3 note**, folded into Task 2 — `x_points` reads off
+`SimPointsAccumulator.mean()`, the same per-sim distribution the `ceiling` column
+already uses. That path sums each sim's matches explicitly and carries its own
+double-gameweek coverage. It bypasses both the bonus scaling and the unconditional
+term, and it confines the change to `games/fpl/model.py`: the shared engine and every
+World Cup code path are untouched.
+
+Option 1's stated purpose was to keep `total_points` as an independent cross-check of
+the per-sim path. That check has now done its job — by failing — and what it revealed
+is that it was the broken side of the comparison. Keeping it as an oracle would mean
+trusting the path just proven wrong.
+
+`total_points` is NOT deleted: `tests/test_fpl_model.TestDistributionMeanAgreesWithTotalPoints`
+still exercises it for single-fixture gameweeks, where it is correct and remains a
+genuine check on the per-sim scoring assembly. It simply stops feeding the published
+`x_points` column.
+
 - [ ] **Step 3: Record the answer**
 
 Add a comment above `BonusAccumulator.expected` in `games/fpl/model.py` stating what the test established. If it passed:
@@ -364,9 +400,14 @@ Then replace the row-assembly loop inside `build_rows` (the `for name, ps in sam
     rows = []
     for name, ps in samples.items():
         m = means[name]
-        conceded_samples = _conceded_series(ps)
         player_bonus = bonus.expected(name)
-        pts = total_points(m, ps, conceded_samples, bonus=player_bonus)
+        # x_points comes off the per-sim distribution, NOT total_points. Task 1
+        # established that the assembly path values a double gameweek as a single
+        # match: ps.sims increments once per FIXTURE (engine_events.py:289), so
+        # every event_means value is a per-match mean and expected_points(means)
+        # under-counts a two-fixture team by exactly 2x. points.mean() sums each
+        # sim's matches explicitly and is the same path the ceiling already uses.
+        pts = points.mean(name)
         p_played = appearance_probability(ps)
         meta = players_by_name.get(name, {})
         # Scaled by P(played): the raw threshold probability is conditional on
