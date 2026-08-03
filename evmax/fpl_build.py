@@ -70,18 +70,17 @@ def _gameweek_fixtures(gameweek: int) -> list:
     """This gameweek's PREMIER LEAGUE fixtures.
 
     core.fixtures.SCHEDULE is shared by both competitions and buckets purely on
-    fantasy_round, so by_round(1) returns World Cup round 1 AND FPL gameweek 1 —
-    24 finished World Cup ties alongside the 10 Premier League ones. `stage` is
-    what separates them: games.fpl.model.load_gameweek registers every FPL
-    fixture as stage "GW".
+    fantasy_round, so an unnarrowed by_round(1) returns World Cup round 1 AND FPL
+    gameweek 1 — 24 finished World Cup ties alongside the 10 Premier League ones.
+    `stage` is what separates them: games.fpl.model.load_gameweek registers every
+    FPL fixture as model.FPL_STAGE.
 
-    Without this filter the build publishes World Cup ties in an FPL fixture
-    ticker (fpl_articles.ticker takes any club it sees in the match list, by
-    design, so a stale club list can't drop a real fixture) and the preflight
-    reports two dozen long-finished World Cup matches as "unpriced".
+    Without the narrowing the preflight reports two dozen long-finished World Cup
+    matches as "unpriced". The artifact's own fixture list is scoped inside
+    games.fpl.model.build_artifact, so nothing downstream of the model needs to
+    re-filter.
     """
-    return [f for f in fixtures.by_round(gameweek)
-            if getattr(f, "stage", "") == "GW"]
+    return fixtures.by_round(gameweek, stage=model.FPL_STAGE)
 
 
 def preflight(gameweek: int, players: list, cold_start: list) -> list:
@@ -273,12 +272,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             f"    rm -f data/fpl/bootstrap.json data/fpl/fixtures.json && "
             f"python3 manage.py fpl --round {gameweek}")
 
-    # The shared schedule buckets on fantasy_round alone, so artifact["matches"]
-    # also carries the World Cup ties of the same round number (see
-    # _gameweek_fixtures). Keep only this gameweek's Premier League fixtures, or
-    # the ticker publishes national teams.
-    gw_match_ids = {f.match_id for f in _gameweek_fixtures(gameweek)}
-    matches = [m for m in artifact["matches"] if m["match_id"] in gw_match_ids]
+    # Already scoped to this gameweek's Premier League fixtures: build_artifact
+    # narrows by_round with stage=FPL_STAGE, so the World Cup ties that share a
+    # round number never reach the sim or the match summaries.
+    matches = artifact["matches"]
 
     available = _available_gameweeks(out, gameweek)
 

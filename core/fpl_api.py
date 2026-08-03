@@ -21,6 +21,8 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
+from . import fixtures
+
 BASE = "https://fantasy.premierleague.com/api"
 BOOTSTRAP = f"{BASE}/bootstrap-static/"
 FIXTURES = f"{BASE}/fixtures/"
@@ -199,7 +201,7 @@ def parse_fixtures(raw: list, teams: dict[int, str]) -> list[dict]:
             "away": teams.get(f["team_a"], "???"),
             "kickoff_utc": f.get("kickoff_time"),
             "fantasy_round": gw,
-            "stage": "GW",
+            "stage": fixtures.FPL_STAGE,
         })
     return out
 

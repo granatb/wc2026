@@ -198,7 +198,7 @@ def percentile(values: list[float], q: float) -> float:
 def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                    market_rates: dict | None = None, research: dict | None = None,
                    research_weight: float = 0.0, concentration: float | None = None,
-                   priors=None, per_match_hook=None):
+                   priors=None, per_match_hook=None, stage=None):
     """Run the shared Monte Carlo for every fixture in a round.
 
     market_rates:    optional {player_name: goal_rate} from bookmaker player props.
@@ -226,13 +226,21 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                      no defcon_per90); it is passed through, not resampled, so
                      reading it never consumes extra rng. The engine knows nothing
                      about what the callback computes.
+    stage:           optional competition discriminator, passed straight to
+                     fixtures.by_round. core.fixtures.SCHEDULE holds both the
+                     World Cup and FPL in one list bucketed on fantasy_round
+                     alone, so World Cup round 1 and FPL gameweek 1 collide and
+                     an unfiltered FPL build would simulate two dozen finished
+                     World Cup ties. Defaults to None — no filter — so the World
+                     Cup path selects exactly the same fixtures in exactly the
+                     same order and makes identical rng draws.
 
     Returns (player_samples, match_samples).
     """
     import config
     gamma = config.GOAL_CONCENTRATION if concentration is None else concentration
     rng = random.Random(seed)
-    fx = fixtures.by_round(fantasy_round)
+    fx = fixtures.by_round(fantasy_round, stage=stage)
     market_rates = market_rates or {}
     research = research or {}
     prior_of = priors or ratings.players_for_team

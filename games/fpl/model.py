@@ -15,7 +15,13 @@ E[floor(x/n)] != floor(E[x]/n).
 
 from __future__ import annotations
 
-from core import engine_events
+from core import engine_events, fixtures as _fixtures
+
+# The stage every fixture this model registers carries, and the discriminator
+# that keeps a World Cup tie of the same fantasy_round out of an FPL gameweek.
+# Re-exported from core.fixtures rather than restated, so the literal lives in
+# exactly one place (core.fpl_api stamps the same constant onto parsed rows).
+FPL_STAGE = _fixtures.FPL_STAGE
 
 # --- confirmed scoring values (games/fpl/rules.md) -------------------------
 GOAL_PTS = {"GK": 10, "DEF": 6, "MID": 5, "FWD": 4}
@@ -476,7 +482,7 @@ def load_gameweek(gameweek: int, refresh: bool = False):
         fixtures.SCHEDULE.append(fixtures.Fixture(
             match_id=r["match_id"], home=r["home"], away=r["away"],
             kickoff=fpl_api._parse_utc(r["kickoff_utc"]),
-            stage="GW", fantasy_round=r["fantasy_round"], neutral=False,
+            stage=FPL_STAGE, fantasy_round=r["fantasy_round"], neutral=False,
         ))
     if gameweek in events:
         fixtures.set_deadline(gameweek, events[gameweek]["deadline"])
@@ -668,7 +674,12 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     import config
     from core import fixtures, research, simcache
 
-    fx = fixtures.by_round(gameweek)
+    # stage=FPL_STAGE, not a bare by_round: the shared SCHEDULE buckets on
+    # fantasy_round alone, so an unnarrowed call also returns the World Cup ties
+    # of the same round number. They would otherwise be simulated, summarised
+    # into artifact["matches"], AND hashed into the cache key below via
+    # `lambdas` — letting World Cup fixture data determine the FPL cache key.
+    fx = fixtures.by_round(gameweek, stage=FPL_STAGE)
     lambdas = {f.match_id: f.lambdas() for f in fx}
     research_entries = research.load_entries("players", gameweek)
     research_projection = {
@@ -724,6 +735,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         research=research_entries,
         research_weight=research_weight,
         per_match_hook=_hook,
+        stage=FPL_STAGE,
     )
     means = engine_events.event_means(samples)
 

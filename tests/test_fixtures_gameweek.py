@@ -65,3 +65,46 @@ class TestGameweekDeadline(unittest.TestCase):
         fixtures.SCHEDULE.extend(added)
         self.addCleanup(lambda: [fixtures.SCHEDULE.remove(f) for f in added])
         self.assertEqual(fixtures.round_lock_time(10).hour, 13)
+
+
+class TestByRoundStageFilter(unittest.TestCase):
+    """SCHEDULE holds both competitions in one list and buckets on fantasy_round
+    alone, so World Cup round 1 and FPL gameweek 1 collide. `stage` is the
+    competition discriminator."""
+
+    def setUp(self):
+        # A WC-style tie and an FPL fixture sharing one fantasy_round. World Cup
+        # rows carry ESPN status strings for their stage; FPL rows carry "GW".
+        self.saved = list(fixtures.SCHEDULE)
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend([
+            _fx("gw-1", "LIV", "ARS", 1),
+            fixtures.Fixture(
+                match_id="wc-1", home="Mexico", away="South Africa",
+                kickoff=datetime(2026, 6, 11, 19, 0, tzinfo=timezone.utc),
+                stage="STATUS_FULL_TIME", fantasy_round=1, neutral=False),
+        ])
+
+    def tearDown(self):
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend(self.saved)
+
+    def test_unfiltered_returns_every_competition(self):
+        """The default must not change: World Cup call sites rely on it."""
+        ids = sorted(f.match_id for f in fixtures.by_round(1))
+        self.assertEqual(ids, ["gw-1", "wc-1"])
+
+    def test_stage_filter_narrows_to_one_competition(self):
+        got = fixtures.by_round(1, stage=fixtures.FPL_STAGE)
+        self.assertEqual([f.match_id for f in got], ["gw-1"])
+
+    def test_stage_filter_selects_the_world_cup_side_too(self):
+        """Not FPL-specific: the parameter is a plain stage filter."""
+        got = fixtures.by_round(1, stage="STATUS_FULL_TIME")
+        self.assertEqual([f.match_id for f in got], ["wc-1"])
+
+    def test_stage_filter_on_an_absent_stage_is_empty(self):
+        self.assertEqual(fixtures.by_round(1, stage="NOPE"), [])
+
+    def test_stage_filter_does_not_cross_rounds(self):
+        self.assertEqual(fixtures.by_round(2, stage=fixtures.FPL_STAGE), [])

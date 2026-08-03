@@ -25,12 +25,19 @@ def utc(y: int, mo: int, d: int, h: int, mi: int = 0) -> datetime:
     return datetime(y, mo, d, h, mi, tzinfo=timezone.utc)
 
 
+# The stage every Fantasy Premier League fixture carries. Defined here, once, and
+# imported by core.fpl_api (which stamps it onto parsed rows), games.fpl.model
+# (which registers the Fixture objects) and evmax.fpl_build. It doubles as the
+# competition discriminator for by_round() below, so the literal must not be
+# written in two places that could drift apart.
+FPL_STAGE = "GW"
+
 # Round / stage identifiers. "round" is the fantasy-game round grouping (matchday),
 # which is how the games batch fixtures and apply locks. Stages map onto it.
 STAGES = [
     "GROUP_MD1", "GROUP_MD2", "GROUP_MD3",
     "R32", "R16", "QF", "SF", "BRONZE", "FINAL",
-    "GW",   # FPL gameweek
+    FPL_STAGE,   # FPL gameweek
 ]
 
 
@@ -101,8 +108,23 @@ if _os.path.exists(_SCHEDULE_JSON):
     SCHEDULE = load_from_json()
 
 
-def by_round(fantasy_round: int) -> list[Fixture]:
-    return [f for f in SCHEDULE if f.fantasy_round == fantasy_round]
+def by_round(fantasy_round: int, stage: str | None = None) -> list[Fixture]:
+    """Fixtures in a fantasy round, optionally narrowed to one stage.
+
+    SCHEDULE holds every competition's fixtures in one list and buckets on
+    fantasy_round alone, so World Cup round 1 and FPL gameweek 1 collide. `stage`
+    is the competition discriminator: FPL registers its fixtures as FPL_STAGE
+    ("GW", see games.fpl.model.load_gameweek) and no World Cup fixture ever
+    carries that value — they hold ESPN status strings (STATUS_FULL_TIME,
+    STATUS_SCHEDULED, ...).
+
+    Defaults to None (no filter) so every existing World Cup call site is
+    unchanged.
+    """
+    out = [f for f in SCHEDULE if f.fantasy_round == fantasy_round]
+    if stage is not None:
+        out = [f for f in out if f.stage == stage]
+    return out
 
 
 def by_stage(stage: str) -> list[Fixture]:

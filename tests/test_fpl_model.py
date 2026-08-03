@@ -1115,8 +1115,14 @@ class TestDefconProbability(unittest.TestCase):
         self.assertEqual(fpl_model.defcon_probability("DEF", []), 0.0)
 
 
-def _tiny_build_artifact(sims=300, gameweek=98, priced=True, use_cache=False):
-    """_tiny_build_rows' fixture, but returning the full (artifact, cache_hit)."""
+def _tiny_build_artifact(sims=300, gameweek=98, priced=True, use_cache=False,
+                         foreign=False):
+    """_tiny_build_rows' fixture, but returning the full (artifact, cache_hit).
+
+    `foreign=True` additionally registers a World-Cup-shaped tie (an ESPN status
+    string for its stage, never "GW") in the SAME fantasy_round, which is the
+    collision core.fixtures.by_round's stage filter exists to resolve.
+    """
     from core import fixtures
     from core.ratings import PlayerPrior
 
@@ -1141,6 +1147,12 @@ def _tiny_build_artifact(sims=300, gameweek=98, priced=True, use_cache=False):
             stage="GW", fantasy_round=gameweek, neutral=False,
             lam_home=1.6 if priced else None,
             lam_away=1.1 if priced else None))
+        if foreign:
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="wc-tie-1", home="Mexico", away="South Africa",
+                kickoff=datetime(2026, 6, 11, 19, 0, tzinfo=timezone.utc),
+                stage="STATUS_FULL_TIME", fantasy_round=gameweek,
+                neutral=False, lam_home=1.9, lam_away=0.7))
         return fpl_model.build_artifact(
             squads, players_by_name, gameweek, sims, use_cache=use_cache)
     finally:
@@ -1216,3 +1228,57 @@ class TestArtifactCaching(unittest.TestCase):
         finally:
             patcher.stop()
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+class TestGameweekScoping(unittest.TestCase):
+    """core.fixtures.SCHEDULE holds both competitions in one list, bucketed on
+    fantasy_round alone, so World Cup round N and FPL gameweek N collide. The
+    model layer must narrow to stage=FPL_STAGE before it simulates, summarises,
+    or hashes anything."""
+
+    def test_fpl_stage_is_defined_once(self):
+        """The discriminator must not be restated anywhere it could drift."""
+        from core import fixtures as core_fixtures
+        self.assertEqual(fpl_model.FPL_STAGE, core_fixtures.FPL_STAGE)
+        self.assertIn(core_fixtures.FPL_STAGE, core_fixtures.STAGES)
+
+    def test_build_artifact_ignores_foreign_fixtures_in_the_same_round(self):
+        """A World Cup tie sharing fantasy_round with an FPL gameweek must not
+        reach the sim or the match summaries."""
+        artifact, _hit = _tiny_build_artifact(foreign=True)
+        ids = [m["match_id"] for m in artifact["matches"]]
+        self.assertEqual(ids, ["tiny-1"])
+        teams = {t for m in artifact["matches"] for t in (m["home"], m["away"])}
+        self.assertNotIn("Mexico", teams)
+
+    def test_cache_key_is_unaffected_by_a_foreign_fixture(self):
+        """The load-bearing one: the same gameweek built with and without a World
+        Cup tie present in the same round must produce identical rows and
+        matches. Before the stage filter the foreign fixture's lambdas entered
+        the sim-cache key (and its 22 players entered the sim), so the two runs
+        diverged."""
+        import shutil
+        import tempfile
+
+        from core import simcache
+
+        tmp = tempfile.mkdtemp(prefix="fpl_scope_cache_")
+        patcher = mock.patch.object(simcache, "CACHE_DIR", tmp)
+        patcher.start()
+        try:
+            clean, hit_clean = _tiny_build_artifact(
+                gameweek=96, use_cache=True, foreign=False)
+            # Same inputs, plus an unrelated World Cup tie in the same round. If
+            # the foreign fixture touched the key this is a MISS with different
+            # numbers; correctly scoped, it is a HIT off the first run.
+            polluted, hit_polluted = _tiny_build_artifact(
+                gameweek=96, use_cache=True, foreign=True)
+        finally:
+            patcher.stop()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        self.assertFalse(hit_clean)
+        self.assertTrue(hit_polluted,
+                        "the foreign fixture changed the sim-cache key")
+        self.assertEqual(clean["rows"], polluted["rows"])
+        self.assertEqual(clean["matches"], polluted["matches"])
