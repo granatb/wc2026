@@ -72,6 +72,39 @@ def parse_teams(raw: dict) -> dict[int, str]:
     return {t["id"]: t["short_name"] for t in raw.get("teams", [])}
 
 
+def _strength_or_none(value) -> int | None:
+    """0 means "not published yet" for the attack/defence strength splits, not
+    "weakest possible club" -- map it to None so a naive consumer can't mistake
+    the absence of data for a rating. See parse_team_strength's docstring."""
+    return value if value else None
+
+
+def parse_team_strength(raw: dict) -> dict[str, dict]:
+    """{short_name: {overall_home, overall_away, attack_home, attack_away,
+    defence_home, defence_away}} -- FPL's own club strength ratings.
+
+    `strength_overall_home/away` are always populated. `strength_attack_*` and
+    `strength_defence_*` are zeroed for every club before the season's results
+    start rolling in (verified 0/20 non-zero on the cached preseason bootstrap
+    payload); a consumer that read 0 as a real rating would rank every club as
+    maximally weak on both sides of the ball. Those four fields are mapped to
+    None here whenever the feed has them at 0, and left as the real int
+    otherwise (FPL populates them in-season, at which point they are a more
+    granular signal than the overall figure).
+    """
+    out = {}
+    for t in raw.get("teams", []):
+        out[t["short_name"]] = {
+            "overall_home": t.get("strength_overall_home"),
+            "overall_away": t.get("strength_overall_away"),
+            "attack_home": _strength_or_none(t.get("strength_attack_home")),
+            "attack_away": _strength_or_none(t.get("strength_attack_away")),
+            "defence_home": _strength_or_none(t.get("strength_defence_home")),
+            "defence_away": _strength_or_none(t.get("strength_defence_away")),
+        }
+    return out
+
+
 def parse_events(raw: dict) -> dict[int, dict]:
     """{gw_id: {id, name, deadline (UTC-aware), finished}}."""
     out = {}
@@ -154,6 +187,37 @@ def defcon_rate_from_history(history_past: list | None) -> tuple[float, int]:
     return dc * 90.0 / minutes, minutes
 
 
+def parse_history_past(element_summary: dict) -> list[dict]:
+    """Flatten element-summary's `history_past` into one dict per past season.
+
+    Kept in feed order (defcon_rate_from_history re-sorts by season_name itself
+    where that matters; this function makes no ordering claim beyond "whatever
+    the feed sent"). A summer signing with no Premier League record has
+    `history_past == []` -- that is the normal cold-start case, not an error,
+    and this returns [] for it rather than raising or fabricating a season.
+
+    Numeric columns default to 0 when absent (older seasons predate some
+    fields, e.g. defensive_contribution). The expected-* columns arrive as
+    strings in the feed ('25.50') and are coerced to float via `_f`.
+    """
+    out = []
+    for s in element_summary.get("history_past", []) or []:
+        out.append({
+            "season_name": s.get("season_name"),
+            "minutes": s.get("minutes", 0),
+            "starts": s.get("starts", 0),
+            "total_points": s.get("total_points", 0),
+            "clean_sheets": s.get("clean_sheets", 0),
+            "goals_conceded": s.get("goals_conceded", 0),
+            "bps": s.get("bps", 0),
+            "defensive_contribution": s.get("defensive_contribution", 0),
+            "expected_goals": _f(s.get("expected_goals")),
+            "expected_assists": _f(s.get("expected_assists")),
+            "expected_goals_conceded": _f(s.get("expected_goals_conceded")),
+        })
+    return out
+
+
 def parse_scoring(raw: dict) -> dict:
     """The scoring table from game_config, with GKP keys remapped to GK.
 
@@ -202,6 +266,12 @@ def parse_fixtures(raw: list, teams: dict[int, str]) -> list[dict]:
             "kickoff_utc": f.get("kickoff_time"),
             "fantasy_round": gw,
             "stage": fixtures.FPL_STAGE,
+            # FPL's own published 1-5 fixture difficulty rating (FDR), separate
+            # per side since e.g. a fixture can be easy for the home side and
+            # hard for the away side. Absent (not yet published) stays None --
+            # never coerce to 0, which would read as "easiest possible fixture".
+            "home_difficulty": f.get("team_h_difficulty"),
+            "away_difficulty": f.get("team_a_difficulty"),
         })
     return out
 

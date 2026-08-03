@@ -252,3 +252,121 @@ class TestFetchDefconBackfill(unittest.TestCase):
         self.assertNotIn(10, result)
         self.assertIn(11, result)
         self.assertAlmostEqual(result[11]["defcon_per90"], 9.07, places=2)
+
+
+class TestFixtureDifficultyRetained(unittest.TestCase):
+    def test_parse_fixtures_keeps_both_difficulties(self):
+        raw = [{"event": 1, "team_h": 1, "team_a": 2, "id": 9,
+                "kickoff_time": "2026-08-21T19:00:00Z",
+                "team_h_difficulty": 2, "team_a_difficulty": 5}]
+        row = fpl_api.parse_fixtures(raw, {1: "ARS", 2: "COV"})[0]
+        self.assertEqual(row["home_difficulty"], 2)
+        self.assertEqual(row["away_difficulty"], 5)
+
+    def test_missing_difficulty_is_none_not_zero(self):
+        """Zero would read as 'easiest possible fixture'; absent must stay absent."""
+        raw = [{"event": 1, "team_h": 1, "team_a": 2, "id": 9,
+                "kickoff_time": "2026-08-21T19:00:00Z"}]
+        row = fpl_api.parse_fixtures(raw, {1: "ARS", 2: "COV"})[0]
+        self.assertIsNone(row["home_difficulty"])
+        self.assertIsNone(row["away_difficulty"])
+
+    def test_existing_fixture_fields_are_unchanged(self):
+        """Additive only — every current consumer must keep working."""
+        raw = [{"event": 1, "team_h": 1, "team_a": 2, "id": 9,
+                "kickoff_time": "2026-08-21T19:00:00Z",
+                "team_h_difficulty": 2, "team_a_difficulty": 5}]
+        row = fpl_api.parse_fixtures(raw, {1: "ARS", 2: "COV"})[0]
+        for key in ("match_id", "home", "away", "kickoff_utc", "fantasy_round",
+                    "stage"):
+            self.assertIn(key, row)
+
+
+class TestTeamStrengthRetained(unittest.TestCase):
+    RAW = {"teams": [
+        {"id": 1, "short_name": "ARS", "name": "Arsenal",
+         "strength_overall_home": 4, "strength_overall_away": 5,
+         "strength_attack_home": 0, "strength_attack_away": 0,
+         "strength_defence_home": 0, "strength_defence_away": 0},
+        {"id": 2, "short_name": "COV", "name": "Coventry",
+         "strength_overall_home": 2, "strength_overall_away": 2,
+         "strength_attack_home": 0, "strength_attack_away": 0,
+         "strength_defence_home": 0, "strength_defence_away": 0},
+    ]}
+
+    def test_keyed_by_short_name_with_overall_strength(self):
+        out = fpl_api.parse_team_strength(self.RAW)
+        self.assertEqual(out["ARS"]["overall_home"], 4)
+        self.assertEqual(out["ARS"]["overall_away"], 5)
+        self.assertEqual(out["COV"]["overall_home"], 2)
+
+    def test_zero_attack_defence_reads_as_unavailable(self):
+        """Preseason these are 0 for every club — that is 'no data', not 'weakest'.
+        A consumer treating 0 as a rating would rank the whole league as awful."""
+        out = fpl_api.parse_team_strength(self.RAW)
+        self.assertIsNone(out["ARS"]["attack_home"])
+        self.assertIsNone(out["ARS"]["attack_away"])
+        self.assertIsNone(out["ARS"]["defence_home"])
+        self.assertIsNone(out["ARS"]["defence_away"])
+
+    def test_nonzero_attack_defence_is_kept(self):
+        """In-season FPL populates these; then they are strictly better than the
+        overall figure and later tasks prefer them."""
+        raw = {"teams": [dict(self.RAW["teams"][0],
+                              strength_attack_home=1300, strength_attack_away=1310,
+                              strength_defence_home=1200, strength_defence_away=1210)]}
+        out = fpl_api.parse_team_strength(raw)
+        self.assertEqual(out["ARS"]["attack_home"], 1300)
+        self.assertEqual(out["ARS"]["defence_away"], 1210)
+
+    def test_parse_teams_is_unchanged(self):
+        """The existing id -> short_name map has other callers."""
+        self.assertEqual(fpl_api.parse_teams(self.RAW), {1: "ARS", 2: "COV"})
+
+
+class TestHistoryPastRetained(unittest.TestCase):
+    ES = {"history_past": [
+        {"season_name": "2024/25", "minutes": 1800, "total_points": 90,
+         "clean_sheets": 8, "goals_conceded": 30, "bps": 300, "starts": 20,
+         "expected_goals": "3.1", "expected_assists": "2.4",
+         "expected_goals_conceded": "28.5", "defensive_contribution": 140},
+        {"season_name": "2025/26", "minutes": 2251, "total_points": 85,
+         "clean_sheets": 6, "goals_conceded": 37, "bps": 357, "starts": 27,
+         "expected_goals": "2.2", "expected_assists": "1.9",
+         "expected_goals_conceded": "35.0", "defensive_contribution": 210},
+    ]}
+
+    def test_keeps_every_season_in_feed_order(self):
+        out = fpl_api.parse_history_past(self.ES)
+        self.assertEqual([s["season_name"] for s in out], ["2024/25", "2025/26"])
+
+    def test_scoring_columns_survive(self):
+        last = fpl_api.parse_history_past(self.ES)[-1]
+        self.assertEqual(last["minutes"], 2251)
+        self.assertEqual(last["starts"], 27)
+        self.assertEqual(last["clean_sheets"], 6)
+        self.assertEqual(last["goals_conceded"], 37)
+        self.assertEqual(last["bps"], 357)
+        self.assertEqual(last["total_points"], 85)
+        self.assertEqual(last["defensive_contribution"], 210)
+
+    def test_string_typed_expected_goals_are_floats(self):
+        """The feed sends these as strings; arithmetic downstream would break."""
+        last = fpl_api.parse_history_past(self.ES)[-1]
+        self.assertIsInstance(last["expected_goals"], float)
+        self.assertAlmostEqual(last["expected_goals"], 2.2)
+        self.assertAlmostEqual(last["expected_goals_conceded"], 35.0)
+        self.assertAlmostEqual(last["expected_assists"], 1.9)
+
+    def test_empty_history_is_an_empty_list(self):
+        """A summer signing with no Premier League record — the cold-start case,
+        which must return [] rather than raising or fabricating a season."""
+        self.assertEqual(fpl_api.parse_history_past({"history_past": []}), [])
+        self.assertEqual(fpl_api.parse_history_past({}), [])
+
+    def test_missing_columns_do_not_raise(self):
+        """Older seasons predate some of these fields."""
+        out = fpl_api.parse_history_past(
+            {"history_past": [{"season_name": "2016/17", "minutes": 900}]})
+        self.assertEqual(out[0]["minutes"], 900)
+        self.assertEqual(out[0]["clean_sheets"], 0)
