@@ -131,6 +131,16 @@ class TestAgentFilesSection(unittest.TestCase):
         txt = render.llms_txt(5, [("captains", "Best captain picks")])
         self.assertIn("/round/5/captains/", txt)
 
+    def test_fpl_llms_txt_does_not_describe_the_world_cup(self):
+        txt = render.llms_txt(1, [("captains", "Best captain picks")],
+                              section=render.FPL)
+        self.assertNotIn("World Cup", txt)
+        self.assertIn("Fantasy Premier League", txt)
+
+    def test_world_cup_llms_txt_still_describes_the_world_cup(self):
+        txt = render.llms_txt(5, [("captains", "Best captain picks")])
+        self.assertIn("World Cup", txt)
+
     def test_sitemap_includes_fpl_urls(self):
         xml = render.sitemap_xml(1, [("captains", "Best captain picks")],
                                  lastmod="2026-08-20", section=render.FPL)
@@ -559,3 +569,28 @@ class TestCliRouting(unittest.TestCase):
         with mock.patch("sys.argv", ["build", "--no-llm"]):
             with self.assertRaises(SystemExit):
                 build_mod.main()
+
+
+class TestSharedRootPageCopy(unittest.TestCase):
+    """/about/, /privacy/ and /robots.txt are ONE page at ONE URL each, written
+    by both evmax.build and evmax.fpl_build. They cannot claim the site is a
+    single-competition project."""
+
+    def test_about_does_not_claim_to_be_only_a_world_cup_site(self):
+        html = render.about_page()
+        self.assertIn("Fantasy Premier League", html)
+        self.assertNotIn("simulation engine for FIFA World Cup Fantasy", html)
+        self.assertNotIn(
+            "Simulation-based World Cup Fantasy analysis", html)
+
+    def test_about_still_credits_the_world_cup_origin(self):
+        """Where the project came from is history, not a stale claim — it stays."""
+        self.assertIn("World Cup", render.about_page())
+
+    def test_robots_txt_is_competition_neutral(self):
+        txt = render.robots_txt()
+        self.assertNotIn("World Cup", txt)
+        self.assertIn("Sitemap:", txt)
+
+    def test_privacy_is_competition_neutral(self):
+        self.assertNotIn("World Cup", render.privacy_page())

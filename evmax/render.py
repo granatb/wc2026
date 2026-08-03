@@ -31,13 +31,19 @@ class Section:
     FPL.
     """
 
-    def __init__(self, key, label, unit, unit_abbr, base, api_base, methodology=None):
+    def __init__(self, key, label, unit, unit_abbr, base, api_base, methodology=None,
+                 points_table=None):
         self.key = key                # "round" | "fpl"
         self.label = label            # "World Cup Fantasy" | "Fantasy Premier League"
         self.unit = unit              # "Round" | "Gameweek"
         self.unit_abbr = unit_abbr    # "R" | "GW"
         self.base = base              # "/round/{r}" | "/fpl/gw{r}"
         self.api_base = api_base      # "/api/round/{r}" | "/api/fpl/gw{r}"
+        # The scoring table's own name, for prose that credits it ("scored on the
+        # official ___ table"). Usually the label, but the World Cup's table is
+        # branded "FIFA World Cup Fantasy" while the section label drops the
+        # governing body, so it is overridable rather than derived.
+        self.points_table = points_table if points_table is not None else label
         # Reader-facing one-liner naming the competition's own points table --
         # landing_page's "Method." paragraph is competition-specific copy, not
         # just a URL/label swap, so it can't share WC's literal "FIFA World Cup
@@ -72,7 +78,8 @@ class Section:
 
 
 WC = Section("round", "World Cup Fantasy", "Round", "R",
-             "/round/{r}", "/api/round/{r}")
+             "/round/{r}", "/api/round/{r}",
+             points_table="FIFA World Cup Fantasy")
 FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
               "/fpl/gw{r}", "/api/fpl/gw{r}",
               methodology=(
@@ -1765,11 +1772,14 @@ _AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web"
 
 
 def llms_txt(round_no, nav, section=WC):
+    # The header prose is the file's whole point -- a crawler that reads nothing
+    # else reads this -- so it has to name the competition it is actually
+    # describing. Everything competition-specific comes off the Section.
     lines = [
-        "# evmax — simulation-based World Cup Fantasy picks",
+        f"# evmax — simulation-based {section.label} picks",
         "",
         "> Free, transparent fantasy picks from 50,000 Monte-Carlo simulations on "
-        "de-vigged market odds, scored on the official FIFA World Cup Fantasy table. "
+        f"de-vigged market odds, scored on the official {section.points_table} table. "
         "Numbers are machine-readable JSON; attribution to evmax is requested.",
         "",
         f"## {section.kicker(round_no)} articles",
@@ -1817,12 +1827,18 @@ def sitemap_xml(round_no, nav, lastmod=None, section=WC, extra_urls=None):
 
 
 def about_page():
-    """Editorial About page explaining evmax methodology."""
+    """Editorial About page explaining evmax methodology.
+
+    Takes no Section, deliberately: /about/ is ONE page at ONE URL, written by
+    both evmax.build and evmax.fpl_build, so a section-aware version would mean
+    whichever build ran last decided what the site claims to be. The copy names
+    both competitions instead.
+    """
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>About evmax — fantasy football simulations</title>
-<meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
+<meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent Fantasy Premier League and World Cup Fantasy picks.">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1844,17 +1860,17 @@ def about_page():
 <div class="wrap">
 <div class="about-body">
 <div class="pagelabel" style="margin-top:34px">About evmax</div>
-<h1>Simulation-based World Cup Fantasy analysis, free and transparent</h1>
+<h1>Simulation-based fantasy football analysis, free and transparent</h1>
 <p class="lead">evmax runs 50,000 Monte-Carlo simulations before every deadline and publishes the results openly — no paywalls, no hidden models.</p>
 
 <h2>What is evmax?</h2>
-<p>evmax is a simulation engine for FIFA World Cup Fantasy. It estimates expected points for every available player in each fantasy round, giving you a data-driven edge over gut-feel picks. All numbers are free to read, share, and build on.</p>
+<p>evmax is a simulation engine for fantasy football. It currently covers Fantasy Premier League, and it began with the 2026 FIFA World Cup — that season's rounds are still published and still graded. It estimates expected points for every available player in each gameweek or round, giving you a data-driven edge over gut-feel picks. All numbers are free to read, share, and build on.</p>
 
 <h2>The methodology</h2>
 <ul>
 <li><b>De-vig market odds</b> — we strip the bookmaker margin from pre-match odds to get implied true probabilities for each scoreline.</li>
 <li><b>Dixon-Coles model</b> — a bivariate Poisson framework calibrated on the de-vigged probabilities, accounting for low-scoring draw correction and team-level attack/defence strength.</li>
-<li><b>50,000 Monte-Carlo simulations</b> — each simulation draws a scoreline for every fixture and then allocates fantasy points per the official FIFA World Cup Fantasy scoring table (goals, assists, clean sheets, saves, yellow/red cards, minutes played).</li>
+<li><b>50,000 Monte-Carlo simulations</b> — each simulation draws a scoreline for every fixture and then allocates fantasy points per the scoring table of the competition being covered — the official Fantasy Premier League table, or the FIFA World Cup Fantasy one (goals, assists, clean sheets, saves, yellow/red cards, minutes played).</li>
 <li><b>Per-player summaries</b> — across all simulations we compute expected points (mean), captain EV (2× mean), ceiling (85th-percentile outcome), and value (expected points per £m of price).</li>
 </ul>
 
