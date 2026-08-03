@@ -1,7 +1,101 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(543 tests). App: `streamlit run app.py`.
+(684 tests). App: `streamlit run app.py`.
+
+## 2026-08-03 — FPL port phase 4: the site
+
+Six Fantasy Premier League articles ship at `/fpl/gw{N}/` — captains, draft squad,
+fixture ticker, defenders, efficiency, DefCon leaders — built by `python3 -m
+evmax.build --gw N`. **`/` now serves the current gameweek.** GW1 is the year's
+largest fantasy search peak and a finished tournament on the front door wastes it.
+The World Cup tree at `/round/N/` is untouched and stays live: an FPL build never
+writes under it (verified by checksum), and its pages remain in the sitemap, because
+dropping them reads to a crawler as a deindexing request.
+
+**`render.Section`** is how one renderer serves two competitions: a descriptor
+carrying paths, labels and unit words, threaded through `article_page`, `article_md`,
+`article_json`, `landing_page`, `feed_card`, `llms_txt` and `sitemap_xml`, each
+defaulting to `WC` so every existing call site produces byte-identical output. This
+is a second page family sharing primitives, **not** the templating refactor — that
+is still deferred to the September international break.
+
+### The `x_points` fix — the substantive engine change
+
+`total_points` valued a double gameweek as a **single match**, under-counting a
+two-fixture team by exactly 2x. Measured on a synthetic double: 7.149 vs 14.298.
+
+The cause was not where the phase 3 plan predicted. That note supposed
+`played / sims` approaches 2.0 for a two-fixture team, making the bonus product
+correct by construction. It does not: `ps.sims` increments once per **fixture**
+(`core/engine_events.py`), so a double-gameweek player's `sims` doubles alongside
+his `played`. Their ratio stays at the per-match start probability, and every value
+`event_means` produces is a per-match mean — so the defect sat in the unconditional
+`expected_points(means)` term, and bonus was a symptom rather than the cause.
+
+`x_points` now reads `SimPointsAccumulator.mean()`, the same per-sim distribution
+the `ceiling` column already used, which sums each sim's matches explicitly.
+`total_points` is kept and still cross-checks that path for single fixtures.
+**No published number changed** — the feed has no doubles and the World Cup never
+has a team playing twice in a round.
+
+### Also in this phase
+
+- **Squad builder with the three-per-club cap** (`evmax/fpl_articles.fpl_squad`).
+  Separate from `articles.wildcard_squad`, which is a frozen dependency of the
+  track record and has no notion of clubs. The cap is enforced at every selection
+  and every swap, not checked at the end — checking at the end means rejecting an
+  optimal squad with no way to repair it. **The formation sweep is load-bearing for
+  legality here, not just for points**: when one club dominates the pool the 3-DEF
+  formations exhaust it on the bench and cannot then field a keeper, so only the
+  4- and 5-DEF builds survive. Do not short-circuit the sweep on first success.
+- **Ticker aggregates per club, not per fixture**, because gameweeks have blanks
+  (0 fixtures) and doubles (2). `exp_clean_sheets` sums across a double — a
+  defender is paid per clean sheet kept, so two fixtures at 0.45 is worth 0.9 clean
+  sheets of points, not the 0.70 chance of keeping at least one. Provenance is
+  labelled per club: `market`, `model`, or `mixed` for a double with one of each.
+  Mixed reports as mixed rather than rounding up. **No live data will exercise
+  blanks or doubles for months, so the synthetic tests are the entire safety net.**
+- **Competition-scoped schedule.** `SCHEDULE` buckets on `fantasy_round` alone, so
+  `by_round(1)` returned 34 fixtures: 10 Premier League plus 24 finished World Cup
+  ties. `by_round` and `simulate_round` now take an optional `stage` filter,
+  defaulted to no filter so World Cup behaviour is unchanged, and the FPL model
+  narrows to `FPL_STAGE`. This removes World Cup lambdas from the FPL sim-cache
+  key. It is **not** a speed-up: the foreign fixtures produced no player rows
+  (`priors_by_team` has no national teams) and cost only two Poisson draws each —
+  measured 4.84s before, 4.90s after. It does realign the RNG stream, so FPL
+  projections shift slightly (mean |Δ| 0.05, max 0.29 at 2000 sims).
+- **FPL methodology copy** replaces the World Cup's on FPL surfaces — the article
+  footer, Dataset JSON-LD, markdown twin, JSON envelope and `llms.txt`. The FPL
+  sentence states the split accurately: player rates come from FPL's own data, not
+  betting markets; markets drive match outcomes only, with a ratings fallback.
+- Deterministic prose templates for all six slugs, so a `--no-llm` build reads like
+  an article. Prose caches under `data/articles/fpl-gw{N}/` — sharing `round-{N}`
+  would have served World Cup copy for gameweek 1.
+- Preflight warns on unpriced fixtures, cold-start players, stale availability data
+  and unexpected sim-cache misses, and repeats a count on the **final** line —
+  a correctly-firing guard was once hidden by an operator's `| tail -1`.
+
+### Known issues, not fixed here
+
+1. **No Premier League team ratings.** `ratings.match_lambdas` returns an identical
+   `(1.445, 1.35)` for every PL pairing, so while GW1 is unpriced the ticker shows
+   all 20 clubs at a 26% clean sheet and is ranking on rounding noise. The `basis:
+   model` label is honest about provenance but does not convey "these numbers do
+   not discriminate". ESPN prices fixtures a week or two out, so this likely
+   resolves itself before the 21 Aug deadline; if it does not, FPL's bootstrap
+   carries `strength_overall_home/away` per club, which is the natural prior.
+   **Check the ticker before publishing.**
+2. **`/rate/` is World-Cup-shaped.** The landing page's CTA links to it and the FPL
+   build never writes it. In `dist/` it survives from the last World Cup build, so
+   it is not a live 404, but an FPL-only output directory ships one, and
+   `render.rate_page()` reads a round-shaped feed. Wiring it up is a design call.
+3. **`manage.py fpl --refresh` does not refresh FPL data.** It runs the World Cup
+   ESPN scoreboard path; `data/fpl/bootstrap.json` is populated by
+   `load_gameweek`'s own self-heal when the cache is absent. Worse, for gameweeks
+   1–3 that path can write World Cup fixture rows into the shared `schedule.json`
+   under a colliding `fantasy_round`. The FPL preflight's error messages route
+   operators around it, but the flag itself is still misleading.
 
 ## 2026-07-30 — FPL ceiling: tail mean replaces the goal-percentile (phase 4)
 

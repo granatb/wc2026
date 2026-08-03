@@ -459,6 +459,24 @@ class TestCacheWarnings(unittest.TestCase):
             self.assertEqual(fpl_build.cache_warnings(1, cache_hit=True), [])
 
 
+def _projection_fingerprint() -> dict:
+    """{path: mtime} for every file in the committed projection archive.
+
+    The archive is the frozen record of what we predicted before each lock, and
+    the backtest grades against it — so a build that is not a production build
+    must leave it byte-for-byte alone. Returns an empty dict when the directory
+    does not exist yet, which compares equal to itself on a fresh checkout.
+    """
+    root = os.path.join(os.path.dirname(os.path.abspath(fpl_build.__file__)),
+                        "assets", "projections")
+    out = {}
+    for dirpath, _dirs, filenames in os.walk(root):
+        for fname in filenames:
+            path = os.path.join(dirpath, fname)
+            out[path] = os.path.getmtime(path)
+    return out
+
+
 class TestGameweekBuild(unittest.TestCase):
     """End-to-end into a temp dir. Uses the real cached bootstrap/fixtures but a
     tiny sim count — this asserts the pipeline's SHAPE, not its numbers."""
@@ -468,9 +486,17 @@ class TestGameweekBuild(unittest.TestCase):
         import tempfile
         cls.tmp = tempfile.TemporaryDirectory()
         cls.out = cls.tmp.name
+        # Fingerprint the projection archive around the build. Asserting the
+        # snapshot directory simply does not EXIST would pass only until someone
+        # ran a real production build — which is the intended workflow — so it
+        # would turn red on a correct system. What the guard actually promises is
+        # that a NON-production build leaves the archive untouched, so that is
+        # what gets measured: paths and mtimes before, and again after.
+        cls.projections_before = _projection_fingerprint()
         fpl_build.build(gameweek=1, sims=200, out=cls.out,
                         url="https://example.test", use_llm=False,
                         use_cache=False)
+        cls.projections_after = _projection_fingerprint()
 
     @classmethod
     def tearDownClass(cls):
@@ -525,10 +551,14 @@ class TestGameweekBuild(unittest.TestCase):
 
     def test_projection_snapshot_is_not_written_for_a_non_production_build(self):
         """Snapshots are the backtest's ground truth — a test build into a temp dir
-        must never touch them."""
-        snap = os.path.join(os.path.dirname(os.path.abspath(fpl_build.__file__)),
-                            "assets", "projections", "fpl-gw1")
-        self.assertFalse(os.path.isdir(snap))
+        must never touch them.
+
+        Compares the archive's paths and mtimes across the build rather than
+        asserting the directory is absent: a real production build legitimately
+        creates it, and a test that only passes on a machine which has never run
+        one is testing the machine, not the guard.
+        """
+        self.assertEqual(self.projections_before, self.projections_after)
 
     def test_sitemap_and_agent_files(self):
         xml = self._read("/sitemap.xml")

@@ -32,7 +32,9 @@ wc2026/
   games/
     fifa/ holdet_gold/ holdet_yolo/ holdet_free/ malspillet/
       rules.md state.json model.py
+    fpl/                # Fantasy Premier League rules + model
     holdet_common.py   # shared kr scoring + trade rule (no per-script copies)
+  evmax/               # the public static site (evmax.ai): build + renderers
   research/{teams,players,matches}/   # research notes (frontmatter + prose)
   data/                # cache: odds/, schedule.json (gitignored)
   manage.py            # CLI dispatcher + --refresh
@@ -72,6 +74,21 @@ streamlit run app.py
 
 Sidebar: pick the round, sim count, refresh ESPN odds, and navigate. The engine
 (`core/`, `games/`) stays pure stdlib; only the dashboard needs `streamlit`.
+
+## Site (evmax.ai)
+
+The same engine also emits a static site. Two competitions, one renderer:
+
+```bash
+python3 -m evmax.build --round 8 --out dist --url https://evmax.ai   # World Cup -> /round/8/
+python3 -m evmax.build --gw 1 --out dist --url https://evmax.ai      # FPL       -> /fpl/gw1/
+npx wrangler pages deploy dist --project-name evmax --branch main --commit-dirty=true
+```
+
+`/` serves the current **gameweek** — GW1 is the year's largest fantasy search peak, so
+the FPL landing owns the root. The World Cup tree at `/round/N/` is untouched by an FPL
+build and stays live. `--no-llm` skips the LLM prose tier (deterministic templates only,
+no API key). `--sims` defaults to 50,000; use a smaller count for a scratch build.
 
 ## The odds × expert blend
 
