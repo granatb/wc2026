@@ -1282,3 +1282,56 @@ class TestGameweekScoping(unittest.TestCase):
                         "the foreign fixture changed the sim-cache key")
         self.assertEqual(clean["rows"], polluted["rows"])
         self.assertEqual(clean["matches"], polluted["matches"])
+
+
+class TestMatchSummaryDifficulty(unittest.TestCase):
+    """FPL's own FDR (team_h_difficulty / team_a_difficulty) rides along on the
+    Fixture and must reach the match summary untouched -- it is displayed, never
+    used to derive lambdas (see games/fpl/model.py's docstring)."""
+
+    def _squads_and_meta(self):
+        from core.ratings import PlayerPrior
+
+        squads = {
+            "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                                 start_prob=1.0, exp_minutes=90, defcon_per90=9.0)],
+            "Away": [PlayerPrior(name="A-Gk", team="Away", position="GK",
+                                 start_prob=1.0, exp_minutes=90, saves_per90=3.5)],
+        }
+        players_by_name = {
+            "H-Def": {"name": "H-Def", "price": 4.5, "ownership": 2.0,
+                      "minutes": 2700, "bps": 500},
+            "A-Gk": {"name": "A-Gk", "price": 5.0, "ownership": 5.0,
+                     "minutes": 3420, "bps": 700},
+        }
+        return squads, players_by_name
+
+    def test_summaries_carry_difficulty_when_the_fixture_has_it(self):
+        from core import fixtures
+
+        squads, players_by_name = self._squads_and_meta()
+        gameweek = 95
+        saved = list(fixtures.SCHEDULE)
+        try:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="tiny-diff-1", home="Home", away="Away",
+                kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=gameweek, neutral=False,
+                lam_home=1.6, lam_away=1.1,
+                home_difficulty=2, away_difficulty=5))
+            artifact, _hit = fpl_model.build_artifact(
+                squads, players_by_name, gameweek, 300, use_cache=False)
+        finally:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.extend(saved)
+
+        m = artifact["matches"][0]
+        self.assertEqual(m["home_difficulty"], 2)
+        self.assertEqual(m["away_difficulty"], 5)
+
+    def test_summaries_default_to_none_without_difficulty(self):
+        artifact, _hit = _tiny_build_artifact(gameweek=94)
+        m = artifact["matches"][0]
+        self.assertIsNone(m["home_difficulty"])
+        self.assertIsNone(m["away_difficulty"])

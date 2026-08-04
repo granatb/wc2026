@@ -425,16 +425,19 @@ def ticker(matches: list, clubs: list) -> list:
         return {"name": club, "fixtures": 0, "opponents": [],
                 "exp_clean_sheets": 0.0, "exp_goals_for": 0.0,
                 "exp_goals_against": 0.0, "exp_total": 0.0,
-                "market": 0, "model": 0, "kickoff": None}
+                "market": 0, "model": 0, "kickoff": None,
+                "difficulty_sum": 0.0, "difficulty_n": 0}
 
     agg: dict = {c: _blank_row(c) for c in clubs}
 
     for m in matches:
-        for team, opponent, venue, p_cs, gf, ga in (
+        for team, opponent, venue, p_cs, gf, ga, difficulty in (
             (m["home"], m["away"], "H", m.get("p_cs_home", 0.0),
-             m.get("exp_home_goals", 0.0), m.get("exp_away_goals", 0.0)),
+             m.get("exp_home_goals", 0.0), m.get("exp_away_goals", 0.0),
+             m.get("home_difficulty")),
             (m["away"], m["home"], "A", m.get("p_cs_away", 0.0),
-             m.get("exp_away_goals", 0.0), m.get("exp_home_goals", 0.0)),
+             m.get("exp_away_goals", 0.0), m.get("exp_home_goals", 0.0),
+             m.get("away_difficulty")),
         ):
             # A club in the fixture list but not in `clubs` is taken anyway rather
             # than silently dropping a real fixture on a stale club list.
@@ -448,6 +451,14 @@ def ticker(matches: list, clubs: list) -> list:
             row["market" if m.get("market") else "model"] += 1
             if row["kickoff"] is None or m["kickoff"] < row["kickoff"]:
                 row["kickoff"] = m["kickoff"]
+            # FPL's own FDR: each club takes its OWN side's number (home clubs
+            # get home_difficulty, away clubs get away_difficulty). Missing
+            # values (cached artifacts written before this carried difficulty,
+            # or a fixture the feed didn't rate) are skipped rather than
+            # counted as 0 -- zero would read as "easiest possible fixture".
+            if difficulty is not None:
+                row["difficulty_sum"] += difficulty
+                row["difficulty_n"] += 1
 
     out = []
     for row in agg.values():
@@ -461,6 +472,8 @@ def ticker(matches: list, clubs: list) -> list:
             basis = "market"
         else:
             basis = "model"
+        difficulty = (round(row["difficulty_sum"] / row["difficulty_n"], 1)
+                      if row["difficulty_n"] else None)
         out.append({
             "name": row["name"],
             # `team` is what the shared table renderer prints in its second
@@ -475,6 +488,7 @@ def ticker(matches: list, clubs: list) -> list:
             "exp_goals_against": round(row["exp_goals_against"], 2),
             "env": _env_for(row["exp_total"], row["fixtures"]),
             "basis": basis,
+            "difficulty": difficulty,
             "kickoff": row["kickoff"],
         })
 

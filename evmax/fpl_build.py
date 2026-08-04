@@ -40,7 +40,7 @@ _COLUMNS = {
     "captains":   ["captain_ev", "x_points", "ceiling", "price", "ownership_pct"],
     "wildcard":   ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
     "ticker":     ["exp_clean_sheets", "exp_goals_for", "exp_goals_against",
-                   "fixtures", "basis"],
+                   "difficulty", "fixtures", "basis"],
     "defenders":  ["x_points", "cs_points", "defcon", "bonus", "price"],
     "efficiency": ["value", "x_points", "price", "ownership_pct", "ceiling"],
     "defcon":     ["p_defcon", "defcon", "x_points", "price", "ownership_pct"],

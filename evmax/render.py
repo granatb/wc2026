@@ -261,7 +261,7 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               "top_def": "Best DEF", "top_gk": "Best GK",
               "p_defcon": "P(DefCon)", "cs_points": "CS pts", "defcon": "DefCon pts",
               "bonus": "Bonus", "exp_clean_sheets": "Clean sheets",
-              "fixtures": "Fixtures", "basis": "Basis"}
+              "fixtures": "Fixtures", "basis": "Basis", "difficulty": "FDR"}
 
 # Columns whose value is already a display-ready string (not a number to format).
 _STRING_COLS = {"top_def", "top_gk", "basis"}
@@ -278,6 +278,8 @@ def _fmt(col, row):
     if col == "p_clean_sheet":
         return f"{v * 100:.0f}%"
     if col == "price":
+        return f"{v:.1f}"
+    if col == "difficulty":
         return f"{v:.1f}"
     return f"{v:.2f}" if isinstance(v, float) else str(v)
 
@@ -913,6 +915,8 @@ def _md_fmt(col, row):
     if col == "p_clean_sheet":
         return f"{v * 100:.0f}%"
     if col == "price":
+        return f"{v:.1f}"
+    if col == "difficulty":
         return f"{v:.1f}"
     return f"{v:.2f}" if isinstance(v, float) else _escape_pipes(v)
 

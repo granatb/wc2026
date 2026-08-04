@@ -54,6 +54,11 @@ class Fixture:
     # Cached / overridden lambdas. If left None, computed from ratings on demand.
     lam_home: float | None = None
     lam_away: float | None = None
+    # FPL's own Fixture Difficulty Rating (1-5, one per side). Editorial, not
+    # model output -- displayed alongside our own ratings for a sanity check,
+    # never fed into lambdas. See games/fpl/model.load_gameweek.
+    home_difficulty: int | None = None
+    away_difficulty: int | None = None
 
     def lambdas(self) -> tuple[float, float]:
         if self.lam_home is not None and self.lam_away is not None:

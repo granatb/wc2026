@@ -494,6 +494,8 @@ def load_gameweek(gameweek: int, refresh: bool = False):
             match_id=r["match_id"], home=r["home"], away=r["away"],
             kickoff=fpl_api._parse_utc(r["kickoff_utc"]),
             stage=FPL_STAGE, fantasy_round=r["fantasy_round"], neutral=False,
+            home_difficulty=r.get("home_difficulty"),
+            away_difficulty=r.get("away_difficulty"),
         ))
     if gameweek in events:
         fixtures.set_deadline(gameweek, events[gameweek]["deadline"])
@@ -660,6 +662,11 @@ def match_summaries(match_samples: dict, fx: list) -> list:
             "p_cs_home": round(p_cs_home, 3),
             "p_cs_away": round(p_cs_away, 3),
             "market": f.lam_home is not None and f.lam_away is not None,
+            # FPL's own FDR, carried through for display only -- never an
+            # input to lambdas. getattr guards a test double built without
+            # these attributes (e.g. a bare object standing in for a Fixture).
+            "home_difficulty": getattr(f, "home_difficulty", None),
+            "away_difficulty": getattr(f, "away_difficulty", None),
         })
     out.sort(key=lambda m: m["kickoff"])
     return out

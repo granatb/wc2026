@@ -475,3 +475,41 @@ class TestTicker(unittest.TestCase):
         out = fpl_articles.ticker([], ["ARS", "LIV"])
         self.assertEqual(len(out), 2)
         self.assertTrue(all(e["env"] == "blank" for e in out))
+
+
+class TestTickerDifficulty(unittest.TestCase):
+    def test_ticker_carries_each_clubs_own_difficulty(self):
+        m = _match("ARS", "COV")
+        m["home_difficulty"], m["away_difficulty"] = 2, 5
+        out = fpl_articles.ticker([m], ["ARS", "COV"])
+        by = {e["name"]: e for e in out}
+        self.assertEqual(by["ARS"]["difficulty"], 2)
+        self.assertEqual(by["COV"]["difficulty"], 5)
+
+    def test_double_gameweek_averages_difficulty(self):
+        """Two fixtures, one number — the mean is the honest summary, and the
+        `fixtures` column already tells the reader it covers two games."""
+        a = _match("ARS", "COV")
+        a["home_difficulty"], a["away_difficulty"] = 2, 5
+        b = _match("BUR", "ARS", kickoff="2026-08-24T19:00:00+00:00")
+        b["home_difficulty"], b["away_difficulty"] = 3, 4
+        out = fpl_articles.ticker([a, b], ["ARS", "COV", "BUR"])
+        self.assertAlmostEqual({e["name"]: e for e in out}["ARS"]["difficulty"], 3.0)
+
+    def test_blank_club_has_no_difficulty(self):
+        out = fpl_articles.ticker([_match("ARS", "COV")], ["ARS", "COV", "EVE"])
+        self.assertIsNone({e["name"]: e for e in out}["EVE"]["difficulty"])
+
+    def test_absent_difficulty_does_not_crash(self):
+        """Cached artifacts written before this task have no difficulty keys."""
+        out = fpl_articles.ticker([_match("ARS", "COV")], ["ARS", "COV"])
+        self.assertIsNone({e["name"]: e for e in out}["ARS"]["difficulty"])
+
+    def test_one_missing_difficulty_in_a_double_still_averages_the_other(self):
+        """Partial data should degrade to the fixture we do know about, not to
+        None — losing a known value would understate the reader's information."""
+        a = _match("ARS", "COV")
+        a["home_difficulty"], a["away_difficulty"] = 2, 5
+        b = _match("BUR", "ARS", kickoff="2026-08-24T19:00:00+00:00")
+        out = fpl_articles.ticker([a, b], ["ARS", "COV", "BUR"])
+        self.assertAlmostEqual({e["name"]: e for e in out}["ARS"]["difficulty"], 2.0)
