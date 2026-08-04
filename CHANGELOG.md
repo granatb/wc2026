@@ -1,7 +1,169 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(803 tests). App: `streamlit run app.py`.
+(886 tests). App: `streamlit run app.py`.
+
+## 2026-08-04 — FPL phase 6: the horizon
+
+Phase 5 made the model able to tell clubs apart. It did not fix what the articles
+were *asking*. All six of them answered the World Cup's question — **who scores
+most this Saturday** — which is the right question for a knockout round you enter
+once and exit. FPL is a 38-week league with **one free transfer per gameweek**,
+bankable to five, extras at −4. That single rule makes a squad sticky: a manager's
+opening fifteen is roughly 90% of their GW5 fifteen, and the difference cannot be
+cheaply undone. A squad optimised for one Saturday is a mistake paid off over a
+month. **The planning window, not the gameweek, is the unit the reader actually
+decides in**, and phase 6 rebuilds the objective and adds two articles around that.
+
+Eight articles now, up from six: `runs` (the six-gameweek fixture grid) and
+`transfers` (targets ranked on horizon gain against the −4 hit threshold).
+
+### The horizon engine (`core/fpl_horizon.py`) and its decay dial
+
+`window(gw)` gives the planning gameweeks, `horizon_matches` projects each one,
+and `club_horizon` aggregates per club, weighting gameweek *k* in the window by
+`decay ** k` (`config.FPL_HORIZON_DECAY = 0.85`). A fixture five weeks out is worth
+less to a decision made today — it is further away, likelier to be transferred
+around, and projected from ratings rather than from a posted market.
+
+**`decay = 0.0` collapses the window onto the current gameweek and reproduces the
+single-gameweek figure exactly.** That property is not a curiosity; it is the
+calibration anchor. The squad objective carries the same dial
+(`score = x_points * (1 + decay * (club_strength - 1))`, which at `decay=0` is a
+flat multiplier of 1.0), so the horizon squad and the single-gameweek squad are
+the *same code path with one number changed*, and it is verified bit-for-bit that
+they agree at zero. Without it, a future squad regression would be
+indistinguishable between three suspects — the ratings, the horizon aggregation,
+and the objective. With it, the anchor localises the fault to one of them.
+
+A club absent from the horizon scores a neutral 1.0 rather than zero: a stale club
+list must cost that club nothing, and it must certainly not crash a build.
+
+**One overlap is stated rather than hidden.** The current gameweek is itself the
+highest-weighted member of the window, so its fixture is counted once inside
+`x_points` and again inside the strength multiplier. The effect is to weight the
+nearest and most certain fixture slightly more than the decay alone implies, which
+is the direction we would err in anyway.
+
+### Six gameweeks cost no extra simulations
+
+The run grid needs only the **match** layer — clean sheets, goals for, goals
+against — and that comes analytically from the fixture lambdas via
+`match_projection`, with no player sampling at all. Only the current gameweek is
+simulated, exactly as before. Build time measured **flat at 4.84s against 4.87s**
+before the phase. The horizon is aggregated inside `build_artifact` and cached
+with the artifact, so it costs nothing on a cache hit either.
+
+**Phase 5 is what made a six-week view possible at all.** Bookmaker odds reach a
+week or two out; beyond that there is no market to read. Deriving club ratings from
+FPL's own published strength means every fixture in the window has attack and
+defence terms, so gameweek 6 is projected on the same footing as gameweek 1 —
+model-derived rather than market-derived, and labelled as such.
+
+### The backtest collision: the shared `SCHEDULE` bites a second time
+
+Widening `model.load_gameweek` from one gameweek to the whole six-gameweek window
+turned a latent bug live. `core.fixtures.SCHEDULE` holds both competitions and
+`by_round` buckets on `fantasy_round` alone, so **World Cup round N and FPL
+gameweek N are the same bucket**. `evmax/backtest.py` called `by_round`
+unnarrowed at four sites; once six gameweeks were registered instead of one, a
+Premier League fixture landed in a finished World Cup round's bucket. An FPL
+fixture's stage can never satisfy the final-status gate, so the round flipped from
+`final` to `pending` — a long-settled published claim would have silently stopped
+being graded on `/track-record/`.
+
+Fixed with a module-local `_wc_by_round` that narrows by stage, at all four call
+sites. **This is the second time the shared `SCHEDULE` has bitten** — `build_artifact`
+needed the same narrowing in phase 4 to keep World Cup ties out of the FPL sim.
+Twice is a pattern: any new `by_round` caller in competition-specific code should be
+assumed wrong until it narrows.
+
+### The grid sorts on clean sheets, not FDR
+
+The obvious ranking for a fixture-run grid is mean FDR, and it does not work over a
+window. Averaging six coarse 1–5 integers regresses hard to the middle: **the ten
+clubs in the middle 50% by FDR sit inside a 3.4% band**, while those same ten clubs
+spread over **38.2% on expected clean sheets** — Arsenal at 1.244 and Ipswich at
+0.900 are separated by 0.10 of mean FDR. Ranking on FDR would order a dozen clubs on
+rounding noise and present it as a table. FDR still rides on every row, displayed
+and not modelled, as phase 5 established.
+
+### The season-opener naming fix
+
+The squad article was named for the **wildcard**, a chip the reader cannot play in
+GW1. `bootstrap-static.chips` gives the wildcard two windows, GW2–19 and GW20–38, so
+recommending it in the season opener was advice for a button that does not exist yet.
+Retitled "Season-opener squad & XI".
+
+`chip_available` derives legality from the chips data rather than hard-coding a
+gameweek, **because the same rule governs the GW20 wildcard** and a hard-coded
+`gw != 1` would be wrong again at the turn of the second window. **Absent data is
+not permission**: no chips list, an empty one, an unknown chip name or an entry with
+no window all return False. The failure modes are asymmetric — telling a reader to
+play a chip they do not have is a published error, declining to mention one they do
+have is a missed sentence.
+
+### The transfer article, and the caveat it has to carry
+
+`transfer_plan` ranks the league on gain over replacement **summed across the
+window** and flags `worth_a_hit` when that clears the −4 hit cost. Judging a hit
+over six gameweeks rather than one is the whole point: a −4 taken for a single
+Saturday almost never pays, and the same −4 taken for a six-week run usually does.
+Targets are capped at three per club, because an FPL squad may hold three and a
+list opening with five from one good run is advice the reader cannot take.
+
+**The honest caveat, and it is in the prose rather than in a footnote.** The
+replacement baseline is the median of all **563 registered players** — GK 3.81,
+DEF 5.54, MID 5.19, FWD 5.69 xPts over the window. That median player is a
+non-playing squad filler, and he is **lower than the incumbent any real reader
+would actually be transferring out**. League-wide, **188 of 563 players clear the
+bar; all 20 of the published top 20 do**. So the column does not discriminate at
+the top of the list — it says "better than a bench warmer", which everyone in the
+top 20 is. The article states this rather than letting the reader assume the gain
+is measured against their own player.
+
+### A `KeyError` on a published page, caught before it shipped
+
+`render.summary_sentence` branched on the article slug alone, and **two
+competitions share the `transfers` slug with no shared schema**. The World Cup
+branch reads `vor` and `p_advance`; neither key exists on an FPL entry, so the
+first FPL transfers page rendered would have raised `KeyError` on `vor`. Now
+branches on the presence of `horizon_gain` — on the field rather than on a
+competition flag, which is what keeps the two schemas apart without a flag to keep
+in sync.
+
+### Also in this phase
+
+- **The GW1 projection snapshot was regenerated** and now covers eight articles.
+  The committed record and the published site are the same numbers.
+- **GW1 rebuild verified byte-identical under `dist/round/`** — 51 pages, 87 files,
+  checksum unchanged. The FPL build writes nothing into the World Cup tree.
+
+### Known issues, not fixed here
+
+1. **The horizon squad's immediate cost is unvalidated.** Optimising over the
+   window instead of the gameweek gives up **1.23 xPts this Saturday** (XI 53.62
+   against 54.85). That price is paid immediately and with certainty; the run
+   advantage it buys is model-derived for five of the six gameweeks. **Which side
+   of that trade is right cannot be settled until the backtest has real history** —
+   GW1–6 results will settle it, and nothing before then will.
+2. **Price-change prediction is out of scope.** It needs ownership-flow data the
+   public API does not expose, and guessing at it would put a fabricated number
+   next to measured ones.
+3. **Chip-timing advice is out of scope.** Optimal chip timing depends on the
+   reader's squad, rank and risk appetite — none of which we have. `chip_available`
+   answers only the legality question, which is a fact.
+4. **A true 38-week transfer-path optimiser is out of scope.** It is a sequential
+   decision problem under uncertainty over a state space we cannot observe (the
+   reader's squad and bank). The six-week window is the honest horizon: long enough
+   that stickiness matters, short enough that the projections mean something.
+5. **The flat table under the club-framed articles still labels its first column
+   "Player"** over rows that are clubs. Cosmetic, and it reads as a bug.
+6. **`/rate/` is still World-Cup-shaped** (phase 4 item 2, unchanged).
+7. **`manage.py fpl --refresh` still does not refresh FPL data** (phase 4 item 3,
+   unchanged). It runs the World Cup ESPN scoreboard path.
+8. **The BPS baseline is still bootstrap-only** (phase 5 item 1, unchanged). Cold-
+   start players score bonus as if bonus did not exist.
 
 ## 2026-08-04 — FPL phase 5: the model can tell clubs apart
 

@@ -1,0 +1,1134 @@
+{
+  "competition": "fantasy_premier_league",
+  "gameweek": 1,
+  "article": "runs",
+  "title": "Fixture ticker — the next six — Gameweek 1",
+  "generated_at": "2026-08-04T13:27:03.940484+00:00",
+  "sims": 50000,
+  "methodology": "Player scoring rates (goals, assists, defensive contributions) come from each player's own FPL data, not betting markets; match outcomes (de-vigged market odds, or a team-strength rating when a fixture isn't priced) drive 50k Monte-Carlo simulations, scored on the official Fantasy Premier League points table.",
+  "entries": [
+    {
+      "name": "ARS",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.244,
+      "exp_goals_for": 6.61,
+      "exp_goals_against": 5.02,
+      "difficulty": 3.03,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "COV (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "AVL (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CHE (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "SUN (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BHA (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LEE (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 1
+    },
+    {
+      "name": "MCI",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.224,
+      "exp_goals_for": 6.54,
+      "exp_goals_against": 5.09,
+      "difficulty": 2.96,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "BOU (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CRY (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "COV (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MUN (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "SUN (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LIV (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 2
+    },
+    {
+      "name": "MUN",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.187,
+      "exp_goals_for": 6.4,
+      "exp_goals_against": 5.21,
+      "difficulty": 2.7,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "HUL (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "IPS (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "EVE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MCI (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "FUL (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "TOT (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 3
+    },
+    {
+      "name": "LIV",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.176,
+      "exp_goals_for": 6.36,
+      "exp_goals_against": 5.25,
+      "difficulty": 2.78,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "NEW (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NFO (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "IPS (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "FUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BOU (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MCI (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 4
+    },
+    {
+      "name": "CHE",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.166,
+      "exp_goals_for": 6.32,
+      "exp_goals_against": 5.3,
+      "difficulty": 3.0,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "FUL (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BHA (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "ARS (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "HUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BRE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BOU (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 5
+    },
+    {
+      "name": "AVL",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.086,
+      "exp_goals_for": 6.01,
+      "exp_goals_against": 5.58,
+      "difficulty": 3.03,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "BHA (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "ARS (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "HUL (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NFO (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "TOT (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BRE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 6
+    },
+    {
+      "name": "EVE",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.041,
+      "exp_goals_for": 5.84,
+      "exp_goals_against": 5.75,
+      "difficulty": 2.94,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "CRY (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BOU (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MUN (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "TOT (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "IPS (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "HUL (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 7
+    },
+    {
+      "name": "BRE",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.035,
+      "exp_goals_for": 5.82,
+      "exp_goals_against": 5.78,
+      "difficulty": 3.06,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "TOT (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LEE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "SUN (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BOU (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CHE (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "AVL (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 8
+    },
+    {
+      "name": "NFO",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.032,
+      "exp_goals_for": 5.81,
+      "exp_goals_against": 5.81,
+      "difficulty": 2.99,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "LEE (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LIV (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "TOT (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "AVL (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "COV (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CRY (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 9
+    },
+    {
+      "name": "CRY",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.027,
+      "exp_goals_for": 5.78,
+      "exp_goals_against": 5.82,
+      "difficulty": 3.06,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "EVE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MCI (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "FUL (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "IPS (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LEE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NFO (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 10
+    },
+    {
+      "name": "TOT",
+      "fixtures": 6,
+      "exp_clean_sheets": 1.02,
+      "exp_goals_for": 5.76,
+      "exp_goals_against": 5.84,
+      "difficulty": 2.9,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "BRE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NEW (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NFO (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "EVE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "AVL (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MUN (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 11
+    },
+    {
+      "name": "NEW",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.986,
+      "exp_goals_for": 5.6,
+      "exp_goals_against": 5.98,
+      "difficulty": 3.01,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "LIV (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "TOT (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BOU (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LEE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "HUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "COV (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 12
+    },
+    {
+      "name": "BOU",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.972,
+      "exp_goals_for": 5.56,
+      "exp_goals_against": 6.06,
+      "difficulty": 3.71,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "MCI (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "EVE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NEW (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BRE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LIV (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CHE (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 13
+    },
+    {
+      "name": "LEE",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.972,
+      "exp_goals_for": 5.56,
+      "exp_goals_against": 6.05,
+      "difficulty": 3.07,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "NFO (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BRE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BHA (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NEW (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CRY (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "ARS (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 14
+    },
+    {
+      "name": "SUN",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.972,
+      "exp_goals_for": 5.54,
+      "exp_goals_against": 6.06,
+      "difficulty": 2.85,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "IPS (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "FUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BRE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "ARS (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MCI (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BHA (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 15
+    },
+    {
+      "name": "BHA",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.953,
+      "exp_goals_for": 5.47,
+      "exp_goals_against": 6.13,
+      "difficulty": 3.01,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "AVL (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CHE (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LEE (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "COV (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "ARS (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "SUN (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 16
+    },
+    {
+      "name": "FUL",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.943,
+      "exp_goals_for": 5.43,
+      "exp_goals_against": 6.17,
+      "difficulty": 3.41,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "CHE (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "SUN (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CRY (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LIV (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MUN (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "IPS (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 17
+    },
+    {
+      "name": "HUL",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.9,
+      "exp_goals_for": 5.23,
+      "exp_goals_against": 6.37,
+      "difficulty": 3.18,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "MUN (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "COV (A)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "AVL (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CHE (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NEW (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "EVE (H)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 18
+    },
+    {
+      "name": "IPS",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.9,
+      "exp_goals_for": 5.25,
+      "exp_goals_against": 6.37,
+      "difficulty": 3.03,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "SUN (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MUN (A)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "LIV (H)",
+          "difficulty": 4,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "CRY (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "EVE (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "FUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 19
+    },
+    {
+      "name": "COV",
+      "fixtures": 6,
+      "exp_clean_sheets": 0.891,
+      "exp_goals_for": 5.2,
+      "exp_goals_against": 6.46,
+      "difficulty": 3.37,
+      "basis": "model",
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "cells": [
+        {
+          "label": "ARS (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "HUL (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "MCI (A)",
+          "difficulty": 5,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "BHA (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NFO (A)",
+          "difficulty": 3,
+          "blank": false,
+          "double": false
+        },
+        {
+          "label": "NEW (H)",
+          "difficulty": 2,
+          "blank": false,
+          "double": false
+        }
+      ],
+      "rank": 20
+    }
+  ],
+  "source": "https://evmax.ai",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "license_text": "CC BY 4.0 — free to reuse with attribution to evmax (https://evmax.ai)"
+}
