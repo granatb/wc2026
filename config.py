@@ -192,6 +192,30 @@ FPL_HISTORY_MAX_SEASONS_BACK = 1
 # odds -- revisit once GW1-5 results exist to grade it against.
 FPL_RATING_SPREAD = 0.25
 
+# ---------------------------------------------------------------------------
+# FPL horizon — the planning window (see core/fpl_horizon.py)
+#
+# FPL gives one free transfer a gameweek (bankable to 5, extras cost -4), the
+# sell-on fee is 50%, and the wildcard is unavailable in GW1. A squad picked
+# today is therefore roughly the squad five gameweeks from now, and cannot be
+# cheaply undone -- so the useful question is not "who scores this Saturday"
+# but "who scores over the next several weeks".
+# ---------------------------------------------------------------------------
+FPL_HORIZON_LENGTH = 6      # gameweeks in the planning window
+
+# Weight of each successive gameweek: a fixture at offset k counts
+# FPL_HORIZON_DECAY ** k. A fixture five weeks out is worth less to a decision
+# made today because team news, form and injuries all move first.
+#   1.0 -> every gameweek in the window counts equally
+#   0.0 -> collapses the horizon onto the CURRENT gameweek, reproducing the
+#          single-gameweek ticker numbers exactly. That is the calibration
+#          anchor (and a test): it lets a horizon regression be told apart from
+#          a ratings regression.
+# 0.85 (a sixth-week fixture at ~44% of this week's) is a JUDGEMENT CALL pending
+# realized results, not a fitted value -- nothing has yet been graded against how
+# fast a fixture's information actually decays. Revisit once GW1-10 exists.
+FPL_HORIZON_DECAY = 0.85
+
 
 def game(name: str) -> dict:
     return GAMES[name]
