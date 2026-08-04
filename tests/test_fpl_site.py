@@ -775,3 +775,61 @@ class TestSharedRootPageCopy(unittest.TestCase):
 
     def test_privacy_is_competition_neutral(self):
         self.assertNotIn("World Cup", render.privacy_page())
+
+
+class TestProseGroundingAcceptsPercentages(unittest.TestCase):
+    """A 0-1 probability rendered as a percentage must survive the grounding guard.
+
+    The FPL glossary asks for p_defcon as "71%", so the correct prose figure is the
+    stored value x100 and never equals the stored value. Before 2026-08-04 the guard
+    compared only against raw entry values, rejected every such article, and
+    silently disabled the LLM tier for the whole FPL section.
+    """
+
+    ENTRIES = [{"name": "Gabriel", "p_defcon": 0.602, "x_points": 5.4}]
+
+    def _reject(self, text):
+        """True if the grounding guard would reject `text` for these entries."""
+        import re as _re
+        real = [float(v) for e in self.ENTRIES for v in e.values()
+                if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        real += [rv * 100 for rv in real if 0.0 <= rv <= 1.0]
+        return any(not any(abs(float(t) - rv) <= 0.05 for rv in real)
+                   for t in _re.findall(r"\d+\.\d+", text))
+
+    def test_percentage_rendering_is_accepted(self):
+        self.assertFalse(self._reject("Gabriel clears the bar in 60.2% of sims."))
+
+    def test_raw_probability_is_still_accepted(self):
+        self.assertFalse(self._reject("Gabriel's p_defcon is 0.602."))
+
+    def test_a_fabricated_decimal_is_still_rejected(self):
+        """The widening must not turn the guard off."""
+        self.assertTrue(self._reject("Gabriel scored 47.3 goals last season."))
+
+    def test_above_one_values_get_no_percentage_twin(self):
+        """x_points 5.4 must not license '540' as a percentage."""
+        self.assertTrue(self._reject("Gabriel returns 540.0 of something."))
+
+
+class TestGroundingPercentageTwinIsBounded(unittest.TestCase):
+    """The percentage twin must not admit a fabricated figure via an integer field.
+
+    `rank: 1` sits in [0, 1] but is not a probability. Admitting its twin of 100
+    accepts a fabricated "99.99" — the first version of this widening did exactly
+    that and was caught by tests/test_site_writer.
+    """
+
+    def _twins(self, entries):
+        real = [float(v) for e in entries for v in e.values()
+                if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        return [rv * 100 for rv in real if 0.0 < rv < 1.0 and rv != int(rv)]
+
+    def test_rank_one_gets_no_percentage_twin(self):
+        self.assertNotIn(100.0, self._twins([{"rank": 1, "x_points": 9.16}]))
+
+    def test_a_real_probability_still_gets_one(self):
+        self.assertIn(60.2, [round(t, 1) for t in self._twins([{"p_defcon": 0.602}])])
+
+    def test_zero_gets_no_twin(self):
+        self.assertEqual(self._twins([{"p_defcon": 0.0}]), [])

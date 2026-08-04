@@ -1480,6 +1480,27 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
     # legitimate 1dp/2dp rounding); bare integers are allowed freely.
     real_values = [float(v) for e in entries for v in e.values()
                    if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    # A 0-1 probability is asked for IN PROSE as a percentage (the FPL glossary
+    # says to write p_defcon as "71%"), so its correct rendering is the stored
+    # value x100 and never matches the stored value itself. Admit that form
+    # explicitly. Without it this guard rejects accurate output and silently
+    # disables the whole LLM tier for FPL -- which is exactly what it did until
+    # 2026-08-04: every FPL article fell through to the template tier because the
+    # model wrote "60.2%" for a p_defcon of 0.602.
+    #
+    # World Cup entries never hit this because ownership_pct and p_advance are
+    # already stored on a 0-100 scale, so a percentage in prose matched directly.
+    #
+    # The widening is deliberately bounded, and the bound is narrower than it first
+    # looks. Only STRICTLY FRACTIONAL values in (0, 1) get a percentage twin:
+    # `rank: 1` is in [0, 1] but is not a probability, and admitting its twin of
+    # 100 would accept a fabricated "99.99" — which is exactly what the first
+    # version of this widening did, caught by
+    # tests/test_site_writer.test_llm_fabricated_number_falls_to_template.
+    # A probability of exactly 0 or 1 renders as the bare integer "0%"/"100%",
+    # and bare integers already pass freely, so excluding them costs nothing.
+    real_values += [rv * 100 for rv in real_values
+                    if 0.0 < rv < 1.0 and rv != int(rv)]
     for token in re.findall(r"\d+\.\d+", combined_output):
         val = float(token)
         if not any(abs(val - rv) <= 0.05 for rv in real_values):
