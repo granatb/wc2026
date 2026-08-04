@@ -3,7 +3,7 @@
   "gameweek": 1,
   "article": "defcon",
   "title": "DefCon leaders — Gameweek 1",
-  "generated_at": "2026-08-04T10:24:52.629952+00:00",
+  "generated_at": "2026-08-04T11:00:46.508788+00:00",
   "sims": 50000,
   "methodology": "Player scoring rates (goals, assists, defensive contributions) come from each player's own FPL data, not betting markets; match outcomes (de-vigged market odds, or a team-strength rating when a fixture isn't priced) drive 50k Monte-Carlo simulations, scored on the official Fantasy Premier League points table.",
   "entries": [
