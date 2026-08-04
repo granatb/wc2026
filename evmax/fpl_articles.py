@@ -496,3 +496,82 @@ def ticker(matches: list, clubs: list) -> list:
     for i, r in enumerate(out, 1):
         r["rank"] = i
     return out
+
+
+# The em dash a blank gameweek's cell carries. A blank and an empty cell are
+# different facts and the grid must not render them the same way.
+BLANK_CELL_LABEL = "—"
+
+
+def _run_cell(fixtures_in_gw: list) -> dict:
+    """One grid cell: the club's fixture(s) in one gameweek.
+
+    difficulty is None for a blank rather than 0 -- zero would colour as the
+    easiest fixture on the board, which is the exact opposite of what a blank
+    means. For a double it is the MEAN of the two fixtures' FDR, rounded to an
+    integer so the cell still lands on one of the five colour bands; the two
+    opponents are both named in the label, so the reader is never left with only
+    the average.
+    """
+    if not fixtures_in_gw:
+        return {"label": BLANK_CELL_LABEL, "difficulty": None,
+                "blank": True, "double": False}
+    labels = [f"{f.get('opponent', '?')} ({f.get('venue', '?')})"
+              for f in fixtures_in_gw]
+    known = [f["difficulty"] for f in fixtures_in_gw
+             if f.get("difficulty") is not None]
+    return {
+        "label": " + ".join(labels),
+        "difficulty": round(sum(known) / len(known)) if known else None,
+        "blank": False,
+        "double": len(fixtures_in_gw) > 1,
+    }
+
+
+def fixture_runs(horizon: dict, window: list) -> list:
+    """One row per club for the fixture-run grid: the summary plus a cell per week.
+
+    `horizon` is games.fpl.model.build_artifact's "horizon" key (see
+    core.fpl_horizon.club_horizon); `window` is the gameweeks it was built over,
+    in order.
+
+    RANKED ON EXPECTED CLEAN SHEETS, NOT ON FDR -- this is the finding the whole
+    article rests on, so it is worth stating plainly. Measured over the live
+    six-week window, FDR's middle 50% of clubs sit inside a 4% band (3.00, 3.01,
+    3.01, 3.03, 3.03, 3.03, 3.06 ...) while expected clean sheets spread the same
+    clubs over an 18% band. Sorting on FDR would order a dozen clubs on rounding
+    noise. FDR stays as the human-readable label on each cell -- it is what every
+    other fixture ticker prints and readers know it -- and the clean-sheet
+    aggregate does the ranking.
+
+    Tie-broken on club name, like ticker(): clubs blank for the entire window all
+    tie at 0.0, and a published table must not reshuffle between builds because a
+    dict's insertion order moved.
+
+    `cells` is one entry per gameweek IN WINDOW ORDER, not in the horizon dict's
+    key order -- the grid's columns are a timeline and a run read out of sequence
+    is worse than no run at all. `gameweeks` rides along because the renderer
+    needs the column headers and cannot infer them from a club that blanks
+    throughout.
+    """
+    window = list(window)
+    out = []
+    for club, row in (horizon or {}).items():
+        by_gw = row.get("by_gameweek") or {}
+        entry = {
+            "name": row.get("name", club),
+            "fixtures": row.get("fixtures", 0),
+            "exp_clean_sheets": row.get("exp_clean_sheets", 0.0),
+            "exp_goals_for": row.get("exp_goals_for", 0.0),
+            "exp_goals_against": row.get("exp_goals_against", 0.0),
+            "difficulty": row.get("difficulty"),
+            "basis": row.get("basis", "—"),
+            "gameweeks": list(window),
+            "cells": [_run_cell(by_gw.get(gw) or []) for gw in window],
+        }
+        out.append(entry)
+
+    out.sort(key=lambda r: (-(r["exp_clean_sheets"] or 0.0), r["name"]))
+    for i, r in enumerate(out, 1):
+        r["rank"] = i
+    return out

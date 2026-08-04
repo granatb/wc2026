@@ -833,3 +833,43 @@ class TestGroundingPercentageTwinIsBounded(unittest.TestCase):
 
     def test_zero_gets_no_twin(self):
         self.assertEqual(self._twins([{"p_defcon": 0.0}]), [])
+
+
+class TestRunGridRenderer(unittest.TestCase):
+    ENTRIES = [{
+        "name": "ARS", "rank": 1, "exp_clean_sheets": 1.244, "difficulty": 3.0,
+        "fixtures": 2, "basis": "model", "gameweeks": [1, 2],
+        "cells": [{"label": "COV (H)", "difficulty": 2, "blank": False,
+                   "double": False},
+                  {"label": "AVL (A)", "difficulty": 4, "blank": False,
+                   "double": False}],
+    }]
+
+    def test_grid_has_a_column_header_per_gameweek(self):
+        html = render.run_grid_html(self.ENTRIES)
+        self.assertIn("GW1", html)
+        self.assertIn("GW2", html)
+
+    def test_cells_carry_a_difficulty_class_for_colouring(self):
+        html = render.run_grid_html(self.ENTRIES)
+        self.assertIn("fdr-2", html)
+        self.assertIn("fdr-4", html)
+
+    def test_grid_scrolls_inside_its_own_container(self):
+        """A 20x6 grid must not force the page to scroll sideways on mobile."""
+        html = render.run_grid_html(self.ENTRIES)
+        self.assertIn("overflow-x", html + render._STYLE)
+
+    def test_blank_cell_renders_visibly(self):
+        entries = [dict(self.ENTRIES[0], cells=[
+            {"label": "—", "difficulty": None, "blank": True, "double": False}],
+            gameweeks=[1])]
+        html = render.run_grid_html(entries)
+        self.assertIn("blank", html)
+
+    def test_empty_entries_do_not_crash(self):
+        self.assertIsInstance(render.run_grid_html([]), str)
+
+    def test_club_names_are_escaped(self):
+        entries = [dict(self.ENTRIES[0], name="A&B")]
+        self.assertIn("A&amp;B", render.run_grid_html(entries))

@@ -1227,6 +1227,294 @@ def _fpl_efficiency_bottom_line(e, r, subj):
 
 # --- defcon ----------------------------------------------------------------
 
+# --- runs (the six-gameweek fixture grid) ----------------------------------
+
+def _fpl_run_window(entries) -> int:
+    """How many gameweeks the grid covers. Read off the data rather than assumed:
+    a window late in the season is simply shorter (see core.fpl_horizon.window)."""
+    for x in entries:
+        gws = x.get("gameweeks") or []
+        if gws:
+            return len(gws)
+    return 0
+
+
+def _fpl_run_phrase(entry) -> str:
+    """A club's run as a reader reads it: "COV (H), AVL (A), CHE (H)". Blanks and
+    doubles are spelled out in words rather than left as grid glyphs -- an em dash
+    is legible in a coloured cell and invisible in a sentence."""
+    parts = []
+    for cell in entry.get("cells", []):
+        if cell.get("blank"):
+            parts.append("blank")
+        elif cell.get("double"):
+            parts.append(f"{cell.get('label', '')} (double)")
+        else:
+            parts.append(cell.get("label", ""))
+    return _esc(", ".join(p for p in parts if p))
+
+
+def _fpl_run_split(entry) -> tuple:
+    """(first gameweek's FDR, mean FDR of the rest) -- or (None, None) when either
+    half has no rated fixture. This is the pair the divergence test compares."""
+    cells = entry.get("cells", [])
+    if len(cells) < 2:
+        return None, None
+    first = cells[0].get("difficulty")
+    rest = [c["difficulty"] for c in cells[1:] if c.get("difficulty") is not None]
+    if first is None or not rest:
+        return None, None
+    return float(first), sum(rest) / len(rest)
+
+
+# How far the rest of a run has to sit from the opening fixture before the two
+# count as telling different stories. One full FDR band: Arsenal open at COV (2)
+# and average 3.2 across the following five, a 1.2 gap, which is exactly the
+# case this article exists to catch.
+_RUN_DIVERGENCE_GAP = 1.0
+
+
+def _fpl_run_divergences(entries) -> list:
+    """Clubs whose opening fixture and whose run disagree, widest gap first.
+
+    Returned as (entry, first_fdr, rest_mean, "trap"|"opportunity"). A "trap"
+    opens easy and gets harder -- the single most expensive mistake a
+    one-gameweek ticker can walk a manager into, because one free transfer a week
+    means the squad they buy on Saturday is largely the squad they still hold in
+    five weeks' time. An "opportunity" is the mirror: a club that looks
+    unbuyable this week and is the best run on the board once the opener is past.
+    """
+    out = []
+    for x in entries:
+        first, rest = _fpl_run_split(x)
+        if first is None:
+            continue
+        gap = rest - first
+        if gap >= _RUN_DIVERGENCE_GAP:
+            out.append((x, first, rest, "trap"))
+        elif -gap >= _RUN_DIVERGENCE_GAP:
+            out.append((x, first, rest, "opportunity"))
+    # Traps first, then opportunities, each widest gap first. The ordering is an
+    # editorial judgement, not a numeric one: a trap is a mistake the
+    # one-gameweek ticker actively walks a manager into and costs a transfer to
+    # undo, while an opportunity is at worst a week of patience. So the widest
+    # trap leads the article even when an opportunity has the larger gap.
+    out.sort(key=lambda t: (t[3] != "trap", -abs(t[2] - t[1])))
+    return out
+
+
+_NUM_WORD = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+             7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+
+
+def _num_word(n: int) -> str:
+    """Small counts spelled out. "the kindest six" is prose; "the kindest 6" is a
+    mail merge."""
+    return _NUM_WORD.get(int(n), str(n))
+
+
+def _fpl_run_basis_note(entries) -> str:
+    """The provenance sentence. Over a six-week window the honest answer is almost
+    always "model": the betting market does not price a fixture five weeks out, so
+    only the opening gameweek can ever be market-derived, and today not even that
+    is priced. Saying so is the point of the site."""
+    bases = {x.get("basis") for x in entries}
+    if bases <= {"model", "—"}:
+        return ("Every number on this grid comes from our own team ratings, not "
+                "from the betting market — nothing in this window is priced yet. "
+                "Treat the near gameweeks as firmer than the far ones: team news, "
+                "form and injuries all move before week six arrives.")
+    if "market" in bases and len(bases - {"—"}) > 1:
+        return ("The opening gameweek is priced by the betting market; everything "
+                "beyond it comes from our own team ratings. The far end of this "
+                "window is a plan, not a price.")
+    return ("These fixtures are priced by the betting market, which reaches a "
+            "week or two out at most — the far end of the window leans on our "
+            "own team ratings.")
+
+
+def _fpl_runs_playing(entries) -> list:
+    """Clubs with at least one fixture in the window. A side that blanks
+    throughout still belongs on the grid and does not belong in a sentence about
+    the best or worst run."""
+    return [x for x in entries if int(_num(x, "fixtures")) > 0]
+
+
+def _fpl_runs_headline(e, r, subj):
+    playing = _fpl_runs_playing(e)
+    lead = playing[0] if playing else e[0]
+    n = _fpl_run_window(e)
+    return f"{lead['name']} own the best {_num_word(n)} gameweeks from here"
+
+
+def _fpl_runs_standfirst(e, r, subj):
+    playing = _fpl_runs_playing(e)
+    if not playing:
+        return "No club has a fixture in this planning window."
+    lead, tail = playing[0], playing[-1]
+    n = _fpl_run_window(e)
+    line = (f"{lead['name']} project {_fmt_pts(lead.get('exp_clean_sheets', 0))} "
+            f"clean sheets across the next {_num_word(n)} gameweeks; "
+            f"{tail['name']} project "
+            f"{_fmt_pts(tail.get('exp_clean_sheets', 0))}")
+    div = _fpl_run_divergences(e)
+    if div:
+        x, _first, _rest, kind = div[0]
+        tail_clause = (f"{x['name']}'s opener flatters their run" if kind == "trap"
+                       else f"{x['name']}'s opener libels their run")
+        return f"{line} — and {tail_clause}."
+    return line + "."
+
+
+def _fpl_runs_body(e, r, subj):
+    playing = _fpl_runs_playing(e)
+    if not playing:
+        return ("<p>No club in the league has a fixture inside this planning "
+                "window, so there is no run to buy into.</p>")
+    n = _fpl_run_window(e)
+    lead, tail = playing[0], playing[-1]
+
+    out = (
+        f"<p>One free transfer a gameweek — bankable to five, and any extra "
+        f"costs four points — means the squad you buy this week is mostly the "
+        f"squad you still own {_num_word(n)} gameweeks from now. So the question "
+        f"is not who plays the kindest fixture on Saturday; it is who plays the "
+        f"kindest {_num_word(n)}. {_esc(lead['name'])} answer it: "
+        f"{_fpl_run_phrase(lead)}, worth "
+        f"{_fmt_pts(lead.get('exp_clean_sheets', 0))} expected clean sheets "
+        f"across the window.</p>\n"
+    )
+
+    out += (
+        f"<p>The other end of the grid is {_esc(tail['name'])}: "
+        f"{_fpl_run_phrase(tail)}, and "
+        f"{_fmt_pts(tail.get('exp_clean_sheets', 0))} expected clean sheets to "
+        f"show for it. That is the floor and the ceiling of this window in one "
+        f"breath — same number of gameweeks, "
+        f"{_fmt_pts(_num(lead, 'exp_clean_sheets') - _num(tail, 'exp_clean_sheets'))} "
+        f"clean sheets between them.</p>\n"
+    )
+
+    div = _fpl_run_divergences(e)
+    if div:
+        x, first, rest, kind = div[0]
+        behind = _num_word(len(x.get("cells", [])) - 1)
+        if kind == "trap" and x is lead:
+            # The awkward case, and the one this article was built for: the club
+            # with the best run is ALSO the club whose opener is doing the most
+            # work. Saying "avoid them" would be false -- they top the window on
+            # the numbers -- so the honest line is that the ranking survives the
+            # longer view and the MARGIN does not. Both halves are computed from
+            # this article's own rows, never from the one-gameweek ticker.
+            out += (
+                f"<blockquote><p>{_esc(x['name'])} are the awkward case. They top "
+                f"this grid on the aggregate — and their opener rates {first:.0f} "
+                f"on the difficulty scale while the {behind} fixtures behind it "
+                f"average {rest:.1f}. One kind Saturday, then an ordinary "
+                f"month.</p></blockquote>\n"
+            )
+            runner = playing[1] if len(playing) > 1 else None
+            if runner is not None and _num(runner, "exp_clean_sheets") > 0:
+                margin = (_num(lead, "exp_clean_sheets")
+                          / _num(runner, "exp_clean_sheets") - 1) * 100
+                out += (
+                    f"<p>{_esc(x['name'])} run {_fpl_run_phrase(x)}. Across the "
+                    f"window they lead {_esc(runner['name'])} by {margin:.0f}% on "
+                    f"expected clean sheets — a real lead, and a thin one. A "
+                    f"ticker that stops at Saturday prices that opening fixture "
+                    f"as though it repeats {_num_word(n)} times; the row above "
+                    f"says it does not.</p>\n"
+                )
+            else:
+                out += (f"<p>{_esc(x['name'])} run {_fpl_run_phrase(x)}. A ticker "
+                        f"that stops at Saturday prices the opener as though it "
+                        f"repeats {_num_word(n)} times; the row above says it "
+                        f"does not.</p>\n")
+        elif kind == "trap":
+            out += (
+                f"<blockquote><p>{_esc(x['name'])} are the trap. Their opener "
+                f"rates {first:.0f} on the difficulty scale and the {behind} "
+                f"fixtures behind it average {rest:.1f} — a one-week pop, bought "
+                f"with a transfer you will still be living with when the run "
+                f"turns.</p></blockquote>\n"
+            )
+            out += (
+                f"<p>{_esc(x['name'])} run {_fpl_run_phrase(x)}. A ticker that "
+                f"stops at Saturday ranks them near the top of the board; the "
+                f"grid above says the fixture doing that work does not come "
+                f"back.</p>\n"
+            )
+        else:
+            out += (
+                f"<blockquote><p>{_esc(x['name'])} are the inverse. Their opener "
+                f"rates {first:.0f} and the {behind} behind it average "
+                f"{rest:.1f} — a side a one-gameweek ticker tells you to avoid, "
+                f"and a run worth waiting one week to buy.</p></blockquote>\n"
+            )
+            out += (
+                f"<p>{_esc(x['name'])} run {_fpl_run_phrase(x)}. A ticker that "
+                f"stops at Saturday buries them; the grid above says the hard "
+                f"fixture is the one that does not come back.</p>\n"
+            )
+        if len(div) > 1:
+            others = _and_join(_esc(o[0]["name"]) for o in div[1:4])
+            out += (f"<p>{others} split the same way — near fixture and run "
+                    f"pointing in opposite directions. Check the row, not the "
+                    f"first cell.</p>\n")
+    else:
+        out += ("<blockquote><p>No club on this grid opens meaningfully out of "
+                "step with its own run, which is the rare week when a "
+                "one-gameweek ticker and a six-week one give the same "
+                "answer.</p></blockquote>\n")
+
+    blanks = [x for x in e if any(c.get("blank") for c in x.get("cells", []))]
+    doubles = [x for x in e if any(c.get("double") for c in x.get("cells", []))]
+    swings = []
+    if blanks:
+        swings.append(f"{_and_join(_esc(x['name']) for x in blanks[:6])} "
+                      f"{'has' if len(blanks) == 1 else 'have'} a blank inside "
+                      f"the window — a gameweek those players score nothing at "
+                      f"all")
+    if doubles:
+        swings.append(f"{_and_join(_esc(x['name']) for x in doubles[:6])} "
+                      f"{'has' if len(doubles) == 1 else 'have'} a double — two "
+                      f"shots at every points source in one week")
+    if swings:
+        out += "<p>" + "; ".join(swings) + ".</p>\n"
+    else:
+        out += ("<p>No blank and no double falls inside this window, so every "
+                "club on the grid plays exactly once a week — the runs are the "
+                "whole story.</p>\n")
+
+    out += f"<p>{_fpl_run_basis_note(e)}</p>"
+    return out
+
+
+def _fpl_runs_bottom_line(e, r, subj):
+    playing = _fpl_runs_playing(e)
+    if not playing:
+        return "There is no fixture in this window to plan around."
+    lead = playing[0]
+    n = _fpl_run_window(e)
+    div = _fpl_run_divergences(e)
+    trap = next((d for d in div if d[3] == "trap"), None)
+    base = (f"Buy into {lead['name']} — "
+            f"{_fmt_pts(lead.get('exp_clean_sheets', 0))} expected clean sheets "
+            f"over {_num_word(n)} gameweeks is the run worth spending a transfer "
+            f"on")
+    if trap and trap[0] is lead:
+        # "Buy them, but not for the reason the one-week ticker gives you" --
+        # never "avoid them", which their own aggregate contradicts.
+        return (base + f", but buy it for the whole run and not the opener: the "
+                f"{_num_word(len(lead.get('cells', [])) - 1)} fixtures behind it "
+                f"average {trap[2]:.1f} on difficulty.")
+    if trap:
+        return (base + f", and do not pay for {trap[0]['name']}'s opening fixture "
+                f"when the {_num_word(len(trap[0].get('cells', [])) - 1)} behind "
+                f"it average {trap[2]:.1f}.")
+    return base + ", not a single kind fixture."
+
+
 def _fpl_defcon_bar(entry) -> str:
     """The threshold in the units the position actually counts."""
     t = int(_num(entry, "defcon_threshold"))
@@ -1325,6 +1613,12 @@ _FPL_TEMPLATES = {
         "body": _fpl_ticker_body,
         "bottom_line": _fpl_ticker_bottom_line,
     },
+    "runs": {
+        "headline": _fpl_runs_headline,
+        "standfirst": _fpl_runs_standfirst,
+        "body": _fpl_runs_body,
+        "bottom_line": _fpl_runs_bottom_line,
+    },
     "defenders": {
         "headline": _fpl_defenders_headline,
         "standfirst": _fpl_defenders_standfirst,
@@ -1391,7 +1685,8 @@ def _template_prose(article: str, entries: list, columns: list,
     # a three-letter club abbreviation where a player's name belongs.
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "wildcard", "matches", "fixtures", "ticker"):
+    elif article in ("best-xi", "wildcard", "matches", "fixtures", "ticker",
+                     "runs"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None

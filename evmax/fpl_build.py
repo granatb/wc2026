@@ -17,14 +17,18 @@ import os
 import shutil
 from datetime import datetime, timezone
 
-from core import fixtures, fpl_api, research, simcache
+from core import fixtures, fpl_api, fpl_horizon, research, simcache
 from evmax import articles, fpl_articles, render, writer
 from games.fpl import model
 
 # ---------------------------------------------------------------------------
 # The six FPL articles
 # ---------------------------------------------------------------------------
-ARTICLES = ["captains", "wildcard", "ticker", "defenders", "efficiency", "defcon"]
+# "runs" sits next to "ticker": both are planning views over the fixture list,
+# one for this Saturday and one for the next six weeks, and a reader who lands
+# on either should see the other one step away.
+ARTICLES = ["captains", "wildcard", "ticker", "runs", "defenders", "efficiency",
+            "defcon"]
 
 ARTICLE_TITLES = {
     # Short: the <title> becomes "{title} — Gameweek N | evmax" and Bing errors
@@ -32,6 +36,7 @@ ARTICLE_TITLES = {
     "captains": "Best captain picks",
     "wildcard": "Draft squad & wildcard XI",
     "ticker": "Fixture ticker — clean sheets",
+    "runs": "Fixture ticker — the next six",
     "defenders": "Best defenders & keepers",
     "efficiency": "Best value — points per million",
     "defcon": "DefCon leaders",
@@ -42,6 +47,9 @@ _COLUMNS = {
     "wildcard":   ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
     "ticker":     ["exp_clean_sheets", "exp_goals_for", "exp_goals_against",
                    "difficulty", "fixtures", "basis"],
+    # Deliberately narrower than ticker's: the grid above the table already
+    # carries the per-gameweek detail, so the flat table is the summary only.
+    "runs":       ["exp_clean_sheets", "difficulty", "fixtures", "basis"],
     "defenders":  ["x_points", "cs_points", "defcon", "bonus", "price"],
     "efficiency": ["value", "x_points", "price", "ownership_pct", "ceiling"],
     "defcon":     ["p_defcon", "defcon", "x_points", "price", "ownership_pct"],
@@ -64,7 +72,7 @@ _FEATURED_VIZ_MAX_ROWS = 8
 # prose layer takes subject=None for these: ticker's rows are clubs, so its
 # "lead" is a three-letter abbreviation where a player's name belongs, and the
 # wildcard piece is about the 15, not about whoever tops it.
-_TEAM_FRAMED = {"wildcard", "ticker"}
+_TEAM_FRAMED = {"wildcard", "ticker", "runs"}
 
 
 def _gameweek_fixtures(gameweek: int) -> list:
@@ -402,6 +410,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # round number never reach the sim or the match summaries.
     matches = artifact["matches"]
 
+    horizon_window = fpl_horizon.window(gameweek)
+
     available = _available_gameweeks(out, gameweek)
 
     # --- Per-article entries ------------------------------------------------
@@ -410,6 +420,11 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         "captains":   fpl_articles.captains(rows)[:20],
         "wildcard":   squad_entries,
         "ticker":     fpl_articles.ticker(matches, clubs),
+        # The horizon is aggregated inside build_artifact (and cached with it);
+        # the window is recomputed here because the grid needs the same
+        # gameweek list for its column headers.
+        "runs":       fpl_articles.fixture_runs(artifact.get("horizon", {}),
+                                                horizon_window),
         "defenders":  fpl_articles.defenders(rows)[:20],
         "efficiency": fpl_articles.efficiency(rows)[:20],
         "defcon":     fpl_articles.defcon_leaders(rows)[:20],
@@ -493,6 +508,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         if slug == "wildcard":
             # entries is the full 15 (XI + bench); the pitch only draws the XI.
             viz_html = render.pitch_svg([e for e in entries if e.get("role") == "XI"])
+        elif slug == "runs":
+            # A grid, not a bar chart: the article's whole point is the SHAPE of
+            # a club's next six, which a single aggregated bar would flatten away.
+            viz_html = render.run_grid_html(entries)
         else:
             pair = _CEILING_PAIRED_METRIC.get(slug)
             if pair:

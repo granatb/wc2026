@@ -112,6 +112,20 @@ _FPL_GLOSSARY = """\
     if they carried the same confidence.
   - kickoff_order → the order this player's match kicks off among the candidates
     (1 = earliest). Relevant to the vice-captain decision, not the captain one.
+  - gameweeks → the gameweeks this club's run covers, in order. Say "the next six
+    gameweeks", never print the list.
+  - cells → that club's fixture in each of those gameweeks, in the same order.
+    Each carries `label` (already formatted, e.g. "COV (H)" — quote it as-is, and
+    for a double it names both opponents), `difficulty` (FPL's own 1-5 fixture
+    difficulty for that fixture; 1 is easiest, 5 hardest, and it is None when
+    there is no fixture to rate), `blank` (true = the club does not play that
+    week) and `double` (true = they play twice). Never print the words "cells",
+    "blank": true or "difficulty" — say "a blank gameweek", "a double" and
+    "fixture difficulty".
+  - difficulty (on the club row) → the club's AVERAGE fixture difficulty across
+    the whole window. Use it as a label, not as a ranking: over six gameweeks
+    most of the league lands within a few hundredths of 3.0, so it separates
+    almost nobody. The ranking is expected clean sheets.
 """
 
 
@@ -165,6 +179,27 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None,
             "every club with fixtures=2 (a DOUBLE) explicitly and early — those "
             "are the two facts that change a manager's week. State the `basis` "
             "for any number you cite.\n"
+        )
+    elif slug == "runs":
+        subject_instruction = (
+            "Focus      : This is a PLANNING view over the next six gameweeks, not "
+            "a preview of one. FPL gives a manager one free transfer a gameweek "
+            "(bankable to five, any extra costing -4), so a squad changes slowly "
+            "and managers buy into fixture RUNS, not single fixtures — say this "
+            "out loud early, it is why the article exists. Name the best run on "
+            "the board and the worst, and quote each club's own sequence of "
+            "fixtures from its `cells` labels. Then do the thing this piece is "
+            "for: call out any club whose NEXT fixture and whose RUN disagree — an "
+            "easy opener followed by a hard stretch is a trap, because the "
+            "transfer that buys the opener is still in the squad when the run "
+            "turns, and a hard opener in front of an easy stretch is a side worth "
+            "waiting a week for. Call out every blank gameweek and every double "
+            "inside the window explicitly. Rank on expected clean sheets, NOT on "
+            "average fixture difficulty. Finally, state the provenance plainly: "
+            "the betting market does not price fixtures five weeks out, so the "
+            "later gameweeks are derived from our own team ratings rather than "
+            "from the market — check each club's `basis` and never present a "
+            "model-derived number as a priced one.\n"
         )
     elif subject is not None:
         subject_instruction = (

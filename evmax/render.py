@@ -219,6 +219,15 @@ def summary_sentence(article, entries):
         return (f"{name} head the gameweek ticker: "
                 f"{top.get('exp_clean_sheets', 0.0):.2f} expected clean sheets "
                 f"from {n_fx} fixture{'' if n_fx == 1 else 's'}.")
+    if article == "runs":
+        # Club rows again, and over a WINDOW rather than one gameweek: the
+        # generic sentence has no x_points to reach for and would read as a
+        # single-fixture claim even if it did.
+        n_gw = len(top.get("gameweeks") or [])
+        n_fx = top.get("fixtures", 0)
+        return (f"{name} have the best {n_gw}-gameweek run: "
+                f"{top.get('exp_clean_sheets', 0.0):.2f} expected clean sheets "
+                f"from {n_fx} fixture{'' if n_fx == 1 else 's'}.")
     if article == "defcon":
         # Ranked on the PROBABILITY of clearing the defensive-contribution bar,
         # not on expected points -- the generic sentence would advertise an
@@ -261,7 +270,10 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               "top_def": "Best DEF", "top_gk": "Best GK",
               "p_defcon": "P(DefCon)", "cs_points": "CS pts", "defcon": "DefCon pts",
               "bonus": "Bonus", "exp_clean_sheets": "Clean sheets",
-              "fixtures": "Fixtures", "basis": "Basis", "difficulty": "FDR"}
+              "fixtures": "Fixtures", "basis": "Basis", "difficulty": "FDR",
+              # Not a column: the article slug's own kicker label, which reads
+              # better than the auto-titled "Runs".
+              "runs": "Fixture runs"}
 
 # Columns whose value is already a display-ready string (not a number to format).
 _STRING_COLS = {"top_def", "top_gk", "basis"}
@@ -417,6 +429,38 @@ _STYLE = (
     "font-size:15px;font-variant-numeric:tabular-nums}"
     "table.rank .nm{font-weight:700}table.rank .tm{color:var(--ink3);font-size:12px}"
     "table.rank .big{font-weight:800;color:var(--green)}"
+    # run grid (run_grid_html) -- clubs down the side, gameweeks across the top.
+    # The wrapper, not the page, takes the horizontal scroll: a 20x6 grid is
+    # wider than a phone and the article body must never scroll sideways.
+    ".rungrid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;"
+    "margin:8px 0 6px;padding-bottom:4px}"
+    "table.rungrid{border-collapse:separate;border-spacing:3px;"
+    "font-family:var(--sans);font-size:12px;white-space:nowrap;min-width:100%}"
+    "table.rungrid th{font-size:10px;font-weight:700;letter-spacing:1px;"
+    "text-transform:uppercase;color:var(--ink3);padding:6px 8px;text-align:center}"
+    "table.rungrid th.cl,table.rungrid td.cl{text-align:left}"
+    "table.rungrid td{padding:7px 9px;text-align:center;border-radius:6px;"
+    "font-variant-numeric:tabular-nums}"
+    "table.rungrid td.cl{font-weight:800;font-size:13px;color:var(--ink);"
+    "position:sticky;left:0;background:var(--bg)}"
+    "table.rungrid td.cs{font-weight:800;color:var(--green);background:var(--surf);"
+    "border:1px solid var(--line)}"
+    "table.rungrid td.dbl{font-weight:800;box-shadow:inset 0 0 0 2px var(--ink)}"
+    # FDR bands. 1-2 easy (the site's green), 3 neutral (the chip grey), 4-5 hard
+    # (the site's accent red) -- the same two hues every other tag on the page
+    # uses, so the grid reads as part of the site rather than as FPL's own.
+    "table.rungrid td.fdr-1{background:#c9e6d5;color:var(--greend);font-weight:700}"
+    "table.rungrid td.fdr-2{background:#eaf5ee;color:var(--greend)}"
+    "table.rungrid td.fdr-3{background:var(--chipbg);color:var(--ink2)}"
+    "table.rungrid td.fdr-4{background:#fdeee9;color:#a8331c}"
+    "table.rungrid td.fdr-5{background:#f6cec2;color:#8c2716;font-weight:700}"
+    "table.rungrid td.fdr-na{background:var(--surf);color:var(--ink3);"
+    "border:1px solid var(--line)}"
+    # A blank is hatched, not empty: an empty cell reads as missing data, and a
+    # blank gameweek is the most actionable thing on the grid.
+    "table.rungrid td.blank{color:var(--ink3);border:1px dashed var(--line);"
+    "background:repeating-linear-gradient(45deg,var(--chipbg),var(--chipbg) 4px,"
+    "var(--surf) 4px,var(--surf) 8px)}"
     ".tag{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
     "letter-spacing:.5px;color:var(--acc);background:#fdeee9;border-radius:6px;padding:2px 7px;margin-left:6px}"
     ".tag-floor{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;"
@@ -830,6 +874,55 @@ def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
         f'<g font-family="\'Hanken Grotesk\',sans-serif">'
         + "".join(rows) + legend +
         f'</g></svg>'
+    )
+
+
+def run_grid_html(entries):
+    """The fixture-run grid: clubs down the side, gameweeks across the top.
+
+    `entries` are fpl_articles.fixture_runs rows -- each carries `gameweeks` (the
+    column headers) and `cells` (one per gameweek, in window order).
+
+    Each cell gets an `fdr-{1..5}` class so the CSS in _STYLE can colour it, and
+    a `blank` class for a gameweek the club does not play. A blank is rendered as
+    a visibly different thing from a fixture rather than as an empty box: it is
+    the most actionable fact on the grid, and an empty cell reads as missing data.
+    Cells whose FDR is unknown get `fdr-na` rather than falling into `fdr-0` --
+    an unrated fixture is not an easy one.
+
+    The whole table is wrapped in a container the CSS gives `overflow-x:auto`, so
+    a 20x6 grid scrolls inside itself on a phone rather than forcing the entire
+    page sideways.
+    """
+    entries = list(entries)
+    if not entries:
+        return '<div class="rungrid-wrap"></div>'
+    gameweeks = entries[0].get("gameweeks") or []
+    head = "".join(f'<th>GW{_html.escape(str(gw))}</th>' for gw in gameweeks)
+    rows = []
+    for e in entries:
+        cells = []
+        for c in e.get("cells", []):
+            if c.get("blank"):
+                cls = "blank"
+            elif c.get("difficulty") is None:
+                cls = "fdr-na"
+            else:
+                cls = f"fdr-{int(c['difficulty'])}"
+            if c.get("double"):
+                cls += " dbl"
+            cells.append(f'<td class="{cls}">'
+                         f'{_html.escape(str(c.get("label", "")))}</td>')
+        rows.append(
+            f'<tr><td class="cl">{_html.escape(str(e.get("name", "")))}</td>'
+            f'<td class="cs">{_fmt("exp_clean_sheets", e)}</td>'
+            f'{"".join(cells)}</tr>')
+    return (
+        f'<div class="rungrid-wrap">'
+        f'<table class="rungrid"><thead><tr><th class="cl">Club</th>'
+        f'<th class="cs">{_html.escape(_COL_LABEL["exp_clean_sheets"])}</th>'
+        f'{head}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div>'
     )
 
 
@@ -1369,6 +1462,12 @@ def _article_fig_caption(article: str, columns: list):
         return None
     if article in _PITCH_ARTICLES:
         return "The model's optimal XI · number = projected points (xPts)"
+    if article == "runs":
+        # The grid is not a bar chart, so the generic "Top 10 by ..." caption
+        # would describe something that is not on the page.
+        return ("Every club's run, ordered by expected clean sheets over the "
+                "window. Green = easy fixture (FDR 1-2) · red = hard (4-5) · "
+                "hatched = a blank gameweek · outlined = a double.")
     metric = columns[0] if columns else ""
     metric_label = _COL_LABEL.get(metric, metric)
     base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "

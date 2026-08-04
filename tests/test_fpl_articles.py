@@ -513,3 +513,76 @@ class TestTickerDifficulty(unittest.TestCase):
         b = _match("BUR", "ARS", kickoff="2026-08-24T19:00:00+00:00")
         out = fpl_articles.ticker([a, b], ["ARS", "COV", "BUR"])
         self.assertAlmostEqual({e["name"]: e for e in out}["ARS"]["difficulty"], 2.0)
+
+
+def _horizon(clubs_cells):
+    """{club: {...}} shaped like build_artifact's horizon key."""
+    out = {}
+    for club, (cs, cells) in clubs_cells.items():
+        out[club] = {
+            "name": club, "fixtures": sum(len(v) for v in cells.values()),
+            "exp_clean_sheets": cs, "exp_goals_for": 6.0,
+            "exp_goals_against": 5.0, "difficulty": 3.0,
+            "basis": "model", "by_gameweek": cells,
+        }
+    return out
+
+
+class TestFixtureRuns(unittest.TestCase):
+    def test_ranked_by_expected_clean_sheets_not_difficulty(self):
+        """FDR's middle 50% sits inside a 4% band over a six-week window, so
+        ranking on it orders a dozen clubs on rounding noise."""
+        h = _horizon({
+            "LOW": (0.90, {1: [{"opponent": "X", "venue": "H", "difficulty": 2}]}),
+            "HIGH": (1.24, {1: [{"opponent": "Y", "venue": "A", "difficulty": 5}]}),
+        })
+        out = fpl_articles.fixture_runs(h, [1])
+        self.assertEqual([e["name"] for e in out], ["HIGH", "LOW"])
+        self.assertEqual([e["rank"] for e in out], [1, 2])
+
+    def test_a_cell_per_gameweek_in_the_window(self):
+        h = _horizon({"ARS": (1.0, {
+            1: [{"opponent": "COV", "venue": "H", "difficulty": 2}],
+            2: [{"opponent": "AVL", "venue": "A", "difficulty": 4}]})})
+        e = fpl_articles.fixture_runs(h, [1, 2])[0]
+        self.assertEqual(e["cells"][0]["label"], "COV (H)")
+        self.assertEqual(e["cells"][0]["difficulty"], 2)
+        self.assertEqual(e["cells"][1]["label"], "AVL (A)")
+
+    def test_a_blank_is_labelled_as_a_blank(self):
+        """An empty cell and a blank gameweek are different facts — the second is
+        the most actionable thing a run grid can carry."""
+        h = _horizon({"EVE": (0.0, {1: [], 2: [
+            {"opponent": "CRY", "venue": "H", "difficulty": 3}]})})
+        cells = fpl_articles.fixture_runs(h, [1, 2])[0]["cells"]
+        self.assertTrue(cells[0]["blank"])
+        self.assertEqual(cells[0]["label"], "—")
+        self.assertFalse(cells[1]["blank"])
+
+    def test_a_double_shows_both_opponents_in_one_cell(self):
+        h = _horizon({"MCI": (1.5, {1: [
+            {"opponent": "BUR", "venue": "H", "difficulty": 2},
+            {"opponent": "TOT", "venue": "A", "difficulty": 4}]})})
+        cell = fpl_articles.fixture_runs(h, [1])[0]["cells"][0]
+        self.assertTrue(cell["double"])
+        self.assertIn("BUR", cell["label"])
+        self.assertIn("TOT", cell["label"])
+
+    def test_cells_follow_the_window_order(self):
+        h = _horizon({"ARS": (1.0, {
+            2: [{"opponent": "B", "venue": "H", "difficulty": 3}],
+            1: [{"opponent": "A", "venue": "H", "difficulty": 2}]})})
+        cells = fpl_articles.fixture_runs(h, [1, 2])[0]["cells"]
+        self.assertEqual([c["label"] for c in cells], ["A (H)", "B (H)"])
+
+    def test_gameweek_labels_ride_on_the_entry(self):
+        """The renderer needs the column headers and cannot infer them."""
+        h = _horizon({"ARS": (1.0, {1: [], 2: []})})
+        self.assertEqual(fpl_articles.fixture_runs(h, [1, 2])[0]["gameweeks"], [1, 2])
+
+    def test_summary_columns_survive_for_the_flat_table(self):
+        h = _horizon({"ARS": (1.24, {1: []})})
+        e = fpl_articles.fixture_runs(h, [1])[0]
+        for key in ("exp_clean_sheets", "exp_goals_for", "exp_goals_against",
+                    "difficulty", "fixtures", "basis"):
+            self.assertIn(key, e)
