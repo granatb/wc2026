@@ -122,6 +122,19 @@ _FPL_GLOSSARY = """\
     week) and `double` (true = they play twice). Never print the words "cells",
     "blank": true or "difficulty" — say "a blank gameweek", "a double" and
     "fixture difficulty".
+  - horizon_gain → how many points MORE than a replacement-level player at the same
+    position this target projects across the WHOLE planning window (not one
+    gameweek). Say "points over a replacement across the next six gameweeks", or
+    however many gameweeks the window actually covers. Never print the raw key.
+  - replacement → the baseline that was subtracted: the median window projection at
+    that position. Quote it only if you are explaining the method.
+  - worth_a_hit → true means horizon_gain clears the 4 points a non-free transfer
+    costs, so the move is worth making even on a hit; false means it is worth a FREE
+    transfer only. Write it in words ("worth a hit", "free transfer only"), never as
+    true/false.
+  - run → that club's fixture difficulty in each gameweek of the window, in order
+    (1 easiest, 5 hardest, null where the club blanks). Use it to say WHEN a run
+    turns — pair it with `gameweeks` to name the gameweek. Never print the list.
   - difficulty (on the club row) → the club's AVERAGE fixture difficulty across
     the whole window. Use it as a label, not as a ranking: over six gameweeks
     most of the league lands within a few hundredths of 3.0, so it separates
@@ -144,7 +157,55 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None,
              permission the feed did not give.
     """
     from evmax.fpl_articles import chip_available
-    if subject is not None and slug == "transfers":
+    if slug == "transfers" and unit == "Gameweek":
+        # TWO DIFFERENT ARTICLES SHARE THIS SLUG. The World Cup block below is
+        # about surviving a knockout tie; this one is about a 38-week league with
+        # transfer rules, and the two datasets share almost no fields. Dispatched
+        # on `unit` because that is what already selects the FPL template table
+        # and the FPL glossary, so all three switch together or none does.
+        #
+        # THE RULES ARE SPELLED OUT so the model cannot invent different ones. A
+        # transfer article that gets the hit maths wrong actively costs the reader
+        # points, which makes it worse than no article.
+        subject_instruction = (
+            f"Focus      : Rank transfer TARGETS for a manager planning over the "
+            f"next several gameweeks; centre the piece on {subject}, the "
+            f"top-ranked move. State these Fantasy Premier League rules explicitly "
+            f"in the prose — do not merely apply them, and do not state any other "
+            f"transfer rule, because these are the real ones:\n"
+            f"             (1) a manager gets ONE FREE TRANSFER a gameweek and can "
+            f"bank them up to a MAXIMUM OF FIVE;\n"
+            f"             (2) every transfer beyond the free ones costs FOUR "
+            f"POINTS (a 'hit');\n"
+            f"             (3) selling a player whose price has risen returns only "
+            f"50% of the profit — a SELL-ON FEE — so churn is expensive on top of "
+            f"the points.\n"
+            f"             The ranking is NOT raw expected points. It is "
+            f"horizon_gain: projected points over a REPLACEMENT-LEVEL player at "
+            f"the SAME position, summed across the whole window. Judge every hit "
+            f"against the 4-point threshold OVER THAT WHOLE WINDOW, never over a "
+            f"single gameweek — a transfer buys a player for the entire run, so it "
+            f"is repaid over the entire run. Say this out loud: a move worth +2 "
+            f"this week and +1 a week for five more weeks is worth a hit, while a "
+            f"move worth +3 this week and nothing after it is not. Name which "
+            f"targets clear the four points (worth_a_hit true) and which do not, "
+            f"and tell the reader to use the free transfer or bank it for the ones "
+            f"that do not. Then use each club's `run` and `gameweeks` to name a "
+            f"club whose fixtures TURN sharply inside the window, and say which "
+            f"gameweek they turn in — a reader needs to know when to SELL, not "
+            f"only what to buy. Call out any target whose club plays fewer "
+            f"gameweeks than the window covers: that is a BLANK, and their "
+            f"horizon_gain is already discounted for it.\n"
+            f"             STATE THE BASELINE PLAINLY, and never imply the gain is "
+            f"measured against the reader's own player. `replacement` is the "
+            f"MEDIAN option at that position; we cannot see anyone's squad, so if "
+            f"the player being sold is better than median the gain is smaller "
+            f"than the table shows and so is the case for the hit. Say so. Where "
+            f"every listed target clears four points, do NOT present that as "
+            f"twenty hits worth taking — it is what you would expect of the best "
+            f"twenty moves in the game, and the reader takes one or two of them.\n"
+        )
+    elif subject is not None and slug == "transfers":
         subject_instruction = (
             f"Focus      : Center this article on {subject}, the top-ranked transfer "
             f"priority. Explain the ranking logic: it is NOT raw expected points — it is "

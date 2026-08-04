@@ -724,3 +724,81 @@ class TestHorizonSquad(unittest.TestCase):
         rows, horizon = self._pool_and_horizon()
         entries, _ = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
         self.assertNotIn(fpl_articles._SCORE_KEY, entries[0])
+
+
+class TestTransferPlan(unittest.TestCase):
+    def _rows_and_horizon(self):
+        rows, horizon = [], {}
+        for club, cs, gf in (("EASY", 1.40, 8.0), ("HARD", 0.70, 4.0),
+                             ("MID1", 1.05, 6.0)):
+            horizon[club] = {"name": club, "fixtures": 6, "exp_clean_sheets": cs,
+                             "exp_goals_for": gf, "exp_goals_against": 5.0,
+                             "difficulty": 3.0, "basis": "model", "by_gameweek": {}}
+        for pos in ("GK", "DEF", "MID", "FWD"):
+            for k in range(5):
+                for club in ("EASY", "HARD", "MID1"):
+                    rows.append(_row(f"{club}-{pos}{k}", pos, 6.0 - k * 0.8,
+                                     price=4.5 + k * 0.6, team=club))
+        return rows, horizon
+
+    def test_ranked_by_horizon_gain_over_replacement(self):
+        rows, horizon = self._rows_and_horizon()
+        out = fpl_articles.transfer_plan(rows, horizon)
+        self.assertTrue(out)
+        gains = [e["horizon_gain"] for e in out]
+        self.assertEqual(gains, sorted(gains, reverse=True))
+        self.assertEqual([e["rank"] for e in out], list(range(1, len(out) + 1)))
+
+    def test_gain_is_measured_against_the_same_position(self):
+        """A forward must not be judged against a goalkeeper's replacement level."""
+        rows, horizon = self._rows_and_horizon()
+        out = fpl_articles.transfer_plan(rows, horizon)
+        for e in out:
+            self.assertIn("position", e)
+            self.assertIn("replacement", e)
+
+    def test_the_hit_threshold_is_four_points(self):
+        rows, horizon = self._rows_and_horizon()
+        out = fpl_articles.transfer_plan(rows, horizon)
+        for e in out:
+            self.assertEqual(e["worth_a_hit"], e["horizon_gain"] >= 4.0)
+
+    def test_hit_threshold_is_named_not_hard_coded_in_the_caller(self):
+        self.assertEqual(fpl_articles.HIT_COST, 4)
+
+    def test_a_club_with_a_blank_is_discounted(self):
+        """Five fixtures in a six-week window is a blank, and a blank is a
+        gameweek of zero — the target is worth less than its rate suggests."""
+        rows, horizon = self._rows_and_horizon()
+        horizon["EASY"]["fixtures"] = 5
+        blanked = fpl_articles.transfer_plan(rows, horizon)
+        horizon["EASY"]["fixtures"] = 6
+        full = fpl_articles.transfer_plan(rows, horizon)
+        def gain(out, club):
+            return max(e["horizon_gain"] for e in out if e["team"] == club)
+        self.assertLess(gain(blanked, "EASY"), gain(full, "EASY"))
+
+    def test_targets_from_a_good_run_outrank_equals_from_a_bad_one(self):
+        rows, horizon = self._rows_and_horizon()
+        out = fpl_articles.transfer_plan(rows, horizon)
+        best_easy = next(e for e in out if e["team"] == "EASY")
+        best_hard = next(e for e in out if e["team"] == "HARD")
+        self.assertLess(best_easy["rank"], best_hard["rank"])
+
+    def test_priceless_rows_are_dropped(self):
+        rows, horizon = self._rows_and_horizon()
+        rows.append(_row("NoPrice", "MID", 9.0, price=None, team="EASY"))
+        out = fpl_articles.transfer_plan(rows, horizon)
+        self.assertNotIn("NoPrice", [e["name"] for e in out])
+
+    def test_does_not_mutate_the_input_rows(self):
+        rows, horizon = self._rows_and_horizon()
+        fpl_articles.transfer_plan(rows, horizon)
+        for r in rows:
+            self.assertNotIn("horizon_gain", r)
+            self.assertNotIn("rank", r)
+
+    def test_a_club_missing_from_the_horizon_does_not_crash(self):
+        rows, horizon = self._rows_and_horizon()
+        del horizon["HARD"]
+        self.assertTrue(fpl_articles.transfer_plan(rows, horizon))

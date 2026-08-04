@@ -26,9 +26,11 @@ from games.fpl import model
 # ---------------------------------------------------------------------------
 # "runs" sits next to "ticker": both are planning views over the fixture list,
 # one for this Saturday and one for the next six weeks, and a reader who lands
-# on either should see the other one step away.
-ARTICLES = ["captains", "wildcard", "ticker", "runs", "defenders", "efficiency",
-            "defcon"]
+# on either should see the other one step away. "transfers" follows "runs" for
+# the same reason in the other direction — it is what a reader DOES with a
+# fixture run, and the two are one thought split across two pages.
+ARTICLES = ["captains", "wildcard", "ticker", "runs", "transfers", "defenders",
+            "efficiency", "defcon"]
 
 ARTICLE_TITLES = {
     # Short: the <title> becomes "{title} — Gameweek N | evmax" and Bing errors
@@ -43,6 +45,7 @@ ARTICLE_TITLES = {
     "wildcard": fpl_articles.SQUAD_TITLE_WILDCARD,
     "ticker": "Fixture ticker — clean sheets",
     "runs": "Fixture ticker — the next six",
+    "transfers": "Transfer plan — the next six",
     "defenders": "Best defenders & keepers",
     "efficiency": "Best value — points per million",
     "defcon": "DefCon leaders",
@@ -56,6 +59,16 @@ _COLUMNS = {
     # Deliberately narrower than ticker's: the grid above the table already
     # carries the per-gameweek detail, so the flat table is the summary only.
     "runs":       ["exp_clean_sheets", "difficulty", "fixtures", "basis"],
+    # ownership_pct is deliberately NOT here, unlike every other player article.
+    # This table has one job — argue whether a move clears the 4-point bar — and
+    # the five columns that do it are the gain, the single-gameweek rate it is
+    # built from, what the move costs, whether a blank inside the window is
+    # discounting it (the thing the reader would otherwise have to take on
+    # trust), and the verdict. Ownership is a differentials question, and it is
+    # not lost: _rank_table_html reads it off the row, not off this list, so the
+    # "Differential" chip still prints next to any sub-10% name.
+    "transfers":  ["horizon_gain", "x_points", "price", "fixtures",
+                   "worth_a_hit"],
     "defenders":  ["x_points", "cs_points", "defcon", "bonus", "price"],
     "efficiency": ["value", "x_points", "price", "ownership_pct", "ceiling"],
     "defcon":     ["p_defcon", "defcon", "x_points", "price", "ownership_pct"],
@@ -441,6 +454,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         # gameweek list for its column headers.
         "runs":       fpl_articles.fixture_runs(artifact.get("horizon", {}),
                                                 horizon_window),
+        # Same horizon and the same window as "runs" — the transfer plan is the
+        # decision that view is for, and the two must never be computed over
+        # different windows or the article's "over the next six" is a lie.
+        "transfers":  fpl_articles.transfer_plan(rows,
+                                                 artifact.get("horizon") or {},
+                                                 window=horizon_window),
         "defenders":  fpl_articles.defenders(rows)[:20],
         "efficiency": fpl_articles.efficiency(rows)[:20],
         "defcon":     fpl_articles.defcon_leaders(rows)[:20],

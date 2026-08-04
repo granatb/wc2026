@@ -600,6 +600,193 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     return entries, meta
 
 
+# ---------------------------------------------------------------------------
+# The transfer plan
+# ---------------------------------------------------------------------------
+# FPL's transfer rules, from bootstrap-static's game_config.rules (captured in
+# games/fpl/rules.md):
+#
+#   * ONE FREE TRANSFER a gameweek, bankable to a maximum of five
+#     (`max_extra_free_transfers = 4` -- four banked on top of this week's one);
+#   * every transfer beyond the free ones costs 4 POINTS, and no more than 20 can
+#     be made in a single gameweek at all (`transfers_cap = 20`);
+#   * a 50% SELL-ON FEE on realised price rises (`transfers_sell_on_fee = 0.5`),
+#     so churn costs money on top of the points.
+#
+# HIT_COST is the whole argument of this article, and it is named here rather
+# than written as a bare 4 at the comparison site because it is a rule of the
+# game, not a tuning constant: if FPL ever changes the price of a hit, this is
+# the one place that should have to change.
+#
+# THE BAR IS CLEARED OVER THE WINDOW, NOT OVER ONE GAMEWEEK. A transfer buys you
+# a player for the whole run, so the four points it costs are repaid over the
+# whole run too. A move worth +2 this week and +1 a week for five more weeks
+# clears the bar; a move worth +3 this week and nothing after it does not.
+HIT_COST = 4
+
+
+def _replacement_levels(projections: list) -> dict:
+    """Median WINDOW projection per position — the baseline a target is judged against.
+
+    THE SHAPE IS evmax.articles._replacement_level's, deliberately: median value
+    at the same position, subtracted to give a value-over-replacement figure. That
+    is the right baseline here for the same reason it is there — no squad state is
+    available (games/fpl/state.json is the owner's private order book and is not a
+    site input), so the public article cannot know what the reader already owns,
+    and the median incumbent at the position is the honest stand-in for whoever
+    would be sold.
+
+    That module's function is NOT called, and not because of the frozen-dependency
+    rule alone. It medians `x_points` — one gameweek — and the number subtracted
+    from a window projection has to be denominated in window points too, or the
+    difference is not points at all and comparing it to HIT_COST is meaningless.
+    Feeding it window projections would also mean writing them into `x_points`,
+    which is the published single-gameweek column.
+
+    Positions are taken from POS_MIN, which includes GK: a keeper is a transfer a
+    reader makes, and dropping the position would silently exclude every one.
+    """
+    from statistics import median
+    out = {}
+    for pos in POS_MIN:
+        vals = [p for p, r in projections if r.get("position") == pos]
+        out[pos] = round(median(vals), 3) if vals else 0.0
+    return out
+
+
+def transfer_plan(rows: list, horizon: dict, top_n: int = 20,
+                  window: list | None = None, decay: float | None = None,
+                  max_per_club: int = MAX_PER_CLUB) -> list:
+    """Transfer targets ranked on projected gain over replacement across the window.
+
+    Each entry carries the row's usual fields plus:
+      horizon_gain -- points over a replacement-level player at the SAME position,
+                      summed across the planning window.
+      replacement  -- the baseline that was subtracted, so a reader can reconstruct
+                      the projection and disagree with the baseline rather than
+                      with an opaque score.
+      worth_a_hit  -- whether horizon_gain clears HIT_COST. This is the article's
+                      one recommendation and it is computed, not asserted.
+      fixtures / difficulty / run / gameweeks -- the club's window at a glance, so
+                      the prose can say WHEN a run turns and not only who to buy.
+
+    THE PROJECTION. Task 4's `_objective_scorer` supplies the per-gameweek rate,
+    tilted toward the club's run by `decay` (see _HORIZON_METRIC for which horizon
+    aggregate scales which position, and why a striker is not scaled on clean
+    sheets). That rate is then carried across the window:
+
+        window_rate = per_gameweek_rate * len(window)
+        projection  = window_rate * (fixtures / len(window))
+
+    which is just `rate * fixtures`, written in two steps because that is the
+    derivation and the second step is the one with a caveat on it.
+
+    BLANKS ARE DISCOUNTED LINEARLY, AND THAT IS AN APPROXIMATION. Five fixtures in
+    a six-week window is a blank, and a blank is a gameweek of zero however good
+    the club's rate is, so the target is worth proportionally less than the rate
+    suggests. What the linear factor does NOT model is WHICH gameweek blanks: a
+    blank in the next gameweek is worse than one five weeks out (it is certain,
+    and the reader may still wildcard or transfer around a distant one), and a
+    blank the week a rival club doubles is worse again. Modelling that needs the
+    per-gameweek decay weights, which `core.fpl_horizon` has already summed away
+    by the time we are handed these aggregates.
+
+    A related, deliberate double-count: the horizon aggregates are sums that do
+    not divide out the fixture count, so a blanked club already scores a little
+    lower through its strength multiplier before this factor is applied. The
+    effect is to weight blanks slightly more heavily than once, which is the
+    direction to err in -- a blank is the most actionable fact on the page.
+
+    THE WHOLE LEAGUE IS RANKED FIRST; top_n SLICES AT THE END. The replacement
+    level is medianed over every priced player rather than over an already-good
+    subset -- a median of the top 20 would be a "replacement level" no reader
+    could ever replace anything with -- and the club cap below needs the full
+    ordering to pick from.
+
+    AT MOST `max_per_club` TARGETS FROM ONE CLUB, and this is a rule of the game
+    rather than editorial taste. An FPL squad may hold three players from a club
+    and no more, so a list that opens with five players from the same good run is
+    advice the reader cannot take: two of those moves are illegal once the first
+    three are made. Without the cap a single kind fixture run also crowds the page
+    off -- on the test fixture the top 20 contained not one player from the club
+    with the worst run, which is a list that has stopped being a comparison. The
+    cap is applied to the RANKED list, so what each club contributes is its best
+    three and not an arbitrary three, and `rank` is assigned afterwards: it is a
+    position in the published plan, not in the league.
+
+    NO AFFORDABILITY FILTER, and this was considered. The obvious candidate is a
+    price ceiling on targets nobody could fit, but FPL's most expensive player
+    costs about 15% of the 100.0m budget, so there is no target that is
+    unaffordable in principle -- only ones that are unaffordable in a particular
+    squad, and we do not know the reader's squad. A filter would therefore be
+    guessing, and it would hide the exact premium the article exists to argue
+    about. Price rides on every entry and the reader can apply their own.
+
+    Rows with no price are dropped: a transfer is a purchase, and a target with no
+    price is one the reader cannot make.
+    """
+    n = max(1, len(window) if window is not None else config.FPL_HORIZON_LENGTH)
+    gameweeks = list(window) if window is not None else []
+    score, _label = _objective_scorer(horizon or {}, decay)
+
+    scored = []
+    for r in rows:
+        if r.get("price") is None:
+            continue
+        club = (horizon or {}).get(r.get("team")) or {}
+        # A club absent from the horizon is assumed to play every gameweek in the
+        # window. It already scores a neutral 1.0 strength (see _objective_scorer);
+        # assuming a blank as well would invent a fact from a stale club list.
+        fixtures = club.get("fixtures")
+        fixtures = n if fixtures is None else fixtures
+        projection = score(r) * n * (fixtures / n)
+        scored.append((projection, r, club, fixtures))
+
+    if not scored:
+        return []
+
+    replacement = _replacement_levels([(p, r) for p, r, _c, _f in scored])
+
+    out = []
+    for projection, r, club, fixtures in scored:
+        base = replacement.get(r.get("position"), 0.0)
+        gain = round(projection - base, 2)
+        by_gw = club.get("by_gameweek") or {}
+        run_gws = gameweeks or sorted(by_gw)
+        entry = dict(r)
+        entry["horizon_gain"] = gain
+        entry["replacement"] = base
+        # Compared on the ROUNDED gain, so the published number and the published
+        # verdict can never disagree -- a 3.999 printed as 4.00 and flagged "no"
+        # is the kind of thing that reads as a bug in the article.
+        entry["worth_a_hit"] = gain >= HIT_COST
+        entry["fixtures"] = fixtures
+        entry["difficulty"] = club.get("difficulty")
+        entry["gameweeks"] = list(run_gws)
+        # The club's FDR week by week -- None where it blanks. Enough for the
+        # prose to say when a run turns without duplicating the runs grid.
+        entry["run"] = [_run_cell(by_gw.get(gw) or [])["difficulty"]
+                        for gw in run_gws]
+        out.append(entry)
+
+    # Rank the whole league, then take each club's best `max_per_club` in that
+    # order, then re-rank so the published positions run 1..n with no holes.
+    ordered = _ranked(out, "horizon_gain")
+    per_club: dict = {}
+    kept = []
+    for e in ordered:
+        club = e.get("team")
+        if per_club.get(club, 0) >= max_per_club:
+            continue
+        per_club[club] = per_club.get(club, 0) + 1
+        kept.append(e)
+        if len(kept) >= top_n:
+            break
+    for i, e in enumerate(kept, 1):
+        e["rank"] = i
+    return kept
+
+
 # Goal-environment thresholds on a fixture's combined expected goals. Carried
 # over from the World Cup ticker: the question ("is this a game to target
 # attackers in?") and the scale (goals per match) are the same in both games.

@@ -192,6 +192,17 @@ def summary_sentence(article, entries):
         return (f"A {formation_of(xi)} squad costing {total_cost}m of the "
                 f"{SQUAD_BUDGET}m budget, projecting {xi_xpoints} xPts from the XI.")
     top = entries[0]
+    if article == "transfers" and "horizon_gain" in top:
+        # The FPL transfer plan. Two different articles share this slug across the
+        # two competitions and they do NOT share a schema: the World Cup version
+        # below reads `vor` and `p_advance`, neither of which exists here, so
+        # branching on the field rather than on a competition flag is what keeps
+        # this from raising a KeyError on a published page.
+        verdict = ("worth a −4 hit on its own"
+                   if top.get("worth_a_hit") else "a move for a free transfer, not a hit")
+        return (f"{top['name']} ({top.get('team', '')}) is the top transfer target: "
+                f"{top['horizon_gain']:+.2f} points over a replacement at his "
+                f"position across the window — {verdict}.")
     if article == "transfers" and "name" in top:
         return (f"{top['name']} ({top.get('team', '')}) is the top priority transfer: "
                 f"{top['vor']:+.2f} value over replacement"
@@ -280,6 +291,13 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               "p_defcon": "P(DefCon)", "cs_points": "CS pts", "defcon": "DefCon pts",
               "bonus": "Bonus", "exp_clean_sheets": "Clean sheets",
               "fixtures": "Fixtures", "basis": "Basis", "difficulty": "FDR",
+              # "Window gain", not "Six-week gain": the window shortens at the
+              # end of the season (core.fpl_horizon.window clamps at GW38), and
+              # a header that says six where the data says three is a published
+              # error. The -4 rides in the verdict header so the table states
+              # the rule it is applying rather than only applying it.
+              "horizon_gain": "Window gain", "replacement": "Replacement",
+              "worth_a_hit": "Worth −4?",
               # Not a column: the article slug's own kicker label, which reads
               # better than the auto-titled "Runs".
               "runs": "Fixture runs"}
@@ -287,11 +305,22 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
 # Columns whose value is already a display-ready string (not a number to format).
 _STRING_COLS = {"top_def", "top_gk", "basis"}
 
+# Columns whose value is a bool. Same precedent as _STRING_COLS: the generic
+# numeric path would print Python's own repr, and a table cell reading "True" is
+# a leaked implementation detail, not an answer to the question in the header.
+_BOOL_COLS = {"worth_a_hit"}
+
+
+def _bool_word(v) -> str:
+    return "Yes" if v else "No"
+
 
 def _fmt(col, row):
     v = row.get(col)
     if v is None:
         return "—"
+    if col in _BOOL_COLS:
+        return _bool_word(v)
     if col in _STRING_COLS:
         return str(v)
     if col in ("ownership_pct", "p_advance"):
@@ -1010,6 +1039,8 @@ def _md_fmt(col, row):
     v = row.get(col)
     if v is None:
         return "—"
+    if col in _BOOL_COLS:
+        return _bool_word(v)
     if col in _STRING_COLS:
         return _escape_pipes(v)
     if col in ("ownership_pct", "p_advance"):

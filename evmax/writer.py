@@ -1629,6 +1629,220 @@ def _fpl_defcon_bottom_line(e, r, subj):
             f"not the clean sheet holds.")
 
 
+# ---------------------------------------------------------------------------
+# transfers template helpers
+# ---------------------------------------------------------------------------
+# The transfer rules, stated once so the two places that quote them cannot drift:
+# one free transfer a gameweek, bankable to five, every extra costing four
+# points, and a 50% sell-on fee on realised price rises. See
+# evmax.fpl_articles.HIT_COST for the source (bootstrap-static game_config).
+#
+# THE RULES ARE STATED IN THE PROSE, NOT SILENTLY APPLIED. A reader who is not
+# told why a move is or is not recommended has no way to disagree with us, and
+# published methodology is the whole positioning of the site.
+_FPL_TRANSFER_RULES = (
+    "FPL gives one free transfer a gameweek and lets you bank them up to a "
+    "maximum of five. Every transfer beyond the free ones costs four points, "
+    "and selling a player whose price has risen hands 50% of that profit back "
+    "as a sell-on fee — so churn costs money as well as points."
+)
+
+# How much a club's fixture difficulty has to worsen, on FPL's own 1-5 scale,
+# before a run counts as having TURNED. Below this the "turn" is rounding on a
+# scale with five values, and calling it a sell signal in print would be
+# inventing a fact.
+_FPL_TRANSFER_TURN_MIN = 0.75
+
+
+def _fpl_transfer_window(entries) -> int:
+    """How many gameweeks the plan covers. Read off the entries rather than
+    assumed to be six: core.fpl_horizon.window clamps at GW38, so late in the
+    season the window is genuinely shorter and the prose must say so."""
+    for e in entries:
+        gws = e.get("gameweeks") or []
+        if gws:
+            return len(gws)
+    return max((int(_num(e, "fixtures")) for e in entries), default=0)
+
+
+def _fpl_transfer_run_turn(entry):
+    """(gameweek, before, after, swing) for the sharpest easy-to-hard break in a
+    club's run, or None if it does not turn.
+
+    Every split of the run is tried and the worst one wins, rather than
+    comparing the opener against the rest: a run that is kind for three weeks
+    and then brutal turns in week four, and a fixed split would either miss it
+    or report a turn one gameweek early. `swing` is in FPL's own fixture
+    difficulty, the number the grid on the fixture-runs page prints, so a reader
+    can check the claim against a published table.
+    """
+    run = list(entry.get("run") or [])
+    gws = list(entry.get("gameweeks") or [])
+    if len(run) < 2 or len(gws) != len(run):
+        return None
+    best = None
+    for i in range(1, len(run)):
+        head = [d for d in run[:i] if d is not None]
+        tail = [d for d in run[i:] if d is not None]
+        if not head or not tail:
+            continue
+        before = sum(head) / len(head)
+        after = sum(tail) / len(tail)
+        swing = after - before
+        if best is None or swing > best[3]:
+            best = (gws[i], round(before, 1), round(after, 1), swing)
+    if best is None or best[3] < _FPL_TRANSFER_TURN_MIN:
+        return None
+    return best
+
+
+def _fpl_transfer_turning_club(entries):
+    """(entry, turn) for the listed target whose club's run turns most sharply.
+
+    Scanned over the TARGETS rather than the whole league because this article
+    only ever names players it has ranked — a sell warning about a club with
+    nobody on the list is a claim the table below cannot support.
+    """
+    best = None
+    seen = set()
+    for e in entries:
+        club = e.get("team")
+        if not club or club in seen:
+            continue
+        seen.add(club)
+        turn = _fpl_transfer_run_turn(e)
+        if turn and (best is None or turn[3] > best[1][3]):
+            best = (e, turn)
+    return best
+
+
+def _fpl_transfer_gain(entry) -> str:
+    return _fmt_vor(_num(entry, "horizon_gain"))
+
+
+def _fpl_transfer_headline(e, r, subj):
+    lead = _subject_entry(e, subj)
+    if lead.get("worth_a_hit"):
+        return f"{subj} is worth a four-point hit in Gameweek {r}"
+    return f"{subj} is the Gameweek {r} free transfer to make"
+
+
+def _fpl_transfer_standfirst(e, r, subj):
+    lead = _subject_entry(e, subj)
+    n = _fpl_transfer_window(e)
+    tail = ("enough to clear the four points a hit costs."
+            if lead.get("worth_a_hit")
+            else "short of the four points a hit costs — use the free transfer.")
+    return (f"{subj} projects {_fpl_transfer_gain(lead)} points over a "
+            f"replacement across {_num_word(n)} gameweeks — {tail}")
+
+
+def _fpl_transfer_body(e, r, subj):
+    lead = _subject_entry(e, subj)
+    name = _esc(subj)
+    n = _fpl_transfer_window(e)
+
+    out = (
+        f"<p>{name} projects {_fmt_pts(lead.get('x_points', 0))} xPts this "
+        f"gameweek with a {_fmt_pts(lead.get('ceiling', 0))} ceiling — his "
+        f"85th-percentile simulation, the realistic best case rather than a cap "
+        f"— and at £{_fmt_price(lead.get('price', 0))}m that buys "
+        f"{_fpl_transfer_gain(lead)} points over a replacement-level "
+        f"{_esc(_pos_word(lead))} across {_num_word(n)} gameweeks"
+    )
+    out += (f", playing for {_esc(lead['team'])}.</p>\n" if lead.get("team")
+            else ".</p>\n")
+
+    out += f"<p>{_FPL_TRANSFER_RULES}</p>\n"
+
+    out += ("<blockquote><p>Four points is the bar, and it is cleared over the "
+            "window, not over one Saturday. A move worth two points now and one "
+            "a week for five more weeks is worth taking; a move worth three "
+            "points this weekend and nothing behind it is not.</p></blockquote>\n")
+
+    # THE BASELINE, STATED. Without this sentence the table is misleading rather
+    # than merely incomplete: the gain is measured against the MEDIAN option at
+    # the position, and no real squad is full of median options, so a reader who
+    # assumes it is measured against their own player will take hits that do not
+    # pay. We cannot see their squad (games/fpl/state.json is a private order
+    # book, not a site input), so the honest move is to say which baseline we
+    # used and let them adjust it.
+    out += (f"<p>One thing to be straight about: that gain is measured against a "
+            f"replacement-level {_esc(_pos_word(lead))} — the median option at "
+            f"the position, worth {_fmt_pts(lead.get('replacement', 0))} points "
+            f"across the same window. This page cannot see your squad, so the "
+            f"median is the stand-in for whoever you would sell. If the player "
+            f"going out is better than that, the gain is smaller than the table "
+            f"says and so is the case for paying four points.</p>\n")
+
+    clears = [x for x in e if x.get("worth_a_hit")]
+    misses = [x for x in e if not x.get("worth_a_hit")]
+    if clears and not misses:
+        named = _and_join(f"{_esc(x['name'])} ({_fpl_transfer_gain(x)})"
+                          for x in clears[:3])
+        out += (f"<p>On that baseline all {len(e)} targets below clear four "
+                f"points, led by {named} — which is what you would expect of the "
+                f"{len(e)} best moves in the game. The bar bites further down the "
+                f"list, not at the top of it, so the question worth asking is not "
+                f"whether these names beat a median player but whether they beat "
+                f"the one you already own.</p>\n")
+    elif clears:
+        named = _and_join(f"{_esc(x['name'])} ({_fpl_transfer_gain(x)})"
+                          for x in clears[:3])
+        out += (f"<p>{len(clears)} of the {len(e)} targets below clear it: "
+                f"{named}. Those are moves worth making even if the free "
+                f"transfer is already spent.</p>\n")
+    else:
+        out += (f"<p>Not one of the {len(e)} targets below clears four "
+                f"points over the window, which is the week's real finding: there "
+                f"is no hit worth taking here. Bank the transfer instead — it is "
+                f"worth more next week than a marginal move is this one.</p>\n")
+    if misses and clears:
+        near = misses[0]
+        out += (f"<p>{_esc(near['name'])} is the first name that does not: "
+                f"{_fpl_transfer_gain(near)} points over the same window at "
+                f"£{_fmt_price(near.get('price', 0))}m. Worth a free transfer, "
+                f"not worth four points on top of it — and with the sell-on fee "
+                f"taking half of any profit on the player he replaces, marginal "
+                f"churn is how a season leaks points.</p>\n")
+
+    turning = _fpl_transfer_turning_club(e)
+    if turning:
+        club_entry, (gw, before, after, _swing) = turning
+        out += (f"<p>Timing, not just targets: {_esc(club_entry['team'])} rate "
+                f"{before:.1f} on fixture difficulty up to Gameweek {gw} and "
+                f"{after:.1f} from it. That is the sell window — the transfer "
+                f"that buys the kind fixtures is still in the squad when the run "
+                f"turns, and a free transfer spent on the way out costs "
+                f"nothing.</p>\n")
+
+    blanking = [x for x in e if _num(x, "fixtures") and _num(x, "fixtures") < n]
+    if blanking:
+        clubs = _and_join(sorted({_esc(x["team"]) for x in blanking if x.get("team")}))
+        out += (f"<p>{clubs} play fewer than {_num_word(n)} times inside the "
+                f"window — a blank gameweek is a week those players score "
+                f"nothing at all, and their numbers above are already discounted "
+                f"for it.</p>")
+    else:
+        out += (f"<p>Every club named above plays all {_num_word(n)} gameweeks in "
+                f"the window, so none of these numbers is propped up by a fixture "
+                f"the reader will not get.</p>")
+    return out
+
+
+def _fpl_transfer_bottom_line(e, r, subj):
+    lead = _subject_entry(e, subj)
+    n = _fpl_transfer_window(e)
+    if lead.get("worth_a_hit"):
+        return (f"Buy {subj} — {_fpl_transfer_gain(lead)} points over a "
+                f"replacement-level pick across {_num_word(n)} gameweeks clears "
+                f"the four a hit costs, so take it this week rather than banking, "
+                f"unless the player you would sell is already close to him.")
+    return (f"Buy {subj} with the free transfer — {_fpl_transfer_gain(lead)} "
+            f"points over {_num_word(n)} gameweeks is worth having and is not "
+            f"worth four points on top.")
+
+
 _FPL_TEMPLATES = {
     "captains": {
         "headline": _fpl_captains_headline,
@@ -1653,6 +1867,12 @@ _FPL_TEMPLATES = {
         "standfirst": _fpl_runs_standfirst,
         "body": _fpl_runs_body,
         "bottom_line": _fpl_runs_bottom_line,
+    },
+    "transfers": {
+        "headline": _fpl_transfer_headline,
+        "standfirst": _fpl_transfer_standfirst,
+        "body": _fpl_transfer_body,
+        "bottom_line": _fpl_transfer_bottom_line,
     },
     "defenders": {
         "headline": _fpl_defenders_headline,
