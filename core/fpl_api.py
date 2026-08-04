@@ -302,58 +302,89 @@ def refresh(write: bool = True) -> tuple[dict, list]:
     return boot, fx
 
 
-# --- DefCon backfill ---------------------------------------------------------
+# --- element-summary backfill -------------------------------------------------
 # See defcon_rate_from_history's docstring for WHY this exists: bootstrap zeroes
 # the DefCon fields, element-summary's history_past has them. Follows core.espn's
 # fetch_athlete_name precedent -- a one-time, incrementally-cached per-id resolve.
+#
+# The cache file name is DELIBERATELY not the old "defcon_backfill": entries in
+# that file predate `history_past` and carry only the two DefCon keys. Reusing the
+# name would have served those partial entries as "this player has no history",
+# which is indistinguishable from a genuine cold start and therefore the worst
+# possible failure mode. A new name forces one clean re-fetch instead.
 
-DEFCON_CACHE_NAME = "defcon_backfill"
+BACKFILL_CACHE_NAME = "player_backfill"
 DEFCON_REQUEST_DELAY = 0.4  # seconds between element-summary requests -- be polite
+
+# Every key a current cache entry must carry. An entry missing any of them was
+# written by an older version of this function and is re-fetched rather than
+# served partial -- belt and braces alongside the cache rename above, so a
+# hand-edited or half-written file cannot leak the old shape through either.
+_BACKFILL_KEYS = ("defcon_per90", "minutes", "history_past")
+
+
+def _backfill_entry_is_current(entry) -> bool:
+    return isinstance(entry, dict) and all(k in entry for k in _BACKFILL_KEYS)
 
 
 def fetch_defcon_backfill(players: list[dict], fetch=fetch_element_summary,
                            delay: float = DEFCON_REQUEST_DELAY, sleep=time.sleep,
-                           cache_name: str = DEFCON_CACHE_NAME) -> dict[int, dict]:
-    """Backfill last season's DefCon rate for players bootstrap-static zeroed.
+                           cache_name: str = BACKFILL_CACHE_NAME) -> dict[int, dict]:
+    """Backfill last season's DefCon rate AND full past-season history per player.
 
     Reads the cache (data/fpl/{cache_name}.json, keyed by element id) and fetches
     ONLY ids missing from it, so a re-run against a fully-populated cache costs no
-    network calls at all. Players with zero bootstrap minutes are skipped entirely
-    -- no minutes means no Premier League history to fetch. A failed fetch for one
-    id is recorded and skipped; it does not abort the run, and it is simply
-    retried on the next call (not cached as a permanent failure, since most
-    failures here are transient network hiccups, not "this player has no data").
+    network calls at all. Entries in the old two-key shape (no `history_past`) are
+    treated as missing and re-fetched -- see _BACKFILL_KEYS.
 
-    Returns {element_id: {"defcon_per90": float, "minutes": int}}, merging newly
-    fetched ids into whatever was already cached.
+    EVERY player is fetched, including those with zero bootstrap minutes. That is
+    a deliberate widening (~563 ids rather than ~400) and it costs one slower
+    first run. Zero bootstrap minutes only means the player recorded no Premier
+    League minutes LAST season; a player who was injured all year, or who spent it
+    on loan abroad, still has real prior-season history in element-summary, and
+    the old `minutes > 0` skip made him indistinguishable from a summer signing
+    with no Premier League record at all. Skipping was right when the only output
+    was a DefCon rate for players bootstrap had already zeroed; it is wrong now
+    that the output is that player's history.
+
+    A failed fetch for one id is recorded and skipped; it does not abort the run,
+    and it is simply retried on the next call (not cached as a permanent failure,
+    since most failures here are transient network hiccups, not "this player has
+    no data").
+
+    Returns {element_id: {"defcon_per90": float, "minutes": int, "history_past":
+    [...]}}, merging newly fetched ids into whatever was already cached.
+    `history_past` is [] for a player with no Premier League record -- the honest
+    cold-start signal, which callers must NOT paper over.
     """
     raw_cache = read_cache(cache_name) or {}
-    cache: dict[int, dict] = {int(k): v for k, v in raw_cache.items()}
+    cache: dict[int, dict] = {int(k): v for k, v in raw_cache.items()
+                              if _backfill_entry_is_current(v)}
 
-    todo = [p for p in players
-            if (p.get("minutes") or 0) > 0 and p["id"] not in cache]
+    todo = [p for p in players if p["id"] not in cache]
 
     total = len(todo)
     if total:
-        print(f"  [fpl] defcon backfill: {total} player(s) missing from cache "
+        print(f"  [fpl] player backfill: {total} player(s) missing from cache "
               f"'{cache_name}', fetching...")
 
     failed = []
     for i, p in enumerate(todo, start=1):
         pid = p["id"]
-        print(f"  [fpl] defcon backfill {i}/{total}: {p.get('name', pid)} (id {pid})")
+        print(f"  [fpl] player backfill {i}/{total}: {p.get('name', pid)} (id {pid})")
         try:
             summary = fetch(pid)
             rate, minutes = defcon_rate_from_history(summary.get("history_past", []))
-            cache[pid] = {"defcon_per90": rate, "minutes": minutes}
+            cache[pid] = {"defcon_per90": rate, "minutes": minutes,
+                          "history_past": parse_history_past(summary)}
         except Exception as exc:  # noqa: BLE001 -- one bad id must not abort the rest
             failed.append(pid)
-            print(f"  [fpl] defcon backfill: FAILED id {pid} ({exc}); will retry next run")
+            print(f"  [fpl] player backfill: FAILED id {pid} ({exc}); will retry next run")
         if delay and i < total:
             sleep(delay)
 
     if todo:
         write_cache(cache_name, {str(k): v for k, v in cache.items()})
-        print(f"  [fpl] defcon backfill done: {total - len(failed)} fetched, "
+        print(f"  [fpl] player backfill done: {total - len(failed)} fetched, "
               f"{len(failed)} failed.")
     return cache

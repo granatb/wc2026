@@ -148,6 +148,34 @@ FPL_DEFCON_PRIOR = {"GK": 0.0, "DEF": 7.72, "MID": 7.96, "FWD": 4.46}
 # -- chosen from the appearance-count anchors above, not fit to the leaderboard.
 FPL_DEFCON_SHRINKAGE_K = 3.0
 
+# The floor, in minutes, below which a PAST season is too thin to profile at all
+# (core.fpl_priors.history_profile). 450 minutes is five full matches: enough
+# that a clean-sheet rate or a BPS per-90 reflects a role rather than which two
+# fixtures the player happened to be on the pitch for. Below it the profile
+# reports NO DATA and the caller keeps its existing prior, rather than reporting
+# an estimate from one appearance -- unlike the DefCon rate above, which has a
+# measured position prior to shrink toward, the season-shape rates here have no
+# such baseline, so a hard floor is the honest treatment.
+#
+# A judgement call anchored on appearance count, not fit to any downstream
+# metric. Raising it discards more real seasons; lowering it lets a handful of
+# cameos masquerade as a season profile.
+FPL_HISTORY_MIN_MINUTES = 450
+
+# How many seasons back a profile may reach when it is used to REPLACE a blind
+# default in the minutes model (core.fpl_priors.minutes_model). 1 means last
+# season or the one before it; older than that, the player keeps the default.
+# A last-season regular who is missing from bootstrap (a summer transfer, or a
+# promoted club's squad) is genuinely evidence about his role today; a keeper who
+# last started a Premier League match in 2022/23 is not, and promoting him to a
+# 0.9 start probability would publish a backup as a nailed starter. Measured
+# 2026-08-04: 46 of the 163 zero-bootstrap-minute players clear the minutes
+# floor, and this cap keeps roughly 26 of them -- the recent ones.
+# Only the minutes model consults this. The DefCon rate does not: a defensive
+# work-rate is a stable trait, it is already shrunk toward the position prior,
+# and an old measurement of it is still better than the 0.0 it replaces.
+FPL_HISTORY_MAX_SEASONS_BACK = 1
+
 # How far Premier League club ratings spread from the league mean (see
 # core/fpl_ratings.py). A club one whole league-mean of strength above average
 # gets attack = 1 + FPL_RATING_SPREAD and defence = 1 - FPL_RATING_SPREAD; an

@@ -180,7 +180,10 @@ class TestDefconRateFromHistory(unittest.TestCase):
 
 class TestFetchDefconBackfill(unittest.TestCase):
     """The one-time backfill: fetch element-summary only for ids the cache is
-    missing, cache to data/fpl/, skip zero-minute players, tolerate failures."""
+    missing, cache to data/fpl/, tolerate failures.
+
+    Zero-minute players USED to be skipped here; they no longer are (see
+    TestHistoryBackfillCache.test_zero_minute_players_are_now_fetched for why)."""
 
     CACHE_NAME = "defcon_backfill_test"
 
@@ -223,17 +226,6 @@ class TestFetchDefconBackfill(unittest.TestCase):
         fetch_mock2.assert_not_called()
         self.assertAlmostEqual(result2[1]["defcon_per90"], result[1]["defcon_per90"])
         self.assertAlmostEqual(result2[2]["defcon_per90"], result[2]["defcon_per90"])
-
-    def test_zero_minute_players_are_never_fetched(self):
-        players = self._players([(3, 0)])
-        fetch_mock = mock.Mock()
-
-        result = fpl_api.fetch_defcon_backfill(
-            players, fetch=fetch_mock, delay=0, sleep=lambda *_a: None,
-            cache_name=self.CACHE_NAME)
-
-        fetch_mock.assert_not_called()
-        self.assertNotIn(3, result)
 
     def test_player_absent_from_result_when_fetch_fails(self):
         players = self._players([(10, 2000), (11, 2000)])
@@ -370,3 +362,103 @@ class TestHistoryPastRetained(unittest.TestCase):
             {"history_past": [{"season_name": "2016/17", "minutes": 900}]})
         self.assertEqual(out[0]["minutes"], 900)
         self.assertEqual(out[0]["clean_sheets"], 0)
+
+
+class TestHistoryBackfillCache(unittest.TestCase):
+    """The widened backfill: every player is fetched (not just those with
+    bootstrap minutes), full history_past is stored, and cache entries written in
+    the pre-history shape are re-fetched rather than served partial."""
+
+    CACHE_NAME = "player_backfill_test"
+
+    def _cache_path(self):
+        return os.path.join(fpl_api.DATA_DIR, f"{self.CACHE_NAME}.json")
+
+    def tearDown(self):
+        path = self._cache_path()
+        if os.path.exists(path):
+            os.remove(path)
+
+    def _seed_cache(self, payload):
+        fpl_api.write_cache(self.CACHE_NAME, payload)
+
+    @staticmethod
+    def _players(id_minutes):
+        return [{"id": i, "name": f"P{i}", "minutes": m} for i, m in id_minutes]
+
+    @staticmethod
+    def _summary(**overrides):
+        row = {"season_name": "2025/26", "minutes": 2750, "starts": 30,
+               "clean_sheets": 12, "goals_conceded": 30, "bps": 700,
+               "total_points": 180, "expected_goals_conceded": "28.5",
+               "defensive_contribution": 277}
+        row.update(overrides)
+        return {"history_past": [row]}
+
+    def _run(self, players, fetch):
+        return fpl_api.fetch_defcon_backfill(
+            players, fetch=fetch, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+    def test_zero_minute_players_are_now_fetched(self):
+        """A player injured all last season has 0 bootstrap minutes but real prior
+        history. The old DefCon-only fetch skipped him."""
+        players = self._players([(3, 0), (4, 2000)])
+        fetch_mock = mock.Mock(return_value=self._summary())
+
+        result = self._run(players, fetch_mock)
+
+        self.assertEqual([c.args[0] for c in fetch_mock.call_args_list], [3, 4])
+        self.assertIn(3, result)
+
+    def test_history_past_is_stored_alongside_the_defcon_fields(self):
+        result = self._run(self._players([(1, 2000)]), mock.Mock(
+            return_value=self._summary()))
+        entry = result[1]
+        self.assertAlmostEqual(entry["defcon_per90"], 277 * 90 / 2750, places=3)
+        self.assertEqual(entry["minutes"], 2750)
+        self.assertEqual(entry["history_past"][0]["clean_sheets"], 12)
+        self.assertEqual(entry["history_past"][0]["starts"], 30)
+        # string-typed in the feed, float on the way out
+        self.assertAlmostEqual(
+            entry["history_past"][0]["expected_goals_conceded"], 28.5)
+
+    def test_no_premier_league_record_caches_an_empty_history(self):
+        """A summer signing: [] is the honest answer and must be cached as such,
+        not left missing (which would re-fetch him forever)."""
+        result = self._run(self._players([(7, 0)]),
+                           mock.Mock(return_value={"history_past": []}))
+        self.assertEqual(result[7]["history_past"], [])
+
+    def test_a_populated_cache_costs_no_calls(self):
+        players = self._players([(1, 2000), (2, 0)])
+        self._run(players, mock.Mock(return_value=self._summary()))
+
+        fetch_mock2 = mock.Mock(return_value=self._summary())
+        result = self._run(players, fetch_mock2)
+
+        fetch_mock2.assert_not_called()
+        self.assertEqual(sorted(result), [1, 2])
+        self.assertEqual(result[1]["history_past"][0]["bps"], 700)
+
+    def test_old_shape_cache_entries_are_refetched(self):
+        """The pre-Task-4 file holds {"defcon_per90", "minutes"} only. Serving one
+        of those would report "no history" for a player who has plenty."""
+        self._seed_cache({"1": {"defcon_per90": 9.07, "minutes": 2750}})
+        fetch_mock = mock.Mock(return_value=self._summary())
+
+        result = self._run(self._players([(1, 2000)]), fetch_mock)
+
+        fetch_mock.assert_called_once_with(1)
+        self.assertEqual(result[1]["history_past"][0]["season_name"], "2025/26")
+
+    def test_a_failed_fetch_leaves_the_player_absent_and_retryable(self):
+        def flaky(pid):
+            if pid == 10:
+                raise RuntimeError("simulated network failure")
+            return self._summary()
+
+        result = self._run(self._players([(10, 2000), (11, 0)]),
+                           mock.Mock(side_effect=flaky))
+        self.assertNotIn(10, result)
+        self.assertIn(11, result)
