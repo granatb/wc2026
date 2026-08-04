@@ -124,3 +124,113 @@ The API's `events[].deadline_time` is 2026-08-21T17:30:00Z.
 **Always read deadlines from the API in UTC. Never scrape them from the page.**
 
 GW1 deadline: 2026-08-21T17:30:00Z (= 18:30 BST = 19:30 CEST).
+
+---
+
+# Lineup notes — the owner's team news
+
+**This codebase does not fetch team news.** No scraping, no search, no lineup API.
+The owner reads Discord, Fantasy Football Scout and the press conferences himself
+and trusts his own filtering over an automated pass that might weight a bad source
+(owner decision, 2026-08-03). It is about who is accountable for the judgement.
+`scripts/fpl_notes.py` is the *ingestion* path only: it makes the notes cheap to
+write, safe to consume, and loud when they are missing, stale or wrong.
+
+The bootstrap feed's `status` field only knows about declared injuries. It has
+nothing to say about rotation, cup-tie resting, or a manager telling a presser
+that a 17-year-old starts. That gap is what these notes fill.
+
+## Writing them
+
+```bash
+python3 scripts/fpl_notes.py --gw 1 <<'EOF'
+Jacquet nailed 0.9    # Slot presser, 20 Aug
+Gomez out
+Bradley rotation
+EOF
+```
+
+Also `--file notes.txt` instead of stdin, and `--check` to parse and name-match
+without writing anything.
+
+One player per line: `<name> [status] [start_prob] [# source]`
+
+| Token | Meaning |
+|---|---|
+| `nailed` / `starter` / `starts` | `status: nailed` |
+| `rotation` / `rotation_risk` / `risk` | `status: rotation_risk` |
+| `doubt` / `doubtful` | `status: doubtful` |
+| `out` / `injured` | `status: out` |
+| `susp` / `suspended` / `banned` | `status: suspended` |
+| a float in `[0, 1]` | `start_prob_override` |
+| `# ...` trailing | becomes the note's `sources` entry |
+| `# ...` whole line, or a blank line | ignored |
+
+Status and probability can appear together, in either order, and the status word
+is case-insensitive. Multi-word names work (`Van Hecke nailed`).
+
+**Nothing is ever silently dropped.** An unrecognised word, a probability outside
+`[0, 1]`, a bare name with no status or probability, and two lines for one player
+are all errors that abort the batch. A dropped token is a lost instruction.
+
+## What each status does to the model
+
+`core/research.py` splits notes into hard facts and soft nudges, and only the soft
+ones are scaled by the game's research weight — FPL's is `config.weight("fpl")` =
+**0.30**.
+
+| Note | Effect |
+|---|---|
+| `out`, `suspended` | **HARD.** Zeroes the player outright, *bypassing the weight entirely.* |
+| a `start_prob` float | **HARD.** Pins start probability absolutely, ignoring the weight. |
+| `nailed`, `rotation_risk`, `doubtful` | **SOFT.** Blended at w = 0.30, and drives the site's public availability flag. |
+
+The practical consequence: a bare `nailed` or `rotation` moves the minutes only
+gently. **Pair a status with an explicit start probability when you want the
+projection to actually move** — `Jacquet nailed 0.9`, not `Jacquet nailed`.
+
+## Names — the failure mode this whole path exists to prevent
+
+The feed uses FPL's `web_name`: **"Virgil", not "Van Dijk". "B.Fernandes", not
+"Bruno Fernandes".** The overlay is keyed on the literal `name:` string and looked
+up with `==`, so a note whose name matches nothing is read by nobody and changes
+nothing — while reading as done. That is exactly how the World Cup site once came
+within one guard of publishing an article about a ruled-out player.
+
+So the name is checked twice:
+
+- **At write time.** `fpl_notes.py` resolves every name against the cached
+  bootstrap (case-, punctuation- and diacritic-insensitively, accepting a unique
+  prefix or substring, never guessing between two candidates). One unmatched name
+  aborts the *whole batch* with suggestions and a non-zero exit — a typo cannot
+  become a silent no-op, and a half-applied batch never exists.
+- **At build time.** `evmax/fpl_build.py`'s preflight re-checks every note the
+  overlay would load against the live player pool and names the offending file.
+  This catches a hand-edited note, a renamed player, and any note that predates a
+  feed change.
+
+Matching is done against the *post-disambiguation* pool: `core/fpl_priors.py`
+renames colliding web_names (Cole Palmer / Alex Palmer both arrive as "Palmer")
+before the engine sees them, and that renamed string is what the overlay keys on.
+
+## Expiry
+
+Every written note carries `round: <gw>`, so it applies to that gameweek only and
+expires on its own rather than leaking into next week's projections. Preflight
+reports FPL notes pinned to a *past* gameweek — they are already inert, so the
+player is silently back on bootstrap availability alone. Re-pin if the read still
+holds, or retire the file by renaming it with a leading `_`.
+
+Preflight also says so, informationally, when a gameweek has **no** lineup notes
+at all: the model is then running on the bootstrap `status` field alone.
+
+## Files
+
+Notes are written to `research/players/fpl-<slug>.md`, one file per player,
+overwritten rather than appended to. The `fpl-` prefix keeps them clear of the
+hand-written World Cup notes sharing that directory (there is already a `kane.md`)
+and lets preflight scope "pinned to a past round" to one competition — the two
+number their rounds in the same integer space. One file per player is also what
+keeps `core.research.find_duplicate_names` quiet: the 2026-07-19 collision was
+four Nico Williams files where which one was live came down to directory listing
+order.

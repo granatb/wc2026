@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 from core import fixtures as core_fixtures
+from core import research as core_research
 from evmax import fpl_build, prompts, render, writer
 
 
@@ -368,12 +369,23 @@ def _fx(match_id, home, away, gw=1, priced=True):
         lam_home=1.5 if priced else None, lam_away=1.1 if priced else None)
 
 
+def _note(name, path=None, **kw):
+    """(name, path, ResearchEntry) triple, the shape fpl_build.note_files yields.
+
+    Defaults to the `fpl-` filename prefix scripts/fpl_notes.py writes; pass an
+    explicit path to stand in for a hand-written World Cup note."""
+    slug = name.lower().replace(" ", "-").replace(".", "")
+    return (name, path or f"research/players/fpl-{slug}.md",
+            core_research.ResearchEntry(name=name, **kw))
+
+
 class TestFplPreflight(unittest.TestCase):
-    def _preflight(self, fx, players, cold_start, boot=True):
+    def _preflight(self, fx, players, cold_start, boot=True, notes=()):
         with mock.patch.object(core_fixtures, "by_round", return_value=fx), \
              mock.patch.object(fpl_build.fpl_api, "read_cache",
                                return_value={} if boot else None):
-            return fpl_build.preflight(1, players=players, cold_start=cold_start)
+            return fpl_build.preflight(1, players=players, cold_start=cold_start,
+                                       notes=notes)
 
     def test_aborts_when_the_gameweek_has_no_fixtures(self):
         with self.assertRaises(SystemExit) as ctx:
@@ -435,6 +447,124 @@ class TestFplPreflight(unittest.TestCase):
         """Zero players is a different failure; do not also claim staleness."""
         warnings = self._preflight([_fx("m1", "ARS", "LIV")], [], [])
         self.assertFalse(any("stale" in w.lower() for w in warnings))
+
+
+class TestLineupNotePreflight(unittest.TestCase):
+    """The three lineup-note guards. The first is the important one: a note whose
+    name matches no player in the feed is looked up by nobody and changes nothing,
+    and until now nothing said so."""
+
+    FEED = [{"name": "Virgil", "status": "i"}, {"name": "Jacquet", "status": "a"}]
+
+    def _preflight(self, notes, players=None, gameweek=1):
+        with mock.patch.object(core_fixtures, "by_round",
+                               return_value=[_fx("m1", "ARS", "LIV")]), \
+             mock.patch.object(fpl_build.fpl_api, "read_cache", return_value={}):
+            return fpl_build.preflight(gameweek,
+                                       players=self.FEED if players is None else players,
+                                       cold_start=[], notes=notes)
+
+    def test_unmatched_note_is_reported(self):
+        warnings = self._preflight([_note("Van Dijk", status="out", round=1)])
+        self.assertTrue(any("Van Dijk" in w for w in warnings), warnings)
+
+    def test_unmatched_note_names_the_file(self):
+        """The operator has to be able to go and fix it."""
+        warnings = self._preflight(
+            [_note("Van Dijk", path="research/players/fpl-van-dijk.md",
+                   status="out", round=1)])
+        self.assertTrue(any("fpl-van-dijk.md" in w for w in warnings), warnings)
+
+    def test_unmatched_note_offers_a_suggestion(self):
+        warnings = self._preflight([_note("Jacqet", status="nailed", round=1)])
+        hit = next(w for w in warnings if "Jacqet" in w)
+        self.assertIn("Jacquet", hit)
+
+    def test_matched_note_is_not_reported(self):
+        warnings = self._preflight([_note("Jacquet", status="nailed", round=1)])
+        self.assertFalse(any("Jacquet" in w and "match" in w.lower()
+                             for w in warnings), warnings)
+
+    def test_unmatched_check_is_case_and_spelling_exact(self):
+        """core.research keys the overlay on the literal `name:` string and the sim
+        looks it up with ==, so a case difference really is a miss."""
+        warnings = self._preflight([_note("jacquet", status="nailed", round=1)])
+        self.assertTrue(any("jacquet" in w for w in warnings), warnings)
+
+    def test_no_unmatched_warning_when_the_feed_is_empty(self):
+        """An empty player list is a different failure; do not report every note
+        as unmatched on top of it."""
+        warnings = self._preflight([_note("Jacquet", status="nailed", round=1)],
+                                   players=[])
+        self.assertFalse(any("unmatched" in w.lower() for w in warnings), warnings)
+
+    def test_expired_note_pinned_to_a_past_gameweek_is_reported(self):
+        warnings = self._preflight([_note("Jacquet", status="out", round=1)],
+                                   gameweek=3)
+        hit = [w for w in warnings if "expired" in w.lower()]
+        self.assertTrue(hit, warnings)
+        self.assertIn("Jacquet", hit[0])
+
+    def test_current_and_unpinned_notes_do_not_expire(self):
+        warnings = self._preflight([_note("Jacquet", status="out", round=3),
+                                    _note("Virgil", status="doubtful", round=None)],
+                                   gameweek=3)
+        self.assertFalse(any("expired" in w.lower() for w in warnings), warnings)
+
+    def test_future_pinned_note_is_not_reported_as_expired(self):
+        warnings = self._preflight([_note("Jacquet", status="out", round=5)],
+                                   gameweek=3)
+        self.assertFalse(any("expired" in w.lower() for w in warnings), warnings)
+
+    def test_no_notes_for_this_gameweek_is_reported(self):
+        warnings = self._preflight([])
+        self.assertTrue(any("no lineup notes" in w.lower() for w in warnings),
+                        warnings)
+
+    def test_a_note_for_this_gameweek_silences_the_no_notes_line(self):
+        warnings = self._preflight([_note("Jacquet", status="nailed", round=1)])
+        self.assertFalse(any("no lineup notes" in w.lower() for w in warnings),
+                         warnings)
+
+    def test_an_unpinned_note_counts_as_cover_for_every_gameweek(self):
+        warnings = self._preflight([_note("Jacquet", status="nailed", round=None)])
+        self.assertFalse(any("no lineup notes" in w.lower() for w in warnings),
+                         warnings)
+
+    def test_a_note_pinned_elsewhere_does_not_count_as_cover(self):
+        warnings = self._preflight([_note("Jacquet", status="nailed", round=7)])
+        self.assertTrue(any("no lineup notes" in w.lower() for w in warnings),
+                        warnings)
+
+    def test_notes_default_to_the_repo_when_not_supplied(self):
+        """build() passes nothing; preflight has to go and read research/players/."""
+        with mock.patch.object(fpl_build, "note_files",
+                               return_value=[_note("Van Dijk", status="out",
+                                                   round=1)]) as nf:
+            warnings = self._preflight(None)
+        nf.assert_called_once()
+        self.assertTrue(any("Van Dijk" in w for w in warnings), warnings)
+
+
+class TestNoteFiles(unittest.TestCase):
+    def test_reads_name_path_and_entry_from_disk(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "players"))
+            with open(os.path.join(tmp, "players", "fpl-jacquet.md"), "w",
+                      encoding="utf-8") as fh:
+                fh.write("---\nentity: player\nname: Jacquet\nstatus: nailed\n"
+                         "round: 2\n---\nbody\n")
+            with open(os.path.join(tmp, "players", "_retired.md"), "w",
+                      encoding="utf-8") as fh:
+                fh.write("---\nname: Ghost\nstatus: out\n---\n")
+            with mock.patch.object(core_research, "RESEARCH_DIR", tmp):
+                found = fpl_build.note_files("players")
+        self.assertEqual([n for n, _p, _e in found], ["Jacquet"])
+        name, path, entry = found[0]
+        self.assertTrue(path.endswith("fpl-jacquet.md"))
+        self.assertEqual(entry.status, "nailed")
+        self.assertEqual(entry.round, 2)
 
 
 class TestCacheWarnings(unittest.TestCase):

@@ -11,6 +11,7 @@ FPL build has no business touching them.
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 import shutil
@@ -83,7 +84,109 @@ def _gameweek_fixtures(gameweek: int) -> list:
     return fixtures.by_round(gameweek, stage=model.FPL_STAGE)
 
 
-def preflight(gameweek: int, players: list, cold_start: list) -> list:
+def note_files(kind: str = "players") -> list:
+    """(name, path, ResearchEntry) for every ACTIVE note file on disk.
+
+    research.load_entries returns entries keyed by name and throws the path away,
+    which is fine for the overlay and useless for an operator warning: "a note
+    matches no player" is only actionable if it says WHICH FILE. Same skip rules
+    as load_entries (leading `_` retires a note), no round filtering — the
+    expiry check below is precisely about notes load_entries would have dropped.
+    """
+    out = []
+    for path in sorted(glob.glob(os.path.join(research.RESEARCH_DIR, kind, "*.md"))):
+        if os.path.basename(path).startswith("_"):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            meta, _ = research.parse_frontmatter(fh.read())
+        if not meta.get("name"):
+            continue
+        out.append((meta["name"], path, research.ResearchEntry.from_meta(meta)))
+    return out
+
+
+def is_fpl_note(path: str) -> bool:
+    """Whether a note file is an FPL lineup note rather than a World Cup one.
+
+    research/players/ is shared by both competitions and the two number their
+    rounds in the same integer space, so "pinned to a past round" is only a
+    meaningful question within one competition — without this, an FPL gameweek 5
+    build would report forty World Cup notes pinned to rounds 1-4 as expired
+    lineup notes and bury the one that matters. The `fpl-` prefix is the naming
+    convention scripts/fpl_notes.py writes (see fpl_notes.note_path), which also
+    keeps an FPL note for `Kane` clear of the hand-written kane.md next to it.
+    """
+    return os.path.basename(path).startswith("fpl-")
+
+
+def lineup_note_warnings(gameweek: int, feed_names: list, notes: list) -> list:
+    """The three owner-lineup-note guards.
+
+    The first is the dangerous one. The overlay is keyed on the literal `name:`
+    string and looked up with `==` against FPL's `web_name` ("Virgil", not "Van
+    Dijk"), so a note whose name matches nothing is read by nobody and changes
+    nothing — it just sits there reading as done. scripts/fpl_notes.py refuses to
+    WRITE one; this catches a hand-edited file, a renamed player, and any note
+    that predates a feed change. It is checked over every note this gameweek's
+    overlay would actually load, World Cup or FPL — a note that is live and
+    matches nothing is inert whoever wrote it — but NOT over notes pinned to
+    another round, which this build was never going to read anyway.
+
+    Expiry is checked here rather than through evmax.build.expired_risk_flags:
+    that function grades PUBLISHED PICKS (it takes the per-article entries_map and
+    reports rank positions), which do not exist yet at preflight time, and it only
+    looks at out/doubtful/suspended. This one covers every FPL note pinned to a
+    past gameweek, before a single simulation has run. Both still earn their keep
+    — the World Cup build keeps calling the other one where entries exist.
+    """
+    warnings = []
+
+    live = [(n, p, e) for n, p, e in notes
+            if e.round is None or e.round == gameweek]
+    fpl_notes_on_disk = [(n, p, e) for n, p, e in notes if is_fpl_note(p)]
+
+    if feed_names:
+        known = set(feed_names)
+        unmatched = [(n, p) for n, p, _e in live if n not in known]
+        if unmatched:
+            from scripts import fpl_notes
+            lines = []
+            for name, path in unmatched:
+                _m, suggestions = fpl_notes.match_name_verbose(name, feed_names)
+                hint = ", ".join(suggestions[:4]) or "no close match"
+                lines.append(f"{name!r} ({os.path.basename(path)}) "
+                             f"-> did you mean: {hint}")
+            warnings.append(
+                f"{len(unmatched)} LINEUP NOTE(S) MATCH NO PLAYER IN THE FEED and "
+                f"are therefore doing NOTHING: " + "; ".join(lines) + ". The feed "
+                f"uses FPL's web_name. Fix the `name:` field or rewrite the note "
+                f"with `python3 scripts/fpl_notes.py --gw {gameweek}`.")
+
+    expired = [(n, p, e) for n, p, e in fpl_notes_on_disk
+               if e.round is not None and e.round < gameweek]
+    if expired:
+        detail = ", ".join(f"{n} ({e.status or 'no status'}, gw{e.round}, "
+                           f"{os.path.basename(p)})" for n, p, e in expired)
+        warnings.append(
+            f"{len(expired)} EXPIRED LINEUP NOTE(S) pinned to a past gameweek — "
+            f"already ignored by the overlay, so these players are running on "
+            f"bootstrap availability alone: {detail}. Re-pin to gameweek "
+            f"{gameweek} if the read still holds, or retire the file with a "
+            f"leading `_`.")
+
+    if not any(e.round is None or e.round == gameweek
+               for _n, _p, e in fpl_notes_on_disk):
+        warnings.append(
+            f"NO LINEUP NOTES for gameweek {gameweek} — the model is running on "
+            f"the bootstrap `status` field alone, with no owner read on rotation "
+            f"or minutes. Informational, not an error: write some with "
+            f"`python3 scripts/fpl_notes.py --gw {gameweek}` if you have any.")
+
+    return warnings
+
+
+def preflight(gameweek: int, players: list, cold_start: list,
+              notes: list | None = None) -> list:
     """Abort on anything that makes a build impossible; return warnings for the rest.
 
     Warnings are RETURNED rather than printed so the caller controls where they
@@ -95,6 +198,12 @@ def preflight(gameweek: int, players: list, cold_start: list) -> list:
     `players` and `cold_start` come from games.fpl.model.load_gameweek's second
     and third return values — this function does not call load_gameweek itself,
     so it can be exercised (and its abort paths tested) without a network call.
+    `players` must be the POST-disambiguation pool (load_gameweek's
+    players_by_name.values()): the lineup-note check compares note names against
+    the names the sim actually keys on, and raw web_names would let a note for a
+    colliding name look matched when the engine will never find it.
+
+    `notes` is note_files()' triples, loaded from disk when not supplied.
     """
     problems = []
     if fpl_api.read_cache("bootstrap") is None:
@@ -145,6 +254,11 @@ def preflight(gameweek: int, players: list, cold_start: list) -> list:
                 f"suspensions, so the bootstrap cache is almost certainly old. "
                 f"Refresh before publishing or the site will present ruled-out "
                 f"players as nailed starters.")
+
+    warnings += lineup_note_warnings(
+        gameweek,
+        [p["name"] for p in players if p.get("name")],
+        note_files() if notes is None else list(notes))
 
     return warnings
 
@@ -251,10 +365,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # --- Load + preflight ---------------------------------------------------
     priors_by_team, players_by_name, cold_start = model.load_gameweek(gameweek)
     boot = fpl_api.read_cache("bootstrap")
-    all_players = fpl_api.parse_players(boot) if boot else []
     clubs = sorted(fpl_api.parse_teams(boot).values()) if boot else []
 
-    warnings = preflight(gameweek, all_players, cold_start)
+    # players_by_name.values(), not a fresh fpl_api.parse_players(boot): those two
+    # lists carry the same players but NOT the same names. load_gameweek's pool has
+    # been through core.fpl_priors._disambiguate_names (Cole Palmer / Alex Palmer
+    # both arrive from the feed as "Palmer"), and that post-rename name is what the
+    # engine and the research overlay key on — so it is the only list against which
+    # "does this lineup note match a real player?" is a meaningful question.
+    warnings = preflight(gameweek, list(players_by_name.values()), cold_start)
 
     # --- Simulate -----------------------------------------------------------
     artifact, cache_hit = model.build_artifact(priors_by_team, players_by_name,
