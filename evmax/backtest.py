@@ -146,6 +146,27 @@ def _is_final_status(stage: str) -> bool:
     return any(stage.startswith(p) for p in _FINAL_STATUSES_PREFIXES)
 
 
+def _wc_by_round(round_no: int) -> list:
+    """This round's WORLD CUP fixtures — every by_round call in this module.
+
+    core.fixtures.SCHEDULE holds both competitions in one list and buckets on
+    fantasy_round alone, so World Cup round 3 and FPL gameweek 3 collide (see
+    core.fixtures.by_round). This module grades the World Cup track record only:
+    its completeness gate asks whether every fixture carries a FINAL ESPN status,
+    and an FPL fixture's stage is the constant "GW", which can never be final.
+    One Premier League fixture landing in the bucket therefore pins a
+    long-finished World Cup round at "pending" forever.
+
+    Latent until games.fpl.model.load_gameweek started registering the whole
+    six-gameweek planning window rather than one gameweek: before that only FPL
+    gameweek 1 was ever in SCHEDULE, so only World Cup round 1 could collide and
+    nothing asserted on it. Filtering here rather than at the four call sites so
+    a fifth cannot be added without it.
+    """
+    return [f for f in fixtures.by_round(round_no)
+            if f.stage != fixtures.FPL_STAGE]
+
+
 def live_xi_progress(round_no: int, snapshots: dict | None = None,
                      realized: dict | None = None,
                      finished_teams: set | None = None):
@@ -177,7 +198,7 @@ def live_xi_progress(round_no: int, snapshots: dict | None = None,
     if not xi:
         return None
     if finished_teams is None:
-        finished_teams = {t for f in fixtures.by_round(round_no)
+        finished_teams = {t for f in _wc_by_round(round_no)
                           if _is_final_status(f.stage) for t in (f.home, f.away)}
     played = [e for e in xi if e.get("team") in finished_teams]
     if not played:
@@ -208,7 +229,7 @@ def round_status(round_no: int) -> str:
     snapshots = load_snapshots()
     if round_no not in snapshots:
         return "no_snapshot"
-    fx = fixtures.by_round(round_no)
+    fx = _wc_by_round(round_no)
     if not fx:
         return "pending"
     if all(_is_final_status(f.stage) for f in fx):
@@ -357,7 +378,7 @@ def _kickoffs_for_round(fantasy_round: int) -> dict:
     evmax.build._kickoffs_for_round, duplicated here (rather than imported) to
     avoid a circular import (evmax.build already imports evmax.backtest)."""
     out = {}
-    for f in fixtures.by_round(fantasy_round):
+    for f in _wc_by_round(fantasy_round):
         for team in (f.home, f.away):
             iso = f.kickoff.isoformat()
             if team not in out or iso < out[team]:
@@ -438,7 +459,7 @@ def retrospective_round(fantasy_round: int) -> dict:
 def round_status_ignoring_snapshot(round_no: int) -> str:
     """Like round_status(), but for rounds with no published snapshot at all
     (retrospective rounds) — gated purely on fixture completeness."""
-    fx = fixtures.by_round(round_no)
+    fx = _wc_by_round(round_no)
     if not fx:
         return "pending"
     if all(_is_final_status(f.stage) for f in fx):

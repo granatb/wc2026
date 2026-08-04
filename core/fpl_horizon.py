@@ -40,7 +40,11 @@ aggregate that is priced only in week one is `mixed`, never `market`.
 
 from __future__ import annotations
 
+import math
+
 import config
+
+from . import fixtures
 
 SEASON_GAMEWEEKS = 38
 
@@ -56,6 +60,101 @@ def window(gameweek: int, length: int | None = None) -> list[int]:
         length = config.FPL_HORIZON_LENGTH
     return [gw for gw in range(gameweek, gameweek + length)
             if gw <= SEASON_GAMEWEEKS]
+
+
+def match_projection(lam_home: float, lam_away: float) -> dict:
+    """The match layer for one fixture, analytically — no simulation.
+
+    Under the independent-Poisson scoring model the whole engine already assumes
+    (`core.engine_events` draws each side's goals as `_poisson(lam, rng)`), two
+    of the four quantities the horizon needs have closed forms:
+
+      * expected goals ARE the lambdas — the mean of Poisson(λ) is λ;
+      * a clean sheet is P(opponent scores 0) = exp(-opponent λ).
+
+    The brevity is the point, not an oversight. Simulating five further
+    gameweeks to recover two numbers that are exactly `exp(-λ)` would multiply
+    the build cost by six for a planning aid, and would add Monte-Carlo noise to
+    figures that have none. `TestProjectionAgreesWithTheSimulation` pins this
+    against `build_artifact`'s simulated summary for the SAME fixture, so the
+    six-week view and the one-week view cannot drift apart.
+
+    RELATIONSHIP TO evmax/articles.py. This is the same maths as that module's
+    no-sample fallback (`p_cs_home = math.exp(-lam_a)` / `p_cs_away =
+    math.exp(-lam_h)`, articles.py ~line 705). It is DUPLICATED here rather than
+    extracted, deliberately:
+
+      * The only thing worth sharing would be those two `exp` calls. The
+        substantial part of articles.py's fallback -- `_poisson_prob` and the
+        `_outcome_probs_from_lambdas` grid -- computes 1X2 probabilities and a
+        top scoreline, which the horizon does not want and never calls. No third
+        Poisson GRID is created here; there are still exactly two, in
+        articles.py and in the engine's sampler.
+      * `evmax/articles.py` is a frozen dependency of the World Cup track
+        record, pinned output-for-output by tests/test_site_render.py and
+        tests/test_site_build.py. Refactoring its internals to share two
+        one-line expressions puts published, graded claims at risk for no
+        readability gain.
+
+    If articles.py's fallback ever grows past those two lines, or the horizon
+    ever needs 1X2, extract `_outcome_probs_from_lambdas` into a shared
+    `core.poisson` at that point and have all three call it.
+
+    A zero lambda gives a certain clean sheet (`exp(0) == 1.0`), which is the
+    right answer for a side projected to score nothing rather than an edge case
+    to guard.
+    """
+    return {
+        "p_cs_home": math.exp(-lam_away),   # home keeps it clean iff AWAY scores 0
+        "p_cs_away": math.exp(-lam_home),
+        "exp_home_goals": lam_home,
+        "exp_away_goals": lam_away,
+    }
+
+
+def horizon_matches(gameweek: int, length: int | None = None) -> list:
+    """Match dicts for every FPL fixture in the window, shaped for `club_horizon`.
+
+    The output keys are deliberately those of `games.fpl.model.match_summaries`,
+    so the current gameweek's SIMULATED summaries and the later gameweeks'
+    PROJECTED ones are interchangeable in the aggregate — the caller does not
+    have to know which rows came from where.
+
+    `stage=fixtures.FPL_STAGE`, never a bare `by_round`: the shared SCHEDULE
+    holds both competitions and buckets on `fantasy_round` alone, so an
+    unnarrowed call over a six-gameweek window would sweep two dozen World Cup
+    ties into the Premier League fixture run.
+
+    Every fixture yields a row whether the bookmakers have priced it or not --
+    `Fixture.lambdas()` falls back to `core.ratings.match_lambdas`, and Phase 5
+    registered club-differentiated Premier League ratings, which is exactly what
+    makes gameweeks two through six projectable at all. `market` records which
+    of the two it was, so `club_horizon` can degrade the aggregate's provenance
+    instead of presenting a uniform confidence it does not have.
+
+    A gameweek with no registered fixtures simply contributes nothing; that is a
+    blank as far as the aggregate is concerned, and the caller's `clubs` list is
+    what keeps a wholly-blank club on the grid.
+    """
+    out = []
+    for gw in window(gameweek, length):
+        for f in fixtures.by_round(gw, stage=fixtures.FPL_STAGE):
+            lam_home, lam_away = f.lambdas()
+            row = {
+                "match_id": f.match_id,
+                "fantasy_round": gw,
+                "home": f.home,
+                "away": f.away,
+                "kickoff": f.kickoff.isoformat(),
+            }
+            row.update(match_projection(lam_home, lam_away))
+            # FPL's own FDR, carried for display only -- never an input to the
+            # lambdas above. getattr guards a test double built without them.
+            row["home_difficulty"] = getattr(f, "home_difficulty", None)
+            row["away_difficulty"] = getattr(f, "away_difficulty", None)
+            row["market"] = f.lam_home is not None and f.lam_away is not None
+            out.append(row)
+    return out
 
 
 def club_horizon(matches: list, clubs: list, window: list,

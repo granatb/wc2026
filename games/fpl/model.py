@@ -454,7 +454,7 @@ def load_gameweek(gameweek: int, refresh: bool = False):
 
     Returns (priors_by_team, players_by_name, cold_start_flags).
     """
-    from core import fixtures, fpl_api, fpl_priors, fpl_ratings
+    from core import fixtures, fpl_api, fpl_horizon, fpl_priors, fpl_ratings
 
     boot = fpl_api.read_cache("bootstrap")
     raw_fx = fpl_api.read_cache("fixtures")
@@ -485,9 +485,16 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     # per-player (~563) cost; every run after that is instant.
     defcon_backfill = fpl_api.fetch_defcon_backfill(players)
 
-    # Register this gameweek's fixtures with the shared schedule.
+    # Register the PLANNING WINDOW's fixtures with the shared schedule, not just
+    # this gameweek's: build_artifact's horizon projects gameweeks two through
+    # six from their lambdas, and a fixture that was never registered has no
+    # lambdas to project. Registering them costs nothing at simulation time --
+    # every consumer of SCHEDULE narrows by (fantasy_round, stage) first, and the
+    # sim itself only ever sees by_round(gameweek, stage=FPL_STAGE).
+    horizon_window = set(fpl_horizon.window(gameweek))
     rows = [r for r in fpl_api.parse_fixtures(raw_fx, teams)
-            if r["fantasy_round"] == gameweek]
+            if r["fantasy_round"] == gameweek
+            or r["fantasy_round"] in horizon_window]
     existing = {f.match_id for f in fixtures.SCHEDULE}
     for r in rows:
         if r["match_id"] in existing:
@@ -674,15 +681,45 @@ def match_summaries(match_samples: dict, fx: list) -> list:
     return out
 
 
+def _rehydrate_horizon(horizon: dict) -> dict:
+    """Restore `by_gameweek`'s INT gameweek keys after a JSON round trip.
+
+    core.fpl_horizon.club_horizon keys `by_gameweek` by gameweek NUMBER, and the
+    grid looks cells up with the same ints it got from fpl_horizon.window().
+    json.dump stringifies dict keys, so without this a cache HIT would hand the
+    renderer `{"2": [...]}` where a fresh build hands it `{2: [...]}` -- the same
+    artifact behaving two different ways depending on whether the sim happened to
+    run, which is the one thing a cache must never do.
+
+    Tolerant of a missing or empty horizon (an artifact stored before Phase 6):
+    the result is simply empty, and the caller degrades rather than crashing.
+    """
+    out = {}
+    for club, row in (horizon or {}).items():
+        row = dict(row)
+        row["by_gameweek"] = {int(gw): cells
+                              for gw, cells in (row.get("by_gameweek") or {}).items()}
+        out[club] = row
+    return out
+
+
 def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
                    sims: int, use_cache: bool = True):
     """Simulate (or fetch from cache) and return (artifact, cache_hit).
 
-    `artifact` is {"rows": [...], "matches": [...]} -- the per-player order book
-    plus the per-match scoreline summaries (see match_summaries). `cache_hit` is
-    True iff this call was served from core.simcache without running the sim, so
-    callers (and a later build preflight) can tell a served artifact from a fresh
-    one.
+    `artifact` is {"rows": [...], "matches": [...], "horizon": {...}} -- the
+    per-player order book, the per-match scoreline summaries (see
+    match_summaries), and the multi-gameweek club horizon (see
+    core.fpl_horizon). `cache_hit` is True iff this call was served from
+    core.simcache without running the sim, so callers (and a later build
+    preflight) can tell a served artifact from a fresh one.
+
+    THE HORIZON COSTS NO SIMS. Only this gameweek is simulated; gameweeks two
+    through six of the window reach the artifact through
+    fpl_horizon.horizon_matches, which derives clean sheets and expected goals
+    analytically from each fixture's lambdas (see match_projection). A six-week
+    planning view that cost six Monte-Carlo runs would not be worth its build
+    time.
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
     every input that determines the derived rows (see the `priors`, `research`,
@@ -692,7 +729,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     operator who wants to force a fresh run regardless of the cache.
     """
     import config
-    from core import fixtures, research, simcache
+    from core import fixtures, fpl_horizon, research, simcache
 
     # stage=FPL_STAGE, not a bare by_round: the shared SCHEDULE buckets on
     # fantasy_round alone, so an unnarrowed call also returns the World Cup ties
@@ -700,7 +737,24 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     # into artifact["matches"], AND hashed into the cache key below via
     # `lambdas` — letting World Cup fixture data determine the FPL cache key.
     fx = fixtures.by_round(gameweek, stage=FPL_STAGE)
+    horizon_window = fpl_horizon.window(gameweek)
+
+    # The cache key's match layer. This gameweek's fixtures are what the sim
+    # consumes; the window's LATER gameweeks never touch the sim but do
+    # determine artifact["horizon"], and their lambdas move independently of
+    # this gameweek's — a GW4 fixture getting priced changes the six-week grid
+    # while leaving GW1's numbers untouched. Both therefore belong in the key,
+    # or a newly-priced future fixture would leave the run grid stale while the
+    # artifact still claimed to be current.
+    #
+    # Seeded from `fx` rather than relying on the window to contain it: the
+    # window is empty past GW38, and the SIM's inputs must not depend on how the
+    # horizon dials happen to be set.
     lambdas = {f.match_id: f.lambdas() for f in fx}
+    for gw in horizon_window:
+        for f in fixtures.by_round(gw, stage=FPL_STAGE):
+            lambdas[f.match_id] = f.lambdas()
+
     research_entries = research.load_entries("players", gameweek)
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
@@ -727,6 +781,12 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         # does. Leaving it out would mean a config edit could silently serve a
         # stale artifact -- the one failure mode this cache exists to prevent.
         "research_weight": research_weight,
+        # Horizon dials. They change artifact["horizon"] without changing a
+        # single simulated number, so nothing else in this key would move if
+        # they were left out -- and flipping FPL_HORIZON_LENGTH from 6 to 8
+        # would silently serve the six-week grid under an eight-week heading.
+        "FPL_HORIZON_LENGTH": config.FPL_HORIZON_LENGTH,
+        "FPL_HORIZON_DECAY": config.FPL_HORIZON_DECAY,
     }
 
     key = simcache.cache_key(
@@ -738,8 +798,12 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     if use_cache:
         cached = simcache.load(key)
         if cached is not None:
+            # .get, not [...]: an artifact stored before this key existed (or
+            # hand-copied between machines) must degrade to an empty horizon
+            # rather than take the build down, exactly as `matches` does.
             return {"rows": cached["rows"],
-                    "matches": cached.get("matches", [])}, True
+                    "matches": cached.get("matches", []),
+                    "horizon": _rehydrate_horizon(cached.get("horizon", {}))}, True
 
     baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
@@ -785,7 +849,17 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
             kickoff=kickoffs.get(m["team"])))
     rows.sort(key=lambda r: -r["x_points"])
 
-    artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}
+    # `clubs` is the LEAGUE list, not the fixture list: club_horizon needs it to
+    # keep a club blank for the whole window on the grid, which is the most
+    # actionable row there is and the one a fixture-derived list would drop.
+    # priors_by_team is keyed by club and covers every club in the feed.
+    clubs = sorted(priors_by_team)
+    artifact = {
+        "rows": rows,
+        "matches": match_summaries(match_samples, fx),
+        "horizon": fpl_horizon.club_horizon(
+            fpl_horizon.horizon_matches(gameweek), clubs, horizon_window),
+    }
     if use_cache:
         simcache.store(key, artifact, meta={"gameweek": gameweek, "sims": sims})
     return artifact, False

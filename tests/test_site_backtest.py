@@ -507,3 +507,54 @@ class LiveXiStripTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorldCupRoundScopingTest(unittest.TestCase):
+    """core.fixtures.SCHEDULE holds both competitions and buckets on
+    fantasy_round alone, so World Cup round N and FPL gameweek N collide. This
+    module grades the World Cup only, and an FPL fixture's stage ("GW") can never
+    satisfy the final-status gate — so one Premier League fixture in the bucket
+    would pin a long-finished round at "pending" forever.
+
+    Live since games.fpl.model.load_gameweek began registering the whole
+    six-gameweek horizon window instead of a single gameweek.
+    """
+
+    def _register(self, rows):
+        from core import fixtures
+
+        saved = list(fixtures.SCHEDULE)
+        fixtures.SCHEDULE.extend(rows)
+        self.addCleanup(lambda: (fixtures.SCHEDULE.clear(),
+                                 fixtures.SCHEDULE.extend(saved)))
+
+    def _fpl_fixture(self, round_no):
+        from datetime import datetime, timezone
+
+        from core import fixtures
+
+        return fixtures.Fixture(
+            match_id=f"gw-collide-{round_no}", home="Arsenal", away="Chelsea",
+            kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+            stage=fixtures.FPL_STAGE, fantasy_round=round_no, neutral=False)
+
+    def test_fpl_fixtures_are_excluded_from_the_round_bucket(self):
+        from core import fixtures
+
+        round_no = 3
+        before = backtest._wc_by_round(round_no)
+        self._register([self._fpl_fixture(round_no)])
+        after = backtest._wc_by_round(round_no)
+        self.assertEqual([f.match_id for f in before],
+                         [f.match_id for f in after])
+        self.assertIn("gw-collide-3",
+                      [f.match_id for f in fixtures.by_round(round_no)],
+                      "the collision this guards against did not actually happen")
+
+    @_NEEDS_DATA
+    def test_a_colliding_fpl_gameweek_does_not_unfinish_a_round(self):
+        round_no = 3
+        self.assertEqual(backtest.round_status(round_no), "final")
+        self._register([self._fpl_fixture(round_no)])
+        self.assertEqual(backtest.round_status(round_no), "final",
+                         "an FPL gameweek flipped a finished World Cup round to pending")
