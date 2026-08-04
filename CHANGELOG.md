@@ -1,7 +1,173 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(684 tests). App: `streamlit run app.py`.
+(803 tests). App: `streamlit run app.py`.
+
+## 2026-08-04 — FPL phase 5: the model can tell clubs apart
+
+Phase 4 shipped six articles the model could not actually differentiate.
+`ratings.TEAM_RATINGS` holds odds-derived World Cup national teams only, so every
+Premier League pairing fell through to the neutral default and `match_lambdas`
+returned the identical `(1.445, 1.35)` for ARS–COV and MCI–BOU alike. The
+published ticker showed all twenty clubs between a 23% and a 26% clean sheet —
+the entire visible spread was the home-advantage constant, and the ranking was
+rounding noise. **Every cheap defender therefore looked alike**, because the only
+thing separating two £5.0m centre-backs at different clubs is whose clean sheet
+they are keeping, and the model priced those identically.
+
+The phase used signals the codebase already had. Measured on the GW1 rebuild, the
+ticker now carries 19 distinct clean-sheet values across 20 clubs, best to worst
+0.334 (ARS v COV) down to 0.173 (COV at ARS) — a 16.1pp spread where phase 4 had
+2.8pp. The defenders article reordered accordingly: Gabriel 7→4 (+0.50 xPts) and
+Raya 14→7 at league-best ARS, Guéhi 16→9 at MCI, Virgil 3→2 at LIV, while Thiaw
+15th and −0.33 at NEW, and Truffert (BOU) and Leno (FUL) fell out of the top 20
+entirely. **The direction of every large move tracks the club's ticker rank**,
+which is the result the phase was after.
+
+### Team ratings from published club strength (`core/fpl_ratings.py`)
+
+FPL's own bootstrap carries `strength_overall_home/away` per club. `derive` turns
+those into the multiplicative attack/defence factors `match_lambdas` expects and
+registers them.
+
+**League average is neutral by construction.** Factors normalise around the league
+mean, so an average club sits at exactly 1.0/1.0 and reproduces the previous goal
+level unchanged. Total goals across the gameweek are the same as before; only
+their distribution across clubs moves. We are redistributing goals, not inventing
+them — which is what makes this safe to ship without re-grading the scoring model.
+
+**The symmetry approximation is deliberate.** Preseason, FPL zeroes the
+attack/defence splits and publishes only the "overall" number, and a single
+overall figure carries no information about which half of a club's strength is
+which. The overall-only path therefore assumes they are symmetric: a club one unit
+above the mean gets its attack raised and its goals-conceded multiplier lowered by
+the same amount. That is plainly wrong for the real league — a side can be
+excellent going forward and porous at the back — and it is taken anyway, because a
+coarse two-sided estimate beats the uniform default it replaces. **The upgrade
+path is already wired**: as soon as FPL populates `strength_attack_*` /
+`strength_defence_*` for *every* club, `derive` prefers them and drops the
+assumption, normalising attack and defence against their own separate league
+means. All-or-nothing on purpose — a mean taken over the one club FPL happened to
+publish first is not a league scale.
+
+`config.FPL_RATING_SPREAD = 0.25` is **a calibration knob, not a fitted value**.
+The raw strength scale is a coarse 2–5 integer and how many goals one step is
+worth can only be settled against realized results. 0.25 separates the clubs
+meaningfully while staying well short of the spread bookmaker odds imply. Revisit
+it once GW1–5 results exist. `0.0` collapses every club back to neutral — the
+escape hatch that isolates a regression to the ratings rather than the plumbing.
+
+### FDR is displayed, not modelled
+
+`difficulty` now rides in the ticker alongside our own numbers. It does **not**
+feed the simulation, and that is a decision rather than an omission: FDR is
+editorial, it is a coarse 1–5 integer, and it cannot be decomposed into the attack
+and defence terms `match_lambdas` needs. Feeding it in would launder someone
+else's opinion into our lambdas while destroying the provenance that makes the
+`market` / `model` label meaningful.
+
+What it buys instead is a free cross-check, and it already earned its keep.
+**Sunderland and Ipswich both carry FPL's easiest FDR 2 — they play each other —
+while our model ranks them 10th and 11th of 20.** The two measures disagree
+because FDR appears to reward *both* sides of a weak-versus-weak fixture, whereas
+our ratings also price each club's own defensive quality: a bad defence facing a
+bad attack is still a bad defence. Neither number is authoritative, but a reader
+seeing FDR 2 next to a mid-table clean sheet learns something real about where the
+easy-looking fixture actually is.
+
+### Last-season history sharpens the priors
+
+`history_past` from element-summary now feeds the minutes model and the DefCon
+rate. Getting there surfaced three data hazards, each of which would have
+**silently corrupted projections** rather than failing loudly:
+
+1. **`starts` did not exist before 2022/23.** 316 archived seasons report it as 0.
+   Taken at face value a 2,779-minute season reads as a 0.0 start probability — a
+   nailed-on regular published as a man who never plays.
+2. **`defensive_contribution` did not exist before 2024/25.** An early pass over
+   the full archive dropped Endo from 9.59 to 1.08 by averaging a real rate
+   against seasons where the field was structurally absent.
+3. **Staleness.** Meslier's 34 starts in 2022/23 are a true fact and a useless
+   one; unguarded they promoted him above Raya.
+
+Four guards, each aimed at one of those: a minutes floor
+(`FPL_HISTORY_MIN_MINUTES = 450`, below which the profile reports NO DATA and the
+caller keeps its prior rather than inventing one from cameos), a zero-starts
+refusal, a zero-rate refusal, and `FPL_HISTORY_MAX_SEASONS_BACK = 1` for the
+minutes model only. The DefCon rate deliberately ignores that last cap: defensive
+work rate is a stable trait, it is already shrunk toward a position prior, and an
+old measurement of it still beats the 0.0 it replaces.
+
+### Lineup notes: written by the owner, consumed by the codebase
+
+`research/players/fpl-{name}.md` notes now reach the FPL sim. **There is
+deliberately no scraping and no web-search path** — the owner writes the read, the
+codebase consumes it. That boundary is the point: a projection that silently
+absorbs a scraped injury rumour is one nobody can audit.
+
+The name-matching guard exists because the failure is invisible. The overlay is
+keyed on the literal `name:` string and looked up with `==` against FPL's
+`web_name` — **"Virgil", not "Van Dijk"** — so a note matching nothing is read by
+nobody, changes nothing, and sits on disk reading as done. That is the Raphinha
+and Nico Williams class of bug, and it now aborts loudly at preflight. Notes match
+against the **post-disambiguation** pool rather than raw `web_name`, so the name
+the rest of the pipeline uses is the name a note has to spell.
+
+Measured effect, confirmed against a control run: **Jacquet 0.72 → 2.63 xPts**
+under `nailed 0.9`, moving him from 103rd to 38th of 185 defenders.
+
+One sharp edge worth knowing: `status: nailed` **on its own does nothing to
+minutes**. `blend.apply_status` only acts on the hard out/suspended statuses; the
+soft words pass through as multipliers on an existing base rate, and for a
+zero-minute player that base is near zero, so the multiplier has nothing to
+multiply. The number in `scripts/fpl_notes.py`'s `Jacquet nailed 0.9` shorthand is
+what actually moves it, by writing `start_prob_override`. The script always emits
+both; a hand-written note with only a status word will not.
+
+The unmatched-note warning is phrased carefully, because `research/players/` is
+shared with the World Cup and an unpinned World Cup note lands in it
+legitimately — `fabian-ruiz.md` does. It leads with the World Cup reading and the
+World Cup remedy (pin it to its round, or retire it with a leading `_`) and offers
+the closest FPL names only behind an explicit "if this was meant to be an FPL
+note". Phrased as "did you mean: Aït-Nouri, Fatawu" it would invite an operator to
+"fix" a perfectly good note by renaming it to an unrelated Premier League player.
+The check is deliberately **not** scoped to `fpl-`-prefixed files: a hand-written
+FPL note without the prefix would then go unchecked, which is the exact silent
+failure the guard exists to catch.
+
+### Also in this phase
+
+- **The element-summary cache changed shape and filename**, `defcon_backfill.json`
+  → `player_backfill.json`. Entries in the old file predate `history_past` and
+  carry only the two DefCon keys; reusing the name would have served those partial
+  entries as "this player has no history", which is indistinguishable from a
+  genuine cold start and is therefore the worst available failure mode. A new name
+  forces one clean re-fetch. `_BACKFILL_KEYS` re-fetches any entry missing a key,
+  so a hand-edited file cannot leak the old shape through either.
+- **The fetch widened from ~400 to 563 players**, since history is now wanted for
+  everyone rather than only DefCon-eligible positions. A one-time cost at 0.4s
+  between requests, incrementally cached thereafter.
+
+### Known issues, not fixed here
+
+1. **The BPS baseline is still bootstrap-only and lives outside `PlayerPrior`.**
+   A player with zero bootstrap minutes is simulated with **no bonus baseline at
+   all** — not a shrunk one, none. It did not move into the prior with the rest of
+   the history work, so the 163 cold-start players score bonus as if bonus did not
+   exist. The natural fix is to source `bps_per90` from `history_past` the way
+   `defcon_per90` now is.
+2. **`data/fpl/defcon_backfill.json` is dead** and safe to delete. Nothing reads
+   it after the rename; it is left in place only because deleting data files is
+   not this phase's business.
+3. **`no_pl_history` tracks bootstrap, not history.** The flag is raised from
+   `needs_cold_start(p)`, which asks about bootstrap minutes, so it slightly
+   overstates the problem: 46 of the 163 flagged players clear the history minutes
+   floor and are in fact being projected from a real Premier League record, not
+   from price alone. The preflight count is pessimistic rather than wrong.
+4. **`/rate/` is still World-Cup-shaped** (phase 4 item 2, unchanged). The landing
+   CTA links to it and the FPL build never writes it.
+5. **`manage.py fpl --refresh` still does not refresh FPL data** (phase 4 item 3,
+   unchanged). It runs the World Cup ESPN scoreboard path.
 
 ## 2026-08-03 — FPL port phase 4: the site
 

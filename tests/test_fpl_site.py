@@ -480,6 +480,27 @@ class TestLineupNotePreflight(unittest.TestCase):
         hit = next(w for w in warnings if "Jacqet" in w)
         self.assertIn("Jacquet", hit)
 
+    def test_unmatched_warning_does_not_read_as_a_correction(self):
+        """research/players/ is shared with the World Cup, and an unpinned World
+        Cup note lands in this warning legitimately — fabian-ruiz.md does. Phrased
+        as "did you mean: Ait-Nouri, Fatawu" it invites an operator to "fix" a
+        perfectly good note by renaming it to an unrelated Premier League player.
+        The warning must offer the World Cup reading first and frame the FPL names
+        as conditional."""
+        warnings = self._preflight(
+            [_note("Fabian Ruiz", path="research/players/fabian-ruiz.md",
+                   status="nailed", round=None)])
+        hit = next(w for w in warnings if "Fabian Ruiz" in w)
+        self.assertNotIn("did you mean", hit.lower())
+        self.assertIn("no effect", hit.lower())
+        self.assertIn("world cup", hit.lower())
+        # the World Cup remedies, not a rename
+        self.assertIn("round", hit.lower())
+        self.assertIn("`_`", hit)
+        # suggestions survive, but only behind the FPL conditional
+        self.assertIn("Jacquet", hit)
+        self.assertIn("if it was meant to be an fpl note", hit.lower())
+
     def test_matched_note_is_not_reported(self):
         warnings = self._preflight([_note("Jacquet", status="nailed", round=1)])
         self.assertFalse(any("Jacquet" in w and "match" in w.lower()

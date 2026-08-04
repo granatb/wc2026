@@ -155,12 +155,18 @@ def lineup_note_warnings(gameweek: int, feed_names: list, notes: list) -> list:
                 _m, suggestions = fpl_notes.match_name_verbose(name, feed_names)
                 hint = ", ".join(suggestions[:4]) or "no close match"
                 lines.append(f"{name!r} ({os.path.basename(path)}) "
-                             f"-> did you mean: {hint}")
+                             f"-> closest FPL names: {hint}")
             warnings.append(
-                f"{len(unmatched)} LINEUP NOTE(S) MATCH NO PLAYER IN THE FEED and "
-                f"are therefore doing NOTHING: " + "; ".join(lines) + ". The feed "
-                f"uses FPL's web_name. Fix the `name:` field or rewrite the note "
-                f"with `python3 scripts/fpl_notes.py --gw {gameweek}`.")
+                f"{len(unmatched)} NOTE(S) MATCH NO FPL PLAYER and therefore have "
+                f"NO EFFECT on this build: " + "; ".join(lines) + ". research/"
+                f"players/ is shared with the World Cup, so a World Cup note with "
+                f"no `round:` pin lands here legitimately — nothing is wrong with "
+                f"the note, it just has no FPL player to attach to. If that is what "
+                f"this is, pin it to its World Cup round or retire it with a leading "
+                f"`_`, and leave the name alone. If it was meant to be an FPL note, "
+                f"the closest FPL names are listed above (the feed uses FPL's "
+                f"web_name): fix the `name:` field or rewrite the note with "
+                f"`python3 scripts/fpl_notes.py --gw {gameweek}`.")
 
     expired = [(n, p, e) for n, p, e in fpl_notes_on_disk
                if e.round is not None and e.round < gameweek]
