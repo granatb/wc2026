@@ -50,7 +50,7 @@ Refer to the data fields by these reader-friendly names (NEVER print the raw key
     faded, "balanced" means neither extreme applies
   - top_def / top_gk → that team's best defender/goalkeeper pick, already formatted as
     "Name (x.x)" — quote them as-is
-  - role → "XI" means the player starts in the wildcard lineup; "Bench" means they are
+  - role → "XI" means the player starts in the squad's lineup; "Bench" means they are
     one of the 4 squad-filler picks. Bench players are enablers that make the 15 legal
     and cheap, not picks to sell the reader on — do not oversell their point projections
     or ceiling; the pitch to the reader is entirely about the XI and the budget logic.
@@ -130,14 +130,20 @@ _FPL_GLOSSARY = """\
 
 
 def build_prompt(slug: str, round_no: int, entries: list, subject=None,
-                 unit: str = "Round") -> str:
+                 unit: str = "Round", chips=None) -> str:
     """Return a filled ARTICLE_PROMPT ready to send to the API.
 
     subject: player name to centre prose on, or None for team-framing
              (best-xi / wildcard / matches / fixtures / ticker).
     unit:    the reader-facing word for the period — "Round" for the World Cup,
              "Gameweek" for FPL. It also gates the FPL field glossary.
+    chips:   bootstrap-static's chip windows, or None. Read only by the squad
+             article, and only so the model is never told to write about playing
+             a chip that is illegal that gameweek. None means "not available" —
+             see fpl_articles.chip_available; the model must not be handed a
+             permission the feed did not give.
     """
+    from evmax.fpl_articles import chip_available
     if subject is not None and slug == "transfers":
         subject_instruction = (
             f"Focus      : Center this article on {subject}, the top-ranked transfer "
@@ -225,10 +231,35 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None,
             "high-clean-sheet team.\n"
         )
     elif slug == "wildcard":
-        subject_instruction = (
-            "Focus      : This is a full 15-man wildcard/rebuild squad (role=\"XI\" for "
-            "the 11 starters, role=\"Bench\" for the 4 squad-fillers), not a single-player "
-            "pick. This article is ALSO the site's \"best XI\" piece, so open by naming the "
+        # The framing is set by the CHIP WINDOW, not by the gameweek number. The
+        # wildcard runs GW2-19 and GW20-38, so gameweek 1 has no rebuild
+        # available at all — and a model told to write about "playing your
+        # wildcard" there will happily do it.
+        if chip_available("wildcard", round_no, chips):
+            framing = (
+                "Focus      : This is a full 15-man wildcard/rebuild squad "
+                "(role=\"XI\" for the 11 starters, role=\"Bench\" for the 4 "
+                "squad-fillers), not a single-player pick. The wildcard chip IS "
+                "playable this gameweek, so the squad can be rebuilt from scratch "
+                "at no transfer cost — frame it that way.\n"
+            )
+        else:
+            framing = (
+                "Focus      : This is a full 15-man squad (role=\"XI\" for the 11 "
+                "starters, role=\"Bench\" for the 4 squad-fillers), not a "
+                "single-player pick. CRITICAL: the wildcard chip CANNOT be played "
+                "this gameweek — its windows are Gameweeks 2-19 and 20-38 — and "
+                "neither can the free hit. NEVER tell the reader to play, use, "
+                "activate or save a wildcard, and never call this a wildcard "
+                "squad, a rebuild or a reset. It is the squad they START the "
+                "season in. Say early that there is no chip to undo it with: the "
+                "only way out is one free transfer a gameweek (bankable to five, "
+                "every extra costing -4 points), which is exactly why these "
+                "fifteen are chosen on the next six gameweeks' fixtures rather "
+                "than on this one Saturday.\n"
+            )
+        subject_instruction = framing + (
+            "This article is ALSO the site's \"best XI\" piece, so open by naming the "
             "strongest starting XI explicitly — its formation and combined xPts total — "
             "before moving on to the budget and bench discussion. Then cover: the total "
             "squad cost vs the 100.0m budget, and the bench philosophy — the bench is "

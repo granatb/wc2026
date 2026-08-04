@@ -34,7 +34,13 @@ ARTICLE_TITLES = {
     # Short: the <title> becomes "{title} — Gameweek N | evmax" and Bing errors
     # above ~65 characters.
     "captains": "Best captain picks",
-    "wildcard": "Draft squad & wildcard XI",
+    # FALLBACK ONLY, not the source of truth. The squad article's real title is
+    # gameweek-aware — the wildcard cannot be played in GW1, so naming the piece
+    # after it there is a published error. build() overrides this entry from
+    # fpl_articles.squad_title(gameweek, chips); this value is what a caller with
+    # no bootstrap chips data would see, and it is the one the wildcard IS legal
+    # for (GW2-19, GW20-38 — most of the season).
+    "wildcard": fpl_articles.SQUAD_TITLE_WILDCARD,
     "ticker": "Fixture ticker — clean sheets",
     "runs": "Fixture ticker — the next six",
     "defenders": "Best defenders & keepers",
@@ -380,6 +386,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     priors_by_team, players_by_name, cold_start = model.load_gameweek(gameweek)
     boot = fpl_api.read_cache("bootstrap")
     clubs = sorted(fpl_api.parse_teams(boot).values()) if boot else []
+    # bootstrap-static's chip windows, read raw: no parser is warranted for a
+    # three-field passthrough, and fpl_articles.chip_available treats a missing
+    # or empty list as "not available" rather than as permission.
+    chips = (boot or {}).get("chips") or []
 
     # players_by_name.values(), not a fresh fpl_api.parse_players(boot): those two
     # lists carry the same players but NOT the same names. load_gameweek's pool has
@@ -415,7 +425,13 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     available = _available_gameweeks(out, gameweek)
 
     # --- Per-article entries ------------------------------------------------
-    squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
+    # The squad is optimised over the WINDOW, not over this Saturday: FPL's one
+    # free transfer a gameweek makes the fifteen sticky, so a squad built for a
+    # single fixture is a mistake paid off over a month. The horizon comes from
+    # the artifact (aggregated and cached inside build_artifact); the decay dial
+    # defaults to config.FPL_HORIZON_DECAY.
+    squad_entries, squad_meta = fpl_articles.fpl_squad(
+        rows, horizon=artifact.get("horizon") or {})
     entries_map = {
         "captains":   fpl_articles.captains(rows)[:20],
         "wildcard":   squad_entries,
@@ -430,7 +446,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         "defcon":     fpl_articles.defcon_leaders(rows)[:20],
     }
 
-    nav = [(slug, ARTICLE_TITLES[slug]) for slug in ARTICLES]
+    # The squad article's title is the one thing here that depends on the
+    # gameweek. Overridden once, into the map every downstream consumer already
+    # reads, so the page <title>, the JSON envelope, the nav, llms.txt and the
+    # sitemap all get the same gameweek-aware name — a title fixed in one of
+    # those and stale in the others is worse than the bug being fixed.
+    article_titles = dict(ARTICLE_TITLES)
+    article_titles["wildcard"] = fpl_articles.squad_title(gameweek, chips)
+
+    nav = [(slug, article_titles[slug]) for slug in ARTICLES]
 
     def w(path: str, text: str) -> None:
         full = os.path.join(out, path.lstrip("/"))
@@ -478,7 +502,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     for slug in ARTICLES:
         entries = entries_map[slug]
         columns = _COLUMNS[slug]
-        title = f"{ARTICLE_TITLES[slug]} — {section.kicker(gameweek)}"
+        title = f"{article_titles[slug]} — {section.kicker(gameweek)}"
         json_url = section.json_path(gameweek, slug)
 
         # Lead player for the prose, de-duplicated across articles so six pieces
@@ -497,11 +521,14 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         # cache_name and unit are load-bearing: without them FPL gameweek N and
         # World Cup round N share a prose cache entry, and the template tier
         # falls through to the World Cup wording.
+        # chips rides along so the prose can tell a rebuild from a season opener.
+        # The headline the feed card prints comes back out of here, so this is
+        # also what keeps the landing page from advertising an illegal chip.
         prose = writer.article_prose(slug, gameweek, entries, columns,
                                      cache_dir="data/articles", use_llm=use_llm,
                                      subject=subject,
                                      cache_name=f"fpl-gw{gameweek}",
-                                     unit="Gameweek")
+                                     unit="Gameweek", chips=chips)
         prose_map[slug] = prose
 
         # Viz

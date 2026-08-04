@@ -15,6 +15,7 @@ XI formation limits and price tiers.
 
 from __future__ import annotations
 
+import config
 from evmax.articles import (POS_MAX, POS_MIN, SQUAD_QUOTA, XI_SIZE,
                             formation_of, legal_xi_formations, price_tier)
 from games.fpl.model import DEFCON_THRESHOLD
@@ -106,6 +107,66 @@ def defcon_leaders(rows: list) -> list:
     return ranked
 
 
+# ---------------------------------------------------------------------------
+# Chip legality
+# ---------------------------------------------------------------------------
+# The chip a manager cannot play is the one the article must not be named after.
+# FPL publishes the windows in bootstrap-static's `chips` list -- for 2026/27 the
+# wildcard and the free hit run GW2-19 and GW20-38, while bench boost and triple
+# captain are legal from GW1. So in GW1 there is no rebuild available at all: the
+# fifteen are simply the season-opening squad, and the manager is stuck with them
+# at one free transfer a week.
+#
+# DERIVED FROM THE FEED, NEVER FROM `gameweek == 1`. The same rule governs the
+# second-half wildcard, and a hard-coded 1 would be wrong at GW20 -- where the
+# chip IS available again and the "wildcard squad" framing becomes correct once
+# more. It would also silently mislead in any season where FPL moves the windows.
+
+
+def chip_available(chip_name: str, gameweek: int, chips: list | None) -> bool:
+    """Whether `chip_name` can legally be played in `gameweek`.
+
+    `chips` is bootstrap-static's `chips` list: dicts carrying `name`,
+    `start_event` and `stop_event`. A chip appears once per window, so the
+    wildcard has two entries and is available if EITHER covers the gameweek.
+
+    ABSENT DATA IS NOT PERMISSION. No chips list, an empty one, an unknown chip
+    name or an entry with no window all return False. The failure mode this
+    guards is asymmetric: telling a reader to play a chip they do not have is a
+    published error, while declining to mention one they do have is a missed
+    sentence.
+    """
+    for chip in chips or []:
+        if chip.get("name") != chip_name:
+            continue
+        start, stop = chip.get("start_event"), chip.get("stop_event")
+        if start is None or stop is None:
+            continue
+        if start <= gameweek <= stop:
+            return True
+    return False
+
+
+# Both under 34 characters: the <title> becomes "{title} — Gameweek N | evmax"
+# and Bing errors past about 65.
+SQUAD_TITLE_WILDCARD = "Draft squad & wildcard XI"
+SQUAD_TITLE_OPENER = "Season-opener squad & XI"
+
+
+def squad_title(gameweek: int, chips: list | None) -> str:
+    """The squad article's title for this gameweek.
+
+    The numbers in the article are the same either way -- what changes is what
+    the reader can DO with them. Where the wildcard is playable the piece is a
+    rebuild plan and "wildcard XI" is the honest name. Where it is not, the
+    fifteen are the season-opening squad and naming them after a chip the reader
+    cannot use is simply wrong.
+    """
+    if chip_available("wildcard", gameweek, chips):
+        return SQUAD_TITLE_WILDCARD
+    return SQUAD_TITLE_OPENER
+
+
 def _club_counts(squad: list) -> dict:
     counts: dict = {}
     for r in squad:
@@ -119,15 +180,158 @@ def _key(r: dict) -> tuple:
     return (r["name"], r["team"], r["position"], r["price"])
 
 
+# ---------------------------------------------------------------------------
+# The squad objective
+# ---------------------------------------------------------------------------
+# The scratch column the sweep ranks on. Every optimisation decision below reads
+# this key rather than x_points; the two are equal, exactly, whenever no horizon
+# is supplied. It is stripped from the returned entries -- x_points stays the
+# published number, because it is the one the article's table and prose quote.
+_SCORE_KEY = "_objective"
+
+# WHICH HORIZON AGGREGATE SCALES WHICH POSITION.
+#
+# A player's x_points already prices THIS gameweek's fixture. To project the same
+# player across the window we need a per-club multiplier, and it has to be the
+# aggregate that actually pays that position:
+#
+#   GK, DEF -> exp_clean_sheets. FPL pays a keeper or a defender 4 points a clean
+#             sheet, and it is the single largest line in their scoring. Scaling
+#             them on their club's goals FOR would reward a leaky front-runner.
+#   MID, FWD -> exp_goals_for. Attacking returns are what a midfielder or a
+#             striker is bought for. Scaling a striker on his club's CLEAN SHEETS
+#             would be plainly wrong -- it is the number the plan singled out --
+#             and would rate a 0-0 specialist as a good place to buy a forward.
+#
+# A midfielder's 1-point clean sheet is deliberately ignored. It is worth a
+# quarter of a defender's, it is dominated by goal and assist involvement at
+# every price point, and blending it in would blur the one distinction this table
+# exists to make.
+_HORIZON_METRIC = {
+    "GK": "exp_clean_sheets",
+    "DEF": "exp_clean_sheets",
+    "MID": "exp_goals_for",
+    "FWD": "exp_goals_for",
+}
+
+
+def _horizon_strengths(horizon: dict) -> dict:
+    """Per metric, each club's window aggregate divided by the league mean.
+
+    1.0 is a league-average run; 1.3 is a run 30% better than the field's.
+
+    WHY THE LEAGUE MEAN AND NOT THE CLUB'S CURRENT GAMEWEEK. The ratio of the
+    horizon aggregate to the club's own current-gameweek value is the more
+    natural construction, and it is not computable from what this function is
+    handed. `core.fpl_horizon.club_horizon` returns aggregates that are ALREADY
+    decay-weighted SUMS over the window -- the per-gameweek terms have been added
+    up and cannot be unpicked -- and `by_gameweek` carries only opponent labels
+    and FDR, no lambdas, so the current gameweek's clean-sheet or goal figure
+    cannot be recovered from it either. Re-deriving it would mean re-simulating
+    inside a squad builder that is documented as pure.
+
+    The league mean is the reference that IS available, and for this problem it
+    is the right one: fpl_squad chooses BETWEEN clubs, so what it needs of each
+    club is its run relative to the field. Normalising on the mean is also what
+    makes 1.0 mean "average", which is the anchor the decay blend below needs.
+
+    The fixture count is deliberately not divided out. A club with a double
+    inside the window has a genuinely larger aggregate and should scale up; a
+    club with a blank should scale down. That is the calendar, not a forecast,
+    and `core.fpl_horizon` makes the same choice for the same reason.
+
+    Clubs with no fixture in the window are excluded from the MEAN (they would
+    drag it toward zero and inflate everyone else) but still get their own
+    strength, which is 0.0 -- correctly, since they have no fixtures to earn from.
+    """
+    out: dict = {}
+    for metric in set(_HORIZON_METRIC.values()):
+        values = {club: float(row.get(metric) or 0.0)
+                  for club, row in (horizon or {}).items()}
+        playing = [v for club, v in values.items()
+                   if (horizon[club].get("fixtures") or 0) > 0]
+        mean = sum(playing) / len(playing) if playing else 0.0
+        # A league that projects zero of this metric has nothing to rank on;
+        # a flat 1.0 leaves the single-gameweek objective untouched.
+        out[metric] = ({club: v / mean for club, v in values.items()} if mean > 0
+                       else {club: 1.0 for club in values})
+    return out
+
+
+def _objective_scorer(horizon: dict | None, decay: float | None):
+    """(scorer, label) — the per-player objective and the name meta reports.
+
+    `decay` is HOW FAR toward the horizon view the objective is tilted, not the
+    per-gameweek decay: that one lives in `core.fpl_horizon.club_horizon` and is
+    already baked into the aggregates we are handed here. The two share
+    `config.FPL_HORIZON_DECAY` as their default because they are the same
+    judgement about how much the future is worth to a decision made today,
+    applied at the two points where it bites.
+
+        score = x_points * (1 + decay * (club_strength - 1))
+
+    decay=0.0 collapses the multiplier to exactly 1.0 for every club and
+    reproduces the single-gameweek squad bit for bit -- the calibration anchor,
+    and the thing that lets a future squad regression be told apart from a
+    ratings or horizon regression. decay=1.0 scales each player fully by his
+    club's run relative to the league.
+
+    A club absent from the horizon scores 1.0, neutral: a stale club list must
+    cost that club nothing, and it must certainly not crash a build.
+
+    KNOWN OVERLAP, stated rather than hidden: the current gameweek is itself the
+    highest-weighted member of the window, so its fixture is counted once inside
+    x_points and again inside the multiplier. The effect is to weight the nearest
+    and most certain fixture a little more heavily than the decay alone implies,
+    which is the direction we would err in anyway.
+    """
+    if not horizon:
+        return (lambda r: r["x_points"]), "single_gameweek"
+    if decay is None:
+        decay = config.FPL_HORIZON_DECAY
+    if not decay:
+        return (lambda r: r["x_points"]), "single_gameweek"
+
+    strengths = _horizon_strengths(horizon)
+
+    def score(r):
+        metric = _HORIZON_METRIC.get(r.get("position"))
+        strength = strengths.get(metric, {}).get(r.get("team"), 1.0)
+        return r["x_points"] * (1.0 + decay * (strength - 1.0))
+
+    return score, "horizon"
+
+
 def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
-              max_per_club: int = MAX_PER_CLUB) -> tuple:
+              max_per_club: int = MAX_PER_CLUB,
+              horizon: dict | None = None,
+              decay: float | None = None) -> tuple:
     """A legal 15-man FPL squad: quota, budget, formation and club cap.
 
     Returns (entries, meta) with the same shape articles.wildcard_squad returns, so
     the renderer and the pitch SVG need no FPL-specific handling:
       entries: 15 row copies, each with role ("XI"/"Bench") and a 1-based rank
                (1-11 XI by x_points desc, 12-15 bench).
-      meta:    {"total_cost", "xi_xpoints", "formation", "budget", "left_over"}
+      meta:    {"total_cost", "xi_xpoints", "xi_objective", "objective",
+                "formation", "budget", "left_over"}
+
+    THE OBJECTIVE. With `horizon` left at None this maximises x_points for the one
+    gameweek, exactly as it always has. That is the wrong objective for FPL and it
+    is kept only as the calibration anchor: one free transfer a gameweek (bankable
+    to five, extras at -4) makes a squad sticky, so a manager's opening fifteen is
+    roughly 90% of their GW5 fifteen and cannot be cheaply undone. A squad
+    optimised for one Saturday is a mistake paid off over a month.
+
+    Pass `horizon` -- `games.fpl.model.build_artifact`'s "horizon" key, i.e.
+    `core.fpl_horizon.club_horizon`'s output -- and each player is instead scored
+    on his club's whole fixture run, position by position (see _objective_scorer
+    and _HORIZON_METRIC for which aggregate scales whom, and why). `decay` sets
+    how far the objective tilts toward that view; `decay=0.0` reproduces the
+    single-gameweek squad exactly, and None takes config.FPL_HORIZON_DECAY.
+
+    Only the OBJECTIVE changes. Every legality rule -- quota, budget, formation
+    limits, the three-per-club cap -- is untouched and still enforced on every
+    selection and every swap, and the formation sweep below still runs in full.
 
     Method: sweep every legal XI formation, greedily build the cheapest legal bench
     and the best XI for each, repair over budget by the smallest xPts-lost-per-pound,
@@ -166,6 +370,12 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
             raise ValueError(
                 f"insufficient {pos} pool for an FPL squad: need {need}, have {have}")
 
+    # Score once, here, rather than inside the sweep: the objective is a property
+    # of the player, not of the formation being tried, and every one of the eight
+    # formation builds below must rank on the same numbers.
+    score, objective = _objective_scorer(horizon, decay)
+    pool = [dict(r, **{_SCORE_KEY: score(r)}) for r in pool]
+
     best = None
     last_err = None
     for xi_counts in legal_xi_formations():
@@ -175,11 +385,15 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
         except ValueError as e:
             last_err = e
             continue
-        key = (meta["xi_xpoints"], -meta["total_cost"])
+        # Ranked on the objective, not on xi_xpoints: the sweep must pick the
+        # formation that is best under the view the caller asked for, or the
+        # horizon would decide the players and the single gameweek the shape.
+        key = (meta["xi_objective"], -meta["total_cost"])
         if best is None or key > best[0]:
             best = (key, entries, meta)
     if best is None:
         raise ValueError(f"no legal FPL squad in any formation: {last_err}")
+    best[2]["objective"] = objective
     return best[1], best[2]
 
 
@@ -190,6 +404,14 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     `cap` is threaded as a parameter and closed over by club_ok rather than read
     from the module global, so a caller-supplied max_per_club is honoured
     throughout and no global state is mutated.
+
+    Every row in `pool` carries `_SCORE_KEY`, and EVERY optimisation decision here
+    reads it: which players the XI takes, which way the two budget repairs trade,
+    and the order the entries come out in. x_points is still reported in the meta
+    and still rides on each entry, but it no longer decides anything -- that is
+    what makes the single-gameweek and horizon objectives one code path rather
+    than two, and it is why decay=0.0 reproduces the old squad exactly instead of
+    approximately.
     """
     # legal_xi_formations() returns DEF/MID/FWD only -- the GK is implicit, since
     # every legal XI fields exactly one. Normalise it here so both the XI need and
@@ -229,7 +451,7 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     for pos in ("GK", "DEF", "MID", "FWD"):
         need = bench_quota[pos]
         candidates = sorted([r for r in pool if r["position"] == pos],
-                            key=lambda r: (r["price"], -r["x_points"]))
+                            key=lambda r: (r["price"], -r[_SCORE_KEY]))
         taken = 0
         for c in candidates:
             if taken >= need:
@@ -245,7 +467,7 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     for pos in ("GK", "DEF", "MID", "FWD"):
         need = xi_full.get(pos, 0)
         candidates = sorted([r for r in pool if r["position"] == pos],
-                            key=lambda r: -r["x_points"])
+                            key=lambda r: -r[_SCORE_KEY])
         taken = 0
         for c in candidates:
             if taken >= need:
@@ -277,10 +499,10 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
                        and club_ok(squad, r, replacing=slot)]
             if not cheaper:
                 continue
-            cheaper.sort(key=lambda r: (r["price"], -r["x_points"]))
+            cheaper.sort(key=lambda r: (r["price"], -r[_SCORE_KEY]))
             repl = cheaper[0]
             saved = slot["price"] - repl["price"]
-            ratio = ((slot["x_points"] - repl["x_points"]) / saved
+            ratio = ((slot[_SCORE_KEY] - repl[_SCORE_KEY]) / saved
                      if saved > 0 else float("inf"))
             if best_ratio is None or ratio < best_ratio:
                 best_ratio, best_swap = ratio, (i, repl)
@@ -310,14 +532,14 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
                       if r["position"] == slot["position"]
                       and _key(r) not in members
                       and r["price"] <= left_over + slot["price"]
-                      and r["x_points"] > slot["x_points"]
+                      and r[_SCORE_KEY] > slot[_SCORE_KEY]
                       and club_ok(squad, r, replacing=slot)]
             if not better:
                 continue
-            better.sort(key=lambda r: -r["x_points"])
+            better.sort(key=lambda r: -r[_SCORE_KEY])
             repl = better[0]
             spent = repl["price"] - slot["price"]
-            ratio = ((repl["x_points"] - slot["x_points"]) / spent
+            ratio = ((repl[_SCORE_KEY] - slot[_SCORE_KEY]) / spent
                      if spent > 0 else float("inf"))
             if ratio > best_ratio:
                 best_ratio, best_swap = ratio, (i, repl)
@@ -328,9 +550,9 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
 
     # --- Finalize.
     xi = sorted([r for r in squad if not bench_flags[_key(r)]],
-                key=lambda r: -r["x_points"])
+                key=lambda r: -r[_SCORE_KEY])
     bench = sorted([r for r in squad if bench_flags[_key(r)]],
-                   key=lambda r: -r["x_points"])
+                   key=lambda r: -r[_SCORE_KEY])
 
     # Legality gate. The construction above should be safe by design; this raises
     # rather than ever publishing an illegal lineup -- the World Cup site shipped a
@@ -346,20 +568,31 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     if over:
         raise ValueError(f"FPL squad violates the {cap}-per-club cap: {over}")
 
+    # _SCORE_KEY is popped rather than published: it is a scratch column of the
+    # search, it is denominated in nothing a reader recognises (x_points scaled
+    # by a club multiplier), and these entries go straight into the public JSON
+    # feed. x_points survives on every entry as the number the table quotes.
     entries = []
     for i, r in enumerate(xi, 1):
         e = dict(r)
+        e.pop(_SCORE_KEY, None)
         e["role"], e["rank"] = "XI", i
         entries.append(e)
     for i, r in enumerate(bench, len(xi) + 1):
         e = dict(r)
+        e.pop(_SCORE_KEY, None)
         e["role"], e["rank"] = "Bench", i
         entries.append(e)
 
     cost = total_cost(squad)
     meta = {
         "total_cost": cost,
+        # Both totals ride, and they are different questions. xi_xpoints is what
+        # this XI projects THIS Saturday -- the number the prose and the pitch
+        # quote. xi_objective is what the sweep actually maximised, and the two
+        # are equal only under the single-gameweek objective.
         "xi_xpoints": round(sum(r["x_points"] for r in xi), 2),
+        "xi_objective": round(sum(r[_SCORE_KEY] for r in xi), 2),
         "formation": formation_of(xi),
         "budget": budget,
         "left_over": round(budget - cost, 2),

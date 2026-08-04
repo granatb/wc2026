@@ -892,27 +892,57 @@ def _fpl_bank_short(entries) -> str:
     return f"£{_fmt_price(left)}m banked"
 
 
-def _fpl_wildcard_headline(e, r, subj):
-    return f"The Gameweek {r} wildcard draft"
+# Whether the wildcard can be played changes what this article IS, not merely how
+# it is worded. FPL's chip windows are GW2-19 and GW20-38, so in gameweek 1 there
+# is no rebuild on offer: the fifteen are the season-opening squad, and one free
+# transfer a week is the only way out of them. Read from the feed via
+# fpl_articles.chip_available, never from `r == 1` — the wildcard is legal again
+# at GW20 and the rebuild framing is correct there.
+def _fpl_wildcard_is_rebuild(r, chips) -> bool:
+    from evmax import fpl_articles
+    return fpl_articles.chip_available("wildcard", r, chips)
 
 
-def _fpl_wildcard_standfirst(e, r, subj):
+def _fpl_wildcard_headline(e, r, subj, chips=None):
+    if _fpl_wildcard_is_rebuild(r, chips):
+        return f"The Gameweek {r} wildcard draft"
+    return f"The Gameweek {r} season-opener squad"
+
+
+def _fpl_wildcard_standfirst(e, r, subj, chips=None):
     phrase = _fpl_xi_phrase(e)
+    tail = ("" if _fpl_wildcard_is_rebuild(r, chips)
+            else " — and no wildcard to undo it with")
     return (f"{phrase[:1].upper()}{phrase[1:]}, inside a squad costing "
-            f"£{_fmt_price(_wc_total_cost(e))}m of the £100.0m budget.")
+            f"£{_fmt_price(_wc_total_cost(e))}m of the £100.0m budget{tail}.")
 
 
-def _fpl_wildcard_body(e, r, subj):
+def _fpl_wildcard_body(e, r, subj, chips=None):
     bench = _wc_bench(e)
     full = len(e) == 15
+    rebuild = _fpl_wildcard_is_rebuild(r, chips)
     shape = (" — two goalkeepers, five defenders, five midfielders, three forwards —"
              if full else "")
     out = (
-        f"<p>The draft is {_fpl_xi_phrase(e)} from the starting eleven, wrapped in "
-        f"a{' legal fifteen' if full else ' squad'}{shape} that spends "
-        f"£{_fmt_price(_wc_total_cost(e))}m of the £100.0m budget and "
-        f"{_fpl_bank_phrase(e)}.</p>\n"
+        f"<p>The {'draft' if rebuild else 'squad'} is {_fpl_xi_phrase(e)} from the "
+        f"starting eleven, wrapped in a{' legal fifteen' if full else ' squad'}"
+        f"{shape} that spends £{_fmt_price(_wc_total_cost(e))}m of the £100.0m "
+        f"budget and {_fpl_bank_phrase(e)}.</p>\n"
     )
+    if not rebuild:
+        # The reason the horizon objective exists, said plainly and early. A
+        # reader who cannot rebuild needs to know the fifteen are a six-week
+        # commitment, not a one-Saturday bet.
+        out += (
+            "<p>There is no wildcard this week — the chip does not open until "
+            "Gameweek 2 — so this is not a rebuild that can be torn up and "
+            "redone. It is the squad you start the season in, and the only way "
+            "out of it is one free transfer a gameweek, bankable to five, with "
+            "every extra costing four points.</p>\n"
+            "<blockquote><p>Which is why these fifteen are picked on the next six "
+            "gameweeks rather than on this one. A squad optimised for one "
+            "Saturday is a mistake you pay off over a month.</p></blockquote>\n"
+        )
     out += ("<blockquote><p>The four bench places are budget, not squad depth: "
             "every pound parked there is a pound the eleven that actually scores "
             "never gets to spend.</p></blockquote>\n")
@@ -934,12 +964,13 @@ def _fpl_wildcard_body(e, r, subj):
             f"somewhere else.</p>\n"
         )
     elif len(e) >= 11:
-        out += ("<p>No club is at the three-player cap in this draft, which is "
-                "rarer than it sounds — the cap is usually what stops a wildcard "
-                "from simply buying the best side's entire defence.</p>\n")
+        out += (f"<p>No club is at the three-player cap in this "
+                f"{'draft' if rebuild else 'squad'}, which is rarer than it "
+                f"sounds — the cap is usually what stops a manager from simply "
+                f"buying the best side's entire defence.</p>\n")
     else:
         out += ("<p>Three players per club is the rule that forces most of the "
-                "compromises in a wildcard: the best side's defence cannot all be "
+                "compromises here: the best side's defence cannot all be "
                 "bought, so the budget has to find its points somewhere "
                 "else.</p>\n")
     best = _fpl_best_value(e)
@@ -960,10 +991,14 @@ def _fpl_wildcard_body(e, r, subj):
     return out
 
 
-def _fpl_wildcard_bottom_line(e, r, subj):
+def _fpl_wildcard_bottom_line(e, r, subj, chips=None):
+    tail = ("and a bench that does nothing but keep the squad legal."
+            if _fpl_wildcard_is_rebuild(r, chips)
+            else "and a bench that does nothing but keep the squad legal — pick "
+                 "it for the next six weeks, because one free transfer a "
+                 "gameweek is all you get to change it.")
     return (f"Field {_fpl_xi_phrase(e)}: £{_fmt_price(_wc_total_cost(e))}m spent, "
-            f"{_fpl_bank_short(e)}, and a bench that does nothing but keep the "
-            f"squad legal.")
+            f"{_fpl_bank_short(e)}, {tail}")
 
 
 # --- ticker ----------------------------------------------------------------
@@ -1640,6 +1675,11 @@ _FPL_TEMPLATES = {
 }
 
 
+# FPL slugs whose templates take a `chips` keyword. Only the squad article is
+# named after a chip, so only it needs to know whether that chip is legal.
+_CHIP_AWARE_SLUGS = frozenset({"wildcard"})
+
+
 _GENERIC_TEMPLATE = {
     "headline": lambda e, r, slug, subj, unit="Round": (
         f"{unit} analysis: {slug.replace('-', ' ').title()}"
@@ -1661,7 +1701,8 @@ _GENERIC_TEMPLATE = {
 
 
 def _template_prose(article: str, entries: list, columns: list,
-                    round_no: int = 0, subject=None, unit: str = "Round") -> dict:
+                    round_no: int = 0, subject=None, unit: str = "Round",
+                    chips=None) -> dict:
     """Build deterministic template prose from entries.
 
     subject: the player to centre the prose on (or None for team-framing in best-xi).
@@ -1694,10 +1735,16 @@ def _template_prose(article: str, entries: list, columns: list,
     table = _FPL_TEMPLATES if unit == "Gameweek" else _TEMPLATES
     tmpl = table.get(article)
     if tmpl:
-        headline = tmpl["headline"](entries, round_no, subj)
-        standfirst = tmpl["standfirst"](entries, round_no, subj)
-        body_html = tmpl["body"](entries, round_no, subj)
-        bottom_line = tmpl["bottom_line"](entries, round_no, subj)
+        # The chip-aware slugs take one extra keyword. Dispatched off an explicit
+        # set rather than by catching TypeError, which would swallow real
+        # signature bugs inside a template and publish the generic fallback.
+        extra = ({"chips": chips}
+                 if table is _FPL_TEMPLATES and article in _CHIP_AWARE_SLUGS
+                 else {})
+        headline = tmpl["headline"](entries, round_no, subj, **extra)
+        standfirst = tmpl["standfirst"](entries, round_no, subj, **extra)
+        body_html = tmpl["body"](entries, round_no, subj, **extra)
+        bottom_line = tmpl["bottom_line"](entries, round_no, subj, **extra)
     else:
         headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj,
                                                  unit)
@@ -1720,7 +1767,8 @@ def _template_prose(article: str, entries: list, columns: list,
 # ---------------------------------------------------------------------------
 
 def _llm_prose(article: str, round_no: int, entries: list, columns: list,
-               cache_dir: str, subject=None, cache_name=None, unit: str = "Round"):
+               cache_dir: str, subject=None, cache_name=None, unit: str = "Round",
+               chips=None):
     """Call the Claude API and return prose dict, or None if we should fall through."""
     if not _ANTHROPIC_AVAILABLE:
         return None
@@ -1729,7 +1777,8 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     from evmax.prompts import build_prompt
 
-    prompt = build_prompt(article, round_no, entries, subject=subject, unit=unit)
+    prompt = build_prompt(article, round_no, entries, subject=subject, unit=unit,
+                          chips=chips)
 
     try:
         client = _anthropic.Anthropic()
@@ -1857,6 +1906,7 @@ def article_prose(
     subject=None,
     cache_name=None,
     unit: str = "Round",
+    chips=None,
 ) -> dict:
     """Generate prose for an article using tiered resolution: cache → LLM → template.
 
@@ -1875,6 +1925,11 @@ def article_prose(
                  article.
     unit       : the reader-facing word for the period ("Round" or "Gameweek"),
                  passed through to the LLM prompt and the templates.
+    chips      : bootstrap-static's chip windows, or None. Only the FPL squad
+                 article reads them, and only to tell a wildcard REBUILD from a
+                 gameweek where the chip cannot legally be played and the fifteen
+                 are simply the season-opening squad. None means "not available",
+                 which is the safe reading — see fpl_articles.chip_available.
 
     Returns
     -------
@@ -1889,10 +1944,11 @@ def article_prose(
     # Tier 2: LLM (optional)
     if use_llm:
         result = _llm_prose(article, round_no, entries, columns, cache_dir,
-                            subject=subject, cache_name=cache_name, unit=unit)
+                            subject=subject, cache_name=cache_name, unit=unit,
+                            chips=chips)
         if result is not None:
             return result
 
     # Tier 3: template
     return _template_prose(article, entries, columns, round_no=round_no,
-                           subject=subject, unit=unit)
+                           subject=subject, unit=unit, chips=chips)

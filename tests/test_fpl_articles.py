@@ -586,3 +586,141 @@ class TestFixtureRuns(unittest.TestCase):
         for key in ("exp_clean_sheets", "exp_goals_for", "exp_goals_against",
                     "difficulty", "fixtures", "basis"):
             self.assertIn(key, e)
+
+
+class TestChipLegality(unittest.TestCase):
+    CHIPS = [{"name": "wildcard", "start_event": 2, "stop_event": 19},
+             {"name": "wildcard", "start_event": 20, "stop_event": 38},
+             {"name": "bboost", "start_event": 1, "stop_event": 19}]
+
+    def test_wildcard_is_illegal_in_gameweek_one(self):
+        self.assertFalse(fpl_articles.chip_available("wildcard", 1, self.CHIPS))
+
+    def test_wildcard_is_legal_from_gameweek_two(self):
+        self.assertTrue(fpl_articles.chip_available("wildcard", 2, self.CHIPS))
+
+    def test_wildcard_is_legal_again_in_the_second_half(self):
+        """A hard-coded `gameweek == 1` would get GW20 wrong."""
+        self.assertTrue(fpl_articles.chip_available("wildcard", 20, self.CHIPS))
+
+    def test_bench_boost_is_legal_in_gameweek_one(self):
+        self.assertTrue(fpl_articles.chip_available("bboost", 1, self.CHIPS))
+
+    def test_unknown_chip_is_not_available(self):
+        self.assertFalse(fpl_articles.chip_available("nonesuch", 1, self.CHIPS))
+
+    def test_missing_chip_data_is_not_available(self):
+        """Absent data must not be read as permission."""
+        self.assertFalse(fpl_articles.chip_available("wildcard", 1, []))
+        self.assertFalse(fpl_articles.chip_available("wildcard", 1, None))
+
+
+class TestSquadTitle(unittest.TestCase):
+    CHIPS = [{"name": "wildcard", "start_event": 2, "stop_event": 19}]
+
+    def test_gameweek_one_is_a_season_opener(self):
+        t = fpl_articles.squad_title(1, self.CHIPS)
+        self.assertIn("opener", t.lower())
+        self.assertNotIn("wildcard", t.lower())
+
+    def test_later_gameweeks_are_a_wildcard_squad(self):
+        self.assertIn("wildcard", fpl_articles.squad_title(5, self.CHIPS).lower())
+
+    def test_title_stays_short(self):
+        """The <title> becomes '{title} — Gameweek N | evmax'; Bing errors past
+        about 65 characters."""
+        for gw in (1, 5):
+            self.assertLess(len(fpl_articles.squad_title(gw, self.CHIPS)), 34)
+
+
+class TestHorizonSquad(unittest.TestCase):
+    # Three clubs on each side, not one: the 3-per-club cap makes a 15-man squad
+    # impossible from two clubs (6 players), so the two-club fixture the plan
+    # sketched could not build at all. Six clubs give the squad 18 legal slots and
+    # leave the assertion below reachable -- at most 9 from the EASY side.
+    EASY_CLUBS = ("EASY1", "EASY2", "EASY3")
+    HARD_CLUBS = ("HARD1", "HARD2", "HARD3")
+
+    def _pool_and_horizon(self):
+        """Two groups of clubs: EASY has a good run, HARD has a bad one. Same
+        single-gameweek points, so only the horizon can separate them.
+
+        HARD is listed FIRST in the pool on purpose. Every player carries the same
+        x_points as his opposite number, so the single-gameweek objective ties
+        across the board and the greedy's tie-break — pool order — decides. With
+        HARD first that tie-break hands the squad to HARD, which is what makes
+        `test_horizon_prefers_the_club_with_the_better_run` a real test: the
+        horizon has to OVERTURN the fixture's own bias, not merely agree with it.
+        `test_the_single_gameweek_objective_does_not_prefer_easy` pins that setup
+        so it cannot rot into a tautology.
+        """
+        rows, horizon = [], {}
+        for clubs, cs, gf in ((self.EASY_CLUBS, 1.40, 8.0),
+                              (self.HARD_CLUBS, 0.70, 4.0)):
+            for club in clubs:
+                horizon[club] = {"name": club, "fixtures": 6,
+                                 "exp_clean_sheets": cs, "exp_goals_for": gf,
+                                 "exp_goals_against": 5.0, "difficulty": 3.0,
+                                 "basis": "model", "by_gameweek": {}}
+        for pos in ("GK", "DEF", "MID", "FWD"):
+            for k in range(6):
+                for club in self.HARD_CLUBS + self.EASY_CLUBS:
+                    rows.append(_row(f"{club}-{pos}{k}", pos, 6.0 - k * 0.3,
+                                     price=4.0 + k * 0.5, team=club))
+        return rows, horizon
+
+    def _easy_count(self, entries):
+        return sum(1 for e in entries if e["team"] in self.EASY_CLUBS)
+
+    def test_the_single_gameweek_objective_does_not_prefer_easy(self):
+        """The control. Without the horizon there is nothing to prefer EASY on."""
+        rows, _horizon = self._pool_and_horizon()
+        entries, _ = fpl_articles.fpl_squad(rows)
+        self.assertLessEqual(self._easy_count(entries), 15 - self._easy_count(entries))
+
+    def test_zero_decay_reproduces_the_single_gameweek_squad(self):
+        """The calibration anchor."""
+        rows, horizon = self._pool_and_horizon()
+        base, _ = fpl_articles.fpl_squad(rows)
+        horiz, _ = fpl_articles.fpl_squad(rows, horizon=horizon, decay=0.0)
+        self.assertEqual(sorted(e["name"] for e in base),
+                         sorted(e["name"] for e in horiz))
+
+    def test_horizon_prefers_the_club_with_the_better_run(self):
+        rows, horizon = self._pool_and_horizon()
+        entries, _ = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
+        easy = self._easy_count(entries)
+        self.assertGreater(easy, 15 - easy)
+
+    def test_the_squad_is_still_legal_under_the_horizon_objective(self):
+        """Every Phase 4 invariant must survive the objective change."""
+        rows, horizon = self._pool_and_horizon()
+        entries, meta = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
+        self.assertEqual(len(entries), 15)
+        counts = {}
+        for e in entries:
+            counts[e["position"]] = counts.get(e["position"], 0) + 1
+        self.assertEqual(counts, {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3})
+        self.assertLessEqual(meta["total_cost"], 100.0)
+        clubs = {}
+        for e in entries:
+            clubs[e["team"]] = clubs.get(e["team"], 0) + 1
+        self.assertLessEqual(max(clubs.values()), 3)
+
+    def test_a_club_missing_from_the_horizon_is_not_crashed_on(self):
+        rows, horizon = self._pool_and_horizon()
+        del horizon["HARD1"]
+        entries, _ = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
+        self.assertEqual(len(entries), 15)
+
+    def test_meta_reports_the_objective_used(self):
+        rows, horizon = self._pool_and_horizon()
+        _, meta = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
+        self.assertIn("objective", meta)
+
+    def test_the_horizon_objective_does_not_leak_into_the_entries(self):
+        """The published rows carry this gameweek's x_points; the scratch column
+        the sweep ranks on must not reach the JSON feed."""
+        rows, horizon = self._pool_and_horizon()
+        entries, _ = fpl_articles.fpl_squad(rows, horizon=horizon, decay=1.0)
+        self.assertNotIn(fpl_articles._SCORE_KEY, entries[0])

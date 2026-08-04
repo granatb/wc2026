@@ -180,7 +180,16 @@ def summary_sentence(article, entries):
         xi = [e for e in entries if e.get("role") == "XI"] or entries[:11]
         total_cost = round(sum(e.get("price") or 0.0 for e in entries), 2)
         xi_xpoints = round(sum(e.get("x_points") or 0.0 for e in xi), 2)
-        return (f"A {formation_of(xi)} wildcard squad costing {total_cost}m of the "
+        # "squad", not "wildcard squad". This sentence becomes og:description,
+        # twitter:description and the JSON-LD articleBody, so it is published
+        # text like any other — and in an FPL gameweek where the chip is not in
+        # its window (GW1, since the wildcard runs GW2-19 and GW20-38) naming the
+        # squad after it is exactly the error the gameweek-aware title fixes.
+        # summary_sentence receives only entries, with no gameweek and no chip
+        # windows to decide on, so it drops the claim rather than guessing: the
+        # formation, the cost and the projection are true in both competitions
+        # and every gameweek, and the page's own title says which article it is.
+        return (f"A {formation_of(xi)} squad costing {total_cost}m of the "
                 f"{SQUAD_BUDGET}m budget, projecting {xi_xpoints} xPts from the XI.")
     top = entries[0]
     if article == "transfers" and "name" in top:
