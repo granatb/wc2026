@@ -125,6 +125,50 @@ def _og_meta(title, description, canonical_path, og_type="article"):
         f'<meta name="twitter:image" content="{SITE_URL}/brand/og-image.png">')
 
 
+def organization_ld() -> str:
+    """The Organization entity, as a JSON-LD string, for every page that claims it.
+
+    Entity disambiguation. "evmax" collides with established EV-charger brands
+    (competitor landscape, 2026-07-03): a bare "evmax" search returns none of our
+    pages, while "evmax fantasy" returns our top three. That is an entity problem,
+    not an indexing one — search engines have nothing tying the string to this
+    project rather than to a charging network.
+
+    `sameAs` is the primary reconciliation signal: it is how an engine confirms two
+    references are the same thing. **Only list profiles we actually control and
+    that resolve.** A sameAs pointing somewhere that is not ours is a worse signal
+    than none, because it merges our entity into someone else's. Both entries here
+    were verified to return 200 before being added.
+
+    `alternateName` carries the qualified forms people actually search and that we
+    want to own, so the collision is fought on the phrase rather than the bare word.
+    `knowsAbout` states the subject area, which separates a fantasy football project
+    from a charger brand topically.
+
+    Shared by the landing page and /about/ — the two pages that assert the entity —
+    via one `@id`, so they can never drift into two entities an engine has to
+    reconcile on its own. **The `<title>` is deliberately NOT part of this fix:**
+    `TITLE_BRAND` is shared with the World Cup pages (pinned by
+    tests/test_site_render.py) and the landing title already sits at 62 characters
+    against Bing's ~65 limit, so there is no room and no need — the titles already
+    carry the competition name as topical signal.
+    """
+    return _json.dumps({
+        "@context": "https://schema.org", "@type": "Organization",
+        "@id": SITE_URL + "/#organization",
+        "name": "evmax",
+        "alternateName": ["evmax fantasy", "evmax fantasy football simulations",
+                          "evmax.ai"],
+        "url": SITE_URL, "logo": SITE_URL + "/brand/icon-512.png",
+        "description": ("Simulation-based fantasy football analysis — 50,000 "
+                        "Monte-Carlo simulations per matchday, graded publicly."),
+        "knowsAbout": ["Fantasy Premier League", "fantasy football",
+                       "Monte-Carlo simulation", "football analytics"],
+        "sameAs": ["https://buttondown.com/evmax",
+                   "https://github.com/granatb/wc2026"],
+    }).replace("</", "<\\/")
+
+
 METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo "
                "simulations, scored on the official FIFA World Cup Fantasy points table.")
 # Buttondown chosen for its static-site-friendly no-JS embed form: a plain HTML
@@ -1818,15 +1862,29 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         f"{section.label} {kicker_str} — simulation-based picks",
         f"Captain EV, expected points and match predictions for {kicker_str}, "
         f"from 50,000 Monte-Carlo simulations. Graded publicly.", "/", "website")
-    org_ld = _json.dumps({
-        "@context": "https://schema.org", "@type": "Organization", "name": "evmax",
-        "url": SITE_URL, "logo": SITE_URL + "/brand/icon-512.png",
-        "description": ("Simulation-based fantasy football analysis — 50,000 "
-                        "Monte-Carlo simulations per matchday, graded publicly."),
-    }).replace("</", "<\\/")
+    # Entity disambiguation. "evmax" collides with established EV-charger brands
+    # (competitor landscape, 2026-07-03), and a bare "evmax" search returns none of
+    # our pages while "evmax fantasy" returns the top three. That is an entity
+    # problem, not an indexing one: search engines have nothing tying the string
+    # to this project rather than to a charger company.
+    #
+    # `sameAs` is the primary reconciliation signal — it is how an engine confirms
+    # two references are the same thing. Only list profiles WE ACTUALLY CONTROL
+    # and that resolve: a sameAs pointing somewhere that is not ours is a worse
+    # signal than none, because it merges our entity into someone else's.
+    # Both of these were verified 200 before being added.
+    #
+    # `alternateName` gives the qualified forms people actually search and that we
+    # want to own, so the collision is fought on the phrase rather than the word.
+    # `knowsAbout` states the subject area, which is what separates a fantasy
+    # football project from a charging network at the topical level.
+    org_ld = organization_ld()
     site_ld = _json.dumps({
         "@context": "https://schema.org", "@type": "WebSite",
         "name": "evmax — fantasy football simulations", "url": SITE_URL,
+        # Ties the site to the Organization above rather than leaving two
+        # unrelated entities on the same page for an engine to reconcile itself.
+        "publisher": {"@id": SITE_URL + "/#organization"},
     }).replace("</", "<\\/")
     feat_slug = featured["slug"]
     feat_prose = featured["prose"]
@@ -1982,6 +2040,7 @@ def about_page():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>About evmax — fantasy football simulations</title>
 <meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent Fantasy Premier League and World Cup Fantasy picks.">
+<script type="application/ld+json">{organization_ld()}</script>
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}

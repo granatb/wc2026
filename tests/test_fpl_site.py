@@ -873,3 +873,57 @@ class TestRunGridRenderer(unittest.TestCase):
     def test_club_names_are_escaped(self):
         entries = [dict(self.ENTRIES[0], name="A&B")]
         self.assertIn("A&amp;B", render.run_grid_html(entries))
+
+
+class TestEntityDisambiguation(unittest.TestCase):
+    """The "evmax" string collides with EV-charger brands (competitor landscape,
+    2026-07-03): a bare "evmax" search returns none of our pages while "evmax
+    fantasy" returns our top three. These are the signals that fix an entity
+    collision, and they are easy to drop in a refactor without anything noticing.
+    """
+
+    def test_organization_carries_sameas_profiles(self):
+        import json as _j
+        org = _j.loads(render.organization_ld())
+        self.assertTrue(org["sameAs"])
+        for url in org["sameAs"]:
+            self.assertTrue(url.startswith("https://"))
+
+    def test_alternate_names_include_the_qualified_phrase(self):
+        import json as _j
+        alts = _j.loads(render.organization_ld())["alternateName"]
+        self.assertIn("evmax fantasy", alts)
+
+    def test_knows_about_states_the_subject_area(self):
+        import json as _j
+        self.assertIn("Fantasy Premier League",
+                      _j.loads(render.organization_ld())["knowsAbout"])
+
+    def test_the_entity_has_a_stable_id(self):
+        """Two pages assert this entity; without a shared @id they are two
+        entities an engine has to reconcile on its own."""
+        import json as _j
+        self.assertTrue(_j.loads(render.organization_ld())["@id"].endswith(
+            "/#organization"))
+
+    def test_about_page_asserts_the_organization(self):
+        """/about/ is the canonical entity page and previously carried no
+        Organization schema at all."""
+        self.assertIn("/#organization", render.about_page())
+        self.assertIn("evmax fantasy", render.about_page())
+
+    def test_landing_and_about_assert_the_same_entity(self):
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        landing = render.landing_page(1, featured, [], date_str="1 July 2026",
+                                      section=render.FPL)
+        self.assertIn("/#organization", landing)
+        self.assertIn("/#organization", render.about_page())
+
+    def test_website_is_published_by_the_organization(self):
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        landing = render.landing_page(1, featured, [], date_str="1 July 2026")
+        self.assertIn('"publisher"', landing)
+
+    def test_json_ld_is_script_safe(self):
+        """A literal </script> inside JSON-LD closes the tag early."""
+        self.assertNotIn("</", render.organization_ld())
