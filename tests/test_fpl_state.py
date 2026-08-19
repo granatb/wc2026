@@ -237,6 +237,35 @@ class TestValidateState(unittest.TestCase):
             s["squad"][12]["bench_order"] = 1
         self._check(mutate, "backup GK")
 
+    def test_bench_order_rejects_booleans(self):
+        """bool is a subclass of int: True would otherwise pass an
+        isinstance(int) check and quietly count as bench_order 1."""
+        def mutate(s):
+            s["squad"][11]["bench_order"] = True
+        self._check(mutate, "bench_order")
+
+    # --- free_transfers --------------------------------------------------------
+
+    def test_free_transfers_must_be_a_non_negative_int_when_present(self):
+        for bad in (-1, 1.5, "2", True, None):
+            with self.subTest(bad=bad):
+                self._check(lambda s, b=bad: s.update(free_transfers=b),
+                            "free_transfers")
+
+    def test_free_transfers_zero_and_banked_values_pass(self):
+        for ok in (0, 5):
+            with self.subTest(ok=ok):
+                state = copy.deepcopy(self.state)
+                state["free_transfers"] = ok
+                out = fpl_state.validate_state(state, self.players)
+                self.assertEqual(out["free_transfers"], ok)
+
+    def test_absent_free_transfers_defaults_to_one(self):
+        state = copy.deepcopy(self.state)
+        del state["free_transfers"]
+        out = fpl_state.validate_state(state, self.players)
+        self.assertEqual(out["free_transfers"], 1)
+
     # --- source_count (the consensus corpus size, published in prose) ---------
 
     def test_source_count_passes_through_when_valid(self):

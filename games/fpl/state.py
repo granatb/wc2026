@@ -108,6 +108,12 @@ def validate_state(state: dict, players: list) -> dict:
         if not isinstance(sc, int) or isinstance(sc, bool) or sc < 1:
             raise ValueError(f"source_count must be a positive integer when "
                              f"present, got {sc!r}")
+    if "free_transfers" in state:
+        ft = state["free_transfers"]
+        # bool is a subclass of int and must not sneak through as 0/1.
+        if not isinstance(ft, int) or isinstance(ft, bool) or ft < 0:
+            raise ValueError(f"free_transfers must be a non-negative integer "
+                             f"when present, got {ft!r}")
     squad = state.get("squad")
     if not isinstance(squad, list) or len(squad) != 15:
         n = len(squad) if isinstance(squad, list) else "no"
@@ -181,8 +187,10 @@ def validate_state(state: dict, players: list) -> dict:
         if e["bench_order"] is not None:
             raise ValueError(f"starter {e['name']!r} carries bench_order "
                              f"{e['bench_order']!r} — starters must be null")
+    # NOT bool: True is an instance of int and would count as bench_order 1.
     orders = sorted(e["bench_order"] for e in bench
-                    if isinstance(e["bench_order"], int))
+                    if isinstance(e["bench_order"], int)
+                    and not isinstance(e["bench_order"], bool))
     if orders != list(range(1, BENCH_SIZE + 1)):
         raise ValueError(f"bench_order must be exactly 1-{BENCH_SIZE}, "
                          f"got {[e['bench_order'] for e in bench]}")
