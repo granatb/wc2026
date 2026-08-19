@@ -661,10 +661,155 @@ _TEMPLATES = {
     },
 }
 
+def _pct(v) -> str:
+    return f"{(v or 0.0) * 100:.0f}%"
+
+
 # FPL slug templates, keyed separately from _TEMPLATES because four FPL slugs
 # (captains, wildcard, defenders, efficiency) collide with World Cup slugs whose
 # prose is pinned. Selected by _template_prose when unit == "Gameweek".
-_FPL_TEMPLATES: dict = {}
+# Owner decision 2026-07-30: a --no-llm build must read like a real article,
+# never "Gameweek analysis: Defcon".
+_FPL_TEMPLATES = {
+    "captains": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the gameweek {r} captain"),
+        "standfirst": lambda e, r, subj: (
+            f"{_fmt_pts(e[0]['captain_ev'])} captain EV, "
+            f"{_fmt_pts(e[0]['ceiling'])} ceiling — the best armband in the model."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} ({html.escape(e[0].get('team', ''))}) "
+            f"projects {_fmt_pts(e[0]['captain_ev'])} captained, off "
+            f"{_fmt_pts(e[0]['x_points'])} expected points, with a ceiling of "
+            f"{_fmt_pts(e[0]['ceiling'])} — his 85th-percentile simulation.</p>"
+            + (f"<p>{html.escape(e[1]['name'])} is the alternative at "
+               f"{_fmt_pts(e[1]['captain_ev'])}. "
+               + ("He kicks off first, so he is the safer vice."
+                  if e[1].get("kickoff_order", 99) < e[0].get("kickoff_order", 99)
+                  else "He kicks off later, so he works as a vice only if your "
+                       "captain's match is already done.")
+               + "</p>" if len(e) > 1 else "")),
+        "bottom_line": lambda e, r, subj: (
+            f"Captain {e[0]['name']} — {_fmt_pts(e[0]['captain_ev'])} is the "
+            f"highest doubled projection on the board."),
+    },
+    "wildcard": {
+        "headline": lambda e, r, subj: (
+            f"The gameweek {r} draft squad: {_wc_formation(e)}"),
+        "standfirst": lambda e, r, subj: (
+            f"A legal 15 for {_wc_total_cost(e):.1f}m, with an XI projecting "
+            f"{_wc_xi_xpoints(e):.1f} points."),
+        "body": lambda e, r, subj: (
+            f"<p>The model's draft squad lines up {_wc_formation(e)} and costs "
+            f"{_wc_total_cost(e):.1f}m of the 100.0m budget, leaving "
+            f"{_wc_left_over(e):.1f}m in the bank. The starting XI projects "
+            f"{_wc_xi_xpoints(e):.1f} points.</p>"
+            f"<p>The bench is deliberately cheap — four enablers that make the 15 "
+            f"legal so the spending sits in the XI. No club contributes more than "
+            f"three players, which is the squad rule that most often forces a "
+            f"compromise on the premium picks.</p>"),
+        "bottom_line": lambda e, r, subj: (
+            f"Build around this {_wc_formation(e)}: "
+            f"{_wc_xi_xpoints(e):.1f} projected points for "
+            f"{_wc_total_cost(e):.1f}m."),
+    },
+    "ticker": {
+        "headline": lambda e, r, subj: (
+            f"Gameweek {r} fixture ticker: {e[0]['name']} lead the clean sheets"),
+        "standfirst": lambda e, r, subj: (
+            f"{e[0]['name']} project {e[0]['exp_clean_sheets']:.2f} expected clean "
+            f"sheets against {e[0]['opponents']}."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} top the ticker at "
+            f"{e[0]['exp_clean_sheets']:.2f} expected clean sheets "
+            f"({html.escape(e[0]['opponents'])}), conceding an expected "
+            f"{e[0]['exp_goals_against']:.1f}. "
+            f"{'These numbers are market-derived.' if e[0].get('basis') == 'market' else 'These numbers come from our own team ratings, not the betting market — treat them as the softer read.'}"
+            f"</p>"
+            + _fpl_ticker_blanks_doubles(e)),
+        "bottom_line": lambda e, r, subj: (
+            f"Target {e[0]['name']} defenders — "
+            f"{e[0]['exp_clean_sheets']:.2f} expected clean sheets is the best on "
+            f"the board."),
+    },
+    "defenders": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} leads the gameweek {r} defenders"),
+        "standfirst": lambda e, r, subj: (
+            f"{_fmt_pts(e[0]['x_points'])} expected points, with "
+            f"{_fmt_pts(e[0].get('cs_points', 0))} of it from clean sheets alone."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) projects "
+            f"{_fmt_pts(e[0]['x_points'])}: "
+            f"{_fmt_pts(e[0].get('cs_points', 0))} from clean sheets, "
+            f"{_fmt_pts(e[0].get('defcon', 0))} from defensive contribution and "
+            f"{_fmt_pts(e[0].get('bonus', 0))} from bonus. Where a defender's "
+            f"points come from matters as much as the total — a clean-sheet "
+            f"projection lives or dies on one fixture, while defensive "
+            f"contribution pays regardless of the scoreline.</p>"),
+        "bottom_line": lambda e, r, subj: (
+            f"{e[0]['name']} at {_fmt_price(e[0].get('price'))} is the defensive "
+            f"pick of the gameweek."),
+    },
+    "efficiency": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the best value in gameweek {r}"),
+        "standfirst": lambda e, r, subj: (
+            f"{e[0]['value']:.2f} points per million at "
+            f"{_fmt_price(e[0].get('price'))}."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} returns {e[0]['value']:.2f} points "
+            f"per million — {_fmt_pts(e[0]['x_points'])} expected points at "
+            f"{_fmt_price(e[0].get('price'))}.</p>"
+            + _wc_efficiency_tier_paragraph(e)),
+        "bottom_line": lambda e, r, subj: _wc_efficiency_tier_bottom_line(e),
+    },
+    "defcon": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the gameweek {r} DefCon banker"),
+        "standfirst": lambda e, r, subj: (
+            f"He clears the {e[0]['defcon_threshold']}-action threshold in "
+            f"{_pct(e[0]['p_defcon'])} of simulations."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) records at least "
+            f"{e[0]['defcon_threshold']} defensive actions in "
+            f"{_pct(e[0]['p_defcon'])} of our simulations, worth "
+            f"{_fmt_pts(e[0].get('defcon', 0))} on its own. Defensive "
+            f"contribution is a threshold, not a rate: a player either clears the "
+            f"count in a given match or earns nothing, which is why we quote the "
+            f"hit rate rather than an average.</p>"
+            + (f"<p>{html.escape(e[1]['name'])} is next at "
+               f"{_pct(e[1]['p_defcon'])} against a "
+               f"{e[1]['defcon_threshold']}-action threshold.</p>"
+               if len(e) > 1 else "")),
+        "bottom_line": lambda e, r, subj: (
+            f"{e[0]['name']} is the most reliable route to the 2-point defensive "
+            f"bonus — {_pct(e[0]['p_defcon'])} of simulations."),
+    },
+}
+
+
+def _fpl_ticker_blanks_doubles(entries: list) -> str:
+    """A paragraph naming the gameweek's blanks and doubles, or "" if there are
+    none. These are the two facts that change a manager's week, so they are never
+    left to the reader to spot in the table."""
+    blanks = [e["name"] for e in entries if e.get("fixtures") == 0]
+    doubles = [e["name"] for e in entries if (e.get("fixtures") or 0) > 1]
+    parts = []
+    if doubles:
+        parts.append(f"{', '.join(doubles)} play twice — a double gameweek, and "
+                     f"the single biggest edge available")
+    if blanks:
+        parts.append(f"{', '.join(blanks)} have a blank gameweek and score nothing")
+    if not parts:
+        return ""
+    # NOT str.capitalize(): that lowercases everything after the first character,
+    # turning club codes ("EVE") into nonsense ("Eve"). The sentence already
+    # starts with a club name, so only ensure the first character is upper.
+    text = "; ".join(parts)
+    return "<p>" + html.escape(text[0].upper() + text[1:]) + ".</p>"
 
 _GENERIC_TEMPLATE = {
     "headline": lambda e, r, slug, subj, unit="Round": (

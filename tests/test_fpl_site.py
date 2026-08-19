@@ -152,6 +152,64 @@ class TestProseCacheNamespace(unittest.TestCase):
             self.assertIn("Gameweek", fpl["headline"])
 
 
+_TICKER_ENTRY = {"name": "ARS", "rank": 1, "opponents": "LIV (H)", "fixtures": 1,
+                 "exp_clean_sheets": 0.42, "exp_goals_for": 1.9,
+                 "exp_goals_against": 0.9, "env": "balanced", "basis": "market"}
+_DEFCON_ENTRY = {"name": "Gabriel", "rank": 1, "position": "DEF", "team": "ARS",
+                 "p_defcon": 0.71, "defcon": 1.42, "defcon_threshold": 10,
+                 "x_points": 5.4, "price": 6.0}
+
+
+class TestFplTemplates(unittest.TestCase):
+    def _prose(self, slug, entries):
+        return writer.article_prose(slug, 1, entries, ["x_points"],
+                                    cache_dir="/nonexistent", use_llm=False,
+                                    cache_name="fpl-gw1", unit="Gameweek")
+
+    def test_every_fpl_slug_has_a_real_template(self):
+        cases = {
+            "captains": [dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0,
+                              kickoff_order=1, team="ARS", position="FWD")],
+            "wildcard": [dict(_ENTRIES[0], role="XI", team="ARS", position="MID",
+                              ceiling=9.0)],
+            "ticker": [_TICKER_ENTRY],
+            "defenders": [dict(_ENTRIES[0], position="DEF", team="ARS",
+                               cs_points=1.6, defcon=1.4, bonus=0.5, ceiling=9.0)],
+            "efficiency": [dict(_ENTRIES[0], value=1.2, tier="Budget", team="ARS",
+                                position="MID", ceiling=9.0)],
+            "defcon": [_DEFCON_ENTRY],
+        }
+        for slug, entries in cases.items():
+            prose = self._prose(slug, entries)
+            with self.subTest(slug=slug):
+                self.assertNotIn("analysis:", prose["headline"].lower(),
+                                 f"{slug} fell through to the generic template")
+                self.assertTrue(prose["standfirst"])
+                self.assertTrue(prose["bottom_line"])
+                self.assertIn("<p>", prose["body_html"])
+
+    def test_defcon_prose_states_the_probability_and_threshold(self):
+        prose = self._prose("defcon", [_DEFCON_ENTRY])
+        self.assertIn("71", prose["standfirst"] + prose["body_html"])
+        self.assertIn("10", prose["body_html"])
+
+    def test_ticker_prose_names_blanks(self):
+        entries = [_TICKER_ENTRY,
+                   dict(_TICKER_ENTRY, name="EVE", rank=2, fixtures=0,
+                        opponents="—", exp_clean_sheets=0.0, env="blank",
+                        basis="—")]
+        prose = self._prose("ticker", entries)
+        self.assertIn("EVE", prose["body_html"])
+        self.assertIn("blank", prose["body_html"].lower())
+
+    def test_empty_entries_do_not_crash_any_slug(self):
+        for slug in ("captains", "wildcard", "ticker", "defenders", "efficiency",
+                     "defcon"):
+            with self.subTest(slug=slug):
+                prose = self._prose(slug, [])
+                self.assertTrue(prose["headline"])
+
+
 class TestPromptUnit(unittest.TestCase):
     def test_default_prompt_says_round(self):
         p = prompts.build_prompt("captains", 5, _ENTRIES)
