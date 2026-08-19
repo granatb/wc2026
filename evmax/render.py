@@ -167,6 +167,18 @@ def summary_sentence(article, entries):
         xi_xpoints = round(sum(e.get("x_points") or 0.0 for e in xi), 2)
         return (f"A {formation_of(xi)} wildcard squad costing {total_cost}m of the "
                 f"{SQUAD_BUDGET}m budget, projecting {xi_xpoints} xPts from the XI.")
+    if article in ("our-squad", "consensus-squad"):
+        # entries are squad_article's 15 in state order; the summary quotes the
+        # duel-strip number (XI total with the captain doubled).
+        from evmax.articles import formation_of
+        xi = [e for e in entries if e.get("role") == "XI"] or entries[:11]
+        cap = next((e for e in xi if e.get("is_captain")), xi[0])
+        total = round(sum(e.get("x_points") or 0.0 for e in xi)
+                      + (cap.get("x_points") or 0.0), 2)
+        whose = "Our" if article == "our-squad" else "The expert-consensus"
+        return (f"{whose} {formation_of(xi)} this gameweek: "
+                f"{cap.get('name', '?')} captains, {total} projected points "
+                f"with the armband doubled.")
     top = entries[0]
     if article == "transfers" and "name" in top:
         return (f"{top['name']} ({top.get('team', '')}) is the top priority transfer: "
@@ -654,6 +666,11 @@ def pitch_svg(xi_entries):
     ROW_GAP = 14 + NAME_DY + 18  # node radius + name + minimum clear gap
     row_y = {"FWD": 62, "MID": 62 + ROW_GAP, "DEF": 62 + 2 * ROW_GAP, "GK": 62 + 3 * ROW_GAP}
 
+    # Squad-article entries carry an explicit captain flag (the armband is a
+    # state decision, not the top projection); everything else keeps the
+    # rank-1/first-entry rule, so existing WC pitches render byte-identically.
+    has_cap_flag = any("is_captain" in e for e in xi)
+
     def _row_nodes(players, y):
         if not players:
             return ""
@@ -663,7 +680,10 @@ def pitch_svg(xi_entries):
             x = W * (i + 1) / (n + 1)
             label = _html.escape(_pitch_label(p["name"]))
             xpts = p.get("x_points", 0.0)
-            is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
+            if has_cap_flag:
+                is_captain = bool(p.get("is_captain"))
+            else:
+                is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
             cap_badge = ""
             if is_captain:
                 # 8px-radius badge at the node's top-right; offset far enough
@@ -1322,7 +1342,17 @@ def track_record_json(record: dict) -> dict:
 # Articles whose viz is the pitch SVG (a starting XI), vs everything else which
 # gets an ev_bar top-slice chart. "matches" gets neither -- its cards are
 # self-explanatory, so no figure/figcaption wrapper is added at all.
-_PITCH_ARTICLES = {"best-xi", "wildcard"}
+_PITCH_ARTICLES = {"best-xi", "wildcard", "our-squad", "consensus-squad"}
+
+# Pitch figcaptions that differ from the default "model's optimal XI" line --
+# the two published squads are FIELDED teams (one ours, one the crowd's), not
+# an optimiser's output, and the caption must not claim otherwise.
+_PITCH_CAPTIONS = {
+    "our-squad": ("Our starting XI · number = projected points (xPts) · "
+                  "C = captain"),
+    "consensus-squad": ("The consensus starting XI · number = projected "
+                        "points (xPts) · C = captain"),
+}
 
 
 # Articles whose chart pairs a floor bar with a faint ceiling reach -- kept in
@@ -1344,7 +1374,8 @@ def _article_fig_caption(article: str, columns: list):
     if article == "matches":
         return None
     if article in _PITCH_ARTICLES:
-        return "The model's optimal XI · number = projected points (xPts)"
+        return _PITCH_CAPTIONS.get(
+            article, "The model's optimal XI · number = projected points (xPts)")
     metric = columns[0] if columns else ""
     metric_label = _COL_LABEL.get(metric, metric)
     base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "

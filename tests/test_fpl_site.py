@@ -365,6 +365,21 @@ class TestGameweekBuild(unittest.TestCase):
         untouched (same files, same mtimes) rather than absent."""
         self.assertEqual(_snapshot_state(), self._snap_before)
 
+    def test_squad_articles_publish_the_full_page_family_with_meta(self):
+        """The two squad slugs are first-class articles: HTML + JSON envelope
+        (with the squad meta block) + .md twin, like the six existing ones."""
+        for slug, captain in (("our-squad", "B.Fernandes"),
+                              ("consensus-squad", "Haaland")):
+            with self.subTest(slug=slug):
+                env = json.loads(self._read(f"/api/fpl/gw1/{slug}.json"))
+                self.assertEqual(len(env["entries"]), 15)
+                self.assertEqual(env["squad"]["captain"], captain)
+                self.assertEqual(env["squad"]["formation"], "3-5-2")
+                self.assertGreater(env["squad"]["projected_total"],
+                                   env["squad"]["xi_xpoints"])
+                md = self._read(f"/fpl/gw1/{slug}.md")
+                self.assertIn(captain, md)
+
     def test_sitemap_keeps_the_world_cup_tree(self):
         xml = self._read("/sitemap.xml")
         self.assertIn("/fpl/gw1/", xml)
@@ -407,3 +422,144 @@ class TestPromptUnit(unittest.TestCase):
     def test_world_cup_prompt_does_not_carry_the_fpl_glossary(self):
         p = prompts.build_prompt("captains", 5, _ENTRIES)
         self.assertNotIn("p_defcon", p)
+
+
+def _squad_entries(captain="Cap", vice="Vice", with_haaland=False):
+    """15 squad_article-shaped entries: XI in state order + ordered bench."""
+    def e(name, pos, xp, role, order=None, cap=False, v=False):
+        return {"name": name, "team": "ARS", "position": pos, "x_points": xp,
+                "captain_ev": round(2 * xp, 2), "ceiling": xp * 1.7,
+                "value": round(xp / 5.0, 3), "price": 5.0, "ownership_pct": 9.0,
+                "role": role, "bench_order": order, "is_captain": cap,
+                "is_vice": v, "rank": 0}
+    xi = [e("Gk1", "GK", 4.0, "XI"),
+          e("D1", "DEF", 5.0, "XI"), e("D2", "DEF", 4.5, "XI"),
+          e("D3", "DEF", 4.0, "XI"),
+          e(captain, "MID", 8.0, "XI", cap=True),
+          e(vice, "MID", 7.0, "XI", v=True),
+          e("M3", "MID", 6.0, "XI"), e("M4", "MID", 5.5, "XI"),
+          e("M5", "MID", 5.0, "XI"),
+          e("Haaland" if with_haaland else "F1", "FWD", 6.5, "XI"),
+          e("F2", "FWD", 5.5, "XI")]
+    bench = [e("Gk2", "GK", 3.0, "Bench", 1), e("D4", "DEF", 2.5, "Bench", 2),
+             e("F3", "FWD", 3.5, "Bench", 3), e("D5", "DEF", 2.0, "Bench", 4)]
+    for i, entry in enumerate(xi + bench, 1):
+        entry["rank"] = i
+    return xi + bench
+
+
+class TestSquadSlugTemplates(unittest.TestCase):
+    """Task 3 gate: hand-written prose that reads as a real article --no-llm."""
+
+    def _prose(self, slug, entries):
+        return writer.article_prose(slug, 1, entries, ["x_points"],
+                                    cache_dir="/nonexistent", use_llm=False,
+                                    cache_name="fpl-gw1", unit="Gameweek")
+
+    def test_both_squad_slugs_have_real_templates(self):
+        for slug in ("our-squad", "consensus-squad"):
+            with self.subTest(slug=slug):
+                prose = self._prose(slug, _squad_entries())
+                self.assertNotIn("analysis:", prose["headline"].lower())
+                self.assertTrue(prose["standfirst"])
+                self.assertTrue(prose["bottom_line"])
+                self.assertIn("<p>", prose["body_html"])
+
+    def test_our_squad_states_the_models_reasoning(self):
+        prose = self._prose("our-squad", _squad_entries())
+        text = prose["standfirst"] + prose["body_html"]
+        self.assertIn("horizon", text)              # horizon EV, not one-week
+        self.assertIn("market-implied", text)       # lambdas, bookmaker-free
+        self.assertIn("Cap", prose["headline"])     # captain by EV, named
+        # XI 61.0 + captain 8.0 = 69.0 with the armband
+        self.assertIn("69.00", text)
+
+    def test_our_squad_names_the_no_haaland_conviction(self):
+        prose = self._prose("our-squad", _squad_entries())
+        self.assertIn("Haaland", prose["body_html"])
+        self.assertIn("conviction", prose["body_html"])
+
+    def test_no_haaland_line_vanishes_if_he_ever_joins(self):
+        prose = self._prose("our-squad", _squad_entries(with_haaland=True))
+        self.assertNotIn("No Haaland", prose["body_html"])
+
+    def test_consensus_squad_states_the_method_not_a_model_claim(self):
+        prose = self._prose("consensus-squad", _squad_entries(captain="Haaland"))
+        text = prose["standfirst"] + prose["body_html"]
+        self.assertIn("seven", text)                # the 7-source corpus
+        self.assertIn("expert consensus", text)     # named in prose as such
+        self.assertIn("majority", text)             # majority captain
+        self.assertIn("research notes", text)       # minutes provenance
+        self.assertIn("Haaland", prose["standfirst"])
+
+    def test_never_names_a_bookmaker(self):
+        for slug in ("our-squad", "consensus-squad"):
+            prose = self._prose(slug, _squad_entries())
+            text = (prose["headline"] + prose["standfirst"]
+                    + prose["body_html"] + prose["bottom_line"]).lower()
+            for banned in ("bet365", "pinnacle", "william hill", "betfair",
+                           "unibet", "bookmaker", "bookie"):
+                self.assertNotIn(banned, text)
+
+    def test_empty_entries_do_not_crash(self):
+        for slug in ("our-squad", "consensus-squad"):
+            with self.subTest(slug=slug):
+                self.assertTrue(self._prose(slug, [])["headline"])
+
+
+class TestSquadRenderPieces(unittest.TestCase):
+    def test_pitch_svg_flags_the_state_captain_not_rank_one(self):
+        xi = [e for e in _squad_entries() if e["role"] == "XI"]
+        svg = render.pitch_svg(xi)
+        self.assertEqual(svg.count(">C</text>"), 1)
+        # move the armband; the badge must move with it
+        for e in xi:
+            e["is_captain"] = e["name"] == "F2"
+        svg2 = render.pitch_svg(xi)
+        self.assertEqual(svg2.count(">C</text>"), 1)
+        self.assertNotEqual(svg, svg2)
+
+    def test_pitch_svg_without_captain_flags_keeps_the_rank_rule(self):
+        xi = [{"name": f"P{i}", "position": "MID", "x_points": 5.0, "rank": i}
+              for i in range(1, 12)]
+        svg = render.pitch_svg(xi)
+        self.assertEqual(svg.count(">C</text>"), 1)
+
+    def test_summary_sentence_quotes_the_duel_number(self):
+        s = render.summary_sentence("our-squad", _squad_entries())
+        self.assertIn("Our", s)
+        self.assertIn("Cap", s)
+        self.assertIn("69.0", s)
+        s2 = render.summary_sentence("consensus-squad",
+                                     _squad_entries(captain="Haaland"))
+        self.assertIn("consensus", s2)
+        self.assertIn("Haaland", s2)
+
+    def test_squad_fig_caption_does_not_claim_optimality(self):
+        cap = render._article_fig_caption("our-squad", ["x_points"])
+        self.assertNotIn("optimal", cap)
+        self.assertIn("Our", cap)
+        cap2 = render._article_fig_caption("consensus-squad", ["x_points"])
+        self.assertIn("consensus", cap2)
+        # the wildcard caption is untouched
+        self.assertIn("optimal", render._article_fig_caption("wildcard", []))
+
+
+class TestLoadStates(unittest.TestCase):
+    def test_invalid_states_abort_the_build_naming_both_files(self):
+        # a player pool the real squads cannot resolve against
+        fake = [{"name": "Nobody", "team": "AAA", "position": "GK", "price": 4.0}]
+        with self.assertRaises(SystemExit) as ctx:
+            fpl_build.load_states(fake)
+        msg = str(ctx.exception)
+        self.assertIn("state.json", msg)
+        self.assertIn("state_consensus.json", msg)
+
+    def test_real_states_load_against_the_real_bootstrap(self):
+        from core import fpl_api
+        boot = fpl_api.read_cache("bootstrap")
+        if boot is None:
+            self.skipTest("bootstrap cache missing")
+        states = fpl_build.load_states(fpl_api.parse_players(boot))
+        self.assertEqual(states["model"]["strategy"], "model")
+        self.assertEqual(states["consensus"]["strategy"], "consensus")

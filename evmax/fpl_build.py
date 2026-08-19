@@ -113,11 +113,28 @@ def cache_warnings(gameweek: int, cache_hit: bool) -> list:
 # The gameweek build pipeline
 # ---------------------------------------------------------------------------
 
-ARTICLES = ["captains", "wildcard", "ticker", "defenders", "efficiency", "defcon"]
+# Order is load-bearing: it is the /api/latest.json + llms.txt + sitemap nav
+# order AND the landing feed order (minus the hero). our-squad leads (the hero,
+# owner decision 2026-08-19), captains is the #2 surface, the consensus squad
+# sits beside them, then the supporting cast.
+ARTICLES = ["our-squad", "captains", "consensus-squad", "wildcard", "ticker",
+            "defenders", "efficiency", "defcon"]
+
+# The two slugs whose entries come from a published squad state rather than a
+# ranking over the full player pool.
+SQUAD_SLUGS = ("our-squad", "consensus-squad")
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATE_FILES = {
+    "model": os.path.join(_ROOT, "games", "fpl", "state.json"),
+    "consensus": os.path.join(_ROOT, "games", "fpl", "state_consensus.json"),
+}
 
 ARTICLE_TITLES = {
     # Short: the <title> becomes "{title} — Gameweek N | evmax" and Bing errors
     # above ~65 characters.
+    "our-squad": "Our squad",
+    "consensus-squad": "The consensus XI",
     "captains": "Best captain picks",
     "wildcard": "Draft squad & wildcard XI",
     "ticker": "Fixture ticker — clean sheets",
@@ -127,6 +144,8 @@ ARTICLE_TITLES = {
 }
 
 _COLUMNS = {
+    "our-squad":       ["x_points", "ceiling", "captain_ev", "value"],
+    "consensus-squad": ["x_points", "ceiling", "captain_ev", "value"],
     "captains":   ["captain_ev", "x_points", "ceiling", "price", "ownership_pct"],
     "wildcard":   ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
     "ticker":     ["exp_clean_sheets", "exp_goals_for", "exp_goals_against",
@@ -150,17 +169,50 @@ _ARTICLE_VIZ_MAX_ROWS = 10
 _FEATURED_VIZ_MAX_ROWS = 8
 
 
-def _article_entries(rows: list, matches: list, clubs: list) -> tuple:
-    """{slug: entries} plus the wildcard squad's meta, which is not a flat list."""
+def load_states(players: list) -> dict:
+    """Both published squad states, validated against the live bootstrap.
+
+    Part of preflight in spirit: an illegal, misspelled or ambiguous published
+    squad aborts the build — the two state files are frozen public claims, and
+    a squad page must never degrade into a partial team.
+    """
+    from games.fpl import state as fpl_state
+
+    out = {}
+    problems = []
+    for key, path in STATE_FILES.items():
+        try:
+            out[key] = fpl_state.load_squad(path, players)
+        except (OSError, ValueError, KeyError) as e:
+            problems.append(f"{os.path.relpath(path, _ROOT)}: {e}")
+    if problems:
+        raise SystemExit("evmax fpl build preflight failed:\n- " +
+                         "\n- ".join(problems))
+    return out
+
+
+def _article_entries(rows: list, matches: list, clubs: list,
+                     states: dict) -> tuple:
+    """({slug: entries}, {slug: squad meta}) — the meta dicts (wildcard's draft
+    squad plus the two published squads) are not flat lists, so they travel
+    separately into the JSON envelopes and the landing duel."""
     squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
-    return {
+    our_entries, our_meta = fpl_articles.squad_article(states["model"], rows)
+    cons_entries, cons_meta = fpl_articles.squad_article(states["consensus"],
+                                                         rows)
+    entries_map = {
+        "our-squad":       our_entries,
+        "consensus-squad": cons_entries,
         "captains":   fpl_articles.captains(rows)[:20],
         "wildcard":   squad_entries,
         "ticker":     fpl_articles.ticker(matches, clubs),
         "defenders":  fpl_articles.defenders(rows)[:20],
         "efficiency": fpl_articles.efficiency(rows)[:20],
         "defcon":     fpl_articles.defcon_leaders(rows)[:20],
-    }, squad_meta
+    }
+    metas = {"wildcard": squad_meta, "our-squad": our_meta,
+             "consensus-squad": cons_meta}
+    return entries_map, metas
 
 
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
@@ -176,6 +228,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     all_players = fpl_api.parse_players(boot) if boot else []
 
     warnings = preflight(gameweek, all_players, cold_start)
+    states = load_states(all_players)
 
     artifact, cache_hit = fpl_model.build_artifact(
         priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
@@ -189,7 +242,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             f"{gameweek} --refresh`.")
 
     clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
-    entries_map, squad_meta = _article_entries(rows, matches, clubs)
+    entries_map, metas = _article_entries(rows, matches, clubs, states)
 
     # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
     # build() never clears `out`, so past gameweeks persist and the switcher is
@@ -235,7 +288,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         title = f"{ARTICLE_TITLES[slug]} — Gameweek {gameweek}"
         json_url = section.json_path(gameweek, slug)
 
-        if slug in ("wildcard", "ticker"):
+        if slug in ("wildcard", "ticker") or slug in SQUAD_SLUGS:
             subject = None            # squad- and club-framed, no lead player
         else:
             subject = next((e["name"] for e in entries
@@ -251,7 +304,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                      unit="Gameweek")
         prose_map[slug] = prose
 
-        if slug == "wildcard":
+        if slug == "wildcard" or slug in SQUAD_SLUGS:
             viz_html = render.pitch_svg([e for e in entries
                                          if e.get("role") == "XI"])
         else:
@@ -265,7 +318,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                 viz_html = render.ev_bar(entries, columns[0],
                                          max_rows=_ARTICLE_VIZ_MAX_ROWS)
 
-        extra = {"squad": squad_meta} if slug == "wildcard" else None
+        extra = {"squad": metas[slug]} if slug in metas else None
         env = render.article_json("fantasy_premier_league", gameweek, slug, title,
                                   generated_at, sims, entries,
                                   extra_fields=extra, section=section)
