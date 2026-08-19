@@ -1136,3 +1136,35 @@ class TestDoubleGameweekTotalPoints(unittest.TestCase):
             means["B-Striker"], ps, fpl_model._conceded_series(ps),
             bonus=bonus.expected("B-Striker"))
         self.assertAlmostEqual(assembled, points.mean("B-Striker"), delta=0.35)
+
+
+class TestSimCacheKeyKickoffs(unittest.TestCase):
+    """Review finding 2: a fixture re-slotted for TV with unchanged odds must
+    MISS the sim cache — the artifact's rows and match summaries carry the
+    kickoff, so a key blind to it would serve stale kickoffs."""
+
+    def _fixture(self, kickoff):
+        return fixtures.Fixture(
+            "KEY1", "Home", "Away", kickoff=kickoff,
+            stage="GW", fantasy_round=1, neutral=False,
+            lam_home=1.4, lam_away=1.1)
+
+    def test_projection_carries_lambdas_and_kickoff(self):
+        fx = self._fixture(datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc))
+        proj = fpl_model._match_projection([fx])
+        self.assertEqual(proj["KEY1"]["lambdas"], (1.4, 1.1))
+        self.assertEqual(proj["KEY1"]["kickoff"],
+                         "2026-08-22T15:00:00+00:00")
+
+    def test_reslotted_kickoff_changes_the_cache_key(self):
+        from core import simcache
+
+        def key_for(kickoff):
+            return simcache.cache_key(
+                gameweek=1, sims=100, seed=7,
+                lambdas=fpl_model._match_projection([self._fixture(kickoff)]),
+                priors={}, research={}, config={})
+
+        saturday = key_for(datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc))
+        monday = key_for(datetime(2026, 8, 24, 19, 0, tzinfo=timezone.utc))
+        self.assertNotEqual(saturday, monday)

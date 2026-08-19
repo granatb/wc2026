@@ -641,6 +641,20 @@ def _kickoffs_by_team(fx: list) -> dict:
     return out
 
 
+def _match_projection(fx: list) -> dict:
+    """{match_id: {"lambdas", "kickoff"}} — the cache key's match layer.
+
+    Kickoff is part of the projection because the cached artifact SERVES it:
+    every row's kickoff column and every match summary carry it. A fixture
+    re-slotted for TV with unchanged odds must therefore miss the cache and
+    re-derive, not hit and republish the stale kickoff (review 2026-08-19,
+    finding 2).
+    """
+    return {f.match_id: {"lambdas": f.lambdas(),
+                         "kickoff": f.kickoff.isoformat()}
+            for f in fx}
+
+
 def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
                 bonus: float, defcon_pts: float, p_defcon: float,
                 price, ownership, kickoff) -> dict:
@@ -683,7 +697,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
     every input that determines the derived rows (see the `priors`, `research`,
-    `lambdas` and `config` projections below) plus a fingerprint of this file and
+    match (lambdas + kickoffs) and `config` projections below) plus a fingerprint of this file and
     the shared engine's source, so an edit to a scoring constant can never
     silently serve a stale artifact. `use_cache=False` always simulates, for an
     operator who wants to force a fresh run regardless of the cache.
@@ -701,7 +715,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     # artifact's match layer, kickoffs and cache-key lambdas are GW business
     # only; without this filter the ticker would publish 48 national teams.
     fx = [f for f in fixtures.by_round(gameweek) if f.stage == "GW"]
-    lambdas = {f.match_id: f.lambdas() for f in fx}
+    match_projection = _match_projection(fx)
     research_entries = research.load_entries("players", gameweek)
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
@@ -731,7 +745,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     }
 
     key = simcache.cache_key(
-        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=lambdas,
+        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=match_projection,
         priors=priors_projection, research=research_projection,
         config=sim_config,
     )
