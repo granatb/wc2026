@@ -700,7 +700,9 @@ _FPL_TEMPLATES = {
             f"<p>{html.escape(e[0]['name'])} ({html.escape(e[0].get('team', ''))}) "
             f"projects {_fmt_pts(e[0]['captain_ev'])} captained, off "
             f"{_fmt_pts(e[0]['x_points'])} expected points, with a ceiling of "
-            f"{_fmt_pts(e[0]['ceiling'])} — his 85th-percentile simulation.</p>"
+            # the FPL ceiling is a tail mean, not a percentile — say what it is
+            f"{_fmt_pts(e[0]['ceiling'])} — the average of his best 15% of "
+            f"simulations.</p>"
             + (f"<p>{html.escape(e[1]['name'])} is the alternative at "
                f"{_fmt_pts(e[1]['captain_ev'])}. "
                + _captain_vice_kickoff_sentence(e)

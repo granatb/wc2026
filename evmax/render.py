@@ -65,6 +65,22 @@ METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte
 NEWSLETTER_ACTION = "https://buttondown.com/api/emails/embed-subscribe/evmax"
 
 
+# One-line reader-facing ceiling definitions, reused in figcaptions and the
+# article footer so the stat is never a bare unexplained number. The two
+# sections compute DIFFERENT statistics and each must say what its own is:
+#   WC:  the 85th percentile of the per-sim totals (games/fifa/model.
+#        ceiling_points) — the historical text, pinned byte-identical.
+#   FPL: the tail MEAN — the average of the best 15% of sims (games/fpl/model.
+#        tail_mean), strictly >= the p85 — so percentile wording would
+#        misstate it (review 2026-08-19, finding 6).
+CEILING_EXPLAINER = (
+    "Ceiling = the 85th-percentile outcome across our 50,000 simulations — "
+    "the score when a player's best realistic game happens, not a fantasy cap.")
+FPL_CEILING_EXPLAINER = (
+    "Ceiling = the average of a player's best 15% of our 50,000 simulations — "
+    "the score when his best realistic games happen, not a fantasy cap.")
+
+
 class Section:
     """A URL namespace and its reader-facing vocabulary.
 
@@ -74,13 +90,14 @@ class Section:
     byte-identical HTML.
 
     unit_abbr is the round-switcher pill label: "R5" for the World Cup, "GW5" for
-    FPL. table_label names the official points table in reader-facing copy, and
-    methodology is the one-line method string pages print — both default to the
-    World Cup wording, which is what every existing page pins.
+    FPL. table_label names the official points table in reader-facing copy,
+    methodology is the one-line method string pages print, and
+    ceiling_explainer defines the section's own ceiling statistic — all default
+    to the World Cup wording, which is what every existing page pins.
     """
 
     def __init__(self, key, label, unit, unit_abbr, base, api_base,
-                 table_label=None, methodology=None):
+                 table_label=None, methodology=None, ceiling_explainer=None):
         self.key = key                # "round" | "fpl"
         self.label = label            # "World Cup Fantasy" | "Fantasy Premier League"
         self.unit = unit              # "Round" | "Gameweek"
@@ -89,6 +106,7 @@ class Section:
         self.api_base = api_base      # "/api/round/{r}" | "/api/fpl/gw{r}"
         self.table_label = table_label or "FIFA World Cup Fantasy"
         self.methodology = methodology or METHODOLOGY
+        self.ceiling_explainer = ceiling_explainer or CEILING_EXPLAINER
 
     def landing_path(self, n):
         return self.base.format(r=n) + "/"
@@ -119,7 +137,8 @@ FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
               table_label="Fantasy Premier League",
               methodology=("Market odds (de-vigged) → Dixon-Coles scorelines → "
                            "50k Monte-Carlo simulations, scored on the official "
-                           "Fantasy Premier League points table."))
+                           "Fantasy Premier League points table."),
+              ceiling_explainer=FPL_CEILING_EXPLAINER)
 
 
 def article_json(competition, fantasy_round, article, title, generated_at, sims, entries,
@@ -1359,15 +1378,11 @@ _PITCH_CAPTIONS = {
 # sync with build._CEILING_PAIRED_METRIC (render.py has no import on build.py).
 _CEILING_REACH_ARTICLES = {"captains", "defenders", "risky", "blowout-transfers"}
 
-# One-line reader-facing definition, reused in figcaptions and the article
-# footer. "85th percentile of 50,000 sims" is the honest definition (see
-# games/fifa/model.ceiling_points) phrased for a fantasy reader.
-CEILING_EXPLAINER = (
-    "Ceiling = the 85th-percentile outcome across our 50,000 simulations — "
-    "the score when a player's best realistic game happens, not a fantasy cap.")
+# The ceiling definitions themselves (CEILING_EXPLAINER / FPL_CEILING_EXPLAINER)
+# live above the Section class, which carries the right one per section.
 
 
-def _article_fig_caption(article: str, columns: list):
+def _article_fig_caption(article: str, columns: list, section=WC):
     """Caption text for the figure wrapping an article's viz, or None for
     articles (matches) that render without a figure at all -- the cards are
     self-explanatory."""
@@ -1381,7 +1396,8 @@ def _article_fig_caption(article: str, columns: list):
     base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
             "red = under 10% owned. Full list in the table below.")
     if article in _CEILING_REACH_ARTICLES:
-        return f"{base} Solid bar = {metric_label}, faint bar = ceiling. {CEILING_EXPLAINER}"
+        return (f"{base} Solid bar = {metric_label}, faint bar = ceiling. "
+                f"{section.ceiling_explainer}")
     return base
 
 
@@ -1460,7 +1476,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     # (whole body after the figure) rather than guessing at a split.
     lede_html, rest_html = _split_lede(prose["body_html"])
 
-    caption = _article_fig_caption(article, columns)
+    caption = _article_fig_caption(article, columns, section=section)
     if caption is None:
         # matches: cards are self-explanatory, no figure/figcaption wrapper.
         viz_section = viz_html
@@ -1473,8 +1489,11 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 
     # Any article whose table carries a ceiling column gets the one-line
     # definition in the footer, so the stat is never a bare unexplained number.
+    # The section supplies its own: WC's ceiling is a percentile, FPL's a tail
+    # mean, and each page must describe the statistic it actually publishes.
     ceiling_method_html = (
-        f"{_html.escape(CEILING_EXPLAINER)}\n" if "ceiling" in (columns or []) else "")
+        f"{_html.escape(section.ceiling_explainer)}\n"
+        if "ceiling" in (columns or []) else "")
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">

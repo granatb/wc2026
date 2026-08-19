@@ -723,6 +723,47 @@ class TestSquadRenderPieces(unittest.TestCase):
         self.assertIn("optimal", render._article_fig_caption("wildcard", []))
 
 
+class TestCeilingWording(unittest.TestCase):
+    """Review finding 6: FPL's ceiling is a tail MEAN (the average of a
+    player's best 15% of sims, games/fpl/model.tail_mean), strictly >= the
+    p85 — '85th-percentile outcome' misstates the statistic on FPL pages.
+    The World Cup section's percentile text stays byte-identical."""
+
+    _COLS = ["x_points", "ceiling"]
+
+    def test_fpl_pages_describe_the_tail_mean(self):
+        html = render.article_page(1, "captains", "T", _PROSE,
+                                   [dict(_ENTRIES[0], ceiling=9.0)], self._COLS,
+                                   "/api/fpl/gw1/captains.json", "",
+                                   section=render.FPL)
+        self.assertIn("best 15%", html)
+        self.assertNotIn("85th-percentile", html)
+
+    def test_wc_pages_keep_the_percentile_text(self):
+        html = render.article_page(5, "captains", "T", _PROSE,
+                                   [dict(_ENTRIES[0], ceiling=9.0)], self._COLS,
+                                   "/api/round/5/captains.json", "")
+        self.assertIn("85th-percentile", html)
+        self.assertNotIn("best 15%", html)
+
+    def test_fig_caption_follows_the_section(self):
+        fpl = render._article_fig_caption("captains", ["captain_ev"],
+                                          section=render.FPL)
+        self.assertIn("best 15%", fpl)
+        self.assertNotIn("85th-percentile", fpl)
+        wc = render._article_fig_caption("captains", ["captain_ev"])
+        self.assertIn("85th-percentile", wc)
+
+    def test_fpl_captains_prose_states_the_tail_mean(self):
+        entries = [dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0, team="ARS",
+                        position="FWD", kickoff_order=1)]
+        prose = writer.article_prose("captains", 1, entries, self._COLS,
+                                     cache_dir="/nonexistent", use_llm=False,
+                                     cache_name="fpl-gw1", unit="Gameweek")
+        self.assertNotIn("85th-percentile", prose["body_html"])
+        self.assertIn("best 15%", prose["body_html"])
+
+
 class TestLoadStates(unittest.TestCase):
     def test_invalid_states_abort_the_build_naming_both_files(self):
         # a player pool the real squads cannot resolve against
