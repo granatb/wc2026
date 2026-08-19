@@ -36,24 +36,33 @@ def _ranked(rows: list, key: str, reverse: bool = True) -> list:
     return out
 
 
-def captains(rows: list) -> list:
-    """Captain candidates by captain EV, annotated with their kickoff order.
+def captains(rows: list, top: int = 20) -> list:
+    """The top `top` captain candidates by captain EV, annotated with their
+    kickoff order.
 
     kickoff_order exists because the captain and the VICE are two different
     decisions. The captain is picked against the deadline; the vice matters only
     if the captain does not play, so a manager wants to know whether their vice
     kicks off before or after their captain. 1 is the earliest kickoff among the
-    candidates.
+    PUBLISHED candidates.
 
-    A row with no kickoff (a blank gameweek for that club) sorts last rather than
-    raising — `None` is not comparable to a string, so it needs an explicit key.
+    It is a dense rank over the DISTINCT kickoff instants of the published top
+    slice, not an enumeration of players: two candidates in the same match share
+    an instant and therefore share an order — an enumeration would hand them
+    orders like 57 vs 337 and let the prose claim one of them "kicks off later"
+    when neither does. Ranking the published slice (rather than all ~560 rows)
+    keeps 1 meaning "first kickoff a reader of this article can act on".
+
+    A row with no kickoff (a blank gameweek for that club) takes the rank after
+    every real instant rather than raising — `None` is not comparable to a
+    string, so it needs the explicit fallback.
     """
-    ranked = _ranked(rows, "captain_ev")
-    by_kickoff = sorted(ranked, key=lambda r: (r.get("kickoff") is None,
-                                               r.get("kickoff") or ""))
-    order = {id(r): i for i, r in enumerate(by_kickoff, 1)}
+    ranked = _ranked(rows, "captain_ev")[:top]
+    instants = sorted({r["kickoff"] for r in ranked
+                       if r.get("kickoff") is not None})
+    order = {ko: i for i, ko in enumerate(instants, 1)}
     for r in ranked:
-        r["kickoff_order"] = order[id(r)]
+        r["kickoff_order"] = order.get(r.get("kickoff"), len(instants) + 1)
     return ranked
 
 

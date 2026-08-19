@@ -665,6 +665,25 @@ def _pct(v) -> str:
     return f"{(v or 0.0) * 100:.0f}%"
 
 
+def _captain_vice_kickoff_sentence(e: list) -> str:
+    """The vice-timing sentence for the captains template.
+
+    kickoff_order is a dense rank over distinct kickoff instants (see
+    fpl_articles.captains), so equality means the two candidates genuinely
+    kick off together — usually the same match — and neither "first" nor
+    "later" is a true claim. Missing orders compare equal on purpose: with no
+    kickoff data the prose must not invent a timing edge either way.
+    """
+    first, second = e[0].get("kickoff_order"), e[1].get("kickoff_order")
+    if first is None or second is None or first == second:
+        return ("He kicks off at the same time, so as vice he is pure "
+                "insurance against a late scratch.")
+    if second < first:
+        return "He kicks off first, so he is the safer vice."
+    return ("He kicks off later, so he works as a vice only if your "
+            "captain's match is already done.")
+
+
 # FPL slug templates, keyed separately from _TEMPLATES because four FPL slugs
 # (captains, wildcard, defenders, efficiency) collide with World Cup slugs whose
 # prose is pinned. Selected by _template_prose when unit == "Gameweek".
@@ -684,10 +703,7 @@ _FPL_TEMPLATES = {
             f"{_fmt_pts(e[0]['ceiling'])} — his 85th-percentile simulation.</p>"
             + (f"<p>{html.escape(e[1]['name'])} is the alternative at "
                f"{_fmt_pts(e[1]['captain_ev'])}. "
-               + ("He kicks off first, so he is the safer vice."
-                  if e[1].get("kickoff_order", 99) < e[0].get("kickoff_order", 99)
-                  else "He kicks off later, so he works as a vice only if your "
-                       "captain's match is already done.")
+               + _captain_vice_kickoff_sentence(e)
                + "</p>" if len(e) > 1 else "")),
         "bottom_line": lambda e, r, subj: (
             f"Captain {e[0]['name']} — {_fmt_pts(e[0]['captain_ev'])} is the "

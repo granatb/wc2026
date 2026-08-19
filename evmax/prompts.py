@@ -110,7 +110,9 @@ _FPL_GLOSSARY = """\
     cite a ticker number — never present model-derived and market-derived numbers as
     if they carried the same confidence.
   - kickoff_order → the order this player's match kicks off among the candidates
-    (1 = earliest). Relevant to the vice-captain decision, not the captain one.
+    (1 = earliest; players in the same match share a value — equal values mean
+    neither kicks off before the other, so never claim one does). Relevant to
+    the vice-captain decision, not the captain one.
 """
 
 

@@ -43,6 +43,37 @@ class TestCaptains(unittest.TestCase):
         self.assertEqual(by_name["Known"]["kickoff_order"], 1)
         self.assertEqual(by_name["NoKo"]["kickoff_order"], 2)
 
+    def test_same_fixture_candidates_share_a_kickoff_order(self):
+        """Two candidates in the same match are the same kickoff instant — an
+        enumeration (1, 2) would let the captains prose claim one of them
+        'kicks off later' when neither does."""
+        ko = "2026-08-21T19:00:00+00:00"
+        rows = [_row("CapA", "FWD", 7.0, kickoff=ko),
+                _row("CapB", "MID", 6.0, kickoff=ko),
+                _row("Later", "FWD", 5.0,
+                     kickoff="2026-08-23T15:00:00+00:00")]
+        out = fpl_articles.captains(rows)
+        by_name = {e["name"]: e for e in out}
+        self.assertEqual(by_name["CapA"]["kickoff_order"],
+                         by_name["CapB"]["kickoff_order"])
+        self.assertEqual(by_name["CapA"]["kickoff_order"], 1)
+        # dense rank: the next DISTINCT instant is 2, not 3
+        self.assertEqual(by_name["Later"]["kickoff_order"], 2)
+
+    def test_kickoff_order_ranks_only_the_published_slice(self):
+        """kickoff_order 1 is the earliest kickoff AMONG THE PUBLISHED
+        candidates: an earlier fixture outside the top slice must not shift
+        every published rank up by one."""
+        rows = [_row("Top", "FWD", 9.0, kickoff="2026-08-22T14:00:00+00:00"),
+                _row("Second", "MID", 8.0,
+                     kickoff="2026-08-23T15:00:00+00:00"),
+                _row("Cut", "FWD", 1.0, kickoff="2026-08-21T19:00:00+00:00")]
+        out = fpl_articles.captains(rows, top=2)
+        self.assertEqual([e["name"] for e in out], ["Top", "Second"])
+        by_name = {e["name"]: e for e in out}
+        self.assertEqual(by_name["Top"]["kickoff_order"], 1)
+        self.assertEqual(by_name["Second"]["kickoff_order"], 2)
+
 
 class TestDefenders(unittest.TestCase):
     def test_includes_goalkeepers_and_excludes_outfield_attackers(self):

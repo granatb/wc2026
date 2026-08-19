@@ -189,6 +189,23 @@ class TestFplTemplates(unittest.TestCase):
                 self.assertTrue(prose["bottom_line"])
                 self.assertIn("<p>", prose["body_html"])
 
+    def test_captains_prose_never_claims_a_later_kickoff_for_the_same_match(self):
+        """Two candidates sharing a kickoff instant share a kickoff_order —
+        the prose must not tell the reader either of them kicks off later."""
+        first = dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0, team="ARS",
+                     position="FWD", kickoff_order=1)
+        second = dict(first, name="B", captain_ev=11.0)
+        prose = self._prose("captains", [first, second])
+        self.assertNotIn("kicks off later", prose["body_html"])
+        self.assertNotIn("kicks off first", prose["body_html"])
+
+    def test_captains_prose_flags_a_genuinely_later_kickoff(self):
+        first = dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0, team="ARS",
+                     position="FWD", kickoff_order=1)
+        second = dict(first, name="B", captain_ev=11.0, kickoff_order=2)
+        prose = self._prose("captains", [first, second])
+        self.assertIn("kicks off later", prose["body_html"])
+
     def test_defcon_prose_states_the_probability_and_threshold(self):
         prose = self._prose("defcon", [_DEFCON_ENTRY])
         self.assertIn("71", prose["standfirst"] + prose["body_html"])

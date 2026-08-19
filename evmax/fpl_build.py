@@ -203,7 +203,10 @@ def _article_entries(rows: list, matches: list, clubs: list,
     entries_map = {
         "our-squad":       our_entries,
         "consensus-squad": cons_entries,
-        "captains":   fpl_articles.captains(rows)[:20],
+        # captains slices to its published top-20 itself: kickoff_order is a
+        # dense rank over the published slice's distinct kickoff instants, so
+        # the slice and the ranking must happen together.
+        "captains":   fpl_articles.captains(rows, top=20),
         "wildcard":   squad_entries,
         "ticker":     fpl_articles.ticker(matches, clubs),
         "defenders":  fpl_articles.defenders(rows)[:20],
