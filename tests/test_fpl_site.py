@@ -210,6 +210,82 @@ class TestFplTemplates(unittest.TestCase):
                 self.assertTrue(prose["headline"])
 
 
+from datetime import datetime, timezone
+from unittest import mock
+
+from core import fixtures as core_fixtures
+from evmax import fpl_build
+
+
+def _fx(match_id, home, away, gw=1, priced=True):
+    return core_fixtures.Fixture(
+        match_id=match_id, home=home, away=away,
+        kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+        stage="GW", fantasy_round=gw, neutral=False,
+        lam_home=1.5 if priced else None, lam_away=1.1 if priced else None)
+
+
+class TestFplPreflight(unittest.TestCase):
+    def test_aborts_when_the_gameweek_has_no_fixtures(self):
+        with mock.patch.object(core_fixtures, "by_round", return_value=[]):
+            with self.assertRaises(SystemExit) as ctx:
+                fpl_build.preflight(1, players=[{"status": "i"}], cold_start=[])
+        self.assertIn("no fixtures", str(ctx.exception).lower())
+
+    def test_warns_on_unpriced_fixtures(self):
+        fx = [_fx("m1", "ARS", "LIV"), _fx("m2", "BUR", "EVE", priced=False)]
+        with mock.patch.object(core_fixtures, "by_round", return_value=fx):
+            warnings = fpl_build.preflight(1, players=[{"status": "i"}],
+                                           cold_start=[])
+        self.assertTrue(any("BUR" in w and "unpriced" in w.lower()
+                            for w in warnings))
+
+    def test_warns_on_cold_start_players(self):
+        fx = [_fx("m1", "ARS", "LIV")]
+        with mock.patch.object(core_fixtures, "by_round", return_value=fx):
+            warnings = fpl_build.preflight(
+                1, players=[{"status": "i"}],
+                cold_start=[{"name": "Newbie"}, {"name": "Rookie"}])
+        self.assertTrue(any("cold-start" in w.lower() and "Newbie" in w
+                            for w in warnings))
+
+    def test_warns_when_no_player_carries_an_availability_flag(self):
+        """Real FPL always has injuries. A bootstrap where all 563 players are
+        status 'a' is a stale cache, and it would silently publish ruled-out
+        players as nailed starters."""
+        fx = [_fx("m1", "ARS", "LIV")]
+        with mock.patch.object(core_fixtures, "by_round", return_value=fx):
+            warnings = fpl_build.preflight(
+                1, players=[{"status": "a"}, {"status": "a"}], cold_start=[])
+        self.assertTrue(any("stale" in w.lower() for w in warnings))
+
+    def test_no_stale_warning_when_flags_are_present(self):
+        fx = [_fx("m1", "ARS", "LIV")]
+        with mock.patch.object(core_fixtures, "by_round", return_value=fx):
+            warnings = fpl_build.preflight(
+                1, players=[{"status": "a"}, {"status": "i"}], cold_start=[])
+        self.assertFalse(any("stale" in w.lower() for w in warnings))
+
+    def test_unexpected_cache_miss_is_reported(self):
+        """A miss with no stored artifact for this gameweek is expected (first
+        build). A miss WITH stored artifacts means an input or the model source
+        changed — worth saying out loud, because it explains a slow build."""
+        with mock.patch.object(fpl_build.simcache, "artifacts_for",
+                               return_value=["stale-key"]):
+            warnings = fpl_build.cache_warnings(1, cache_hit=False)
+        self.assertTrue(any("stale-key" in w or "1 stale" in w for w in warnings))
+
+    def test_first_build_miss_is_silent(self):
+        with mock.patch.object(fpl_build.simcache, "artifacts_for",
+                               return_value=[]):
+            self.assertEqual(fpl_build.cache_warnings(1, cache_hit=False), [])
+
+    def test_cache_hit_is_silent(self):
+        with mock.patch.object(fpl_build.simcache, "artifacts_for",
+                               return_value=["k"]):
+            self.assertEqual(fpl_build.cache_warnings(1, cache_hit=True), [])
+
+
 class TestPromptUnit(unittest.TestCase):
     def test_default_prompt_says_round(self):
         p = prompts.build_prompt("captains", 5, _ENTRIES)
