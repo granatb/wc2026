@@ -65,6 +65,63 @@ METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte
 NEWSLETTER_ACTION = "https://buttondown.com/api/emails/embed-subscribe/evmax"
 
 
+class Section:
+    """A URL namespace and its reader-facing vocabulary.
+
+    The site serves two competitions from one renderer. Rather than fork the page
+    functions (or do the September templating refactor early), each function takes
+    a Section and defaults to WC, so every existing call site keeps producing
+    byte-identical HTML.
+
+    unit_abbr is the round-switcher pill label: "R5" for the World Cup, "GW5" for
+    FPL. table_label names the official points table in reader-facing copy, and
+    methodology is the one-line method string pages print — both default to the
+    World Cup wording, which is what every existing page pins.
+    """
+
+    def __init__(self, key, label, unit, unit_abbr, base, api_base,
+                 table_label=None, methodology=None):
+        self.key = key                # "round" | "fpl"
+        self.label = label            # "World Cup Fantasy" | "Fantasy Premier League"
+        self.unit = unit              # "Round" | "Gameweek"
+        self.unit_abbr = unit_abbr    # "R" | "GW"
+        self.base = base              # "/round/{r}" | "/fpl/gw{r}"
+        self.api_base = api_base      # "/api/round/{r}" | "/api/fpl/gw{r}"
+        self.table_label = table_label or "FIFA World Cup Fantasy"
+        self.methodology = methodology or METHODOLOGY
+
+    def landing_path(self, n):
+        return self.base.format(r=n) + "/"
+
+    def article_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}/"
+
+    def md_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}.md"
+
+    def json_path(self, n, slug):
+        return f"{self.api_base.format(r=n)}/{slug}.json"
+
+    def players_json_path(self, n):
+        return f"{self.api_base.format(r=n)}/players.json"
+
+    def kicker(self, n):
+        return f"{self.unit} {n}"
+
+    def switcher_base(self):
+        return self.base + "/"
+
+
+WC = Section("round", "World Cup Fantasy", "Round", "R",
+             "/round/{r}", "/api/round/{r}")
+FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
+              "/fpl/gw{r}", "/api/fpl/gw{r}",
+              table_label="Fantasy Premier League",
+              methodology=("Market odds (de-vigged) → Dixon-Coles scorelines → "
+                           "50k Monte-Carlo simulations, scored on the official "
+                           "Fantasy Premier League points table."))
+
+
 def article_json(competition, fantasy_round, article, title, generated_at, sims, entries,
                  extra_fields=None):
     """extra_fields: optional dict merged into the envelope as additional top-level
@@ -417,7 +474,8 @@ def _nav_html(active=None):
     return "<nav>" + "".join(items) + "</nav>"
 
 
-def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/"):
+def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/",
+                         abbr="R"):
     """Pill row of every round that's actually been built (see build.py's
     available_rounds -- computed from what's on disk, so this never links to
     a round that doesn't exist). Without this, older rounds are still live
@@ -427,10 +485,11 @@ def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/
         return ""
     tabs = "".join(
         f'<a class="round-tab{" active" if r == current_round else ""}" '
-        f'href="{base_path.format(r=r)}">R{r}</a>'
+        f'href="{base_path.format(r=r)}">{abbr}{r}</a>'
         for r in available_rounds
     )
-    return f'<div class="round-switcher"><span class="rs-label">Rounds</span>{tabs}</div>'
+    label = "Rounds" if abbr == "R" else "Gameweeks"
+    return f'<div class="round-switcher"><span class="rs-label">{label}</span>{tabs}</div>'
 
 
 def _rate_cta_html():
@@ -857,7 +916,7 @@ def _article_md_table(article: str, entries: list, columns: list) -> str:
 
 
 def article_md(round_no, slug, title, prose, entries, columns, generated_at,
-               date_str, canonical_path):
+               date_str, canonical_path, section=WC):
     """Content-only Markdown twin of an article, for AI agents (the llms.txt
     convention) -- purpose-built to replace paid edge markdown-conversion.
 
@@ -869,7 +928,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
     body_md = prose.get("body_md", "")
     bottom_line = prose.get("bottom_line", "")
     table_md = _article_md_table(slug, entries, columns)
-    json_url = f"{SITE_URL}/api/round/{round_no}/{slug}.json"
+    json_url = f"{SITE_URL}{section.json_path(round_no, slug)}"
 
     parts = [
         f"# {headline}",
@@ -887,7 +946,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
         table_md,
         "",
         "---",
-        f"Method: {METHODOLOGY}",
+        f"Method: {section.methodology}",
         f"Data license: CC BY 4.0 (attribution: evmax, {SITE_URL}). "
         f"Machine-readable JSON: {json_url}",
     ]
@@ -1294,7 +1353,8 @@ def _split_lede(body_html: str) -> tuple:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True, available_rounds=None):
+                 generated_at=None, date_str=None, show_table=True,
+                 available_rounds=None, section=WC):
     """v2 editorial article page.
 
     Published articles are frozen claims: this page always renders the exact
@@ -1317,7 +1377,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     dataset_ld_raw = _json.dumps({
         "@context": "https://schema.org", "@type": "Dataset",
         "name": title,
-        "description": METHODOLOGY,
+        "description": section.methodology,
         "url": f"{SITE_URL}{json_url}",
         "creator": {"@type": "Organization", "name": "evmax"},
         "variableMeasured": [_COL_LABEL.get(c, c) for c in columns],
@@ -1337,7 +1397,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
         article_ld_obj["datePublished"] = generated_at
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
-        _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
+        _COL_LABEL.get(article, article.replace("-", " ").title())
+        + f" · {section.kicker(round_no)}")
     table_html = _rank_table_html(entries, columns) if show_table else ""
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
@@ -1371,8 +1432,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <title>{_html.escape(title)} | {TITLE_BRAND}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
-<link rel="alternate" type="text/markdown" href="/round/{round_no}/{article}.md">
-{_og_meta(prose["headline"], summary, f"/round/{round_no}/{article}/", "article")}
+<link rel="alternate" type="text/markdown" href="{section.md_path(round_no, article)}">
+{_og_meta(prose["headline"], summary, section.article_path(round_no, article), "article")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1386,7 +1447,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <div class="wrap">
 <article class="art">
 <div class="kick">{kicker_label}</div>
-{_round_switcher_html(available_rounds or [round_no], round_no)}
+{_round_switcher_html(available_rounds or [round_no], round_no,
+                      base_path=section.switcher_base(), abbr=section.unit_abbr)}
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
@@ -1397,7 +1459,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
 {_newsletter_html()}
-<p class="method"><b>How we get these numbers.</b> {METHODOLOGY}
+<p class="method"><b>How we get these numbers.</b> {section.methodology}
 {ceiling_method_html}Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
 </article>
