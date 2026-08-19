@@ -354,6 +354,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     w("/privacy/index.html", render.privacy_page())
     w("/thanks/index.html", render.thanks_page())
     w("/confirmed/index.html", render.confirmed_page())
+    # /rate/ serves whichever section built last; a gameweek build gives it FPL
+    # copy and points it at this gameweek's players feed (the JS is shared).
+    w("/rate/index.html", render.rate_page(gameweek, section=section))
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------

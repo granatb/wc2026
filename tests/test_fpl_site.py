@@ -405,6 +405,13 @@ class TestGameweekBuild(unittest.TestCase):
                 md = self._read(f"/fpl/gw1/{slug}.md")
                 self.assertIn(captain, md)
 
+    def test_rate_page_serves_the_fpl_section(self):
+        html = self._read("/rate/index.html")
+        self.assertIn("Rate my FPL team", html)
+        self.assertIn('data-players-url="/api/fpl/gw1/players.json"', html)
+        self.assertIn('data-unit="Gameweek"', html)
+        self.assertNotIn("World Cup", html)
+
     def test_sitemap_keeps_the_world_cup_tree(self):
         xml = self._read("/sitemap.xml")
         self.assertIn("/fpl/gw1/", xml)
@@ -629,3 +636,34 @@ class TestLandingDuel(unittest.TestCase):
         the strip's class names or stylesheet."""
         html = self._landing(duel=None, section=render.WC)
         self.assertNotIn("duel", html)
+
+
+class TestRatePageSection(unittest.TestCase):
+    def test_fpl_rate_page_copy_feed_and_unit(self):
+        html = render.rate_page(1, section=render.FPL)
+        self.assertIn("<title>Rate my FPL team | ", html)
+        self.assertIn("2 goalkeepers, 5 defenders, 5 midfielders", html)
+        self.assertIn('data-players-url="/api/fpl/gw1/players.json"', html)
+        self.assertIn('data-unit="Gameweek"', html)
+        self.assertIn("after the gameweek", html)
+        self.assertNotIn("World Cup", html)
+        self.assertNotIn("/api/round/", html)
+        # the nav pill still highlights the rate page
+        self.assertIn('href="/rate/" class="on"', html)
+
+    def test_wc_rate_page_defaults_keep_todays_output(self):
+        html = render.rate_page(5)
+        self.assertIn("<title>Rate my World Cup fantasy team | ", html)
+        self.assertIn('data-players-url="/api/round/5/players.json"', html)
+        self.assertNotIn("data-unit", html)
+        self.assertIn("manual subs are allowed up", html)
+
+    def test_rate_js_defaults_the_unit_to_round(self):
+        """The shared rate.js must keep labelling WC results 'Round N' when the
+        page carries no data-unit attribute."""
+        path = os.path.join(os.path.dirname(os.path.abspath(render.__file__)),
+                            "assets", "js", "rate.js")
+        with open(path, encoding="utf-8") as fh:
+            js = fh.read()
+        self.assertIn('form.getAttribute("data-unit") || "Round"', js)
+        self.assertNotIn('", Round " + roundNo', js)

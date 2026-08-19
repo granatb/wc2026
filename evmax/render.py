@@ -2148,26 +2148,80 @@ _RATE_CSS = (
 )
 
 
-def rate_page(round_no: int) -> str:
-    """/rate/ -- paste-a-squad client-side team rater.
+def rate_page(round_no: int, section=WC) -> str:
+    """/rate/ -- paste-a-squad client-side team rater, serving whichever
+    section built last.
 
-    All computation happens in the browser (see /js/rate.js, fetched from
-    /api/round/{round_no}/players.json, embedded via data-round below). This
-    function only emits static markup + the <noscript> fallback; it makes no
-    server-side prediction of the user's team.
+    All computation happens in the browser (see /js/rate.js, fetched from the
+    section's players feed, embedded via data-players-url below). This function
+    only emits static markup + the <noscript> fallback; it makes no server-side
+    prediction of the user's team.
+
+    Section-aware copy only: an FPL build titles the page for FPL, states the
+    15 = 2/5/5/3 squad shape, points at the gameweek feed and explains FPL's
+    post-gameweek autosubs; a World Cup build keeps today's page byte-for-byte
+    (including the manual-subs chain copy, which is a WC rule FPL lacks).
     """
-    title = f"Rate my World Cup fantasy team | {TITLE_BRAND}"
-    description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
-                   "projection, captain check and injury flags -- entirely in your "
-                   "browser, nothing uploaded.")
-    json_url = f"/api/round/{round_no}/players.json"
+    is_fpl = section.key != "round"
+    json_url = section.players_json_path(round_no)
+    if is_fpl:
+        page_title = "Rate my FPL team"
+        title = f"{page_title} | {TITLE_BRAND}"
+        description = ("Paste your FPL squad and get an instant Monte-Carlo "
+                       "projection, captain check and injury flags -- entirely in "
+                       "your browser, nothing uploaded.")
+        stand = ("Pick your 15 — 2 goalkeepers, 5 defenders, 5 midfielders, "
+                 "3 forwards — and get instant Monte-Carlo projections, a captain "
+                 "check and injury flags. Nothing leaves your browser.")
+        # data-unit lets the shared rate.js label results "Gameweek N"; the WC
+        # page omits the attribute and rate.js falls back to "Round".
+        unit_attr = ' data-unit="Gameweek"'
+        bench_hint = "counted separately — autosubs only fire after the gameweek"
+        placeholder = ("Haaland (C), Saka, Virgil, Watkins (B), …  — comma or "
+                       "newline separated, (C) marks captain, (B) marks bench")
+        method_tail = ("Player names are matched against\n"
+                       "this gameweek's projections entirely client-side against\n"
+                       f'<a href="{json_url}" style="color:var(--greend)">{json_url}</a> '
+                       "-- no squad is ever sent\n"
+                       "to our servers or anyone else's. Mark bench players with (B): "
+                       "they're shown with\nprojected points but left out of your "
+                       "total. Your squad locks at the gameweek deadline --\nFPL's "
+                       "automatic substitutions only fire after the gameweek ends, "
+                       "replacing a starter\nwho recorded no minutes with the first "
+                       "eligible name in your bench order -- so the\nbench is "
+                       "insurance you set before the deadline, not a mid-week "
+                       "decision.")
+    else:
+        page_title = "Rate my World Cup fantasy team"
+        title = f"{page_title} | {TITLE_BRAND}"
+        description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
+                       "projection, captain check and injury flags -- entirely in your "
+                       "browser, nothing uploaded.")
+        stand = ("Pick your 15 — get instant Monte-Carlo projections, captain check,\n"
+                 "sub-chain notes and injury flags. Nothing leaves your browser.")
+        unit_attr = ""
+        bench_hint = "counted separately, chain notes included"
+        placeholder = ("Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or "
+                       "newline separated, (C) marks captain, (B) marks bench")
+        method_tail = ("Player names are matched against\n"
+                       "this round's projections entirely client-side against\n"
+                       f'<a href="{json_url}" style="color:var(--greend)">{json_url}</a> '
+                       "-- no squad is ever sent\n"
+                       "to our servers or anyone else's. Mark bench players with (B): "
+                       "they're shown with\nprojected points but left out of your total, "
+                       "and flagged with a \"chain option\" note\nwhen a same-position "
+                       "starter of yours kicks off earlier -- FIFA's automatic subs "
+                       "only\nfire on a did-not-play at the very end of the round, but "
+                       "manual subs are allowed up\nuntil the round's last kickoff, so a "
+                       "strong bench pick with a later fixture is often a\ndeliberate "
+                       "hedge, not a wasted slot.")
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title>
 <meta name="description" content="{_html.escape(description)}">
 {_og_meta(
-    "Rate my World Cup fantasy team",
+    page_title,
     description, "/rate/", "website")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -2180,28 +2234,27 @@ def rate_page(round_no: int) -> str:
 <div class="wrap">
 <div class="rate-wrap">
 <div class="pagelabel" style="margin-top:34px">Interactive</div>
-<h1>Rate my World Cup fantasy team</h1>
-<p class="stand">Pick your 15 — get instant Monte-Carlo projections, captain check,
-sub-chain notes and injury flags. Nothing leaves your browser.</p>
+<h1>{page_title}</h1>
+<p class="stand">{stand}</p>
 
 <noscript><div class="rate-noscript">This tool needs JavaScript (self-hosted, no
 tracking). Prefer no JS? The full projections are at
 <a href="{json_url}">{json_url}</a> and in every article.</div></noscript>
 
-<form class="rate-form" id="rate-form" data-round="{round_no}" data-players-url="{json_url}">
+<form class="rate-form" id="rate-form" data-round="{round_no}"{unit_attr} data-players-url="{json_url}">
 <datalist id="players-dl"></datalist>
 <div class="slot-grid" id="slot-grid">
 <div class="slot-head">Starting XI <span class="rate-hint">tap C to captain</span></div>
 {"".join(f'''<div class="slot-row"><input class="slot" list="players-dl" data-bench="0"
 placeholder="Player {i}" autocomplete="off" spellcheck="false"><label class="cappick"
 title="captain"><input type="radio" name="cap" value="{i - 1}"><span>C</span></label></div>''' for i in range(1, 12))}
-<div class="slot-head">Bench <span class="rate-hint">counted separately, chain notes included</span></div>
+<div class="slot-head">Bench <span class="rate-hint">{bench_hint}</span></div>
 {"".join(f'''<div class="slot-row"><input class="slot slot-bench" list="players-dl" data-bench="1"
 placeholder="Bench {i}" autocomplete="off" spellcheck="false"></div>''' for i in range(1, 5))}
 </div>
 <details class="rate-paste"><summary>prefer to paste the whole squad as text?</summary>
 <textarea id="team-input" name="team" rows="6"
-placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline separated, (C) marks captain, (B) marks bench"></textarea>
+placeholder="{placeholder}"></textarea>
 </details>
 <div class="rate-actions">
 <button type="submit" id="rate-btn">Rate my team</button>
@@ -2211,15 +2264,7 @@ placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline s
 
 <div id="rate-results" aria-live="polite"></div>
 
-<p class="method"><b>How this works.</b> {METHODOLOGY} Player names are matched against
-this round's projections entirely client-side against
-<a href="{json_url}" style="color:var(--greend)">{json_url}</a> -- no squad is ever sent
-to our servers or anyone else's. Mark bench players with (B): they're shown with
-projected points but left out of your total, and flagged with a "chain option" note
-when a same-position starter of yours kicks off earlier -- FIFA's automatic subs only
-fire on a did-not-play at the very end of the round, but manual subs are allowed up
-until the round's last kickoff, so a strong bench pick with a later fixture is often a
-deliberate hedge, not a wasted slot.</p>
+<p class="method"><b>How this works.</b> {section.methodology} {method_tail}</p>
 </div>
 </div>
 {_footer_html()}
