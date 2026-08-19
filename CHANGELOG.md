@@ -1,7 +1,63 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(553 tests). App: `streamlit run app.py`.
+(631 tests). App: `streamlit run app.py`.
+
+## 2026-08-19 — FPL port phase 4: the site (`/fpl/gw{N}/`, six articles, `--gw` CLI)
+
+The FPL section exists. `python3 -m evmax.build --gw N` builds six articles per
+gameweek under `/fpl/gw{N}/` — `captains`, `wildcard`, `ticker`, `defenders`,
+`efficiency`, `defcon` — each with the full page family (HTML, JSON envelope keyed
+`"gameweek"` not `"round"`, agent-facing `.md` twin, players bulk feed, llms.txt,
+sitemap). **`/` now serves the current gameweek** (owner decision 2026-07-30): the
+FPL build writes the landing to both `/index.html` and `/fpl/gw{N}/index.html`. The
+World Cup tree under `/round/N/` is never touched — its landing survives at
+`/round/8/`, its URLs stay in the FPL build's sitemap (dropping them reads as a
+deindexing request), and `--round` builds exactly what it built yesterday.
+
+How the one renderer serves two competitions: a `Section` descriptor in
+`evmax/render.py` (paths, unit words, pill labels, points-table naming,
+methodology line) threads through every page function **with a World Cup
+default**, so every existing call site renders byte-identical HTML — the WC suites
+passed unchanged, which was the regression gate. This is deliberately NOT the
+templating refactor (spec §12, September): a second page family sharing
+primitives, not one template engine.
+
+The FPL-specific pieces live outside the frozen WC modules: `evmax/fpl_articles.py`
+(pure ranking + squad building) and `evmax/fpl_build.py` (pipeline + preflight).
+The 15-man squad builder enforces the **three-per-club cap** on every selection and
+every swap — the one rule `articles.wildcard_squad` doesn't have, and retrofitting
+it would have put the track record's dependency at risk. The ticker is one row per
+CLUB (not per fixture) so **blanks and doubles** render correctly months before
+live data exhibits them (synthetic tests only, by necessity), sums expected clean
+sheets across a double (points-denominated, so it can exceed 1.0), and labels every
+row's provenance — `market` / `model` / `mixed` — because ESPN prices only days
+ahead and silent uniformity would misrepresent confidence.
+
+The carried Phase 3 double-gameweek bonus question is **settled, and the answer is
+NO**: `total_points`' `played/sims` scaling never approaches 2.0 for a doubled
+player (`ps.sims` counts per match appearance), so the assembly path is a per-MATCH
+average — exactly half the week. The order book's `x_points` now reads off
+`SimPointsAccumulator.mean()`, which sums a player's matches within each sim.
+Pinned at 2x in `tests/test_fpl_model.TestDoubleGameweekTotalPoints`.
+
+Also landed on the way: derived row columns in the cached artifact (`captain_ev`,
+`value`, `p_defcon`, `cs_points`, `kickoff`; rounding at the single `_derive_row`
+choke point), per-match scoreline summaries stored IN the artifact (spec §6 —
+`MatchSample` doesn't survive JSON, so derivation happens before the store),
+`simcache.artifacts_for()` so preflight can tell an expected first-build miss from
+an unexpected one, a **GW-stage filter** in the FPL model layer (WC round numbers
+collide with FPL gameweek numbers in the shared SCHEDULE; without it the ticker
+published 48 national teams), section-namespaced prose caching
+(`data/articles/fpl-gw{N}/` — GW1 no longer collides with WC round 1), an FPL
+field glossary + `defcon`/`ticker` focus blocks in the LLM prompt, and hand-written
+prose templates for all six slugs so a `--no-llm` build reads like a real article
+("B.Fernandes is the gameweek 1 captain", never "Gameweek analysis: Captains").
+
+Verified on a real GW1 build (50k sims, offline off the cached feeds): 563 players,
+legal 3-5-2 at 98.0m under the club cap, 20-club ticker with no blanks, projection
+snapshots frozen to `evmax/assets/projections/fpl-gw1/` (GW1 was still open — the
+same production-only + pre-lock guards as the WC's). 78 new tests. Suite: 631.
 
 ## 2026-08-19 — FPL market lambdas: the fixture layer exists now (`core/fpl_odds.py`)
 
