@@ -71,6 +71,86 @@ class TestEfficiency(unittest.TestCase):
         self.assertEqual([e["name"] for e in fpl_articles.efficiency(rows)], ["Ok"])
 
 
+def _pool(n_per_pos=8, teams=("ARS", "LIV", "MCI", "CHE", "NEW", "AVL", "BHA")):
+    """A pool big enough to build a legal 15 in any formation, priced 4.0-9.0."""
+    rows, i = [], 0
+    for pos in ("GK", "DEF", "MID", "FWD"):
+        for k in range(n_per_pos):
+            i += 1
+            rows.append(_row(f"{pos}{k}", pos, 8.0 - k * 0.4,
+                             price=4.0 + k * 0.5, team=teams[i % len(teams)]))
+    return rows
+
+
+class TestFplSquad(unittest.TestCase):
+    def test_squad_is_fifteen_with_the_right_quota(self):
+        entries, meta = fpl_articles.fpl_squad(_pool())
+        self.assertEqual(len(entries), 15)
+        counts = {}
+        for e in entries:
+            counts[e["position"]] = counts.get(e["position"], 0) + 1
+        self.assertEqual(counts, {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3})
+
+    def test_within_budget(self):
+        entries, meta = fpl_articles.fpl_squad(_pool())
+        self.assertLessEqual(meta["total_cost"], 100.0)
+        self.assertAlmostEqual(meta["left_over"], 100.0 - meta["total_cost"], places=2)
+
+    def test_no_more_than_three_per_club(self):
+        entries, _meta = fpl_articles.fpl_squad(_pool())
+        counts = {}
+        for e in entries:
+            counts[e["team"]] = counts.get(e["team"], 0) + 1
+        self.assertTrue(all(c <= 3 for c in counts.values()),
+                        f"club cap violated: {counts}")
+
+    def test_club_cap_holds_when_one_club_dominates_the_pool(self):
+        """The adversarial case: the eleven best players all play for one club, so
+        a cap-blind greedy build would pick them and ship an illegal squad."""
+        rows = _pool()
+        for r in rows[:11]:
+            r["team"] = "ARS"
+            r["x_points"] = 12.0
+            r["value"] = round(12.0 / r["price"], 3)
+        entries, _meta = fpl_articles.fpl_squad(rows)
+        arsenal = sum(1 for e in entries if e["team"] == "ARS")
+        self.assertLessEqual(arsenal, 3)
+
+    def test_xi_formation_is_legal(self):
+        entries, meta = fpl_articles.fpl_squad(_pool())
+        xi = [e for e in entries if e["role"] == "XI"]
+        self.assertEqual(len(xi), 11)
+        counts = {pos: sum(1 for e in xi if e["position"] == pos)
+                  for pos in ("GK", "DEF", "MID", "FWD")}
+        self.assertEqual(counts["GK"], 1)
+        self.assertTrue(3 <= counts["DEF"] <= 5)
+        self.assertTrue(2 <= counts["MID"] <= 5)
+        self.assertTrue(1 <= counts["FWD"] <= 3)
+        self.assertEqual(meta["formation"],
+                         f"{counts['DEF']}-{counts['MID']}-{counts['FWD']}")
+
+    def test_roles_and_ranks(self):
+        entries, _meta = fpl_articles.fpl_squad(_pool())
+        xi = [e for e in entries if e["role"] == "XI"]
+        bench = [e for e in entries if e["role"] == "Bench"]
+        self.assertEqual(len(bench), 4)
+        self.assertEqual([e["rank"] for e in xi], list(range(1, 12)))
+        self.assertEqual([e["rank"] for e in bench], [12, 13, 14, 15])
+
+    def test_impossible_budget_raises(self):
+        rows = _pool()
+        for r in rows:
+            r["price"] = 15.0
+        with self.assertRaises(ValueError):
+            fpl_articles.fpl_squad(rows)
+
+    def test_priceless_rows_are_excluded(self):
+        rows = _pool()
+        rows[0]["price"] = None
+        entries, _meta = fpl_articles.fpl_squad(rows)
+        self.assertNotIn(rows[0]["name"], [e["name"] for e in entries])
+
+
 class TestDefconLeaders(unittest.TestCase):
     def test_ranked_by_probability_not_points(self):
         rows = [_row("Solid", "DEF", 4.0, p_defcon=0.71, defcon=1.42),
