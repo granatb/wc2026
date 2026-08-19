@@ -1674,8 +1674,57 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
     )
 
 
+# Duel-strip CSS is injected ONLY when a duel is passed (see landing_page):
+# _STYLE is embedded byte-for-byte in every World Cup page, and those pages are
+# frozen published claims — appending to _STYLE itself would change them all.
+_DUEL_CSS = (
+    ".duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;"
+    "gap:14px;background:var(--surf);border:1px solid var(--line);"
+    "border-radius:12px;padding:14px 18px;margin-bottom:22px}"
+    ".duel-side{display:flex;flex-direction:column;gap:2px;min-width:0}"
+    ".duel-side.consensus{text-align:right;align-items:flex-end}"
+    ".duel-side:hover .duel-meta{color:var(--greend)}"
+    ".duel-tag{font-size:10.5px;font-weight:800;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--ink3)}"
+    ".duel-total{font-size:24px;font-weight:800;color:var(--ink);"
+    "font-variant-numeric:tabular-nums;line-height:1.15}"
+    ".duel-total .du{font-size:12px;font-weight:600;color:var(--ink3);"
+    "margin-left:4px}"
+    ".duel-meta{font-size:12.5px;color:var(--ink2)}"
+    ".duel-vs{font-size:12px;font-weight:800;color:var(--ink3);"
+    "text-transform:uppercase;letter-spacing:1px}"
+)
+
+
+def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
+    """The landing's compact model-vs-consensus strip: both published squads'
+    projected XI totals (captain doubled) side by side, each side linking to
+    its article. Data is the two squad articles' own meta — no new simulation,
+    so the strip can never disagree with the pages it points at.
+
+    duel: {"model": squad_article meta, "consensus": squad_article meta}.
+    """
+    if not duel:
+        return ""
+    sides = {}
+    for key, slug, label in (("model", "our-squad", "Model"),
+                             ("consensus", "consensus-squad", "Consensus")):
+        m = duel[key]
+        sides[key] = (
+            f'<a class="duel-side {key}" '
+            f'href="{section.article_path(round_no, slug)}">'
+            f'<span class="duel-tag">{label}</span>'
+            f'<span class="duel-total">{m["projected_total"]:.2f}'
+            f'<span class="du">proj</span></span>'
+            f'<span class="duel-meta">{_html.escape(m["formation"])} · '
+            f'{_html.escape(m["captain"])} (c)</span>'
+            f'</a>')
+    return (f'<div class="duel">{sides["model"]}'
+            f'<span class="duel-vs">vs</span>{sides["consensus"]}</div>')
+
+
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
-                 available_rounds=None, live_xi=None, section=WC):
+                 available_rounds=None, live_xi=None, duel=None, section=WC):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1721,9 +1770,11 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         f'{_round_switcher_html(available_rounds or [round_no], round_no, base_path=section.switcher_base(), abbr=section.unit_abbr)}'
         f'{_rate_cta_html()}</div>'
     )
+    # duel shares live_xi's template line so a duel-less landing (every World
+    # Cup build) keeps today's whitespace byte-for-byte.
     feat_content = f"""<div class="pagelabel">{section.label} · {section.kicker(round_no)}</div>
 {hero_actions}
-{_live_xi_html(live_xi, round_no, section=section)}
+{_live_xi_html(live_xi, round_no, section=section)}{_duel_strip_html(duel, round_no, section=section)}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1770,7 +1821,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_MATCH_CSS}</style>
+<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel else ""}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}

@@ -365,6 +365,31 @@ class TestGameweekBuild(unittest.TestCase):
         untouched (same files, same mtimes) rather than absent."""
         self.assertEqual(_snapshot_state(), self._snap_before)
 
+    def test_landing_leads_with_our_squad_then_captains_then_the_duel(self):
+        html = self._read("/index.html")
+        # hero: our-squad is the featured block
+        self.assertIn("Featured · Our Squad", html)
+        self.assertIn('href="/fpl/gw1/our-squad/"', html)
+        # captains is the #2 surface: first card of the feed
+        feed_at = html.find('<div class="feed">')
+        self.assertGreater(feed_at, -1)
+        cap_at = html.find('href="/fpl/gw1/captains/"', feed_at)
+        cons_at = html.find('href="/fpl/gw1/consensus-squad/"', feed_at)
+        self.assertGreater(cap_at, -1)
+        self.assertGreater(cons_at, cap_at)
+        # duel strip: both labels present with two projected totals
+        self.assertIn('class="duel"', html)
+        self.assertIn(">Model<", html)
+        self.assertIn(">Consensus<", html)
+
+    def test_duel_totals_match_the_squad_articles_own_meta(self):
+        """The strip's numbers are the two articles' projected_total — the
+        landing must never disagree with the pages it links to."""
+        html = self._read("/index.html")
+        for slug in ("our-squad", "consensus-squad"):
+            env = json.loads(self._read(f"/api/fpl/gw1/{slug}.json"))
+            self.assertIn(f'{env["squad"]["projected_total"]:.2f}', html)
+
     def test_squad_articles_publish_the_full_page_family_with_meta(self):
         """The two squad slugs are first-class articles: HTML + JSON envelope
         (with the squad meta block) + .md twin, like the six existing ones."""
@@ -563,3 +588,44 @@ class TestLoadStates(unittest.TestCase):
         states = fpl_build.load_states(fpl_api.parse_players(boot))
         self.assertEqual(states["model"]["strategy"], "model")
         self.assertEqual(states["consensus"]["strategy"], "consensus")
+
+
+_DUEL = {
+    "model": {"projected_total": 74.17, "formation": "3-5-2",
+              "captain": "B.Fernandes", "team_name": "The Model XI"},
+    "consensus": {"projected_total": 60.4, "formation": "3-5-2",
+                  "captain": "Haaland", "team_name": "The Consensus XI"},
+}
+
+
+class TestLandingDuel(unittest.TestCase):
+    def _landing(self, duel=None, section=None):
+        featured = {"slug": "our-squad",
+                    "prose": {"headline": "H", "standfirst": "S",
+                              "body_html": "<p>B</p>", "bottom_line": "BL",
+                              "source": "template"},
+                    "viz_html": ""}
+        feed = [{"slug": "captains", "headline": "H", "teaser": "T",
+                 "stat_value": "12.0", "stat_label": "Captain EV"}]
+        return render.landing_page(1, featured, feed, date_str="20 August 2026",
+                                   duel=duel, section=section or render.FPL)
+
+    def test_duel_strip_shows_both_totals_and_labels(self):
+        html = self._landing(duel=_DUEL)
+        self.assertIn("74.17", html)
+        self.assertIn("60.40", html)
+        self.assertIn(">Model<", html)
+        self.assertIn(">Consensus<", html)
+        self.assertIn("B.Fernandes (c)", html)
+        self.assertIn("Haaland (c)", html)
+
+    def test_duel_sides_link_to_the_two_squad_articles(self):
+        html = self._landing(duel=_DUEL)
+        self.assertIn('href="/fpl/gw1/our-squad/"', html)
+        self.assertIn('href="/fpl/gw1/consensus-squad/"', html)
+
+    def test_no_duel_means_no_duel_markup_or_css(self):
+        """The World Cup landing never passes a duel; its bytes must not grow
+        the strip's class names or stylesheet."""
+        html = self._landing(duel=None, section=render.WC)
+        self.assertNotIn("duel", html)

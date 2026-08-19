@@ -357,31 +357,42 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------
+    # Owner decision 2026-08-19: our-squad is the hero, captains the #2 surface
+    # (first feed card, via ARTICLES order), the rest the supporting feed.
     featured = {
-        "slug": "captains",
-        "prose": prose_map["captains"],
-        "viz_html": render.ev_bar(
-            entries_map["captains"][:_FEATURED_VIZ_MAX_ROWS], "captain_ev",
-            width=400, row_h=40, label_size=15, value_size=14, bar_h=22,
-            reach_metric="ceiling", reach_scale=2.0),
+        "slug": "our-squad",
+        "prose": prose_map["our-squad"],
+        "viz_html": render.pitch_svg([e for e in entries_map["our-squad"]
+                                      if e.get("role") == "XI"]),
     }
     feed = []
     for slug in ARTICLES:
-        if slug == "captains":
+        if slug == "our-squad":
             continue
         entries, columns = entries_map[slug], _COLUMNS[slug]
-        top = entries[0] if entries else {}
+        if slug in SQUAD_SLUGS:
+            # A squad card's number is the team's projected total (captain
+            # doubled), not the first table column of its first player.
+            stat_value = f"{metas[slug]['projected_total']:.2f}"
+            stat_label = "Projected XI, captain doubled"
+        else:
+            top = entries[0] if entries else {}
+            stat_value = render._fmt(columns[0], top)
+            stat_label = render._COL_LABEL.get(columns[0], columns[0])
         feed.append({
             "slug": slug,
             "headline": prose_map[slug]["headline"],
             "teaser": prose_map[slug]["standfirst"],
-            "stat_value": render._fmt(columns[0], top),
-            "stat_label": render._COL_LABEL.get(columns[0], columns[0]),
+            "stat_value": stat_value,
+            "stat_label": stat_label,
         })
 
+    # The model-vs-consensus duel strip: the two squads' own article meta,
+    # no new simulation (post-GW realized-vs-projected is next phase).
+    duel = {"model": metas["our-squad"], "consensus": metas["consensus-squad"]}
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
-                                  section=section)
+                                  duel=duel, section=section)
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at
