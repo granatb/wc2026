@@ -1,7 +1,40 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(696 tests). App: `streamlit run app.py`.
+(725 tests). App: `streamlit run app.py`.
+
+## 2026-08-19 — Phase 4 review fixes (pre-merge)
+
+Nine findings from the pre-merge review of the FPL port, fixed one commit
+each. Correctness: **`kickoff_order` is now a dense rank over the published
+top-20's distinct kickoff instants** (it enumerated all ~560 rows, giving two
+players in the same match different orders and letting the captains prose
+claim a false "kicks off later" — the vice sentence now claims first/later
+only when the instants genuinely differ); **the sim cache key covers kickoff
+times** (a fixture re-slotted for TV with unchanged odds used to HIT and serve
+the stale kickoff); **the FPL sitemap keeps prior gameweeks** (the disk-walk
+only covered `out/round`, so building GW2 would have dropped every GW1 URL — a
+deindexing request); **both builds write the root-level site chrome** via one
+shared `write_site_chrome` (the FPL build produced no GSC verification file,
+`/_redirects` or `/track-record/` while pointing at the latter from its own
+nav and sitemap).
+
+Honesty of the prose: **"seven expert sources" now derives from
+`source_count` in the consensus state** (validated, stamped through
+`squad_article` onto entries) and the **"the consensus XI owns him" sentence
+renders only when the consensus squad actually owns Haaland** (flag stamped by
+the build, the only layer holding both squads); **FPL pages describe the
+ceiling as what it is** — the average of a player's best 15% of simulations, a
+tail mean strictly ≥ the p85 the old "85th-percentile" wording claimed (WC
+text byte-identical via the Section descriptor). Double-gameweek minimum fix:
+`_derive_row` documents that bonus/defcon/cs_points are per-MATCH while
+x_points is per-WEEK, rows carry their club's fixture count, and the defenders
+prose frames the columns as components of the weekly total only for
+single-fixture players (full per-sim rework deferred to a pre-first-DGW task).
+Hardening: the state validator rejects bool `bench_order` and validates
+`free_transfers` as a non-negative int; `TestGameweekBuild` skips (not errors)
+without the data cache. WC pages verified byte-identical at render level.
+Suite: 696 → 725.
 
 ## 2026-08-19 — FPL phase 4b: the two squad slugs, the landing duel, the FPL rate page
 

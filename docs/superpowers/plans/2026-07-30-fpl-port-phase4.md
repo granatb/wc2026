@@ -89,7 +89,7 @@ Do this first. If it fails, every `x_points` number the rest of Phase 4 publishe
 **Files:**
 - Test: `tests/test_fpl_model.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_fpl_model.py`:
 
@@ -169,7 +169,7 @@ class TestDoubleGameweekTotalPoints(unittest.TestCase):
 
 Check the imports at the top of `tests/test_fpl_model.py` — it must import `datetime`, `timezone`, `engine_events` and `fpl_model`. Add whatever is missing.
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 ```bash
 python3 -m unittest tests.test_fpl_model.TestDoubleGameweekTotalPoints -v
@@ -180,7 +180,7 @@ This test may PASS on the first run — that is a legitimate outcome, not a mist
 - **PASS** → the per-match average × `played/sims` really does reconstruct the sum. Record that in Step 3 and move on.
 - **FAIL** → the assembly path under-counts (or over-counts) bonus across a double. Take option 2 from the Phase 3 note: change `build_rows` (Task 2) to read `x_points` off `points.mean(name)` instead of `total_points(...)`, which removes the whole class of question. Do not hand-patch the scaling factor.
 
-- [ ] **Step 3: Record the answer**
+- [x] **Step 3: Record the answer**
 
 Add a comment above `BonusAccumulator.expected` in `games/fpl/model.py` stating what the test established. If it passed:
 
@@ -198,7 +198,7 @@ Add a comment above `BonusAccumulator.expected` in `games/fpl/model.py` stating 
         """
 ```
 
-- [ ] **Step 4: Run the full suite**
+- [x] **Step 4: Run the full suite**
 
 ```bash
 python3 -m unittest discover -s tests -t .
@@ -206,7 +206,7 @@ python3 -m unittest discover -s tests -t .
 
 Expected: 545 tests, all passing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_fpl_model.py games/fpl/model.py && git commit -m "test(fpl): settle the double-gameweek bonus question with a synthetic cross-check"
@@ -224,7 +224,7 @@ Rounding is applied here too: the WC rows round on the way out and the FPL rows 
 - Modify: `games/fpl/model.py`
 - Test: `tests/test_fpl_model.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_fpl_model.py`:
 
@@ -311,7 +311,7 @@ def _tiny_build_rows(sims=300, gameweek=98):
         fixtures.SCHEDULE.extend(saved)
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 ```bash
 python3 -m unittest tests.test_fpl_model.TestDerivedRowColumns -v
@@ -319,7 +319,7 @@ python3 -m unittest tests.test_fpl_model.TestDerivedRowColumns -v
 
 Expected: FAIL — `AttributeError: module 'games.fpl.model' has no attribute '_derive_row'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `games/fpl/model.py`, add above `build_rows`:
 
@@ -428,7 +428,7 @@ def defcon_points(position: str, defcon_samples: list) -> float:
     return DEFCON_PTS * defcon_probability(position, defcon_samples)
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_model -v
@@ -436,7 +436,7 @@ python3 -m unittest tests.test_fpl_model -v
 
 Expected: PASS, including the existing DefCon tests — `defcon_points` is unchanged in behaviour, only in composition.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add games/fpl/model.py tests/test_fpl_model.py && git commit -m "feat(fpl): derived row columns (captain EV, value, DefCon probability, CS points, kickoff)"
@@ -456,7 +456,7 @@ This task also gives the caller a cache hit/miss signal, which Task 11's preflig
 - Modify: `games/fpl/model.py`, `core/simcache.py`
 - Test: `tests/test_fpl_model.py`, `tests/test_simcache.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fpl_model.py`:
 
@@ -556,7 +556,7 @@ class TestArtifactsForGameweek(unittest.TestCase):
 
 Make sure `tempfile` and `mock` are imported at the top of `tests/test_simcache.py`.
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_model.TestMatchSummaries tests.test_simcache.TestArtifactsForGameweek -v
@@ -564,7 +564,7 @@ python3 -m unittest tests.test_fpl_model.TestMatchSummaries tests.test_simcache.
 
 Expected: FAIL — no `build_artifact`, no `artifacts_for`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `core/simcache.py`, add at the end:
 
@@ -709,7 +709,7 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
 
 Note `cached.get("matches", [])`: artifacts written before this task have no `matches` key. They cannot actually be served — the source fingerprint covers `games/fpl/model.py`, so editing this file invalidates every one of them — but the `.get` costs nothing and means a hand-copied artifact degrades rather than crashing.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_model tests.test_simcache -v
@@ -717,7 +717,7 @@ python3 -m unittest tests.test_fpl_model tests.test_simcache -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add games/fpl/model.py core/simcache.py tests/test_fpl_model.py tests/test_simcache.py && git commit -m "feat(fpl): per-match summaries in the cached artifact + gameweek artifact listing"
@@ -735,7 +735,7 @@ A `Section` descriptor carries the differences. Defaults keep every existing cal
 - Modify: `evmax/render.py`
 - Test: `tests/test_fpl_site.py` (create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_fpl_site.py`:
 
@@ -807,7 +807,7 @@ class TestArticleMdSection(unittest.TestCase):
         self.assertNotIn("/api/round/", md)
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 ```bash
 python3 -m unittest tests.test_fpl_site -v
@@ -815,7 +815,7 @@ python3 -m unittest tests.test_fpl_site -v
 
 Expected: FAIL — `AttributeError: module 'evmax.render' has no attribute 'WC'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `evmax/render.py`, add after the `SITE_URL` / brand constants near the top:
 
@@ -921,7 +921,7 @@ And `article_md`: add `section=WC` to the signature and replace its hardcoded JS
     json_url = f"{SITE_URL}{section.json_path(round_no, slug)}"
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site tests.test_site_render -v
@@ -929,7 +929,7 @@ python3 -m unittest tests.test_fpl_site tests.test_site_render -v
 
 Expected: PASS, both files. `test_site_render` passing unchanged is the point of this task — if it does not, a default is wrong.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/render.py tests/test_fpl_site.py && git commit -m "feat(site): Section descriptor; article pages render under any URL namespace"
@@ -945,7 +945,7 @@ Same treatment for the remaining page functions. These carry the "World Cup Fant
 - Modify: `evmax/render.py`
 - Test: `tests/test_fpl_site.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_fpl_site.py`:
 
@@ -1009,7 +1009,7 @@ class TestArticleJsonSection(unittest.TestCase):
         self.assertEqual(env["round"], 5)
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 ```bash
 python3 -m unittest tests.test_fpl_site -v
@@ -1017,7 +1017,7 @@ python3 -m unittest tests.test_fpl_site -v
 
 Expected: FAIL — `landing_page() got an unexpected keyword argument 'section'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `article_json` — add `section=WC` and key the unit off it:
 
@@ -1094,7 +1094,7 @@ def sitemap_xml(round_no, nav, lastmod=None, section=WC, extra_urls=None):
     urls += [f"{SITE_URL}{p}" for p in (extra_urls or [])]
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site tests.test_site_render tests.test_site_build -v
@@ -1102,7 +1102,7 @@ python3 -m unittest tests.test_fpl_site tests.test_site_render tests.test_site_b
 
 Expected: PASS across all three. The WC suites must not need a single edit.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/render.py tests/test_fpl_site.py && git commit -m "feat(site): section-aware landing page, feed cards, sitemap and llms.txt"
@@ -1120,7 +1120,7 @@ Price tiers are the one thing worth reusing: `articles.price_tier`'s Budget/Mid/
 - Create: `evmax/fpl_articles.py`
 - Test: `tests/test_fpl_articles.py` (create)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_fpl_articles.py`:
 
@@ -1230,7 +1230,7 @@ class TestDefconLeaders(unittest.TestCase):
         self.assertEqual(by_name["Engine"]["defcon_threshold"], 12)
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles -v
@@ -1238,7 +1238,7 @@ python3 -m unittest tests.test_fpl_articles -v
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'evmax.fpl_articles'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `evmax/fpl_articles.py`:
 
@@ -1346,7 +1346,7 @@ def defcon_leaders(rows: list) -> list:
     return ranked
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles -v
@@ -1354,7 +1354,7 @@ python3 -m unittest tests.test_fpl_articles -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/fpl_articles.py tests/test_fpl_articles.py && git commit -m "feat(fpl): captains, defenders, efficiency and DefCon-leader rankings"
@@ -1372,7 +1372,7 @@ Write a separate builder. It reuses `legal_xi_formations()` and `formation_of()`
 - Modify: `evmax/fpl_articles.py`
 - Test: `tests/test_fpl_articles.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fpl_articles.py`:
 
@@ -1457,7 +1457,7 @@ class TestFplSquad(unittest.TestCase):
         self.assertNotIn(rows[0]["name"], [e["name"] for e in entries])
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles.TestFplSquad -v
@@ -1465,7 +1465,7 @@ python3 -m unittest tests.test_fpl_articles.TestFplSquad -v
 
 Expected: FAIL — `module 'evmax.fpl_articles' has no attribute 'fpl_squad'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Append to `evmax/fpl_articles.py`:
 
@@ -1722,7 +1722,7 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
 
 Update `fpl_squad`'s call to match: `_squad_for_formation(pool, xi_counts, budget, max_per_club)`. Delete the `_club_ok` module-level helper drafted above — `club_ok` is now a closure over `cap`, and two functions doing the same job with different cap sources is exactly the drift this task is trying to avoid.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles -v
@@ -1730,7 +1730,7 @@ python3 -m unittest tests.test_fpl_articles -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/fpl_articles.py tests/test_fpl_articles.py && git commit -m "feat(fpl): 15-man squad builder with the three-per-club cap"
@@ -1748,7 +1748,7 @@ The other requirement is spec §8's confidence labelling: ESPN prices fixtures o
 - Modify: `evmax/fpl_articles.py`
 - Test: `tests/test_fpl_articles.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fpl_articles.py`:
 
@@ -1829,7 +1829,7 @@ class TestTicker(unittest.TestCase):
         self.assertEqual(by_name["BUR"]["env"], "avoid")
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles.TestTicker -v
@@ -1837,7 +1837,7 @@ python3 -m unittest tests.test_fpl_articles.TestTicker -v
 
 Expected: FAIL — no `ticker`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Append to `evmax/fpl_articles.py`:
 
@@ -1944,7 +1944,7 @@ def ticker(matches: list, clubs: list) -> list:
     return out
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_articles -v
@@ -1952,7 +1952,7 @@ python3 -m unittest tests.test_fpl_articles -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/fpl_articles.py tests/test_fpl_articles.py && git commit -m "feat(fpl): fixture ticker with blank/double aggregation and per-club provenance"
@@ -1968,7 +1968,7 @@ git add evmax/fpl_articles.py tests/test_fpl_articles.py && git commit -m "feat(
 - Modify: `evmax/writer.py`, `evmax/prompts.py`
 - Test: `tests/test_fpl_site.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fpl_site.py`:
 
@@ -2020,7 +2020,7 @@ That last assertion is too clever and will break on any prompt rewording. Replac
         self.assertNotIn("p_defcon", p)
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_site.TestProseCacheNamespace tests.test_fpl_site.TestPromptUnit -v
@@ -2028,7 +2028,7 @@ python3 -m unittest tests.test_fpl_site.TestProseCacheNamespace tests.test_fpl_s
 
 Expected: FAIL — `article_prose() got an unexpected keyword argument 'cache_name'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `evmax/writer.py`, extend `article_prose`:
 
@@ -2165,7 +2165,7 @@ Add FPL branches to the `subject_instruction` chain, before the generic `elif su
         )
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site tests.test_site_writer -v
@@ -2173,7 +2173,7 @@ python3 -m unittest tests.test_fpl_site tests.test_site_writer -v
 
 Expected: PASS both. `test_site_writer` unchanged proves the WC prose path is intact.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/writer.py evmax/prompts.py tests/test_fpl_site.py && git commit -m "feat(site): section-aware prose cache, gameweek unit and FPL field glossary"
@@ -2189,7 +2189,7 @@ Owner decision: a `--no-llm` build must read like a real article. The generic fa
 - Modify: `evmax/writer.py`
 - Test: `tests/test_fpl_site.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_fpl_site.py`:
 
@@ -2252,7 +2252,7 @@ class TestFplTemplates(unittest.TestCase):
                 self.assertTrue(prose["headline"])
 ```
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 ```bash
 python3 -m unittest tests.test_fpl_site.TestFplTemplates -v
@@ -2260,7 +2260,7 @@ python3 -m unittest tests.test_fpl_site.TestFplTemplates -v
 
 Expected: FAIL — headlines read "Gameweek analysis: Defcon".
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 The existing `_TEMPLATES` dict is keyed by slug, and four FPL slugs (`captains`, `wildcard`, `defenders`, `efficiency`) collide with World Cup slugs that must keep their current prose. Key the FPL templates separately and select on the unit.
 
@@ -2427,7 +2427,7 @@ and make the empty-entries early return unit-aware:
         }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site tests.test_site_writer -v
@@ -2435,7 +2435,7 @@ python3 -m unittest tests.test_fpl_site tests.test_site_writer -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/writer.py tests/test_fpl_site.py && git commit -m "feat(site): deterministic prose templates for the six FPL articles"
@@ -2451,7 +2451,7 @@ Four warnings the spec names, plus the hard aborts that stop a build dying later
 - Create: `evmax/fpl_build.py`
 - Test: `tests/test_fpl_site.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_fpl_site.py`:
 
@@ -2532,7 +2532,7 @@ class TestFplPreflight(unittest.TestCase):
             self.assertEqual(fpl_build.cache_warnings(1, cache_hit=True), [])
 ```
 
-- [ ] **Step 2: Run them, verify they fail**
+- [x] **Step 2: Run them, verify they fail**
 
 ```bash
 python3 -m unittest tests.test_fpl_site.TestFplPreflight -v
@@ -2540,7 +2540,7 @@ python3 -m unittest tests.test_fpl_site.TestFplPreflight -v
 
 Expected: FAIL — `No module named 'evmax.fpl_build'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `evmax/fpl_build.py` with the preflight only (the build pipeline lands in Task 12):
 
@@ -2647,7 +2647,7 @@ def cache_warnings(gameweek: int, cache_hit: bool) -> list:
             f"data change; investigate if you changed neither."]
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site.TestFplPreflight -v
@@ -2655,7 +2655,7 @@ python3 -m unittest tests.test_fpl_site.TestFplPreflight -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/fpl_build.py tests/test_fpl_site.py && git commit -m "feat(fpl): build preflight — unpriced fixtures, cold starts, stale availability, cache misses"
@@ -2671,7 +2671,7 @@ Assemble it: load the gameweek, build the artifact, rank the six articles, rende
 - Modify: `evmax/fpl_build.py`, `evmax/build.py`
 - Test: `tests/test_fpl_site.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_fpl_site.py`:
 
@@ -2765,7 +2765,7 @@ class TestCliRouting(unittest.TestCase):
 
 Add `import json` to the test file's imports.
 
-- [ ] **Step 2: Run it, verify it fails**
+- [x] **Step 2: Run it, verify it fails**
 
 ```bash
 python3 -m unittest tests.test_fpl_site.TestGameweekBuild -v
@@ -2773,7 +2773,7 @@ python3 -m unittest tests.test_fpl_site.TestGameweekBuild -v
 
 Expected: FAIL — `module 'evmax.fpl_build' has no attribute 'build'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Append to `evmax/fpl_build.py`:
 
@@ -3111,7 +3111,7 @@ def main() -> None:
         build(a.round, a.sims, a.out, a.url, use_llm=not a.no_llm)
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 python3 -m unittest tests.test_fpl_site -v
@@ -3125,7 +3125,7 @@ python3 -m unittest discover -s tests -t .
 
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add evmax/fpl_build.py evmax/build.py tests/test_fpl_site.py && git commit -m "feat(fpl): gameweek build pipeline and the --gw CLI"
@@ -3140,7 +3140,7 @@ The phase's "done when" is a full GW1 build into `dist/`. Run it for real, look 
 **Files:**
 - Modify: `CHANGELOG.md`, `README.md`
 
-- [ ] **Step 1: Build gameweek 1 into a scratch directory first**
+- [x] **Step 1: Build gameweek 1 into a scratch directory first**
 
 ```bash
 python3 -m evmax.build --gw 1 --sims 8000 --out /tmp/evmax-gw1 --url https://evmax.ai --no-llm
@@ -3152,7 +3152,7 @@ Expected: six articles, a warning line if any fixture is unpriced or any player 
 ls evmax/assets/projections/ | grep fpl || echo "no fpl snapshot (correct for a scratch build)"
 ```
 
-- [ ] **Step 2: Check the output by hand**
+- [x] **Step 2: Check the output by hand**
 
 ```bash
 python3 -c "
@@ -3182,7 +3182,7 @@ print('XI xPts:', env['squad']['xi_xpoints'])
 "
 ```
 
-- [ ] **Step 3: Build into `dist/` for real**
+- [x] **Step 3: Build into `dist/` for real**
 
 ```bash
 python3 -m evmax.build --gw 1 --sims 50000 --out dist --url https://evmax.ai
@@ -3203,7 +3203,7 @@ grep -c "World Cup" dist/round/8/index.html
 
 Expected: both non-zero.
 
-- [ ] **Step 4: Run the full suite one more time**
+- [x] **Step 4: Run the full suite one more time**
 
 ```bash
 python3 -m unittest discover -s tests -t .
@@ -3211,13 +3211,13 @@ python3 -m unittest discover -s tests -t .
 
 Expected: all green. Record the final test count — it goes in the changelog header.
 
-- [ ] **Step 5: Write the changelog and update the README**
+- [x] **Step 5: Write the changelog and update the README**
 
 Add a dated entry at the top of `CHANGELOG.md` covering: the six articles and their URL namespace; the `Section` descriptor and why the templating refactor is still deferred; the three-per-club squad cap; the ticker's blank/double aggregation and provenance labelling; the answer to the carried double-gameweek bonus question; and the root takeover with the WC tree's survival. Update the test count in the file's header line.
 
 In `README.md`, add the FPL build command next to the existing World Cup one, and note that `/` now serves the current gameweek.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add CHANGELOG.md README.md && git commit -m "docs: changelog and README for FPL port phase 4 (the site)"
