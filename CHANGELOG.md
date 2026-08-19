@@ -1,7 +1,40 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(543 tests). App: `streamlit run app.py`.
+(553 tests). App: `streamlit run app.py`.
+
+## 2026-08-19 — FPL market lambdas: the fixture layer exists now (`core/fpl_odds.py`)
+
+Found two days before the GW1 deadline: every FPL fixture simulated at **identical
+league-average lambdas** (1.445 home / 1.35 away). `ratings.TEAM_RATINGS` holds only
+national teams, so `Fixture.lambdas()` fell back to `TeamRating(name)` defaults for all
+20 PL clubs — Arsenal (h) v Coventry and Newcastle v Liverpool were the same match to
+the engine. The order book carried zero fixture signal; rankings were pure player
+priors.
+
+New `core/fpl_odds.py`: fetches the gameweek's ESPN `eng.1` scoreboards (the dates come
+from FPL's own fixtures feed), reuses the WC path end-to-end (`espn.parse_scoreboard` →
+`espn.derive_match`: de-vig → Dixon-Coles solve), maps ESPN team names onto FPL short
+names via an explicit 20-club table (raises on an unknown club rather than guessing),
+and caches to `data/fpl/odds_gw{N}.json`. `games/fpl/model.load_gameweek` applies the
+lambdas to the GW's fixtures and reports loudly — both the success ("market lambdas
+applied to 10 fixture(s)") and any fixture left on flat priors. `espn.scoreboard_url` /
+`fetch_scoreboard` gained an optional `league` parameter defaulting to today's
+behaviour; no WC call site changes.
+
+Measured effect on GW1 (50k sims, DraftKings closing lines 2026-08-19): Bruno
+Fernandes 6.94 → **8.81** xPts (Hull away, λ 2.18), Haaland 5.69 → 7.74 (λ 2.35 v
+Bournemouth), Saka #10 → #3 (ARS λ 2.56, 81% home win), Senesi #8 → #20 (Spurs away
+at Brentford). The sim cache invalidates automatically — lambdas were already in the
+cache key.
+
+Known gaps, deliberate: ESPN prices only days ahead (GW2 unpriced on 2026-08-19), so
+future-GW projection still needs a strength-persistence layer; the `Team Clean Sheet`
+market the spec flagged is not consumed yet; solved `rho` is stored but the engine
+remains independent-Poisson per team.
+
+10 new tests in `tests/test_fpl_odds.py` (offline, synthetic ESPN payloads shaped from
+the live 2026-08-19 response). Suite: 553.
 
 ## 2026-07-30 — FPL ceiling: tail mean replaces the goal-percentile (phase 4)
 

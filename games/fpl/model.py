@@ -458,6 +458,35 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     if gameweek in events:
         fixtures.set_deadline(gameweek, events[gameweek]["deadline"])
 
+    # Market lambdas: without this every fixture simulates at league-average
+    # strength (ARS v COV == NEW v LIV), so the order book carries no fixture
+    # signal at all. Cached per GW; --refresh re-captures the current lines.
+    from core import fpl_odds
+    odds = None if refresh else fpl_odds.read_cached(gameweek)
+    if odds is None:
+        try:
+            odds = fpl_odds.fetch_gw_odds(gameweek, rows)
+        except Exception as exc:  # network down / feed shape change
+            print(f"  [fpl] WARNING: odds fetch failed ({exc}) -- "
+                  "running on flat prior lambdas")
+            odds = {"matches": {}}
+    priced, unpriced = 0, []
+    for f in fixtures.SCHEDULE:
+        if f.stage != "GW" or f.fantasy_round != gameweek:
+            continue
+        m = (odds.get("matches") or {}).get(f.match_id)
+        if m and m.get("lam_home") is not None:
+            f.lam_home, f.lam_away = m["lam_home"], m["lam_away"]
+            priced += 1
+        else:
+            unpriced.append(f"{f.home} v {f.away}")
+    if unpriced:
+        print(f"  [fpl] WARNING: {len(unpriced)} fixture(s) without market "
+              f"odds, on flat prior lambdas: {', '.join(unpriced)}")
+    if priced:
+        print(f"  [fpl] market lambdas applied to {priced} fixture(s) "
+              f"(odds captured {odds.get('captured_at', 'unknown')})")
+
     # team_matches: how many matches the per-90 sample covers. Preseason the feed
     # carries last season's totals, so a full 38. Once the season starts this should
     # become matches played so far -- tracked by the caller as history accumulates.

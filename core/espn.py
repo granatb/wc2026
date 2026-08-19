@@ -38,8 +38,8 @@ def league_slug() -> str:
     return getattr(config, "ESPN_LEAGUE", "fifa.world")
 
 
-def scoreboard_url() -> str:
-    return _SCOREBOARD_TMPL.format(league=league_slug())
+def scoreboard_url(league: str | None = None) -> str:
+    return _SCOREBOARD_TMPL.format(league=league or league_slug())
 
 
 def core_url() -> str:
@@ -70,8 +70,8 @@ def _get_json(url: str, params: dict | None = None) -> object:
 
 # --- network ---------------------------------------------------------------
 
-def fetch_scoreboard(date_yyyymmdd: str) -> dict:
-    return _get_json(scoreboard_url(), {"dates": date_yyyymmdd})
+def fetch_scoreboard(date_yyyymmdd: str, league: str | None = None) -> dict:
+    return _get_json(scoreboard_url(league), {"dates": date_yyyymmdd})
 
 
 def fetch_propbets(event_id: str, provider: int = DRAFTKINGS) -> dict:
