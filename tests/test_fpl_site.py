@@ -58,6 +58,65 @@ class TestArticlePageSection(unittest.TestCase):
         self.assertNotIn(">R1<", html)
 
 
+class TestLandingSection(unittest.TestCase):
+    def _landing(self, section):
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        feed = [{"slug": "defcon", "headline": "H", "teaser": "T",
+                 "stat_value": "0.72", "stat_label": "P(DefCon)"}]
+        return render.landing_page(1, featured, feed, date_str="20 August 2026",
+                                   section=section)
+
+    def test_fpl_landing_brands_and_links_as_fpl(self):
+        html = self._landing(render.FPL)
+        self.assertIn("Fantasy Premier League", html)
+        self.assertIn("Gameweek 1", html)
+        self.assertIn('href="/fpl/gw1/defcon/"', html)
+        self.assertNotIn("World Cup", html)
+
+    def test_world_cup_landing_is_unchanged(self):
+        html = self._landing(render.WC)
+        self.assertIn("World Cup Fantasy", html)
+        self.assertIn('href="/round/1/defcon/"', html)
+
+
+class TestAgentFilesSection(unittest.TestCase):
+    def test_llms_txt_lists_fpl_urls(self):
+        txt = render.llms_txt(1, [("captains", "Best captain picks")],
+                              section=render.FPL)
+        self.assertIn("/fpl/gw1/captains/", txt)
+        self.assertIn("/api/fpl/gw1/captains.json", txt)
+        self.assertIn("Gameweek 1", txt)
+
+    def test_sitemap_includes_fpl_urls(self):
+        xml = render.sitemap_xml(1, [("captains", "Best captain picks")],
+                                 lastmod="2026-08-20", section=render.FPL)
+        self.assertIn("/fpl/gw1/", xml)
+        self.assertIn("/fpl/gw1/captains/", xml)
+
+    def test_sitemap_can_carry_extra_urls(self):
+        """The FPL build must keep the World Cup tree in the sitemap — those pages
+        are still live and still indexed (D5), and a sitemap that drops them is a
+        deindexing request."""
+        xml = render.sitemap_xml(1, [("captains", "T")], lastmod="2026-08-20",
+                                 section=render.FPL,
+                                 extra_urls=["/round/8/", "/round/8/captains/"])
+        self.assertIn("/round/8/captains/", xml)
+
+
+class TestArticleJsonSection(unittest.TestCase):
+    def test_envelope_names_the_unit(self):
+        env = render.article_json("fantasy_premier_league", 1, "defcon", "T",
+                                  "2026-08-20T00:00:00+00:00", 50000, _ENTRIES,
+                                  section=render.FPL)
+        self.assertEqual(env["gameweek"], 1)
+        self.assertNotIn("round", env)
+
+    def test_world_cup_envelope_keeps_the_round_key(self):
+        env = render.article_json("fifa_world_cup_fantasy", 5, "captains", "T",
+                                  "2026-06-24T00:00:00+00:00", 50000, _ENTRIES)
+        self.assertEqual(env["round"], 5)
+
+
 class TestArticleMdSection(unittest.TestCase):
     def test_fpl_markdown_twin_points_at_the_fpl_tree(self):
         md = render.article_md(1, "captains", "T", _PROSE, _ENTRIES, ["x_points"],

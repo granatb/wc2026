@@ -123,17 +123,22 @@ FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
 
 
 def article_json(competition, fantasy_round, article, title, generated_at, sims, entries,
-                 extra_fields=None):
+                 extra_fields=None, section=WC):
     """extra_fields: optional dict merged into the envelope as additional top-level
-    keys (e.g. wildcard's {"squad": {...}} meta). Never overrides the standard keys."""
+    keys (e.g. wildcard's {"squad": {...}} meta). Never overrides the standard keys.
+
+    The unit key is named for the section — "round" for the World Cup, "gameweek"
+    for FPL — because a consumer reading `"round": 1` off an FPL feed would
+    reasonably think it meant a knockout round."""
+    unit_key = "round" if section.key == "round" else "gameweek"
     env = {
         "competition": competition,
-        "round": fantasy_round,
+        unit_key: fantasy_round,
         "article": article,
         "title": title,
         "generated_at": generated_at,
         "sims": sims,
-        "methodology": METHODOLOGY,
+        "methodology": section.methodology,
         "entries": entries,
         "source": SITE_URL,
         "license": DATA_LICENSE_URL,
@@ -222,10 +227,15 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %",
               "priority_score": "Priority", "vor": "VOR", "p_advance": "Advance %",
               "p_clean_sheet": "CS %", "exp_goals_for": "xGF", "exp_goals_against": "xGA",
-              "top_def": "Best DEF", "top_gk": "Best GK"}
+              "top_def": "Best DEF", "top_gk": "Best GK",
+              # FPL columns (spec §8): reader-facing labels so table headers and
+              # landing stat labels never print a raw key.
+              "p_defcon": "P(DefCon)", "defcon": "DefCon pts", "cs_points": "CS pts",
+              "exp_clean_sheets": "Clean sheets", "fixtures": "Fixtures",
+              "basis": "Basis", "bonus": "Bonus"}
 
 # Columns whose value is already a display-ready string (not a number to format).
-_STRING_COLS = {"top_def", "top_gk"}
+_STRING_COLS = {"top_def", "top_gk", "basis", "opponents"}
 
 
 def _fmt(col, row):
@@ -236,7 +246,7 @@ def _fmt(col, row):
         return str(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col == "p_clean_sheet":
+    if col in ("p_clean_sheet", "p_defcon"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -496,7 +506,7 @@ def _rate_cta_html():
     return ('<a class="rate-cta" href="/rate/">Rate my team <span class="arrow">&rarr;</span></a>')
 
 
-def _live_xi_html(live_xi: dict, round_no: int) -> str:
+def _live_xi_html(live_xi: dict, round_no: int, section=WC) -> str:
     """Mid-round strip: how the round's PUBLISHED XI (frozen at lock) is doing
     so far -- realized official points vs what those already-played players
     were expected to score, vs their combined ceiling. The articles themselves
@@ -522,7 +532,7 @@ def _live_xi_html(live_xi: dict, round_no: int) -> str:
         f'<b class="lx-diff {diff_cls}">{diff_str}</b></span>'
         f'<span class="lx-stat">{live_xi["ceiling"]:.1f} ceiling</span>'
         f'</span>'
-        f'<a class="lx-link" href="/round/{round_no}/wildcard/">The XI &rarr;</a>'
+        f'<a class="lx-link" href="{section.article_path(round_no, "wildcard")}">The XI &rarr;</a>'
         f'</div>'
     )
     # second row: what the full XI is aiming for by the end of the round --
@@ -871,7 +881,7 @@ def _md_fmt(col, row):
         return _escape_pipes(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col == "p_clean_sheet":
+    if col in ("p_clean_sheet", "p_defcon"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -1497,13 +1507,14 @@ def hub_page(round_no, nav, highlights):
 {_footer_html()}</body></html>"""
 
 
-def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None):
-    """A single v2 feed card linking to /round/{round_no}/{slug}/."""
+def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None,
+              section=WC):
+    """A single v2 feed card linking to the section's article page."""
     kicker = _html.escape(slug.replace("-", " ").title())
     date_html = (f'<span style="font-size:11px;color:var(--ink3);margin-top:-4px">'
                  f'{_html.escape(date_str)}</span>' if date_str else "")
     return (
-        f'<a class="card" href="/round/{round_no}/{slug}/">'
+        f'<a class="card" href="{section.article_path(round_no, slug)}">'
         f'<span class="ck">{kicker}</span>'
         f'<h3>{_html.escape(headline)}</h3>'
         f'{date_html}'
@@ -1592,7 +1603,8 @@ def _quick_picks_html(picks: list) -> str:
     return f'<div class="pagelabel">Quick picks</div>{rows}'
 
 
-def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
+def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
+                        section=WC) -> str:
     """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
     list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
     close/top_scoreline, and possibly finished/final_score).
@@ -1600,13 +1612,18 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     Foldable on mobile via a zero-JS checkbox pattern: the checkbox + label are
     hidden on desktop (content always shown); on mobile the label becomes a
     tappable card and `.rail-content` is display:none until the checkbox (its
-    sibling) is checked. No JS anywhere on the site."""
+    sibling) is checked. No JS anywhere on the site.
+
+    The all-fixtures link points at the section's fixture article: the World Cup
+    publishes a dedicated "matches" page; FPL's fixture coverage lives in the
+    ticker, and linking a nonexistent /fpl/gwN/matches/ would ship a dead link."""
     rows = "".join(_fixtures_rail_row(m) for m in fixtures)
     qp = _quick_picks_html(quick_picks) if quick_picks else ""
+    fixtures_slug = "matches" if section.key == "round" else "ticker"
     content = (
         f'{qp}<div class="pagelabel">This round\'s ties</div>'
         f'{rows}'
-        f'<a class="rail-link" href="/round/{round_no}/matches/">All match predictions →</a>'
+        f'<a class="rail-link" href="{section.article_path(round_no, fixtures_slug)}">All match predictions →</a>'
     )
     return (
         '<aside class="rail">'
@@ -1618,7 +1635,7 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
 
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
-                 available_rounds=None, live_xi=None):
+                 available_rounds=None, live_xi=None, section=WC):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1631,8 +1648,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
               with the aside placed after the main content).
     """
     og_block = _og_meta(
-        f"World Cup Fantasy Round {round_no} — simulation-based picks",
-        f"Captain EV, expected points and match predictions for Round {round_no}, "
+        f"{section.label} {section.kicker(round_no)} — simulation-based picks",
+        f"Captain EV, expected points and match predictions for {section.kicker(round_no)}, "
         f"from 50,000 Monte-Carlo simulations. Graded publicly.", "/", "website")
     org_ld = _json.dumps({
         "@context": "https://schema.org", "@type": "Organization", "name": "evmax",
@@ -1649,23 +1666,24 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     feat_viz = featured.get("viz_html", "")
     feat_kicker = "Featured · " + _html.escape(
         feat_slug.replace("-", " ").title())
-    feat_url = f"/round/{round_no}/{feat_slug}/"
+    feat_url = section.article_path(round_no, feat_slug)
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
 
     feed_cards = "".join(
         feed_card(
             f["slug"], round_no, f["headline"], f["teaser"],
-            f["stat_value"], f["stat_label"], date_str=date_str)
+            f["stat_value"], f["stat_label"], date_str=date_str,
+            section=section)
         for f in feed)
 
     hero_actions = (
         f'<div class="hero-actions">'
-        f'{_round_switcher_html(available_rounds or [round_no], round_no)}'
+        f'{_round_switcher_html(available_rounds or [round_no], round_no, base_path=section.switcher_base(), abbr=section.unit_abbr)}'
         f'{_rate_cta_html()}</div>'
     )
-    feat_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
+    feat_content = f"""<div class="pagelabel">{section.label} · {section.kicker(round_no)}</div>
 {hero_actions}
-{_live_xi_html(live_xi, round_no)}
+{_live_xi_html(live_xi, round_no, section=section)}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1680,7 +1698,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     feed_content = f"""<div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 {_newsletter_html()}
-<p class="method"><b>Method.</b> {METHODOLOGY}</p>"""
+<p class="method"><b>Method.</b> {section.methodology}</p>"""
 
     if fixtures:
         # Grid-areas puts the rail in its own right-hand column spanning both
@@ -1689,7 +1707,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         # DOM order overall. On mobile the single-column stack collapses to
         # feat -> rail (folded) -> feed via the areas list, so the owner can
         # actually find the rail without scrolling to the very bottom.
-        rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks)
+        rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks,
+                                        section=section)
         body_content = (
             '<div class="landing-grid">'
             f'<div class="feat-area">{feat_content}</div>'
@@ -1703,8 +1722,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
-<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
+<title>{section.label} {section.kicker(round_no)} picks &amp; captains | {TITLE_BRAND}</title>
+<meta name="description" content="evmax is an independent fantasy football simulation project: {section.label} {section.kicker(round_no)} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
 {og_block}
 <script type="application/ld+json">{org_ld}</script>
 <script type="application/ld+json">{site_ld}</script>
@@ -1726,20 +1745,20 @@ _AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web"
             "PerplexityBot", "Google-Extended", "CCBot", "Applebot-Extended"]
 
 
-def llms_txt(round_no, nav):
+def llms_txt(round_no, nav, section=WC):
     lines = [
-        "# evmax — simulation-based World Cup Fantasy picks",
+        f"# evmax — simulation-based {section.label} picks",
         "",
         "> Free, transparent fantasy picks from 50,000 Monte-Carlo simulations on "
-        "de-vigged market odds, scored on the official FIFA World Cup Fantasy table. "
+        f"de-vigged market odds, scored on the official {section.table_label} table. "
         "Numbers are machine-readable JSON; attribution to evmax is requested.",
         "",
-        f"## Round {round_no} articles",
+        f"## {section.kicker(round_no)} articles",
     ]
     for slug, title in nav:
-        lines.append(f"- [{title}]({SITE_URL}/round/{round_no}/{slug}/) — "
-                     f"data: {SITE_URL}/api/round/{round_no}/{slug}.json"
-                     f" · markdown: {SITE_URL}/round/{round_no}/{slug}.md")
+        lines.append(f"- [{title}]({SITE_URL}{section.article_path(round_no, slug)}) — "
+                     f"data: {SITE_URL}{section.json_path(round_no, slug)}"
+                     f" · markdown: {SITE_URL}{section.md_path(round_no, slug)}")
     lines += [
         "",
         "## Track record",
@@ -1750,7 +1769,7 @@ def llms_txt(round_no, nav):
         "## API",
         f"- Article index: {SITE_URL}/api/latest.json",
         f"- Graded prediction accuracy: {SITE_URL}/api/track-record.json",
-        f"- Full player projections: {SITE_URL}/api/round/{round_no}/players.json",
+        f"- Full player projections: {SITE_URL}{section.players_json_path(round_no)}",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1761,11 +1780,18 @@ def robots_txt():
     return "\n\n".join(blocks) + f"\n\nSitemap: {SITE_URL}/sitemap.xml\n"
 
 
-def sitemap_xml(round_no, nav, lastmod=None):
+def sitemap_xml(round_no, nav, lastmod=None, section=WC, extra_urls=None):
+    """extra_urls: absolute site paths to include verbatim, beyond this section's
+    own pages. The FPL build passes the World Cup tree here: those pages are still
+    live and still indexed (spec D5), and a sitemap that silently drops them reads
+    to a crawler as a request to deindex them. The static pages (/about/ etc.)
+    stay listed for every section — they are shared site chrome, not section
+    pages, and the existing WC sitemap pins them."""
     urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
             f"{SITE_URL}/track-record/", f"{SITE_URL}/rate/",
-            f"{SITE_URL}/round/{round_no}/"]
-    urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
+            f"{SITE_URL}{section.landing_path(round_no)}"]
+    urls += [f"{SITE_URL}{section.article_path(round_no, slug)}" for slug, _ in nav]
+    urls += [f"{SITE_URL}{p}" for p in (extra_urls or [])]
     lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
     items = "".join(f"<url><loc>{u}</loc>{lm}</url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
