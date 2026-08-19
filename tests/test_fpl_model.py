@@ -4,6 +4,7 @@ from unittest import mock
 
 from core import engine_events, fixtures, ratings
 from games.fpl import model
+from games.fpl import model as fpl_model
 
 
 def _ev(**kw):
@@ -843,3 +844,93 @@ class TestDistributionMeanAgreesWithTotalPoints(unittest.TestCase):
     def test_agrees_at_low_appearance_probability(self):
         total, dist_mean = self._run(982, 0.3)
         self.assertAlmostEqual(total, dist_mean, delta=0.03)
+
+
+class TestDoubleGameweekTotalPoints(unittest.TestCase):
+    """The carried Phase 3 question: does total_points sum bonus across a double?
+
+    SimPointsAccumulator.mean() sums each sim's matches explicitly and has its own
+    double-gameweek coverage, so it is the reference. total_points goes through the
+    older assembly path (expected_points + conditional components scaled by
+    played/sims) and is the one in question.
+    """
+
+    def _double_gameweek_samples(self, sims=4000):
+        """Simulate a synthetic gameweek where one team plays TWICE."""
+        from core import fixtures
+        from core.ratings import PlayerPrior
+
+        squads = {
+            "Alpha": [PlayerPrior(name="A-Striker", team="Alpha", position="FWD",
+                                  start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                  assist_share=0.2),
+                      PlayerPrior(name="A-Keeper", team="Alpha", position="GK",
+                                  start_prob=1.0, exp_minutes=90, saves_per90=3.0)],
+            "Beta": [PlayerPrior(name="B-Striker", team="Beta", position="FWD",
+                                 start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                 assist_share=0.2)],
+            "Gamma": [PlayerPrior(name="G-Striker", team="Gamma", position="FWD",
+                                  start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                  assist_share=0.2)],
+        }
+        saved = list(fixtures.SCHEDULE)
+        try:
+            fixtures.SCHEDULE.clear()
+            for mid, home, away in (("dgw-1", "Alpha", "Beta"),
+                                    ("dgw-2", "Gamma", "Alpha")):
+                fixtures.SCHEDULE.append(fixtures.Fixture(
+                    match_id=mid, home=home, away=away,
+                    kickoff=datetime(2026, 8, 21, 17, 30, tzinfo=timezone.utc),
+                    stage="GW", fantasy_round=99, neutral=False,
+                    lam_home=1.5, lam_away=1.2))
+            baselines = {}
+            bonus = fpl_model.BonusAccumulator(baselines)
+            points = fpl_model.SimPointsAccumulator(baselines, sims)
+
+            def hook(match_id, rows, sim_index):
+                bonus.observe(match_id, rows, sim_index)
+                points.observe(match_id, rows, sim_index)
+
+            samples, _ = engine_events.simulate_round(
+                99, sims=sims, seed=4242,
+                priors=lambda team: squads.get(team, []),
+                per_match_hook=hook)
+            return samples, engine_events.event_means(samples), bonus, points
+        finally:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.extend(saved)
+
+    def test_double_gameweek_assembly_path_is_per_match_not_per_gameweek(self):
+        """ANSWERED 2026-08-19, and the answer is NO: the assembled path does
+        NOT reconstruct the sum across a double.
+
+        As first drafted this asserted assembled == per-sim reference; it
+        failed at exactly a factor of two (7.149 vs 14.298). The Phase 3
+        note's premise was wrong: ps.sims increments once per MATCH appearance
+        (twice per outer sim for a doubled player), so played/sims stays ~1.0
+        — it never approaches 2.0 — and every component of total_points
+        (event_means division included) comes out as a per-MATCH average, half
+        the gameweek total. Pinned at 2x so the answer stays settled; the
+        order book therefore reads x_points off SimPointsAccumulator.mean(),
+        which sums a player's matches within each sim.
+        """
+        samples, means, bonus, points = self._double_gameweek_samples()
+        ps = samples["A-Striker"]          # Alpha plays twice
+        assembled = fpl_model.total_points(
+            means["A-Striker"], ps, fpl_model._conceded_series(ps),
+            bonus=bonus.expected("A-Striker"))
+        reference = points.mean("A-Striker")
+        self.assertAlmostEqual(assembled * 2, reference, delta=0.35,
+                               msg=f"double-GW characterisation drifted: "
+                                   f"assembled={assembled:.3f} (expected per-match, "
+                                   f"i.e. half) per-sim={reference:.3f}")
+
+    def test_single_fixture_player_still_agrees(self):
+        """Control: a single-fixture player must agree just as closely, so a
+        failure above is attributable to the double and not to general drift."""
+        samples, means, bonus, points = self._double_gameweek_samples()
+        ps = samples["B-Striker"]          # Beta plays once
+        assembled = fpl_model.total_points(
+            means["B-Striker"], ps, fpl_model._conceded_series(ps),
+            bonus=bonus.expected("B-Striker"))
+        self.assertAlmostEqual(assembled, points.mean("B-Striker"), delta=0.35)

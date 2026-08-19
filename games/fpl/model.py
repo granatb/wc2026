@@ -220,6 +220,20 @@ class BonusAccumulator:
             self._total[name] = self._total.get(name, 0) + award
 
     def expected(self, name: str) -> float:
+        """Mean bonus per MATCH APPEARANCE, not per sim.
+
+        Double gameweeks: the Phase 3 plan left open whether total_points'
+        played/sims scaling reconstructs the SUM across a two-fixture week.
+        Settled 2026-08-19 against SimPointsAccumulator.mean() on a synthetic
+        double (tests/test_fpl_model.TestDoubleGameweekTotalPoints), and the
+        answer is NO: ps.sims counts once per MATCH appearance (twice per
+        outer sim for a doubled player), so played/sims stays ~1.0 and the
+        whole assembled total — this bonus term included — comes out as a
+        per-MATCH average, exactly half the gameweek total. The order book's
+        x_points therefore comes from SimPointsAccumulator.mean(), which sums
+        a player's matches within each sim; total_points remains correct for
+        any single-fixture player.
+        """
         sims = self._sims.get(name, 0)
         if not sims:
             return 0.0
