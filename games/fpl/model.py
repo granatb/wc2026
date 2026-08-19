@@ -564,6 +564,67 @@ def _bps_baselines(players_by_name: dict) -> dict:
     return baselines
 
 
+def match_summaries(match_samples: dict, fx: list) -> list:
+    """One JSON-safe dict per fixture: scoreline distribution, 1X2, clean sheets.
+
+    Derived here rather than in the site layer because MatchSample objects do not
+    survive a JSON round trip, and spec §6 requires the cached artifact to carry
+    the per-match distribution — so the derivation must happen before the store.
+
+    Deliberately NOT evmax.articles.match_predictions: that function emits
+    p_advance_home/p_advance_away for any round >= 4 (World Cup knockout), which
+    for gameweek 4 of a league season would publish a survival probability for a
+    tie that does not exist.
+
+    `market` records whether the fixture's lambdas came from the odds feed or fell
+    back to ratings priors, so the ticker can label each column's provenance
+    instead of presenting a uniform confidence it does not have (spec §8).
+    """
+    out = []
+    for f in fx:
+        ms = match_samples.get(f.match_id)
+        if ms is not None and ms.sims > 0:
+            probs = ms.outcome_probs()
+            p_home = probs.get("H", 0.0)
+            p_draw = probs.get("D", 0.0)
+            p_away = probs.get("A", 0.0)
+            best_sl = max(ms.scorelines, key=lambda k: ms.scorelines[k])
+            mh, ma = ms.marginal_home(), ms.marginal_away()
+            exp_h = sum(g * p for g, p in mh.items())
+            exp_a = sum(g * p for g, p in ma.items())
+            # A team keeps a clean sheet iff the OPPONENT scores zero.
+            p_cs_home, p_cs_away = ma.get(0, 0.0), mh.get(0, 0.0)
+        else:
+            # No sample for this fixture (a blank, or a match the engine skipped).
+            p_home = p_draw = p_away = 0.0
+            best_sl = (0, 0)
+            exp_h = exp_a = p_cs_home = p_cs_away = 0.0
+
+        total_p = p_home + p_draw + p_away
+        if total_p > 0:
+            p_home, p_draw, p_away = (p_home / total_p, p_draw / total_p,
+                                      p_away / total_p)
+
+        out.append({
+            "match_id": f.match_id,
+            "home": f.home,
+            "away": f.away,
+            "kickoff": f.kickoff.isoformat(),
+            "exp_home_goals": round(exp_h, 2),
+            "exp_away_goals": round(exp_a, 2),
+            "exp_total": round(exp_h + exp_a, 2),
+            "top_scoreline": f"{best_sl[0]}-{best_sl[1]}",
+            "p_home": round(p_home, 3),
+            "p_draw": round(p_draw, 3),
+            "p_away": round(p_away, 3),
+            "p_cs_home": round(p_cs_home, 3),
+            "p_cs_away": round(p_cs_away, 3),
+            "market": f.lam_home is not None and f.lam_away is not None,
+        })
+    out.sort(key=lambda m: m["kickoff"])
+    return out
+
+
 def _kickoffs_by_team(fx: list) -> dict:
     """{team: EARLIEST kickoff ISO string} for the gameweek.
 
@@ -616,9 +677,9 @@ def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
     }
 
 
-def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
-              sims: int, use_cache: bool = True) -> list:
-    """Simulate (or fetch from cache) and return the sorted order-book rows.
+def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
+                   sims: int, use_cache: bool = True) -> tuple:
+    """Simulate (or fetch from cache); return ({"rows", "matches"}, cache_hit).
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
     every input that determines the derived rows (see the `priors`, `research`,
@@ -626,6 +687,9 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     the shared engine's source, so an edit to a scoring constant can never
     silently serve a stale artifact. `use_cache=False` always simulates, for an
     operator who wants to force a fresh run regardless of the cache.
+
+    cache_hit is the second return value so the build preflight can tell an
+    expected first-build miss from an unexpected one (spec §9).
     """
     import config
     from core import fixtures, research, simcache
@@ -669,7 +733,13 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     if use_cache:
         cached = simcache.load(key)
         if cached is not None:
-            return cached["rows"]
+            # .get("matches", []): artifacts written before the match layer
+            # existed have no matches key. They cannot actually be served — the
+            # source fingerprint covers this file, so the edit that added the
+            # layer invalidated all of them — but the .get costs nothing and
+            # means a hand-copied artifact degrades rather than crashing.
+            return {"rows": cached["rows"],
+                    "matches": cached.get("matches", [])}, True
 
     baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
@@ -679,7 +749,7 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
         bonus.observe(match_id, rows, sim_index)
         points.observe(match_id, rows, sim_index)
 
-    samples, _matches = engine_events.simulate_round(
+    samples, match_samples = engine_events.simulate_round(
         gameweek, sims=sims, seed=_SEED,
         priors=lambda team: priors_by_team.get(team, []),
         research=research_entries,
@@ -714,10 +784,22 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
             kickoff=kickoffs.get(m["team"])))
     rows.sort(key=lambda r: -r["x_points"])
 
+    artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}
     if use_cache:
-        simcache.store(key, {"rows": rows}, meta={"gameweek": gameweek, "sims": sims})
+        simcache.store(key, artifact, meta={"gameweek": gameweek, "sims": sims})
+    return artifact, False
 
-    return rows
+
+def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
+              sims: int, use_cache: bool = True) -> list:
+    """The order-book rows alone — `run()`'s view of build_artifact.
+
+    Kept so the CLI order book and its tests do not have to care about the match
+    layer, which only the site consumes.
+    """
+    artifact, _hit = build_artifact(priors_by_team, players_by_name, gameweek,
+                                    sims, use_cache=use_cache)
+    return artifact["rows"]
 
 
 def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
