@@ -327,3 +327,104 @@ def defcon_leaders(rows: list) -> list:
     for r in ranked:
         r["defcon_threshold"] = DEFCON_THRESHOLD[r["position"]]
     return ranked
+
+
+# Goal-environment thresholds on a fixture's combined expected goals. Carried
+# over from the World Cup ticker: the question ("is this a game to target
+# attackers in?") and the scale (goals per match) are the same in both games.
+ENV_BLOWOUT_MIN = 3.0
+ENV_AVOID_MAX = 2.1
+
+
+def _env_for(exp_total: float, fixture_count: int) -> str:
+    if fixture_count == 0:
+        return "blank"
+    if fixture_count > 1:
+        return "double"
+    if exp_total >= ENV_BLOWOUT_MIN:
+        return "blowout"
+    if exp_total <= ENV_AVOID_MAX:
+        return "avoid"
+    return "balanced"
+
+
+def ticker(matches: list, clubs: list) -> list:
+    """One row per club: expected clean sheets, goals for/against, provenance.
+
+    Per CLUB, not per fixture, because FPL gameweeks have blanks and doubles
+    (spec §5.1). `clubs` is the full league list, so a club with no fixture this
+    gameweek still gets a row — a blank is the most actionable thing a ticker can
+    tell a manager, and dropping the club would hide it.
+
+    exp_clean_sheets SUMS across a double rather than computing "at least one
+    clean sheet". A defender is paid per clean sheet kept, so two fixtures at 45%
+    are worth 0.9 clean sheets of points, not the 70% chance of keeping at least
+    one. The summed figure is the one that maps to points; it can exceed 1.0 and
+    that is correct.
+
+    `basis` is spec §8's confidence label: "market" when every one of the club's
+    fixtures is odds-derived, "model" when none is, "mixed" for a double with one
+    of each. Mixed reports as mixed rather than rounding up to market — the
+    combined number is only as good as its weaker half, and the site's whole
+    positioning is that it says which is which.
+    """
+    def _blank_row(name):
+        return {"name": name, "fixtures": 0, "opponents": [],
+                "exp_clean_sheets": 0.0, "exp_goals_for": 0.0,
+                "exp_goals_against": 0.0, "exp_total": 0.0,
+                "market": 0, "model": 0, "kickoff": None}
+
+    agg: dict = {c: _blank_row(c) for c in clubs}
+
+    for m in matches:
+        for team, opponent, venue, p_cs, gf, ga in (
+            (m["home"], m["away"], "H", m.get("p_cs_home", 0.0),
+             m.get("exp_home_goals", 0.0), m.get("exp_away_goals", 0.0)),
+            (m["away"], m["home"], "A", m.get("p_cs_away", 0.0),
+             m.get("exp_away_goals", 0.0), m.get("exp_home_goals", 0.0)),
+        ):
+            row = agg.get(team)
+            if row is None:
+                # A club in the fixture list but not in `clubs` — take it anyway
+                # rather than silently dropping a real fixture.
+                row = agg[team] = _blank_row(team)
+            row["fixtures"] += 1
+            row["opponents"].append((m["kickoff"], f"{opponent} ({venue})"))
+            row["exp_clean_sheets"] += p_cs
+            row["exp_goals_for"] += gf
+            row["exp_goals_against"] += ga
+            row["exp_total"] += m.get("exp_total", gf + ga)
+            row["market" if m.get("market") else "model"] += 1
+            if row["kickoff"] is None or m["kickoff"] < row["kickoff"]:
+                row["kickoff"] = m["kickoff"]
+
+    out = []
+    for row in agg.values():
+        ordered = [label for _ko, label in sorted(row["opponents"])]
+        if row["market"] and row["model"]:
+            basis = "mixed"
+        elif row["market"]:
+            basis = "market"
+        else:
+            basis = "model"
+        out.append({
+            "name": row["name"],
+            # `team` is what the shared table renderer prints in its second
+            # column; the ticker's subject IS a club, so the opponent list is the
+            # useful thing to put there.
+            "team": ", ".join(ordered) if ordered else "—",
+            "position": "—",
+            "opponents": ", ".join(ordered) if ordered else "—",
+            "fixtures": row["fixtures"],
+            "exp_clean_sheets": round(row["exp_clean_sheets"], 3),
+            "exp_goals_for": round(row["exp_goals_for"], 2),
+            "exp_goals_against": round(row["exp_goals_against"], 2),
+            "env": _env_for(row["exp_total"], row["fixtures"]),
+            "basis": basis if row["fixtures"] else "—",
+            "kickoff": row["kickoff"],
+        })
+
+    out.sort(key=lambda r: (-r["exp_clean_sheets"], r["name"]))
+    for i, r in enumerate(out, 1):
+        r["rank"] = i
+    return out
