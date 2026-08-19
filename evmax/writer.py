@@ -9,6 +9,8 @@ article_prose(article, round_no, entries, columns,
     Markdown twin of body_html (used for the agent-facing .md article pages).
 """
 
+from __future__ import annotations
+
 import html
 import json
 import os
@@ -659,8 +661,14 @@ _TEMPLATES = {
     },
 }
 
+# FPL slug templates, keyed separately from _TEMPLATES because four FPL slugs
+# (captains, wildcard, defenders, efficiency) collide with World Cup slugs whose
+# prose is pinned. Selected by _template_prose when unit == "Gameweek".
+_FPL_TEMPLATES: dict = {}
+
 _GENERIC_TEMPLATE = {
-    "headline": lambda e, r, slug, subj: f"Round analysis: {slug.replace('-', ' ').title()}",
+    "headline": lambda e, r, slug, subj, unit="Round": (
+        f"{unit} analysis: {slug.replace('-', ' ').title()}"),
     "standfirst": lambda e, r, subj: (
         f"{subj or e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
     ),
@@ -678,15 +686,18 @@ _GENERIC_TEMPLATE = {
 
 
 def _template_prose(article: str, entries: list, columns: list,
-                    round_no: int = 0, subject=None) -> dict:
+                    round_no: int = 0, subject=None, unit: str = "Round") -> dict:
     """Build deterministic template prose from entries.
 
     subject: the player to centre the prose on (or None for team-framing in best-xi).
+    unit: the reader-facing period word — selects the FPL template table when it
+    is "Gameweek", because four FPL slugs share names with World Cup slugs whose
+    prose must not change.
     """
     if not entries:
         body_html = "<p>No entries available for this article.</p>"
         return {
-            "headline": f"Round analysis: {article}",
+            "headline": f"{unit} analysis: {article}",
             "standfirst": "No data available.",
             "body_html": body_html,
             "body_md": _html_to_md(body_html),
@@ -694,23 +705,25 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi, wildcard, matches and fixtures (no player subject), skip
-    # per-player framing
+    # For best-xi, wildcard, matches, fixtures and the FPL ticker (no player
+    # subject), skip per-player framing
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "wildcard", "matches", "fixtures"):
+    elif article in ("best-xi", "wildcard", "matches", "fixtures", "ticker"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None
 
-    tmpl = _TEMPLATES.get(article)
+    table = _FPL_TEMPLATES if unit == "Gameweek" else _TEMPLATES
+    tmpl = table.get(article)
     if tmpl:
         headline = tmpl["headline"](entries, round_no, subj)
         standfirst = tmpl["standfirst"](entries, round_no, subj)
         body_html = tmpl["body"](entries, round_no, subj)
         bottom_line = tmpl["bottom_line"](entries, round_no, subj)
     else:
-        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj)
+        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj,
+                                                 unit)
         standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no, subj)
         body_html = _GENERIC_TEMPLATE["body"](entries, round_no, subj)
         bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no, subj)
@@ -730,8 +743,14 @@ def _template_prose(article: str, entries: list, columns: list,
 # ---------------------------------------------------------------------------
 
 def _llm_prose(article: str, round_no: int, entries: list, columns: list,
-               cache_dir: str, subject=None):
-    """Call the Claude API and return prose dict, or None if we should fall through."""
+               cache_dir: str, subject=None, cache_name: str | None = None,
+               unit: str = "Round"):
+    """Call the Claude API and return prose dict, or None if we should fall through.
+
+    cache_name namespaces the write-back exactly like article_prose's read path —
+    an FPL article cached under round-{n} would poison the World Cup round's
+    prose (and vice versa).
+    """
     if not _ANTHROPIC_AVAILABLE:
         return None
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -739,7 +758,7 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     from evmax.prompts import build_prompt
 
-    prompt = build_prompt(article, round_no, entries, subject=subject)
+    prompt = build_prompt(article, round_no, entries, subject=subject, unit=unit)
 
     try:
         client = _anthropic.Anthropic()
@@ -818,7 +837,8 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     # Cache the result as markdown
     try:
-        cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+        cache_path = os.path.join(cache_dir, cache_name or f"round-{round_no}",
+                                  f"{article}.md")
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w", encoding="utf-8") as fh:
             fh.write(f"# {data['headline']}\n\n")
@@ -843,33 +863,44 @@ def article_prose(
     cache_dir: str = "data/articles",
     use_llm: bool = True,
     subject=None,
+    cache_name: str | None = None,
+    unit: str = "Round",
 ) -> dict:
     """Generate prose for an article using tiered resolution: cache → LLM → template.
 
     Parameters
     ----------
-    article   : article slug, e.g. "captains"
-    round_no  : fantasy round number
-    entries   : list of ranked row dicts (from articles.py)
-    columns   : list of column keys to feature in prose
-    cache_dir : base directory for cached markdown files
-    use_llm   : whether to attempt the LLM tier (default True)
-    subject   : player name to centre prose on, or None for team-framing (best-xi)
+    article    : article slug, e.g. "captains"
+    round_no   : fantasy round number
+    entries    : list of ranked row dicts (from articles.py)
+    columns    : list of column keys to feature in prose
+    cache_dir  : base directory for cached markdown files
+    use_llm    : whether to attempt the LLM tier (default True)
+    subject    : player name to centre prose on, or None for team-framing (best-xi)
+    cache_name : subdirectory under cache_dir, defaulting to "round-{round_no}".
+                 The FPL build passes "fpl-gw{n}" — without it, FPL gameweek 1 and
+                 World Cup round 1 share a cache entry and one serves the other's
+                 article.
+    unit       : the reader-facing word for the period ("Round" or "Gameweek"),
+                 passed through to the LLM prompt and the templates.
 
     Returns
     -------
     dict with keys: headline, standfirst, body_html, body_md, bottom_line, source
     """
+    cache_name = cache_name or f"round-{round_no}"
     # Tier 1: cache
-    cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+    cache_path = os.path.join(cache_dir, cache_name, f"{article}.md")
     if os.path.isfile(cache_path):
         return _parse_cache_md(cache_path)
 
     # Tier 2: LLM (optional)
     if use_llm:
-        result = _llm_prose(article, round_no, entries, columns, cache_dir, subject=subject)
+        result = _llm_prose(article, round_no, entries, columns, cache_dir,
+                            subject=subject, cache_name=cache_name, unit=unit)
         if result is not None:
             return result
 
     # Tier 3: template
-    return _template_prose(article, entries, columns, round_no=round_no, subject=subject)
+    return _template_prose(article, entries, columns, round_no=round_no,
+                           subject=subject, unit=unit)

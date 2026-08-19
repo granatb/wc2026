@@ -125,3 +125,44 @@ class TestArticleMdSection(unittest.TestCase):
                                section=render.FPL)
         self.assertIn("/api/fpl/gw1/captains.json", md)
         self.assertNotIn("/api/round/", md)
+
+
+import os
+import tempfile
+
+from evmax import prompts, writer
+
+
+class TestProseCacheNamespace(unittest.TestCase):
+    def test_fpl_and_world_cup_caches_do_not_collide(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, headline in (("round-1", "World Cup one"),
+                                   ("fpl-gw1", "Gameweek one")):
+                os.makedirs(os.path.join(tmp, name))
+                with open(os.path.join(tmp, name, "captains.md"), "w",
+                          encoding="utf-8") as fh:
+                    fh.write(f"# {headline}\n\n> Standfirst\n\nBody.\n\n"
+                             f"**Bottom line:** BL\n")
+            wc = writer.article_prose("captains", 1, _ENTRIES, ["x_points"],
+                                      cache_dir=tmp, use_llm=False)
+            fpl = writer.article_prose("captains", 1, _ENTRIES, ["x_points"],
+                                       cache_dir=tmp, use_llm=False,
+                                       cache_name="fpl-gw1")
+            self.assertNotEqual(wc["headline"], fpl["headline"])
+            self.assertIn("Gameweek", fpl["headline"])
+
+
+class TestPromptUnit(unittest.TestCase):
+    def test_default_prompt_says_round(self):
+        p = prompts.build_prompt("captains", 5, _ENTRIES)
+        self.assertIn("Round        : 5", p)
+
+    def test_fpl_prompt_says_gameweek_and_carries_the_glossary(self):
+        p = prompts.build_prompt("defcon", 1, _ENTRIES, unit="Gameweek")
+        self.assertIn("Gameweek     : 1", p)
+        self.assertIn("p_defcon", p)
+        self.assertIn("exp_clean_sheets", p)
+
+    def test_world_cup_prompt_does_not_carry_the_fpl_glossary(self):
+        p = prompts.build_prompt("captains", 5, _ENTRIES)
+        self.assertNotIn("p_defcon", p)
