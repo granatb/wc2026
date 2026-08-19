@@ -206,6 +206,23 @@ class TestFplTemplates(unittest.TestCase):
         prose = self._prose("captains", [first, second])
         self.assertIn("kicks off later", prose["body_html"])
 
+    def test_defenders_component_framing_needs_a_single_fixture(self):
+        """Review finding 7 (minimum fix): cs_points/defcon/bonus are
+        per-MATCH quantities while x_points is per-WEEK, so the 'X from clean
+        sheets, Y from DefCon, Z from bonus' breakdown is only true when the
+        player has exactly one fixture this gameweek."""
+        base = dict(_ENTRIES[0], position="DEF", team="ARS", cs_points=1.6,
+                    defcon=1.4, bonus=0.5, ceiling=9.0)
+        for single in (dict(base, fixtures=1), dict(base)):   # absent = single
+            prose = self._prose("defenders", [single])
+            self.assertIn("of it from clean sheets alone", prose["standfirst"])
+            self.assertIn("from clean sheets", prose["body_html"])
+        double = self._prose("defenders", [dict(base, fixtures=2)])
+        self.assertNotIn("of it from clean sheets alone", double["standfirst"])
+        self.assertNotIn("from defensive contribution and", double["body_html"])
+        self.assertIn("per-match", double["body_html"])
+        self.assertIn("2 fixtures", double["standfirst"])
+
     def test_defcon_prose_states_the_probability_and_threshold(self):
         prose = self._prose("defcon", [_DEFCON_ENTRY])
         self.assertIn("71", prose["standfirst"] + prose["body_html"])
@@ -440,6 +457,14 @@ class TestGameweekBuild(unittest.TestCase):
                                    env["squad"]["xi_xpoints"])
                 md = self._read(f"/fpl/gw1/{slug}.md")
                 self.assertIn(captain, md)
+
+    def test_player_entries_carry_their_clubs_fixture_count(self):
+        """The build stamps per-club fixture counts from the match summaries
+        so the prose can tell a single from a double gameweek (finding 7)."""
+        env = json.loads(self._read("/api/fpl/gw1/defenders.json"))
+        self.assertTrue(env["entries"])
+        for e in env["entries"]:
+            self.assertEqual(e["fixtures"], 1)      # GW1 has no doubles
 
     def test_squad_prose_facts_come_from_the_states(self):
         """Review finding 5, end to end: the consensus state carries

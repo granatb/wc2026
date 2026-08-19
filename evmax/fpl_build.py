@@ -196,6 +196,18 @@ def _article_entries(rows: list, matches: list, clubs: list,
     """({slug: entries}, {slug: squad meta}) — the meta dicts (wildcard's draft
     squad plus the two published squads) are not flat lists, so they travel
     separately into the JSON envelopes and the landing duel."""
+    # Per-club fixture counts from the match summaries, stamped on every
+    # player row: bonus/defcon/cs_points are per-MATCH quantities while
+    # x_points is per-WEEK (games/fpl/model._derive_row), and the prose may
+    # frame the former as components of the latter only for a single-fixture
+    # player. TODO(pre-first-DGW): retire with the per-sim column rework
+    # (review 2026-08-19, finding 7).
+    fixture_counts: dict = {}
+    for m in matches:
+        for team in (m["home"], m["away"]):
+            fixture_counts[team] = fixture_counts.get(team, 0) + 1
+    rows = [dict(r, fixtures=fixture_counts.get(r.get("team"), 0))
+            for r in rows]
     our_entries, our_meta = fpl_articles.squad_article(states["model"], rows)
     cons_entries, cons_meta = fpl_articles.squad_article(states["consensus"],
                                                          rows)

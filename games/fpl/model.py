@@ -664,6 +664,20 @@ def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
     build_rows) so the derived columns can be unit-tested against hand-computed
     inputs without running a simulation.
 
+    UNIT WARNING — the columns mix two denominators. x_points (and therefore
+    captain_ev, value and ceiling) is a per-WEEK total: SimPointsAccumulator
+    sums a player's matches within each sim, so a double-gameweek player's
+    figure covers both fixtures. bonus, defcon, p_defcon and cs_points are
+    per-MATCH quantities: they come off event_means / per-match accumulators
+    whose divisor increments once per APPEARANCE (see the RETIRED total_points
+    note and TestDoubleGameweekTotalPoints), so for a doubled player they are
+    single-match averages and do NOT sum to x_points. Prose that frames them
+    as components of the weekly total must render only for a single-fixture
+    player (evmax.writer guards this on the row's stamped fixture count).
+    TODO(pre-first-DGW): rework these columns per-sim so every column shares
+    the per-week denominator (review 2026-08-19, finding 7 — the minimum fix
+    is this documentation plus the prose guard).
+
     Rounding happens HERE and only here: these rows are what the cache stores and
     what the public JSON feed serves, and 14 significant figures of Monte-Carlo
     noise is not information.

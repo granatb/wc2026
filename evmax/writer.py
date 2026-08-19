@@ -665,6 +665,19 @@ def _pct(v) -> str:
     return f"{(v or 0.0) * 100:.0f}%"
 
 
+def _is_double_gameweek(entry) -> bool:
+    """True when this player's club has more than one fixture this gameweek.
+
+    Guards the defenders prose: bonus/defcon/cs_points are per-MATCH means
+    while x_points is a per-WEEK total (games/fpl/model._derive_row), so
+    framing them as components of the total is only true for a single
+    fixture. A missing count reads as single — the build stamps the real
+    count from the match summaries, and 0 (a blank) has nothing to double.
+    TODO(pre-first-DGW): retire with the per-sim column rework (review
+    2026-08-19, finding 7)."""
+    return (entry.get("fixtures") or 0) > 1
+
+
 def _captain_vice_kickoff_sentence(e: list) -> str:
     """The vice-timing sentence for the captains template.
 
@@ -755,7 +768,10 @@ _FPL_TEMPLATES = {
             f"{subj or e[0]['name']} leads the gameweek {r} defenders"),
         "standfirst": lambda e, r, subj: (
             f"{_fmt_pts(e[0]['x_points'])} expected points, with "
-            f"{_fmt_pts(e[0].get('cs_points', 0))} of it from clean sheets alone."),
+            f"{_fmt_pts(e[0].get('cs_points', 0))} of it from clean sheets alone."
+            if not _is_double_gameweek(e[0]) else
+            f"{_fmt_pts(e[0]['x_points'])} expected points across "
+            f"{e[0]['fixtures']} fixtures this gameweek."),
         "body": lambda e, r, subj: (
             f"<p>{html.escape(e[0]['name'])} "
             f"({html.escape(e[0].get('team', ''))}) projects "
@@ -765,7 +781,15 @@ _FPL_TEMPLATES = {
             f"{_fmt_pts(e[0].get('bonus', 0))} from bonus. Where a defender's "
             f"points come from matters as much as the total — a clean-sheet "
             f"projection lives or dies on one fixture, while defensive "
-            f"contribution pays regardless of the scoreline.</p>"),
+            f"contribution pays regardless of the scoreline.</p>"
+            if not _is_double_gameweek(e[0]) else
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) projects "
+            f"{_fmt_pts(e[0]['x_points'])} expected points across "
+            f"{e[0]['fixtures']} fixtures this gameweek. His clean-sheet, "
+            f"DefCon and bonus columns are per-match rates rather than shares "
+            f"of that total, so read them per fixture — the doubled minutes, "
+            f"not the rates, are what make a double gameweek pay.</p>"),
         "bottom_line": lambda e, r, subj: (
             f"{e[0]['name']} at {_fmt_price(e[0].get('price'))} is the defensive "
             f"pick of the gameweek."),
