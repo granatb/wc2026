@@ -237,6 +237,24 @@ class TestValidateState(unittest.TestCase):
             s["squad"][12]["bench_order"] = 1
         self._check(mutate, "backup GK")
 
+    # --- source_count (the consensus corpus size, published in prose) ---------
+
+    def test_source_count_passes_through_when_valid(self):
+        state = copy.deepcopy(self.state)
+        state["source_count"] = 7
+        out = fpl_state.validate_state(state, self.players)
+        self.assertEqual(out["source_count"], 7)
+
+    def test_absent_source_count_stays_absent(self):
+        out = fpl_state.validate_state(self.state, self.players)
+        self.assertNotIn("source_count", out)
+
+    def test_source_count_must_be_a_positive_integer(self):
+        for bad in (0, -3, "7", 7.0, True, None):
+            with self.subTest(bad=bad):
+                self._check(lambda s, b=bad: s.update(source_count=b),
+                            "source_count")
+
 
 class TestLoadState(unittest.TestCase):
     def test_load_squad_reads_validates_and_enriches(self):

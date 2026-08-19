@@ -332,7 +332,14 @@ def squad_article(state: dict, rows: list) -> tuple:
       meta:    team_name, strategy, formation (derived from the XI),
                xi_xpoints (XI sum), projected_total (XI sum + the captain's
                x_points AGAIN — the armband doubles him), captain, vice,
-               total_cost, free_transfers, chips_used.
+               total_cost, free_transfers, chips_used, and source_count when
+               the state carries one (the consensus corpus size).
+
+    source_count is ALSO stamped on every entry: the prose templates receive
+    entries only, and "N expert sources" must derive from the state rather
+    than sit hardcoded in a template (review 2026-08-19, finding 5). A state
+    without one (the model squad) stamps nothing — a null key would be noise
+    in its published JSON.
 
     Raises ValueError when a state name has no artifact row. A published squad
     whose player the model never simulated is a build-stopping data problem
@@ -340,6 +347,7 @@ def squad_article(state: dict, rows: list) -> tuple:
     with a quietly wrong total.
     """
     by_name = {r["name"]: r for r in rows}
+    source_count = state.get("source_count")
     xi_state = [e for e in state["squad"] if e["is_starter"]]
     bench_state = sorted((e for e in state["squad"] if not e["is_starter"]),
                          key=lambda e: e["bench_order"])
@@ -357,6 +365,8 @@ def squad_article(state: dict, rows: list) -> tuple:
         e["is_captain"] = s["is_captain"]
         e["is_vice"] = s["is_vice"]
         e["bench_order"] = s["bench_order"]
+        if source_count is not None:
+            e["source_count"] = source_count
         entries.append(e)
 
     xi = entries[:11]
@@ -375,6 +385,8 @@ def squad_article(state: dict, rows: list) -> tuple:
         "free_transfers": state.get("free_transfers"),
         "chips_used": list(state.get("chips_used", [])),
     }
+    if source_count is not None:
+        meta["source_count"] = source_count
     return entries, meta
 
 

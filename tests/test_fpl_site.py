@@ -441,6 +441,15 @@ class TestGameweekBuild(unittest.TestCase):
                 md = self._read(f"/fpl/gw1/{slug}.md")
                 self.assertIn(captain, md)
 
+    def test_squad_prose_facts_come_from_the_states(self):
+        """Review finding 5, end to end: the consensus state carries
+        source_count 7 and owns Haaland, so the consensus page says 'seven
+        expert sources' and our-squad may point at the crowd's ownership."""
+        cons = self._read("/fpl/gw1/consensus-squad/index.html")
+        self.assertIn("seven expert sources", cons)
+        ours = self._read("/fpl/gw1/our-squad/index.html")
+        self.assertIn("consensus XI on this site owns him", ours)
+
     def test_root_site_chrome_is_regenerated(self):
         """Review finding 4: a deploy replaces the whole tree, so an FPL build
         that omits the root-level shared files strips the GSC verification,
@@ -552,14 +561,24 @@ class TestPromptUnit(unittest.TestCase):
         self.assertNotIn("p_defcon", p)
 
 
-def _squad_entries(captain="Cap", vice="Vice", with_haaland=False):
-    """15 squad_article-shaped entries: XI in state order + ordered bench."""
+def _squad_entries(captain="Cap", vice="Vice", with_haaland=False,
+                   source_count=None, consensus_owns_haaland=None):
+    """15 squad_article-shaped entries: XI in state order + ordered bench.
+
+    source_count / consensus_owns_haaland mirror the keys squad_article and
+    fpl_build stamp on entries — the prose derives its facts from these, so
+    the tests hand them in the same way the build does."""
     def e(name, pos, xp, role, order=None, cap=False, v=False):
-        return {"name": name, "team": "ARS", "position": pos, "x_points": xp,
-                "captain_ev": round(2 * xp, 2), "ceiling": xp * 1.7,
-                "value": round(xp / 5.0, 3), "price": 5.0, "ownership_pct": 9.0,
-                "role": role, "bench_order": order, "is_captain": cap,
-                "is_vice": v, "rank": 0}
+        entry = {"name": name, "team": "ARS", "position": pos, "x_points": xp,
+                 "captain_ev": round(2 * xp, 2), "ceiling": xp * 1.7,
+                 "value": round(xp / 5.0, 3), "price": 5.0, "ownership_pct": 9.0,
+                 "role": role, "bench_order": order, "is_captain": cap,
+                 "is_vice": v, "rank": 0}
+        if source_count is not None:
+            entry["source_count"] = source_count
+        if consensus_owns_haaland is not None:
+            entry["consensus_owns_haaland"] = consensus_owns_haaland
+        return entry
     xi = [e("Gk1", "GK", 4.0, "XI"),
           e("D1", "DEF", 5.0, "XI"), e("D2", "DEF", 4.5, "XI"),
           e("D3", "DEF", 4.0, "XI"),
@@ -611,14 +630,45 @@ class TestSquadSlugTemplates(unittest.TestCase):
         prose = self._prose("our-squad", _squad_entries(with_haaland=True))
         self.assertNotIn("No Haaland", prose["body_html"])
 
+    def test_consensus_ownership_claim_only_renders_when_true(self):
+        """Review finding 5: 'the consensus XI on this site owns him' is a
+        checkable claim about the OTHER squad — it must render only when the
+        consensus squad actually owns Haaland (flag stamped by the build)."""
+        owns = self._prose("our-squad",
+                           _squad_entries(consensus_owns_haaland=True))
+        self.assertIn("consensus XI on this site owns him", owns["body_html"])
+        for entries in (_squad_entries(consensus_owns_haaland=False),
+                        _squad_entries()):        # absent flag = no claim
+            prose = self._prose("our-squad", entries)
+            self.assertNotIn("consensus XI", prose["body_html"])
+            self.assertIn("No Haaland", prose["body_html"])   # conviction stays
+
     def test_consensus_squad_states_the_method_not_a_model_claim(self):
-        prose = self._prose("consensus-squad", _squad_entries(captain="Haaland"))
+        prose = self._prose("consensus-squad",
+                            _squad_entries(captain="Haaland", source_count=7))
         text = prose["standfirst"] + prose["body_html"]
         self.assertIn("seven", text)                # the 7-source corpus
         self.assertIn("expert consensus", text)     # named in prose as such
         self.assertIn("majority", text)             # majority captain
         self.assertIn("research notes", text)       # minutes provenance
         self.assertIn("Haaland", prose["standfirst"])
+
+    def test_consensus_source_count_derives_from_the_data(self):
+        """Review finding 5: 'seven expert sources' was hardcoded — a GW2 tally
+        over nine sources would have published a false seven."""
+        prose = self._prose("consensus-squad",
+                            _squad_entries(captain="Haaland", source_count=9))
+        text = prose["standfirst"] + prose["body_html"]
+        self.assertIn("nine", text)
+        self.assertNotIn("seven", text)
+
+    def test_consensus_prose_claims_no_count_when_the_data_has_none(self):
+        prose = self._prose("consensus-squad",
+                            _squad_entries(captain="Haaland"))
+        text = prose["standfirst"] + prose["body_html"]
+        self.assertNotIn("seven", text)
+        self.assertNotIn("of them this gameweek", text)
+        self.assertIn("expert consensus", text)     # the method claim survives
 
     def test_never_names_a_bookmaker(self):
         for slug in ("our-squad", "consensus-squad"):

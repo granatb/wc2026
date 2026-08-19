@@ -401,3 +401,20 @@ class TestSquadArticle(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             fpl_articles.squad_article(_squad_state(), rows)
         self.assertIn("Mid3", str(ctx.exception))
+
+    def test_source_count_travels_from_state_to_meta_and_entries(self):
+        """The consensus prose derives 'N expert sources' from the state, so
+        squad_article must carry the count into both meta and every entry
+        (entries are all the templates ever see)."""
+        state = _squad_state(strategy="consensus", team_name="The Consensus XI")
+        state["source_count"] = 7
+        entries, meta = fpl_articles.squad_article(state, _squad_rows())
+        self.assertEqual(meta["source_count"], 7)
+        self.assertTrue(all(e["source_count"] == 7 for e in entries))
+
+    def test_no_source_count_stays_absent(self):
+        """The model squad has no source corpus — a null count key would be
+        noise in its published JSON entries."""
+        entries, meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
+        self.assertNotIn("source_count", meta)
+        self.assertTrue(all("source_count" not in e for e in entries))

@@ -3,6 +3,7 @@
   "strategy": "consensus",
   "free_transfers": 1,
   "chips_used": [],
+  "source_count": 7,
   "squad": [
     {"name": "Verbruggen", "position": "GK", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
     {"name": "Mosquera", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},

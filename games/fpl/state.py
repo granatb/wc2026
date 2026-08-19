@@ -17,6 +17,10 @@ State shape (see the two JSON files):
     strategy       "model" | "consensus"
     free_transfers banked FTs going into the next gameweek
     chips_used     chip names already burned this season
+    source_count   (consensus only, optional) how many expert sources the
+                   mention-tally ran across this gameweek — the prose quotes
+                   it, so it lives in the state as part of the published claim
+                   rather than hardcoded in a template
     squad          exactly 15 of {name, position, is_starter, bench_order,
                    is_captain, is_vice} — `name` is the player's exact FPL
                    web_name, diacritics intact ("Sánchez", "Groß", "João Pedro")
@@ -99,6 +103,11 @@ def validate_state(state: dict, players: list) -> dict:
     team_name = state.get("team_name")
     if not team_name or not isinstance(team_name, str):
         raise ValueError("team_name must be a non-empty string")
+    if "source_count" in state:
+        sc = state["source_count"]
+        if not isinstance(sc, int) or isinstance(sc, bool) or sc < 1:
+            raise ValueError(f"source_count must be a positive integer when "
+                             f"present, got {sc!r}")
     squad = state.get("squad")
     if not isinstance(squad, list) or len(squad) != 15:
         n = len(squad) if isinstance(squad, list) else "no"

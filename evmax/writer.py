@@ -822,13 +822,14 @@ _FPL_TEMPLATES = {
         "headline": lambda e, r, subj: (
             f"The consensus XI: the experts' gameweek {r} team"),
         "standfirst": lambda e, r, subj: (
-            f"A mention-tally across seven expert sources, assembled into a "
+            f"A mention-tally across {_sq_sources_noun(e)}, assembled into a "
             f"legal 15 — {_sq_captain(e).get('name', '?')} carries the "
             f"majority armband."),
         "body": lambda e, r, subj: (
             f"<p>This squad follows the crowd on purpose. We tally which "
-            f"players the expert consensus sources keep naming — seven of them "
-            f"this gameweek — keep the names most lists agree on, and assemble "
+            f"players the expert consensus sources keep "
+            f"naming{_sq_source_count_clause(e)} keep the names most lists "
+            f"agree on, and assemble "
             f"them into a quota-, budget- and club-legal 15. The captain is "
             f"the majority call, not ours: "
             f"{html.escape(_sq_captain(e).get('name', '?'))}, with "
@@ -925,14 +926,59 @@ def _sq_bench_sentence(entries) -> str:
 def _sq_no_haaland_quote(entries) -> str:
     """The model squad's standing conviction, stated only while it is TRUE —
     the gameweek Haaland enters the squad, this paragraph must vanish on its
-    own rather than contradict the team sheet above it."""
+    own rather than contradict the team sheet above it.
+
+    The closing sentence points at the OTHER squad, so it renders only when
+    the consensus squad actually owns Haaland — the build stamps
+    `consensus_owns_haaland` on these entries because only it holds both
+    squads (review 2026-08-19, finding 5). No flag means no claim: the prose
+    never asserts what it cannot check."""
     if any(e.get("name") == "Haaland" for e in entries):
         return ""
-    return ("<blockquote><p>No Haaland, by conviction rather than oversight. "
-            "At his price the model wants the budget spread across three "
-            "lines, and we do not pay a premium for an ownership shield. If "
-            "the crowd is right about him, the consensus XI on this site owns "
-            "him and will collect the evidence.</p></blockquote>\n")
+    quote = ("No Haaland, by conviction rather than oversight. "
+             "At his price the model wants the budget spread across three "
+             "lines, and we do not pay a premium for an ownership shield.")
+    if any(e.get("consensus_owns_haaland") for e in entries):
+        quote += (" If the crowd is right about him, the consensus XI on "
+                  "this site owns him and will collect the evidence.")
+    return f"<blockquote><p>{quote}</p></blockquote>\n"
+
+
+# Reader-facing number words for the consensus corpus size. Prose says "seven
+# expert sources", not "7 expert sources"; anything past twelve falls back to
+# the numeral rather than inventing "twenty-three".
+_NUM_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+              7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven",
+              12: "twelve"}
+
+
+def _sq_source_count(entries):
+    """The consensus corpus size squad_article stamped on the entries, or None.
+    Derived from the state file, never hardcoded — a GW2 tally over nine
+    sources must not publish a template's 'seven'."""
+    for e in entries:
+        n = e.get("source_count")
+        if isinstance(n, int) and not isinstance(n, bool) and n > 0:
+            return n
+    return None
+
+
+def _sq_sources_noun(entries) -> str:
+    """"seven expert sources" when the count is known, else a phrase that
+    claims no number at all."""
+    n = _sq_source_count(entries)
+    if n is None:
+        return "the expert consensus sources"
+    return f"{_NUM_WORDS.get(n, str(n))} expert sources"
+
+
+def _sq_source_count_clause(entries) -> str:
+    """The parenthetical count in the consensus body, or a plain comma when
+    the data carries no count to quote."""
+    n = _sq_source_count(entries)
+    if n is None:
+        return ","
+    return f" — {_NUM_WORDS.get(n, str(n))} of them this gameweek —"
 
 
 def _fpl_ticker_blanks_doubles(entries: list) -> str:

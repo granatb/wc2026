@@ -199,6 +199,12 @@ def _article_entries(rows: list, matches: list, clubs: list,
     our_entries, our_meta = fpl_articles.squad_article(states["model"], rows)
     cons_entries, cons_meta = fpl_articles.squad_article(states["consensus"],
                                                          rows)
+    # Stamped here because only the build holds BOTH squads: the our-squad
+    # prose may say "the consensus XI on this site owns him" about Haaland
+    # only while that is checkably true (review 2026-08-19, finding 5).
+    owns_haaland = any(e["name"] == "Haaland" for e in cons_entries)
+    for e in our_entries:
+        e["consensus_owns_haaland"] = owns_haaland
     squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
     entries_map = {
         "our-squad":       our_entries,
