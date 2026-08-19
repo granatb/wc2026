@@ -347,6 +347,14 @@ class TestGameweekBuild(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Same courtesy as TestLoadStates: on a fresh checkout data/ is empty
+        # (it is gitignored), and that is a skip, not an error — the build's
+        # own preflight SystemExit would otherwise report as a test failure.
+        from core import fpl_api
+        if fpl_api.read_cache("bootstrap") is None:
+            raise unittest.SkipTest(
+                "data/fpl bootstrap cache missing — populate with "
+                "`python3 manage.py fpl --round 1 --refresh`")
         cls.tmp = tempfile.TemporaryDirectory()
         cls.out = cls.tmp.name
         for rel in cls._WC_PAGES:
