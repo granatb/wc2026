@@ -42,7 +42,7 @@ captain Haaland, vice B.Fernandes:
 
 ## Tasks
 
-- [ ] **1. State schema + the two state files.** Extend the `games/fpl/state.json`
+- [x] **1. State schema + the two state files.** Extend the `games/fpl/state.json`
   shape (it still holds the `_example`): `team_name`, `strategy` ("model" |
   "consensus"), `squad` of 15 entries {name, position, is_starter, bench_order
   (null for XI), is_captain, is_vice}, `chips_used`, `free_transfers`. Write both
@@ -52,13 +52,13 @@ captain Haaland, vice B.Fernandes:
   with the GK first. Tests for every validation failure mode. Prices come from
   bootstrap at load time, never stored.
 
-- [ ] **2. Squad article data in `evmax/fpl_articles.py`.** `squad_article(state,
+- [x] **2. Squad article data in `evmax/fpl_articles.py`.** `squad_article(state,
   rows)`: join state to artifact rows, XI/bench split in state order, per-player
   xPts/ceiling/captain_ev/value columns, XI total, captain doubled in the projected
   total, formation string derived from the XI. Works identically for both state
   files. Unit tests incl. a state name missing from rows (must raise, not skip).
 
-- [ ] **3. The two slugs.** `our-squad` and `consensus-squad` join ARTICLES with
+- [x] **3. The two slugs.** `our-squad` and `consensus-squad` join ARTICLES with
   titles "Our squad" and "The consensus XI" (keep <title> under ~65 chars with the
   "— Gameweek N | evmax" suffix). Hand-written prose templates per Phase 4's
   standard: our-squad states the model's reasoning (horizon EV, market lambdas, the
@@ -68,20 +68,20 @@ captain Haaland, vice B.Fernandes:
   bookmakers; never reproduce expert text. Both pages get the full page family
   (JSON envelope, .md twin, sitemap, llms.txt) exactly like the six existing slugs.
 
-- [ ] **4. Landing duel.** The FPL landing leads with our-squad as the hero card,
+- [x] **4. Landing duel.** The FPL landing leads with our-squad as the hero card,
   captains second, then the feed. Add a compact duel strip: both squads' projected
   XI totals (captain doubled) side by side, labeled "model" vs "consensus" — data
   from Task 2, no new simulation. Post-GW realized-vs-projected is explicitly OUT
   of scope (needs live data; next phase). WC landing byte-identical (regression
   gate as in Phase 4).
 
-- [ ] **5. `/rate/` serves the FPL section.** Section-aware rate page: when building
+- [x] **5. `/rate/` serves the FPL section.** Section-aware rate page: when building
   a gameweek, `/rate/` copy says FPL (title "Rate my FPL team | …", squad-shape hints
   15 = 2/5/5/3), reads the gameweek players feed Phase 4 already emits, and the nav
   pill highlights per section. WC builds keep today's WC rate page byte-identical.
   The pitch-layout picker upgrade is NOT in scope — slot autocomplete stays.
 
-- [ ] **6. Pipeline + preflight + e2e.** `--gw` builds all eight articles; preflight
+- [x] **6. Pipeline + preflight + e2e.** `--gw` builds all eight articles; preflight
   additionally checks: both state files load and validate, every state name matches
   the artifact rows, projected totals are finite. e2e build test into a temp dir
   (8 articles + landing + rate). Then a real GW1 production build into `dist/`
