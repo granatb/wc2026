@@ -398,6 +398,13 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # /rate/ serves whichever section built last; a gameweek build gives it FPL
     # copy and points it at this gameweek's players feed (the JS is shared).
     w("/rate/index.html", render.rate_page(gameweek, section=section))
+    # Root-level shared chrome (GSC verification, /_redirects, /track-record/):
+    # a deploy replaces the whole tree, and this build's own nav and sitemap
+    # point at /track-record/, so omitting these would strip them from the live
+    # site on every gameweek publish. Imported lazily — evmax.build imports
+    # this module at load time, so a module-level import back would be a cycle.
+    from evmax.build import write_site_chrome
+    write_site_chrome(w)
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------

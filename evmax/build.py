@@ -26,6 +26,32 @@ _GSC_VERIFICATION_CONTENT = "google-site-verification: google8d25fd2122a8aadd.ht
 # can patch it and keep smoke builds from overwriting the live operator kit.
 _REDDIT_DIR = os.path.join("data", "reddit")
 
+
+def write_site_chrome(w) -> None:
+    """Root-level files EVERY section build must regenerate, whichever
+    competition it serves: the GSC verification file, /_redirects and the
+    track-record page + JSON feed. `w(path, text)` is the caller's writer.
+
+    Shared because a deploy replaces the whole tree: if the FPL build omitted
+    these, publishing a gameweek would strip Google's site verification and
+    the /track-record/ page its own nav and sitemap point at (review
+    2026-08-19, finding 4).
+    """
+    w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
+    # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks
+    # Google's exact-path verification check. Force this one path to serve
+    # as-is.
+    w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n"
+                     # best-xi merged into wildcard mid-R5; the old URL had
+                     # already been published/crawled, so 301 rather than 404
+                     "/round/5/best-xi/ /round/5/wildcard/ 301\n")
+    # Track record (backtest our own published predictions vs reality) — the
+    # site's credibility layer, linked from every page's nav.
+    record = backtest.build_track_record()
+    w("/track-record/index.html", render.track_record_page(record))
+    w("/api/track-record.json", json.dumps(
+        render.track_record_json(record), ensure_ascii=False, indent=2))
+
 # ---------------------------------------------------------------------------
 # Per-article column specs (primary metric first, then richer set)
 # ---------------------------------------------------------------------------
@@ -541,11 +567,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/thanks/index.html", render.thanks_page())
     w("/confirmed/index.html", render.confirmed_page())
 
-    # --- Track record (backtest our own published predictions vs reality) ---
-    record = backtest.build_track_record()
-    w("/track-record/index.html", render.track_record_page(record))
-    w("/api/track-record.json", json.dumps(
-        render.track_record_json(record), ensure_ascii=False, indent=2))
+    # --- Root-level shared site chrome (GSC file, /_redirects, track record) —
+    # the same writer the FPL build calls, so the two builds can never drift.
+    write_site_chrome(w)
 
     # --- Brand assets + self-hosted fonts (no third-party requests, GDPR) ---
     import shutil
@@ -710,13 +734,6 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/llms.txt", render.llms_txt(fantasy_round, nav))
     w("/robots.txt", render.robots_txt())
     w("/sitemap.xml", render.sitemap_xml(fantasy_round, nav, lastmod=generated_at[:10]))
-    w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
-    # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks Google's
-    # exact-path verification check. Force this one path to serve as-is.
-    w("/_redirects", f"/{_GSC_VERIFICATION_FILE} /{_GSC_VERIFICATION_FILE} 200\n"
-                     # best-xi merged into wildcard mid-R5; the old URL had
-                     # already been published/crawled, so 301 rather than 404
-                     "/round/5/best-xi/ /round/5/wildcard/ 301\n")
 
     # --- IndexNow key file (see scripts/deploy.sh) ---
     # IndexNow requires a plaintext file at /<key>.txt containing exactly the key,

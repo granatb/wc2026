@@ -441,6 +441,21 @@ class TestGameweekBuild(unittest.TestCase):
                 md = self._read(f"/fpl/gw1/{slug}.md")
                 self.assertIn(captain, md)
 
+    def test_root_site_chrome_is_regenerated(self):
+        """Review finding 4: a deploy replaces the whole tree, so an FPL build
+        that omits the root-level shared files strips the GSC verification,
+        /_redirects and the /track-record/ page its own nav and sitemap link
+        to. Both builds write them via the same shared writer."""
+        from evmax import build as wc_build
+        self.assertEqual(self._read(f"/{wc_build._GSC_VERIFICATION_FILE}"),
+                         wc_build._GSC_VERIFICATION_CONTENT)
+        redirects = self._read("/_redirects")
+        self.assertIn(wc_build._GSC_VERIFICATION_FILE, redirects)
+        self.assertIn("/round/5/best-xi/ /round/5/wildcard/ 301", redirects)
+        self.assertIn("<!doctype html>", self._read("/track-record/index.html"))
+        record = json.loads(self._read("/api/track-record.json"))
+        self.assertIn("rounds", record)
+
     def test_rate_page_serves_the_fpl_section(self):
         html = self._read("/rate/index.html")
         self.assertIn("Rate my FPL team", html)
