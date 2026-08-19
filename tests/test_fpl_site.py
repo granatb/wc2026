@@ -218,6 +218,20 @@ from core import fixtures as core_fixtures
 from evmax import fpl_build
 
 
+def _snapshot_state():
+    """{filename: mtime_ns} of the GW1 projection snapshot dir, or None if absent.
+
+    The dir legitimately exists on a checkout where a REAL production build ran
+    pre-lock (Task 13 does exactly that), so the temp-dir build test asserts it
+    was left untouched rather than absent."""
+    snap = os.path.join(os.path.dirname(os.path.abspath(fpl_build.__file__)),
+                        "assets", "projections", "fpl-gw1")
+    if not os.path.isdir(snap):
+        return None
+    return {f: os.stat(os.path.join(snap, f)).st_mtime_ns
+            for f in sorted(os.listdir(snap))}
+
+
 def _fx(match_id, home, away, gw=1, priced=True):
     return core_fixtures.Fixture(
         match_id=match_id, home=home, away=away,
@@ -296,6 +310,7 @@ class TestGameweekBuild(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.out = cls.tmp.name
         cls._saved_site_url = render.SITE_URL
+        cls._snap_before = _snapshot_state()
         fpl_build.build(gameweek=1, sims=200, out=cls.out,
                         url="https://example.test", use_llm=False)
 
@@ -345,10 +360,10 @@ class TestGameweekBuild(unittest.TestCase):
 
     def test_projection_snapshot_is_not_written_for_a_non_production_build(self):
         """Snapshots are the track record's ground truth — a test build into a temp
-        dir must never touch them."""
-        snap = os.path.join(os.path.dirname(os.path.abspath(fpl_build.__file__)),
-                            "assets", "projections", "fpl-gw1")
-        self.assertFalse(os.path.isdir(snap))
+        dir must never touch them. A real pre-lock production build may already
+        have created the dir on this checkout, so assert byte-for-byte
+        untouched (same files, same mtimes) rather than absent."""
+        self.assertEqual(_snapshot_state(), self._snap_before)
 
     def test_sitemap_keeps_the_world_cup_tree(self):
         xml = self._read("/sitemap.xml")
