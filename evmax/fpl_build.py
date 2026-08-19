@@ -275,7 +275,7 @@ def squad_preflight(metas: dict) -> None:
 
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           url: str = "https://evmax.ai", use_llm: bool = True,
-          use_cache: bool = True) -> None:
+          use_cache: bool = True, cache_dir: str = "data/articles") -> None:
     render.SITE_URL = url
     section = render.FPL
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -357,7 +357,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                 used_leads.add(subject)
 
         prose = writer.article_prose(slug, gameweek, entries, columns,
-                                     cache_dir="data/articles", use_llm=use_llm,
+                                     cache_dir=cache_dir, use_llm=use_llm,
                                      subject=subject,
                                      cache_name=f"fpl-gw{gameweek}",
                                      unit="Gameweek")

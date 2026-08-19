@@ -364,8 +364,13 @@ class TestGameweekBuild(unittest.TestCase):
                 fh.write(cls._WC_SENTINEL)
         cls._saved_site_url = render.SITE_URL
         cls._snap_before = _snapshot_state()
+        # An empty prose-cache dir pins this build to the TEMPLATE tier:
+        # the owner's curated data/articles/fpl-gw1/ cache (gitignored, wins
+        # the tier) must never change what this suite asserts about prose.
+        cls._prose_tmp = tempfile.TemporaryDirectory()
         fpl_build.build(gameweek=1, sims=200, out=cls.out,
-                        url="https://example.test", use_llm=False)
+                        url="https://example.test", use_llm=False,
+                        cache_dir=cls._prose_tmp.name)
 
     @classmethod
     def tearDownClass(cls):
@@ -373,6 +378,7 @@ class TestGameweekBuild(unittest.TestCase):
         # the WC render/build tests, which pin URLs built from it.
         render.SITE_URL = cls._saved_site_url
         cls.tmp.cleanup()
+        cls._prose_tmp.cleanup()
 
     def _read(self, path):
         with open(os.path.join(self.out, path.lstrip("/")), encoding="utf-8") as fh:
