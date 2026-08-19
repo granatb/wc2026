@@ -694,7 +694,13 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     import config
     from core import fixtures, research, simcache
 
-    fx = fixtures.by_round(gameweek)
+    # GW-stage only: the shared SCHEDULE also carries World Cup fixtures whose
+    # fantasy_round numbers collide with FPL gameweeks (WC round 1 == GW1).
+    # The engine still simulates everything registered for the round number —
+    # that is its contract and the rng stream depends on it — but the FPL
+    # artifact's match layer, kickoffs and cache-key lambdas are GW business
+    # only; without this filter the ticker would publish 48 national teams.
+    fx = [f for f in fixtures.by_round(gameweek) if f.stage == "GW"]
     lambdas = {f.match_id: f.lambdas() for f in fx}
     research_entries = research.load_entries("players", gameweek)
     research_projection = {

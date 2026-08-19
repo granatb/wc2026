@@ -11,9 +11,14 @@ FPL build has no business touching them (spec D5).
 """
 from __future__ import annotations
 
+import json
 import os
+import shutil
+from datetime import datetime, timezone
 
-from core import fpl_api, simcache
+from core import fixtures, fpl_api, research, simcache
+from evmax import fpl_articles, render, writer
+from games.fpl import model as fpl_model
 
 # A gameweek with no availability flags at all. FPL's bootstrap always carries
 # some — injuries, suspensions, doubts — so an all-clear feed means a stale cache,
@@ -38,7 +43,11 @@ def preflight(gameweek: int, players: list, cold_start: list) -> list:
             "data/fpl/bootstrap.json is missing — populate the cache with\n"
             f"    python3 manage.py fpl --round {gameweek} --refresh\n"
             "  (data/ is gitignored: a fresh checkout has no cached FPL feed)")
-    fx = fixtures.by_round(gameweek)
+    # GW-stage only: World Cup fixtures share fantasy_round numbers with FPL
+    # gameweeks in the shared SCHEDULE, and warning about an unpriced June
+    # World Cup fixture on an FPL build is noise that trains the operator to
+    # ignore the warning that matters.
+    fx = [f for f in fixtures.by_round(gameweek) if getattr(f, "stage", "GW") == "GW"]
     if not fx:
         problems.append(
             f"no fixtures registered for gameweek {gameweek} — the FPL fixtures "
@@ -98,3 +107,301 @@ def cache_warnings(gameweek: int, cache_hit: bool) -> list:
             f"{gameweek} ({', '.join(k[:8] for k in stale[:4])}) — an input or a "
             f"model source changed since the last build. Expected after a code or "
             f"data change; investigate if you changed neither."]
+
+
+# ---------------------------------------------------------------------------
+# The gameweek build pipeline
+# ---------------------------------------------------------------------------
+
+ARTICLES = ["captains", "wildcard", "ticker", "defenders", "efficiency", "defcon"]
+
+ARTICLE_TITLES = {
+    # Short: the <title> becomes "{title} — Gameweek N | evmax" and Bing errors
+    # above ~65 characters.
+    "captains": "Best captain picks",
+    "wildcard": "Draft squad & wildcard XI",
+    "ticker": "Fixture ticker — clean sheets",
+    "defenders": "Best defenders & keepers",
+    "efficiency": "Best value — points per million",
+    "defcon": "DefCon leaders",
+}
+
+_COLUMNS = {
+    "captains":   ["captain_ev", "x_points", "ceiling", "price", "ownership_pct"],
+    "wildcard":   ["x_points", "price", "captain_ev", "ceiling", "ownership_pct"],
+    "ticker":     ["exp_clean_sheets", "exp_goals_for", "exp_goals_against",
+                   "fixtures", "basis"],
+    "defenders":  ["x_points", "cs_points", "defcon", "bonus", "price"],
+    "efficiency": ["value", "x_points", "price", "ownership_pct", "ceiling"],
+    "defcon":     ["p_defcon", "defcon", "x_points", "price", "ownership_pct"],
+}
+
+# Articles whose chart metric is points-denominated get the floor+ceiling reach
+# bar. value (pts/million), p_defcon (a probability) and exp_clean_sheets (a
+# count) are different units — mixing raw ceiling points into those bars would be
+# dimensionally wrong. captains charts captain_ev, so its ceiling companion needs
+# the same doubling to land on the same scale.
+_CEILING_PAIRED_METRIC = {
+    "captains":  ("captain_ev", 2.0),
+    "defenders": ("x_points", 1.0),
+}
+
+_ARTICLE_VIZ_MAX_ROWS = 10
+_FEATURED_VIZ_MAX_ROWS = 8
+
+
+def _article_entries(rows: list, matches: list, clubs: list) -> tuple:
+    """{slug: entries} plus the wildcard squad's meta, which is not a flat list."""
+    squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
+    return {
+        "captains":   fpl_articles.captains(rows)[:20],
+        "wildcard":   squad_entries,
+        "ticker":     fpl_articles.ticker(matches, clubs),
+        "defenders":  fpl_articles.defenders(rows)[:20],
+        "efficiency": fpl_articles.efficiency(rows)[:20],
+        "defcon":     fpl_articles.defcon_leaders(rows)[:20],
+    }, squad_meta
+
+
+def build(gameweek: int, sims: int = 50_000, out: str = "dist",
+          url: str = "https://evmax.ai", use_llm: bool = True,
+          use_cache: bool = True) -> None:
+    render.SITE_URL = url
+    section = render.FPL
+    generated_at = datetime.now(timezone.utc).isoformat()
+    date_str = _format_date(generated_at)
+
+    priors_by_team, players_by_name, cold_start = fpl_model.load_gameweek(gameweek)
+    boot = fpl_api.read_cache("bootstrap")
+    all_players = fpl_api.parse_players(boot) if boot else []
+
+    warnings = preflight(gameweek, all_players, cold_start)
+
+    artifact, cache_hit = fpl_model.build_artifact(
+        priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
+    warnings += cache_warnings(gameweek, cache_hit)
+    rows, matches = artifact["rows"], artifact["matches"]
+    if not rows:
+        raise SystemExit(
+            f"evmax fpl build: the simulation produced no players for gameweek "
+            f"{gameweek} — the priors are empty, which usually means the bootstrap "
+            f"cache is stale. Refresh with `python3 manage.py fpl --round "
+            f"{gameweek} --refresh`.")
+
+    clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
+    entries_map, squad_meta = _article_entries(rows, matches, clubs)
+
+    # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
+    # build() never clears `out`, so past gameweeks persist and the switcher is
+    # generated from what is actually on disk.
+    gw_root = os.path.join(out, "fpl")
+    available = sorted(
+        {int(d[2:]) for d in os.listdir(gw_root)
+         if d.startswith("gw") and d[2:].isdigit()} | {gameweek}
+    ) if os.path.isdir(gw_root) else [gameweek]
+
+    def w(path: str, text: str) -> None:
+        full = os.path.join(out, path.lstrip("/"))
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    # --- Bulk players feed. Same guardrail as the World Cup's: derived model
+    # outputs and name/team/position ONLY. No price, no ownership — those stay
+    # per-player context inside articles, never in the public bulk feed.
+    notes = research.load_entries("players", gameweek)
+    w(section.players_json_path(gameweek), json.dumps({
+        "gameweek": gameweek,
+        "generated_at": generated_at,
+        "methodology": section.methodology,
+        "license": render.DATA_LICENSE_URL,
+        "players": [
+            {"name": r["name"], "team": r.get("team"),
+             "position": r.get("position"), "x_points": r["x_points"],
+             "captain_ev": r["captain_ev"], "ceiling": r["ceiling"],
+             "kickoff": r.get("kickoff"),
+             "flag": _player_flag(r["name"], notes)}
+            for r in rows
+        ],
+    }, ensure_ascii=False, indent=2))
+
+    prose_map: dict = {}
+    used_leads: set = set()
+    is_production = os.path.basename(os.path.normpath(out)) == "dist"
+
+    for slug in ARTICLES:
+        entries = entries_map[slug]
+        columns = _COLUMNS[slug]
+        title = f"{ARTICLE_TITLES[slug]} — Gameweek {gameweek}"
+        json_url = section.json_path(gameweek, slug)
+
+        if slug in ("wildcard", "ticker"):
+            subject = None            # squad- and club-framed, no lead player
+        else:
+            subject = next((e["name"] for e in entries
+                            if e["name"] not in used_leads),
+                           entries[0]["name"] if entries else None)
+            if subject:
+                used_leads.add(subject)
+
+        prose = writer.article_prose(slug, gameweek, entries, columns,
+                                     cache_dir="data/articles", use_llm=use_llm,
+                                     subject=subject,
+                                     cache_name=f"fpl-gw{gameweek}",
+                                     unit="Gameweek")
+        prose_map[slug] = prose
+
+        if slug == "wildcard":
+            viz_html = render.pitch_svg([e for e in entries
+                                         if e.get("role") == "XI"])
+        else:
+            pair = _CEILING_PAIRED_METRIC.get(slug)
+            if pair:
+                metric, scale = pair
+                viz_html = render.ev_bar(entries, metric,
+                                         max_rows=_ARTICLE_VIZ_MAX_ROWS,
+                                         reach_metric="ceiling", reach_scale=scale)
+            else:
+                viz_html = render.ev_bar(entries, columns[0],
+                                         max_rows=_ARTICLE_VIZ_MAX_ROWS)
+
+        extra = {"squad": squad_meta} if slug == "wildcard" else None
+        env = render.article_json("fantasy_premier_league", gameweek, slug, title,
+                                  generated_at, sims, entries,
+                                  extra_fields=extra, section=section)
+        env_json = json.dumps(env, ensure_ascii=False, indent=2)
+        w(json_url, env_json)
+
+        # Point-in-time projection archive — the ground truth the backtest harness
+        # will grade from GW1 forward (spec §7.4). Two guards, same as the World
+        # Cup's: production builds only, and only while the gameweek is still open,
+        # so a post-hoc rebuild cannot contaminate a published claim.
+        lock = fixtures.round_lock_time(gameweek)
+        if is_production and (lock is None or datetime.now(timezone.utc) < lock):
+            snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "assets", "projections", f"fpl-gw{gameweek}")
+            os.makedirs(snap_dir, exist_ok=True)
+            with open(os.path.join(snap_dir, f"{slug}.json"), "w",
+                      encoding="utf-8") as fh:
+                fh.write(env_json)
+
+        w(f"{section.base.format(r=gameweek)}/{slug}/index.html",
+          render.article_page(gameweek, slug, title, prose, entries, columns,
+                              json_url, viz_html, generated_at=generated_at,
+                              date_str=date_str, available_rounds=available,
+                              section=section))
+        w(section.md_path(gameweek, slug),
+          render.article_md(gameweek, slug, title, prose, entries, columns,
+                            generated_at, date_str,
+                            canonical_path=section.article_path(gameweek, slug),
+                            section=section))
+
+    # --- Static pages and assets (shared with the World Cup section) ----------
+    w("/about/index.html", render.about_page())
+    w("/privacy/index.html", render.privacy_page())
+    w("/thanks/index.html", render.thanks_page())
+    w("/confirmed/index.html", render.confirmed_page())
+    _copy_assets(out)
+
+    # --- Landing -------------------------------------------------------------
+    featured = {
+        "slug": "captains",
+        "prose": prose_map["captains"],
+        "viz_html": render.ev_bar(
+            entries_map["captains"][:_FEATURED_VIZ_MAX_ROWS], "captain_ev",
+            width=400, row_h=40, label_size=15, value_size=14, bar_h=22,
+            reach_metric="ceiling", reach_scale=2.0),
+    }
+    feed = []
+    for slug in ARTICLES:
+        if slug == "captains":
+            continue
+        entries, columns = entries_map[slug], _COLUMNS[slug]
+        top = entries[0] if entries else {}
+        feed.append({
+            "slug": slug,
+            "headline": prose_map[slug]["headline"],
+            "teaser": prose_map[slug]["standfirst"],
+            "stat_value": render._fmt(columns[0], top),
+            "stat_label": render._COL_LABEL.get(columns[0], columns[0]),
+        })
+
+    landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
+                                  fixtures=matches, available_rounds=available,
+                                  section=section)
+    w(f"{section.base.format(r=gameweek)}/index.html", landing)
+    # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
+    # /round/N/ is untouched and stays live (spec D5) — its landing survives at
+    # /round/8/ — but GW1 is the year's largest FPL search peak and the root
+    # belongs to the live competition.
+    w("/index.html", landing)
+
+    # --- Agent / meta files --------------------------------------------------
+    nav = [(slug, ARTICLE_TITLES[slug]) for slug in ARTICLES]
+    w("/api/latest.json", json.dumps(
+        {"gameweek": gameweek, "generated_at": generated_at,
+         "articles": {s: section.json_path(gameweek, s) for s in ARTICLES}},
+        ensure_ascii=False, indent=2))
+    w("/llms.txt", render.llms_txt(gameweek, nav, section=section))
+    w("/robots.txt", render.robots_txt())
+    w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
+                                         section=section,
+                                         extra_urls=_world_cup_urls(out)))
+
+    for line in warnings:
+        print(f"\n!!! {line}\n")
+    suffix = (f" | !!! {len(warnings)} WARNING(S) — see above / rerun without "
+              f"filters" if warnings else "")
+    print(f"Built FPL gameweek {gameweek} → {out}/ "
+          f"({len(rows)} players, {len(ARTICLES)} articles, "
+          f"sim cache {'HIT' if cache_hit else 'MISS'}){suffix}")
+
+
+def _world_cup_urls(out: str) -> list:
+    """Every World Cup page already on disk, so the FPL sitemap keeps them listed.
+
+    Those URLs are still live and still indexed (spec D5). A sitemap that drops
+    them reads to a crawler as a request to deindex them, which would take the
+    track record's own evidence out of search.
+    """
+    root = os.path.join(out, "round")
+    if not os.path.isdir(root):
+        return []
+    urls = []
+    for dirpath, _dirs, filenames in os.walk(root):
+        if "index.html" in filenames:
+            rel = os.path.relpath(dirpath, out).replace(os.sep, "/")
+            urls.append(f"/{rel}/")
+    return sorted(urls)
+
+
+def _player_flag(name: str, notes: dict):
+    """out / doubtful / None — the same small public vocabulary the World Cup feed
+    exposes. Imported rather than reimplemented so the two never drift."""
+    from evmax.articles import player_flag
+    return player_flag(name, notes)
+
+
+def _format_date(generated_at: str) -> str:
+    dt = datetime.fromisoformat(generated_at)
+    try:
+        return dt.strftime("%-d %B %Y")
+    except ValueError:
+        return dt.strftime("%d %B %Y").lstrip("0")
+
+
+def _copy_assets(out: str) -> None:
+    """Brand images, self-hosted fonts and the first-party JS. No third-party
+    requests on load — the site's GDPR posture depends on it."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for src_name, dst_name, exts in (("brand", "brand", (".png", ".svg")),
+                                     ("fonts", "fonts", (".woff2",)),
+                                     ("js", "js", (".js",))):
+        src = os.path.join(here, "assets", src_name)
+        dst = os.path.join(out, dst_name)
+        if not os.path.isdir(src):
+            continue
+        os.makedirs(dst, exist_ok=True)
+        for fname in os.listdir(src):
+            if fname.endswith(exts):
+                shutil.copy2(os.path.join(src, fname), os.path.join(dst, fname))

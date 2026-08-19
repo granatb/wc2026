@@ -635,6 +635,49 @@ class TestMatchSummaries(unittest.TestCase):
         self.assertEqual(first["rows"], second["rows"])
 
 
+class TestGwStageFilter(unittest.TestCase):
+    """The shared SCHEDULE holds World Cup rounds AND FPL gameweeks, and their
+    round numbers collide (WC round 1 == FPL GW1). The FPL artifact must only
+    see stage=="GW" fixtures — otherwise the ticker publishes 48 national teams
+    and the preflight warns about unpriced June fixtures."""
+
+    def test_non_gw_fixtures_are_excluded_from_the_artifact(self):
+        from core import fixtures
+        saved = list(fixtures.SCHEDULE)
+        try:
+            fixtures.SCHEDULE.clear()
+            # A World Cup fixture sharing the same fantasy_round number.
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="wc-1", home="Mexico", away="South Africa",
+                kickoff=datetime(2026, 6, 11, 20, 0, tzinfo=timezone.utc),
+                stage="GROUP_MD1", fantasy_round=98, neutral=False,
+                lam_home=1.4, lam_away=0.9))
+        finally:
+            # _tiny_build_artifact saves/clears/restores SCHEDULE itself, so we
+            # re-add the WC fixture inside a fresh saved copy instead.
+            pass
+        try:
+            from core.ratings import PlayerPrior
+            squads = {
+                "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                                     start_prob=1.0, exp_minutes=90,
+                                     defcon_per90=9.0)],
+            }
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="tiny-gw", home="Home", away="Away",
+                kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=98, neutral=False,
+                lam_home=1.6, lam_away=1.1))
+            artifact, _hit = fpl_model.build_artifact(
+                squads, {}, 98, 100, use_cache=False)
+            match_ids = [m["match_id"] for m in artifact["matches"]]
+            self.assertEqual(match_ids, ["tiny-gw"],
+                             "non-GW fixtures leaked into the FPL artifact")
+        finally:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.extend(saved)
+
+
 class TestDerivedRowColumns(unittest.TestCase):
     def test_derived_columns_present_and_consistent(self):
         row = fpl_model._derive_row(

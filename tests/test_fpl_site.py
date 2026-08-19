@@ -1,6 +1,7 @@
 """Phase 4: FPL section rendering, preflight and the end-to-end gameweek build."""
 from __future__ import annotations
 
+import json
 import unittest
 
 from evmax import render
@@ -284,6 +285,97 @@ class TestFplPreflight(unittest.TestCase):
         with mock.patch.object(fpl_build.simcache, "artifacts_for",
                                return_value=["k"]):
             self.assertEqual(fpl_build.cache_warnings(1, cache_hit=True), [])
+
+
+class TestGameweekBuild(unittest.TestCase):
+    """End-to-end into a temp dir. Uses the real cached bootstrap/fixtures but a
+    tiny sim count — this asserts the pipeline's SHAPE, not its numbers."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.out = cls.tmp.name
+        cls._saved_site_url = render.SITE_URL
+        fpl_build.build(gameweek=1, sims=200, out=cls.out,
+                        url="https://example.test", use_llm=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        # build() mutates the module-global SITE_URL; this module runs before
+        # the WC render/build tests, which pin URLs built from it.
+        render.SITE_URL = cls._saved_site_url
+        cls.tmp.cleanup()
+
+    def _read(self, path):
+        with open(os.path.join(self.out, path.lstrip("/")), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_all_six_articles_render(self):
+        for slug in fpl_build.ARTICLES:
+            with self.subTest(slug=slug):
+                html = self._read(f"/fpl/gw1/{slug}/index.html")
+                self.assertIn("<!doctype html>", html)
+                self.assertIn("Gameweek 1", html)
+
+    def test_json_and_markdown_twins_exist(self):
+        for slug in fpl_build.ARTICLES:
+            with self.subTest(slug=slug):
+                env = json.loads(self._read(f"/api/fpl/gw1/{slug}.json"))
+                self.assertEqual(env["gameweek"], 1)
+                self.assertEqual(env["competition"], "fantasy_premier_league")
+                self.assertTrue(self._read(f"/fpl/gw1/{slug}.md"))
+
+    def test_landing_is_written_to_both_the_section_and_the_root(self):
+        section = self._read("/fpl/gw1/index.html")
+        root = self._read("/index.html")
+        self.assertEqual(section, root)
+        self.assertIn("Fantasy Premier League", root)
+
+    def test_world_cup_pages_are_never_written(self):
+        self.assertFalse(os.path.exists(os.path.join(self.out, "round")))
+
+    def test_players_feed_carries_no_price_or_ownership(self):
+        """Same guardrail as the World Cup bulk feed: derived model outputs plus
+        name/team/position only. Price and ownership stay per-article context."""
+        feed = json.loads(self._read("/api/fpl/gw1/players.json"))
+        self.assertTrue(feed["players"])
+        for p in feed["players"][:20]:
+            self.assertNotIn("price", p)
+            self.assertNotIn("ownership_pct", p)
+
+    def test_projection_snapshot_is_not_written_for_a_non_production_build(self):
+        """Snapshots are the track record's ground truth — a test build into a temp
+        dir must never touch them."""
+        snap = os.path.join(os.path.dirname(os.path.abspath(fpl_build.__file__)),
+                            "assets", "projections", "fpl-gw1")
+        self.assertFalse(os.path.isdir(snap))
+
+    def test_sitemap_keeps_the_world_cup_tree(self):
+        xml = self._read("/sitemap.xml")
+        self.assertIn("/fpl/gw1/", xml)
+
+
+class TestCliRouting(unittest.TestCase):
+    def test_gw_routes_to_the_fpl_build(self):
+        from evmax import build as build_mod
+        with mock.patch.object(build_mod, "fpl_build") as fake:
+            with mock.patch("sys.argv", ["build", "--gw", "3", "--no-llm"]):
+                build_mod.main()
+        fake.build.assert_called_once()
+        self.assertEqual(fake.build.call_args.kwargs["gameweek"], 3)
+
+    def test_round_still_routes_to_the_world_cup_build(self):
+        from evmax import build as build_mod
+        with mock.patch.object(build_mod, "build") as fake:
+            with mock.patch("sys.argv", ["build", "--round", "5", "--no-llm"]):
+                build_mod.main()
+        fake.assert_called_once()
+
+    def test_exactly_one_of_round_or_gw_is_required(self):
+        from evmax import build as build_mod
+        with mock.patch("sys.argv", ["build", "--no-llm"]):
+            with self.assertRaises(SystemExit):
+                build_mod.main()
 
 
 class TestPromptUnit(unittest.TestCase):

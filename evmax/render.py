@@ -195,6 +195,15 @@ def summary_sentence(article, entries):
     if article == "fixtures":
         return (f"{name} ({team}) has the best clean-sheet odds this round: "
                 f"{top['p_clean_sheet'] * 100:.0f}%.")
+    # FPL-only slugs (no World Cup article shares these names). The ticker's
+    # rows are CLUBS with no x_points at all, so the generic fallback below
+    # would KeyError; defcon's headline number is a probability, not points.
+    if article == "ticker":
+        return (f"{name} lead the fixture ticker at "
+                f"{(top.get('exp_clean_sheets') or 0.0):.2f} expected clean sheets.")
+    if article == "defcon":
+        return (f"{name} ({team}) hits the defensive-contribution threshold in "
+                f"{(top.get('p_defcon') or 0.0) * 100:.0f}% of simulations.")
     return f"{name} ({team}) tops the list at {top['x_points']:.1f} expected points."
 
 

@@ -14,7 +14,7 @@ import re
 from datetime import datetime, timezone
 
 from core import engine_events, espn, fifa_api, fixtures, research
-from evmax import articles, backtest, reddit, render, writer
+from evmax import articles, backtest, fpl_build, reddit, render, writer
 
 # Google Search Console site-verification file (HTML-file method). Regenerated on
 # every build so it survives a dist/ wipe rather than relying on a one-off manual
@@ -748,9 +748,12 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Build the evmax static site for one fantasy round.")
-    ap.add_argument("--round", type=int, required=True,
-                    help="Fantasy round number")
+        description="Build the evmax static site for one round or gameweek.")
+    group = ap.add_mutually_exclusive_group(required=True)
+    group.add_argument("--round", type=int,
+                       help="World Cup fantasy round number")
+    group.add_argument("--gw", type=int,
+                       help="Fantasy Premier League gameweek number")
     ap.add_argument("--sims", type=int, default=50_000,
                     help="Monte-Carlo simulation count (default 50 000)")
     ap.add_argument("--out", default="dist",
@@ -759,8 +762,14 @@ def main() -> None:
                     help="Canonical site URL (default https://evmax.ai)")
     ap.add_argument("--no-llm", dest="no_llm", action="store_true",
                     help="Skip the LLM tier; use cache-or-template only")
+    ap.add_argument("--no-cache", dest="no_cache", action="store_true",
+                    help="FPL only: always simulate, ignoring the sim cache")
     a = ap.parse_args()
-    build(a.round, a.sims, a.out, a.url, use_llm=not a.no_llm)
+    if a.gw is not None:
+        fpl_build.build(gameweek=a.gw, sims=a.sims, out=a.out, url=a.url,
+                        use_llm=not a.no_llm, use_cache=not a.no_cache)
+    else:
+        build(a.round, a.sims, a.out, a.url, use_llm=not a.no_llm)
 
 
 if __name__ == "__main__":
