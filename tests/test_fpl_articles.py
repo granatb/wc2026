@@ -257,3 +257,116 @@ class TestDefconLeaders(unittest.TestCase):
         by_name = {e["name"]: e for e in out}
         self.assertEqual(by_name["Back"]["defcon_threshold"], 10)
         self.assertEqual(by_name["Engine"]["defcon_threshold"], 12)
+
+
+def _state_entry(name, pos, starter=True, bench_order=None, cap=False,
+                 vice=False, team="ARS", price=5.0):
+    return {"name": name, "position": pos, "is_starter": starter,
+            "bench_order": bench_order, "is_captain": cap, "is_vice": vice,
+            "team": team, "price": price}
+
+
+def _squad_state(strategy="model", team_name="The Model XI"):
+    """A validated-shape state: XI in state order (1 GK, 3 DEF, 5 MID, 2 FWD),
+    bench GK/DEF/FWD/DEF. Names double as their artifact-row names."""
+    return {
+        "team_name": team_name,
+        "strategy": strategy,
+        "free_transfers": 1,
+        "chips_used": [],
+        "total_cost": 87.0,
+        "squad": [
+            _state_entry("Keeper", "GK"),
+            _state_entry("Def1", "DEF"),
+            _state_entry("Def2", "DEF"),
+            _state_entry("Def3", "DEF"),
+            _state_entry("Mid1", "MID", cap=True),
+            _state_entry("Mid2", "MID", vice=True),
+            _state_entry("Mid3", "MID"),
+            _state_entry("Mid4", "MID"),
+            _state_entry("Mid5", "MID"),
+            _state_entry("Fwd1", "FWD"),
+            _state_entry("Fwd2", "FWD"),
+            _state_entry("Gk2", "GK", starter=False, bench_order=1),
+            _state_entry("Def4", "DEF", starter=False, bench_order=2),
+            _state_entry("Fwd3", "FWD", starter=False, bench_order=3),
+            _state_entry("Def5", "DEF", starter=False, bench_order=4),
+        ],
+    }
+
+
+def _squad_rows():
+    """Artifact rows for every state name (plus a non-squad extra), with
+    x_points chosen so the XI total and captain double are easy to hand-check."""
+    spec = [("Keeper", "GK", 4.0), ("Def1", "DEF", 5.0), ("Def2", "DEF", 4.5),
+            ("Def3", "DEF", 4.0), ("Mid1", "MID", 8.0), ("Mid2", "MID", 7.0),
+            ("Mid3", "MID", 6.0), ("Mid4", "MID", 5.5), ("Mid5", "MID", 5.0),
+            ("Fwd1", "FWD", 6.5), ("Fwd2", "FWD", 5.5), ("Gk2", "GK", 3.0),
+            ("Def4", "DEF", 2.5), ("Fwd3", "FWD", 3.5), ("Def5", "DEF", 2.0),
+            ("Extra", "MID", 9.9)]
+    return [_row(n, p, xp) for n, p, xp in spec]
+
+
+class TestSquadArticle(unittest.TestCase):
+    # XI x_points sum: 4+5+4.5+4+8+7+6+5.5+5+6.5+5.5 = 61.0; captain Mid1 8.0
+    # doubled -> projected_total 69.0.
+
+    def test_entries_keep_state_order_with_roles_and_ranks(self):
+        entries, _meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
+        self.assertEqual(len(entries), 15)
+        self.assertEqual([e["name"] for e in entries[:11]],
+                         ["Keeper", "Def1", "Def2", "Def3", "Mid1", "Mid2",
+                          "Mid3", "Mid4", "Mid5", "Fwd1", "Fwd2"])
+        self.assertEqual([e["name"] for e in entries[11:]],
+                         ["Gk2", "Def4", "Fwd3", "Def5"])
+        self.assertEqual([e["rank"] for e in entries], list(range(1, 16)))
+        self.assertEqual([e["role"] for e in entries],
+                         ["XI"] * 11 + ["Bench"] * 4)
+
+    def test_bench_follows_bench_order_not_state_file_order(self):
+        state = _squad_state()
+        # scramble the bench entries' file order; bench_order must win
+        state["squad"][11:] = [state["squad"][14], state["squad"][12],
+                               state["squad"][11], state["squad"][13]]
+        entries, _meta = fpl_articles.squad_article(state, _squad_rows())
+        self.assertEqual([e["name"] for e in entries[11:]],
+                         ["Gk2", "Def4", "Fwd3", "Def5"])
+
+    def test_entries_carry_the_row_columns_and_the_captain_flags(self):
+        entries, _meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
+        cap = next(e for e in entries if e["is_captain"])
+        self.assertEqual(cap["name"], "Mid1")
+        self.assertEqual(cap["x_points"], 8.0)
+        self.assertEqual(cap["captain_ev"], 16.0)
+        for key in ("x_points", "ceiling", "captain_ev", "value"):
+            self.assertIn(key, entries[0])
+        vice = next(e for e in entries if e["is_vice"])
+        self.assertEqual(vice["name"], "Mid2")
+
+    def test_meta_totals_formation_and_captain_double(self):
+        _entries, meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
+        self.assertEqual(meta["xi_xpoints"], 61.0)
+        self.assertEqual(meta["projected_total"], 69.0)   # + captain's 8.0 again
+        self.assertEqual(meta["formation"], "3-5-2")
+        self.assertEqual(meta["captain"], "Mid1")
+        self.assertEqual(meta["vice"], "Mid2")
+        self.assertEqual(meta["team_name"], "The Model XI")
+        self.assertEqual(meta["strategy"], "model")
+        self.assertEqual(meta["total_cost"], 87.0)
+
+    def test_works_identically_for_a_consensus_state(self):
+        state = _squad_state(strategy="consensus", team_name="The Consensus XI")
+        _entries, meta = fpl_articles.squad_article(state, _squad_rows())
+        self.assertEqual(meta["strategy"], "consensus")
+        self.assertEqual(meta["team_name"], "The Consensus XI")
+        self.assertEqual(meta["projected_total"], 69.0)
+
+    def test_non_squad_rows_are_not_dragged_in(self):
+        entries, _meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
+        self.assertNotIn("Extra", [e["name"] for e in entries])
+
+    def test_state_name_missing_from_rows_raises(self):
+        rows = [r for r in _squad_rows() if r["name"] != "Mid3"]
+        with self.assertRaises(ValueError) as ctx:
+            fpl_articles.squad_article(_squad_state(), rows)
+        self.assertIn("Mid3", str(ctx.exception))

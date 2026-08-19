@@ -308,6 +308,67 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     return entries, meta
 
 
+def squad_article(state: dict, rows: list) -> tuple:
+    """Join a validated squad state (games.fpl.state) to the artifact rows.
+
+    Returns (entries, meta) — the same two-part shape fpl_squad returns, so the
+    renderer, the pitch SVG and the JSON envelope need no new handling. Works
+    identically for both published states; nothing here branches on strategy.
+
+      entries: 15 row copies in STATE order — the XI first (rank 1-11, role
+               "XI"), then the bench in bench_order (rank 12-15, role "Bench")
+               — each carrying is_captain / is_vice / bench_order. State order,
+               not x_points order: this is OUR pick, and the page presents the
+               team as fielded, not as a leaderboard.
+      meta:    team_name, strategy, formation (derived from the XI),
+               xi_xpoints (XI sum), projected_total (XI sum + the captain's
+               x_points AGAIN — the armband doubles him), captain, vice,
+               total_cost, free_transfers, chips_used.
+
+    Raises ValueError when a state name has no artifact row. A published squad
+    whose player the model never simulated is a build-stopping data problem
+    (name drift, stale bootstrap) — skipping him would publish a 14-man team
+    with a quietly wrong total.
+    """
+    by_name = {r["name"]: r for r in rows}
+    xi_state = [e for e in state["squad"] if e["is_starter"]]
+    bench_state = sorted((e for e in state["squad"] if not e["is_starter"]),
+                         key=lambda e: e["bench_order"])
+    entries = []
+    for rank, s in enumerate(xi_state + bench_state, 1):
+        row = by_name.get(s["name"])
+        if row is None:
+            raise ValueError(
+                f"squad player {s['name']!r} ({state.get('team_name', '?')}) "
+                f"has no row in the gameweek artifact — the state file and the "
+                f"simulated player pool have drifted")
+        e = dict(row)
+        e["rank"] = rank
+        e["role"] = "XI" if s["is_starter"] else "Bench"
+        e["is_captain"] = s["is_captain"]
+        e["is_vice"] = s["is_vice"]
+        e["bench_order"] = s["bench_order"]
+        entries.append(e)
+
+    xi = entries[:11]
+    captain = next(e for e in xi if e["is_captain"])
+    vice = next(e for e in xi if e["is_vice"])
+    xi_xpoints = round(sum(e["x_points"] for e in xi), 2)
+    meta = {
+        "team_name": state["team_name"],
+        "strategy": state["strategy"],
+        "formation": formation_of(xi),
+        "xi_xpoints": xi_xpoints,
+        "projected_total": round(xi_xpoints + captain["x_points"], 2),
+        "captain": captain["name"],
+        "vice": vice["name"],
+        "total_cost": state.get("total_cost"),
+        "free_transfers": state.get("free_transfers"),
+        "chips_used": list(state.get("chips_used", [])),
+    }
+    return entries, meta
+
+
 def defcon_leaders(rows: list) -> list:
     """Players by P(defensive contribution >= their position's threshold).
 
