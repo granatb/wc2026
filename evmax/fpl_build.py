@@ -454,7 +454,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     w("/robots.txt", render.robots_txt())
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
                                          section=section,
-                                         extra_urls=_world_cup_urls(out)))
+                                         extra_urls=_persisted_urls(out,
+                                                                    gameweek)))
 
     for line in warnings:
         print(f"\n!!! {line}\n")
@@ -465,20 +466,33 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           f"sim cache {'HIT' if cache_hit else 'MISS'}){suffix}")
 
 
-def _world_cup_urls(out: str) -> list:
-    """Every World Cup page already on disk, so the FPL sitemap keeps them listed.
+def _persisted_urls(out: str, current_gameweek: int) -> list:
+    """Every page already on disk that this build does not re-list itself: the
+    World Cup tree AND previously built FPL gameweeks.
 
-    Those URLs are still live and still indexed (spec D5). A sitemap that drops
-    them reads to a crawler as a request to deindex them, which would take the
-    track record's own evidence out of search.
+    Those URLs are still live and still indexed (spec D5 for the WC tree; past
+    gameweeks accumulate the same way past rounds do). A sitemap that drops
+    them reads to a crawler as a request to deindex them — building GW2 must
+    not take every GW1 page (or the track record's own evidence) out of search.
+
+    The gameweek being built is excluded here because sitemap_xml adds its
+    pages explicitly via nav; listing it again would duplicate every URL. The
+    exclusion matches the exact gw path segment so a gw2 build keeps gw20.
     """
-    root = os.path.join(out, "round")
-    if not os.path.isdir(root):
-        return []
+    current_segment = f"gw{current_gameweek}"
     urls = []
-    for dirpath, _dirs, filenames in os.walk(root):
-        if "index.html" in filenames:
+    for sub in ("round", "fpl"):
+        root = os.path.join(out, sub)
+        if not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, filenames in os.walk(root):
+            if "index.html" not in filenames:
+                continue
             rel = os.path.relpath(dirpath, out).replace(os.sep, "/")
+            parts = rel.split("/")
+            if parts[0] == "fpl" and (len(parts) < 2
+                                      or parts[1] == current_segment):
+                continue
             urls.append(f"/{rel}/")
     return sorted(urls)
 

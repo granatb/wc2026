@@ -322,10 +322,21 @@ class TestGameweekBuild(unittest.TestCase):
     """End-to-end into a temp dir. Uses the real cached bootstrap/fixtures but a
     tiny sim count — this asserts the pipeline's SHAPE, not its numbers."""
 
+    # Pre-seeded before the build: a frozen World Cup page tree, exactly like a
+    # production out/ dir that already carries published rounds. The build must
+    # leave it byte-untouched AND keep its URLs in the sitemap (D5).
+    _WC_PAGES = ("round/8/index.html", "round/8/captains/index.html")
+    _WC_SENTINEL = "<!doctype html><!-- frozen WC page -->"
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.out = cls.tmp.name
+        for rel in cls._WC_PAGES:
+            path = os.path.join(cls.out, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(cls._WC_SENTINEL)
         cls._saved_site_url = render.SITE_URL
         cls._snap_before = _snapshot_state()
         fpl_build.build(gameweek=1, sims=200, out=cls.out,
@@ -342,7 +353,7 @@ class TestGameweekBuild(unittest.TestCase):
         with open(os.path.join(self.out, path.lstrip("/")), encoding="utf-8") as fh:
             return fh.read()
 
-    def test_all_six_articles_render(self):
+    def test_all_eight_articles_render(self):
         for slug in fpl_build.ARTICLES:
             with self.subTest(slug=slug):
                 html = self._read(f"/fpl/gw1/{slug}/index.html")
@@ -364,7 +375,15 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("Fantasy Premier League", root)
 
     def test_world_cup_pages_are_never_written(self):
-        self.assertFalse(os.path.exists(os.path.join(self.out, "round")))
+        """The pre-seeded WC tree must come through the build byte-untouched
+        and gain no siblings — those pages are frozen published claims."""
+        found = []
+        for dirpath, _dirs, files in os.walk(os.path.join(self.out, "round")):
+            found += [os.path.relpath(os.path.join(dirpath, f), self.out)
+                      for f in files]
+        self.assertEqual(sorted(found), sorted(self._WC_PAGES))
+        for rel in self._WC_PAGES:
+            self.assertEqual(self._read(rel), self._WC_SENTINEL)
 
     def test_players_feed_carries_no_price_or_ownership(self):
         """Same guardrail as the World Cup bulk feed: derived model outputs plus
@@ -430,8 +449,53 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertNotIn("World Cup", html)
 
     def test_sitemap_keeps_the_world_cup_tree(self):
+        """The pre-seeded WC pages are still live and still indexed (D5): a
+        sitemap that drops them reads to a crawler as a deindexing request."""
         xml = self._read("/sitemap.xml")
         self.assertIn("/fpl/gw1/", xml)
+        self.assertIn("https://example.test/round/8/</loc>", xml)
+        self.assertIn("https://example.test/round/8/captains/</loc>", xml)
+
+
+class TestPersistedUrls(unittest.TestCase):
+    """Review finding 3: the sitemap disk-walk must keep EVERY page already on
+    disk — the World Cup tree AND prior FPL gameweeks. Building GW2 with a
+    walk that only covers out/round would drop every GW1 URL, which reads to
+    a crawler as a request to deindex the lot."""
+
+    @staticmethod
+    def _touch(out, rel):
+        path = os.path.join(out, rel, "index.html")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("<!doctype html>")
+
+    def test_prior_gameweeks_and_wc_tree_are_kept(self):
+        with tempfile.TemporaryDirectory() as out:
+            for rel in ("round/8", "round/8/captains",
+                        "fpl/gw1", "fpl/gw1/captains", "fpl/gw2"):
+                self._touch(out, rel)
+            urls = fpl_build._persisted_urls(out, current_gameweek=2)
+        self.assertIn("/round/8/", urls)
+        self.assertIn("/round/8/captains/", urls)
+        self.assertIn("/fpl/gw1/", urls)
+        self.assertIn("/fpl/gw1/captains/", urls)
+        # the gameweek being built is added explicitly by sitemap_xml's nav —
+        # listing it here would duplicate every URL
+        self.assertNotIn("/fpl/gw2/", urls)
+
+    def test_current_gameweek_exclusion_is_exact(self):
+        """Building gw2 must not swallow gw20 — the exclusion matches the
+        path segment, not a string prefix."""
+        with tempfile.TemporaryDirectory() as out:
+            for rel in ("fpl/gw2", "fpl/gw2/captains", "fpl/gw20"):
+                self._touch(out, rel)
+            urls = fpl_build._persisted_urls(out, current_gameweek=2)
+        self.assertEqual(urls, ["/fpl/gw20/"])
+
+    def test_empty_out_dir_yields_no_urls(self):
+        with tempfile.TemporaryDirectory() as out:
+            self.assertEqual(fpl_build._persisted_urls(out, 1), [])
 
 
 class TestCliRouting(unittest.TestCase):
