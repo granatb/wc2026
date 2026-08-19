@@ -196,10 +196,10 @@ def _article_entries(rows: list, matches: list, clubs: list,
     """({slug: entries}, {slug: squad meta}) — the meta dicts (wildcard's draft
     squad plus the two published squads) are not flat lists, so they travel
     separately into the JSON envelopes and the landing duel."""
-    squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
     our_entries, our_meta = fpl_articles.squad_article(states["model"], rows)
     cons_entries, cons_meta = fpl_articles.squad_article(states["consensus"],
                                                          rows)
+    squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
     entries_map = {
         "our-squad":       our_entries,
         "consensus-squad": cons_entries,
@@ -213,6 +213,43 @@ def _article_entries(rows: list, matches: list, clubs: list,
     metas = {"wildcard": squad_meta, "our-squad": our_meta,
              "consensus-squad": cons_meta}
     return entries_map, metas
+
+
+def entries_or_abort(rows: list, matches: list, clubs: list,
+                     states: dict) -> tuple:
+    """_article_entries, converting article-layer ValueErrors into the same
+    clean SystemExit the rest of preflight speaks. The main offender is a state
+    name with no artifact row (name drift / stale bootstrap) — spec-level
+    preflight: "every state name matches the artifact rows"."""
+    try:
+        return _article_entries(rows, matches, clubs, states)
+    except ValueError as e:
+        raise SystemExit(f"evmax fpl build preflight failed:\n- {e}")
+
+
+def squad_preflight(metas: dict) -> None:
+    """Abort unless both published squads' projected totals are finite numbers.
+
+    A NaN or infinity here means a poisoned artifact row (a price of 0 turned
+    into an infinite value, a broken simulation mean) and would otherwise
+    publish "nan" into the hero, the duel strip and two JSON feeds at once.
+    """
+    import math
+
+    problems = []
+    for slug in SQUAD_SLUGS:
+        meta = metas.get(slug)
+        if meta is None:
+            problems.append(f"{slug}: no squad meta was produced")
+            continue
+        for key in ("xi_xpoints", "projected_total"):
+            v = meta.get(key)
+            if not isinstance(v, (int, float)) or isinstance(v, bool) \
+                    or not math.isfinite(v):
+                problems.append(f"{slug}: {key} is {v!r} — not a finite number")
+    if problems:
+        raise SystemExit("evmax fpl build preflight failed:\n- " +
+                         "\n- ".join(problems))
 
 
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
@@ -242,7 +279,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             f"{gameweek} --refresh`.")
 
     clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
-    entries_map, metas = _article_entries(rows, matches, clubs, states)
+    entries_map, metas = entries_or_abort(rows, matches, clubs, states)
+    squad_preflight(metas)
 
     # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
     # build() never clears `out`, so past gameweeks persist and the switcher is

@@ -1,7 +1,51 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(631 tests). App: `streamlit run app.py`.
+(696 tests). App: `streamlit run app.py`.
+
+## 2026-08-19 — FPL phase 4b: the two squad slugs, the landing duel, the FPL rate page
+
+The site now fields its own teams. Two persistent squad states —
+`games/fpl/state.json` (**The Model XI**: pure engine EV over the discounted
+GW1–6 horizon, 3-5-2, B.Fernandes (c), Thiago vice, £100.0, no Haaland by
+conviction) and `games/fpl/state_consensus.json` (**The Consensus XI**: the
+best-follower team from the 7-source expert mention-tally, 3-5-2, Haaland (c),
+B.Fernandes vice, £99.5) — are validated at build time by the new
+`games/fpl/state.py`: exact FPL web_names (diacritics intact — "Gross" is not
+"Groß"), position/quota/budget/club-cap legality, XI formation, exactly one
+captain + one vice (both starters), bench_order 1–4 with the GK first. Prices
+come from the bootstrap at load time, never stored.
+
+Two new slugs publish them — **`our-squad`** ("Our squad", the hero) and
+**`consensus-squad`** ("The consensus XI") — eight FPL articles per gameweek
+now, each squad page carrying the XI on the pitch (captain badged from the
+state, not rank), the full page family, and a `squad` meta block in its JSON
+envelope. `fpl_articles.squad_article` joins state to artifact rows in state
+order and RAISES on a name with no row — a published squad never silently
+ships a 14-man team. Hand-written prose per the Phase 4 standard: our-squad
+states the model's reasoning (horizon EV, market-implied rates, the no-Haaland
+conviction — a template line that auto-retires the day he joins — captain by
+EV); consensus-squad states the method (mention-tally, majority captain,
+minutes from sourced research notes). No bookmaker names, no expert text.
+
+The FPL landing leads with our-squad, captains is the first feed card, and a
+**model-vs-consensus duel strip** shows both squads' projected XI totals
+(captain doubled) side by side from the squad metas — no new simulation; the
+strip can never disagree with the pages it links. Duel markup and CSS are
+injected only when a duel is passed, so World Cup landings keep today's bytes.
+**`/rate/` now serves the section that built last**: a gameweek build titles it
+"Rate my FPL team", states the 15 = 2/5/5/3 shape, points at the gameweek
+players feed and explains FPL's post-deadline autosubs (rate.js labels results
+via a `data-unit` attribute, defaulting to "Round"); the WC rate page was
+verified byte-identical against the pre-change renderer. Preflight grew squad
+checks: both states load + validate, every state name matches the artifact
+rows, projected totals are finite.
+
+Verified on a real GW1 production build (offline, cached feeds, sim cache HIT):
+`/round/` byte-untouched (checksummed before/after), hero + duel render — the
+duel shows **65.92 (model) vs 60.74 (consensus)** projected — and all eight
+projection snapshots froze pre-lock. Post-GW realized-vs-projected is next
+phase (needs live data). 65 new tests. Suite: 696.
 
 ## 2026-08-19 — FPL port phase 4: the site (`/fpl/gw{N}/`, six articles, `--gw` CLI)
 

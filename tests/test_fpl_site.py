@@ -667,3 +667,42 @@ class TestRatePageSection(unittest.TestCase):
             js = fh.read()
         self.assertIn('form.getAttribute("data-unit") || "Round"', js)
         self.assertNotIn('", Round " + roundNo', js)
+
+
+class TestSquadBuildGuards(unittest.TestCase):
+    _META = {"xi_xpoints": 61.0, "projected_total": 69.0}
+
+    def test_state_name_missing_from_rows_aborts_cleanly(self):
+        """spec: 'every state name matches the artifact rows' is a preflight
+        abort, not a traceback."""
+        with mock.patch.object(fpl_build.fpl_articles, "squad_article",
+                               side_effect=ValueError(
+                                   "squad player 'Ghost' has no row")):
+            with self.assertRaises(SystemExit) as ctx:
+                fpl_build.entries_or_abort([], [], [], {"model": {},
+                                                        "consensus": {}})
+        msg = str(ctx.exception)
+        self.assertIn("Ghost", msg)
+        self.assertIn("preflight", msg)
+
+    def test_finite_totals_pass(self):
+        fpl_build.squad_preflight({"our-squad": dict(self._META),
+                                   "consensus-squad": dict(self._META)})
+
+    def test_non_finite_total_aborts_naming_the_squad(self):
+        bad = {"our-squad": dict(self._META),
+               "consensus-squad": {"xi_xpoints": float("nan"),
+                                   "projected_total": 69.0}}
+        with self.assertRaises(SystemExit) as ctx:
+            fpl_build.squad_preflight(bad)
+        self.assertIn("consensus-squad", str(ctx.exception))
+
+    def test_missing_meta_aborts(self):
+        with self.assertRaises(SystemExit):
+            fpl_build.squad_preflight({"our-squad": dict(self._META)})
+
+    def test_eight_articles_and_the_two_squads_lead(self):
+        self.assertEqual(len(fpl_build.ARTICLES), 8)
+        self.assertEqual(fpl_build.ARTICLES[0], "our-squad")
+        self.assertEqual(fpl_build.ARTICLES[1], "captains")
+        self.assertIn("consensus-squad", fpl_build.ARTICLES)
