@@ -1,0 +1,446 @@
+<title>Squad Provenance GW1</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --paper:#FAFBF8; --ink:#17201B; --ink2:#44514A; --ink3:#5A6B60; --line:#DCE3DD;
+  --green:#1F7A4D; --greend:#175E3B; --surf:#FFFFFF; --chipbg:#EEF3EF;
+  --amber:#B07C24; --amberbg:#F8F1E2; --red:#A8331C;
+  --c-app:#8FAE9B; --c-goal:#1F7A4D; --c-ast:#3E8E8C; --c-cs:#5B7A9E; --c-sv:#7A6FA8; --c-dc:#A8925A; --c-bn:#C9A227;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#121714; --ink:#E6EDE7; --ink2:#AFBEB4; --ink3:#8CA094; --line:#2A342D;
+  --green:#4CAF7D; --greend:#6BC493; --surf:#1A211C; --chipbg:#223028;
+  --amber:#D9A94A; --amberbg:#2E2717; --red:#E07B5F;
+  --c-app:#5E7A6A; --c-goal:#3E9E6C; --c-ast:#4FA3A0; --c-cs:#6E8EB5; --c-sv:#9186C2; --c-dc:#B9A26A; --c-bn:#D4B23F;
+} }
+:root[data-theme="dark"]{
+  --paper:#121714; --ink:#E6EDE7; --ink2:#AFBEB4; --ink3:#8CA094; --line:#2A342D;
+  --green:#4CAF7D; --greend:#6BC493; --surf:#1A211C; --chipbg:#223028;
+  --amber:#D9A94A; --amberbg:#2E2717; --red:#E07B5F;
+  --c-app:#5E7A6A; --c-goal:#3E9E6C; --c-ast:#4FA3A0; --c-cs:#6E8EB5; --c-sv:#9186C2; --c-dc:#B9A26A; --c-bn:#D4B23F;
+}
+body{background:var(--paper);color:var(--ink);font-family:"Source Sans 3",-apple-system,Segoe UI,sans-serif;
+  font-size:16px;line-height:1.55;margin:0;padding:40px 20px 80px}
+main{max-width:880px;margin:0 auto}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;line-height:1.12;text-wrap:balance}
+h1{font-size:clamp(30px,5vw,44px);font-weight:700;margin:0 0 6px}
+h2{font-size:26px;font-weight:700;margin:56px 0 14px;padding-top:24px;border-top:2px solid var(--ink)}
+h2 .n{color:var(--green);font-family:"IBM Plex Mono",monospace;font-size:18px;margin-right:10px}
+h3{font-size:19px;margin:28px 0 8px}
+p{max-width:70ch;color:var(--ink2)} p b, li b{color:var(--ink)}
+.kick{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green)}
+.sub{color:var(--ink3);font-size:15px;margin-top:4px}
+.mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:13.5px}
+.chip{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.6px;border-radius:4px;padding:1px 6px;vertical-align:1px}
+.chip-market{background:var(--green);color:var(--paper)}
+.chip-api{background:var(--chipbg);color:var(--greend);border:1px solid var(--line)}
+.chip-proxy{background:var(--amberbg);color:var(--amber);border:1px solid var(--amber)}
+.chip-calib{background:var(--chipbg);color:var(--ink2);border:1px dashed var(--ink3)}
+.chip-notes{background:var(--chipbg);color:var(--ink3);border:1px solid var(--line)}
+.step{display:grid;grid-template-columns:44px 1fr;gap:14px;margin:20px 0;align-items:start}
+.step .no{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:600;color:var(--green);
+  border:2px solid var(--green);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center}
+.step h3{margin:4px 0 4px}
+.step p{margin:0 0 4px}
+.formula{font-family:"IBM Plex Mono",monospace;font-size:13px;background:var(--surf);border:1px solid var(--line);
+  border-radius:8px;padding:10px 14px;margin:8px 0;overflow-x:auto;color:var(--ink2)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surf);margin:14px 0}
+th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink3);text-align:left;padding:10px 12px;border-bottom:2px solid var(--line)}
+td{padding:7px 12px;border-bottom:1px solid var(--line);color:var(--ink2)}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--ink);font-weight:600}
+.prow{background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:8px 0}
+.pmeta{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.pmeta b{font-size:16px}
+.ptag{color:var(--ink3);font-size:13px}
+.pnum{margin-left:auto;font-size:13.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.cbar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:8px 0 6px;background:var(--chipbg)}
+.cbar i{display:block;height:100%}
+.pdetail{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--ink3)}
+.negs{color:var(--red)}
+.warn{font-size:12.5px;color:var(--amber);margin-top:6px}
+.benchlab{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin:16px 0 2px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--ink3);margin:10px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.callout{background:var(--surf);border-left:4px solid var(--green);border-radius:0 10px 10px 0;padding:16px 20px;margin:18px 0}
+.callout.warn2{border-left-color:var(--amber)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.big{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:700;color:var(--green)}
+footer{margin-top:60px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
+</style>
+<main>
+<p class="kick">wc2026 engine &middot; FPL 2026/27 &middot; documentation</p>
+<h1>Squad Provenance GW1</h1>
+<p class="sub">How every pick was chosen: each input, its source, its weight, and what the simulation did with it.
+Data captured 2026-08-19; GW1 deadline Fri 2026-08-21 18:30 UK. Every number on this page regenerates from
+<span class="mono">manage.py fpl</span> plus the scripts noted in the footer.</p>
+
+<div class="legend">Source chips used throughout:
+<span class="chip chip-market">MARKET</span> live bookmaker prices &nbsp; <span class="chip chip-api">FPL API</span> FPL official API &nbsp; <span class="chip chip-proxy">PROXY</span> price-rank proxy, weakest input &nbsp; <span class="chip chip-calib">CALIBRATED</span> derived, calibrated on market data &nbsp; <span class="chip chip-notes">NOTES</span> Bartek-written research notes</div>
+
+<h2><span class="n">1</span>The pipeline, step by step</h2>
+
+<div class="step"><div class="no">1</div><div>
+<h3>Match odds &rarr; expected goals <span class="chip chip-market">MARKET</span></h3>
+<p>DraftKings 1X2 + over/under for each GW1 fixture (ESPN feed, <span class="mono">core/fpl_odds.py</span>).
+The bookmaker margin is removed (de-vig), then a Dixon-Coles solver finds the pair of team
+expected-goals (&lambda;) that reproduces those market probabilities.</p>
+<div class="formula">P(home), P(draw), P(away), P(over 2.5) &nbsp;&rarr;&nbsp; solve &nbsp;&rarr;&nbsp; (&lambda;_home, &lambda;_away, &rho;)</div>
+<p>GW1 result: ARS 2.56 v COV 0.56 &middot; MCI 2.35 v BOU 1.12 &middot; HUL 0.79 v MUN 2.18 &hellip; (10/10 fixtures priced).</p>
+</div></div>
+
+<div class="step"><div class="no">2</div><div>
+<h3>Future gameweeks &rarr; calibrated FDR prior <span class="chip chip-calib">CALIBRATED</span></h3>
+<p>No book prices GW2+ yet (verified: ESPN carries zero GW2 prices and no EPL futures markets).
+Instead, FPL&rsquo;s own fixture-difficulty ratings (all 380 fixtures, in the official API) are mapped to
+&lambda; by fitting on the 10 GW1 fixtures where both FDR and market odds exist:</p>
+<div class="formula">log(&lambda;) = 1.056 &minus; 0.242&times;FDR + 0.075&times;home &nbsp;&nbsp;(mean abs error 22% on GW1)</div>
+<p>These are <b>priors, not prices</b> (stored with <span class="mono">source: fdr_prior&hellip;</span>). Each week the newly
+priced GW replaces its prior, and solved team strengths will take over as real data accumulates.</p>
+</div></div>
+
+<div class="step"><div class="no">3</div><div>
+<h3>Player priors <span class="chip chip-api">FPL API</span> <span class="chip chip-proxy">PROXY</span></h3>
+<p>From the official FPL API: last season&rsquo;s per-90 xG and xA (each player&rsquo;s share of his club&rsquo;s attack),
+penalty and set-piece duty, DefCon rates (backfilled per player, 400 calls), prices, ownership.
+<b>Start probability is the weak link</b>: it is a price-rank proxy within each club, not team news.
+163 players with no PL history sit on price-based cold-start priors.</p>
+</div></div>
+
+<div class="step"><div class="no">4</div><div>
+<h3>Research overlay <span class="chip chip-notes">NOTES</span></h3>
+<p>Markdown notes (round-scoped) override start probability and nudge &lambda; per player, blended at
+weight 0.30. <b>12 GW1 notes now exist</b>, derived from the expert corpus (6 asserted starters up, 6 World-Cup-hangover
+risks down), each carrying its sources and marked pending owner review. Press-conference notes on Thursday/Friday
+supersede them.</p>
+</div></div>
+
+<div class="step"><div class="no">5</div><div>
+<h3>Monte-Carlo simulation</h3>
+<p>20&ndash;50k simulated gameweeks: goals arrive by team &lambda;, distributed to players by their shares and
+sampled minutes; every FPL scoring rule applies per sim, including the BPS table ranked within each
+match (bonus is competitive &mdash; a strength no regression model has).</p>
+</div></div>
+
+<div class="step"><div class="no">6</div><div>
+<h3>Selection</h3>
+<p>Players ranked by simulated expected points over the GW1&ndash;6 horizon (later weeks discounted
+1.00&rarr;0.78 for prior uncertainty); squads assembled by a greedy formation-sweep knapsack under
+&pound;100.0m / quotas / max 3 per club. Known gap: greedy, not an exact MILP solve.</p>
+</div></div>
+
+<h2><span class="n">2</span>Fixture outlook, GW1&ndash;6</h2>
+<p><b>att</b> = total expected goals for; <b>xCS</b> = expected clean sheets; score = att + 2&times;xCS.
+GW1 from market odds <span class="chip chip-market">MARKET</span>, GW2&ndash;6 from the calibrated FDR prior <span class="chip chip-calib">CALIBRATED</span>.</p>
+<div class="twrap"><table>
+<tr><th>team</th><th>att</th><th>xCS</th><th>score</th></tr>
+<tr><td>ARS</td><td class="mono">9.53</td><td class="mono">2.34</td><td class="mono">14.21</td></tr><tr><td>MCI</td><td class="mono">9.75</td><td class="mono">2.10</td><td class="mono">13.95</td></tr><tr><td>MUN</td><td class="mono">9.55</td><td class="mono">2.08</td><td class="mono">13.71</td></tr><tr><td>LIV</td><td class="mono">9.70</td><td class="mono">1.86</td><td class="mono">13.42</td></tr><tr><td>CHE</td><td class="mono">9.34</td><td class="mono">1.91</td><td class="mono">13.16</td></tr><tr><td>EVE</td><td class="mono">9.13</td><td class="mono">1.48</td><td class="mono">12.09</td></tr><tr><td>AVL</td><td class="mono">8.70</td><td class="mono">1.65</td><td class="mono">12.00</td></tr><tr><td>TOT</td><td class="mono">8.83</td><td class="mono">1.41</td><td class="mono">11.65</td></tr><tr><td>NEW</td><td class="mono">9.40</td><td class="mono">1.08</td><td class="mono">11.56</td></tr><tr><td>CRY</td><td class="mono">8.55</td><td class="mono">1.42</td><td class="mono">11.39</td></tr><tr><td>BHA</td><td class="mono">8.98</td><td class="mono">1.20</td><td class="mono">11.38</td></tr><tr><td>NFO</td><td class="mono">8.44</td><td class="mono">1.47</td><td class="mono">11.38</td></tr><tr><td>BRE</td><td class="mono">8.48</td><td class="mono">1.40</td><td class="mono">11.28</td></tr><tr><td>SUN</td><td class="mono">8.57</td><td class="mono">1.32</td><td class="mono">11.21</td></tr><tr><td>LEE</td><td class="mono">8.37</td><td class="mono">1.28</td><td class="mono">10.93</td></tr><tr><td>FUL</td><td class="mono">8.19</td><td class="mono">1.11</td><td class="mono">10.41</td></tr><tr><td>IPS</td><td class="mono">8.26</td><td class="mono">1.05</td><td class="mono">10.36</td></tr><tr><td>BOU</td><td class="mono">7.78</td><td class="mono">1.29</td><td class="mono">10.36</td></tr><tr><td>COV</td><td class="mono">8.55</td><td class="mono">0.88</td><td class="mono">10.31</td></tr><tr><td>HUL</td><td class="mono">8.05</td><td class="mono">0.90</td><td class="mono">9.85</td></tr>
+</table></div>
+<p class="sub">Cross-check: the expert composite (7 sources) ranks Man Utd / Arsenal / Liverpool / Everton / Man City
+best and Sunderland / Coventry / Bournemouth / Leeds worst &mdash; same picture, one disagreement: experts fade
+Sunderland on Europa-League rotation, which FDR cannot see. That is minutes information &rarr; research notes.</p>
+
+<h2><span class="n">3</span>The horizon board</h2>
+<p>Top 15 by discounted GW1&ndash;6 expected points (H6). Per-GW columns show why single-week EV misleads:
+Saka&rsquo;s elite GW1 fades into a hard middle run; Brentford&rsquo;s and Villa&rsquo;s soft runs lift Thiago and Watkins.</p>
+<div class="twrap"><table>
+<tr><th>player</th><th>team</th><th>pos</th><th>&pound;</th><th>gw1</th><th>gw2</th><th>gw3</th><th>gw4</th><th>gw5</th><th>gw6</th><th>H6</th></tr>
+<tr><td>B.Fernandes</td><td>MUN</td><td>MID</td><td class="mono">&pound;12.0</td><td class="mono">8.8</td><td class="mono">8.1</td><td class="mono">6.5</td><td class="mono">5.5</td><td class="mono">6.5</td><td class="mono">6.8</td><td class="mono"><b>37.8</b></td></tr><tr><td>Haaland</td><td>MCI</td><td>FWD</td><td class="mono">&pound;15.5</td><td class="mono">7.7</td><td class="mono">5.6</td><td class="mono">7.0</td><td class="mono">4.8</td><td class="mono">6.8</td><td class="mono">4.8</td><td class="mono"><b>32.9</b></td></tr><tr><td>Thiago</td><td>BRE</td><td>FWD</td><td class="mono">&pound;8.0</td><td class="mono">5.9</td><td class="mono">5.5</td><td class="mono">6.9</td><td class="mono">5.6</td><td class="mono">5.0</td><td class="mono">4.8</td><td class="mono"><b>30.1</b></td></tr><tr><td>Watkins</td><td>AVL</td><td>FWD</td><td class="mono">&pound;8.0</td><td class="mono">5.0</td><td class="mono">4.6</td><td class="mono">6.2</td><td class="mono">5.3</td><td class="mono">5.1</td><td class="mono">5.3</td><td class="mono"><b>27.7</b></td></tr><tr><td>Ndiaye</td><td>EVE</td><td>MID</td><td class="mono">&pound;6.0</td><td class="mono">5.0</td><td class="mono">4.9</td><td class="mono">4.3</td><td class="mono">4.9</td><td class="mono">6.2</td><td class="mono">5.9</td><td class="mono"><b>27.4</b></td></tr><tr><td>Gibbs-White</td><td>NFO</td><td>MID</td><td class="mono">&pound;8.0</td><td class="mono">4.8</td><td class="mono">4.1</td><td class="mono">4.9</td><td class="mono">4.1</td><td class="mono">6.2</td><td class="mono">4.8</td><td class="mono"><b>25.5</b></td></tr><tr><td>Virgil</td><td>LIV</td><td>DEF</td><td class="mono">&pound;6.5</td><td class="mono">4.3</td><td class="mono">5.0</td><td class="mono">5.0</td><td class="mono">5.2</td><td class="mono">4.7</td><td class="mono">4.6</td><td class="mono"><b>25.4</b></td></tr><tr><td>E.Le Fée</td><td>SUN</td><td>MID</td><td class="mono">&pound;6.0</td><td class="mono">4.9</td><td class="mono">5.5</td><td class="mono">4.5</td><td class="mono">4.1</td><td class="mono">3.4</td><td class="mono">5.5</td><td class="mono"><b>24.7</b></td></tr><tr><td>Senesi</td><td>TOT</td><td>DEF</td><td class="mono">&pound;6.0</td><td class="mono">4.4</td><td class="mono">4.9</td><td class="mono">4.4</td><td class="mono">4.7</td><td class="mono">4.6</td><td class="mono">4.1</td><td class="mono"><b>24.0</b></td></tr><tr><td>Szoboszlai</td><td>LIV</td><td>MID</td><td class="mono">&pound;7.0</td><td class="mono">4.8</td><td class="mono">4.3</td><td class="mono">5.1</td><td class="mono">4.8</td><td class="mono">4.1</td><td class="mono">3.7</td><td class="mono"><b>23.8</b></td></tr><tr><td>Tarkowski</td><td>EVE</td><td>DEF</td><td class="mono">&pound;6.0</td><td class="mono">4.8</td><td class="mono">4.0</td><td class="mono">4.1</td><td class="mono">4.1</td><td class="mono">4.6</td><td class="mono">4.4</td><td class="mono"><b>23.1</b></td></tr><tr><td>Gakpo</td><td>LIV</td><td>MID</td><td class="mono">&pound;7.0</td><td class="mono">4.8</td><td class="mono">4.1</td><td class="mono">4.8</td><td class="mono">4.8</td><td class="mono">3.9</td><td class="mono">3.5</td><td class="mono"><b>23.0</b></td></tr><tr><td>Gabriel</td><td>ARS</td><td>DEF</td><td class="mono">&pound;8.0</td><td class="mono">5.4</td><td class="mono">3.7</td><td class="mono">4.4</td><td class="mono">3.9</td><td class="mono">3.8</td><td class="mono">4.6</td><td class="mono"><b>22.9</b></td></tr><tr><td>Saka</td><td>ARS</td><td>MID</td><td class="mono">&pound;9.5</td><td class="mono">6.0</td><td class="mono">3.4</td><td class="mono">3.5</td><td class="mono">4.0</td><td class="mono">3.9</td><td class="mono">4.9</td><td class="mono"><b>22.9</b></td></tr><tr><td>Calvert-Lewin</td><td>LEE</td><td>FWD</td><td class="mono">&pound;6.0</td><td class="mono">3.9</td><td class="mono">4.5</td><td class="mono">4.3</td><td class="mono">5.3</td><td class="mono">4.6</td><td class="mono">3.2</td><td class="mono"><b>22.8</b></td></tr>
+</table></div>
+
+<h2><span class="n">4</span>The model squad (horizon-optimal)</h2>
+<p>3-5-2, &pound;96.0, XI H6 = 291.2. Captain by EV: <b>Bruno Fernandes</b>. Each bar splits the player&rsquo;s GW1
+expected points by source; amber flags mark weak inputs.</p>
+<div class="legend">
+<span><i style="background:var(--c-app)"></i>appearance</span><span><i style="background:var(--c-goal)"></i>goals</span>
+<span><i style="background:var(--c-ast)"></i>assists</span><span><i style="background:var(--c-cs)"></i>clean sheet</span>
+<span><i style="background:var(--c-sv)"></i>saves</span><span><i style="background:var(--c-dc)"></i>DefCon</span>
+<span><i style="background:var(--c-bn)"></i>bonus</span></div>
+<div class="prow">
+  <div class="pmeta"><b>B.Fernandes</b> <span class="ptag">MID &middot; MUN &middot; &pound;12.0</span>
+    <span class="pnum">GW1 <b>8.85</b> &middot; H6 <b>37.8</b> &middot; owned 49%</span></div>
+  <div class="cbar"><i style="width:20.0%;background:var(--c-app)" title="appearance 1.83"></i><i style="width:31.7%;background:var(--c-goal)" title="goals 2.90"></i><i style="width:21.5%;background:var(--c-ast)" title="assists 1.97"></i><i style="width:2.2%;background:var(--c-dc)" title="DefCon 0.20"></i><i style="width:24.7%;background:var(--c-bn)" title="bonus 2.26"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 8.8 8.1 6.5 5.5 6.5 6.8</span>
+    <span>inputs: start 0.92 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.19 / xA 0.30 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.14</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Thiago</b> <span class="ptag">FWD &middot; BRE &middot; &pound;8.0</span>
+    <span class="pnum">GW1 <b>5.92</b> &middot; H6 <b>30.1</b> &middot; owned 16%</span></div>
+  <div class="cbar"><i style="width:31.9%;background:var(--c-app)" title="appearance 1.94"></i><i style="width:43.6%;background:var(--c-goal)" title="goals 2.65"></i><i style="width:2.6%;background:var(--c-ast)" title="assists 0.16"></i><i style="width:21.9%;background:var(--c-bn)" title="bonus 1.33"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 5.9 5.5 6.9 5.6 5.0 4.8</span>
+    <span>inputs: start 0.97 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.33 / xA 0.05 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.16</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Watkins</b> <span class="ptag">FWD &middot; AVL &middot; &pound;8.0</span>
+    <span class="pnum">GW1 <b>4.95</b> &middot; H6 <b>27.7</b> &middot; owned 12%</span></div>
+  <div class="cbar"><i style="width:32.8%;background:var(--c-app)" title="appearance 1.72"></i><i style="width:41.2%;background:var(--c-goal)" title="goals 2.16"></i><i style="width:2.5%;background:var(--c-ast)" title="assists 0.13"></i><i style="width:23.5%;background:var(--c-bn)" title="bonus 1.23"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 5.0 4.6 6.2 5.3 5.1 5.3</span>
+    <span>inputs: start 0.87 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.45 / xA 0.05 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.13</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Ndiaye</b> <span class="ptag">MID &middot; EVE &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>5.02</b> &middot; H6 <b>27.4</b> &middot; owned 20%</span></div>
+  <div class="cbar"><i style="width:31.8%;background:var(--c-app)" title="appearance 1.68"></i><i style="width:31.8%;background:var(--c-goal)" title="goals 1.68"></i><i style="width:15.7%;background:var(--c-ast)" title="assists 0.83"></i><i style="width:4.7%;background:var(--c-dc)" title="DefCon 0.25"></i><i style="width:16.1%;background:var(--c-bn)" title="bonus 0.85"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 5.0 4.9 4.3 4.9 6.2 5.9</span>
+    <span>inputs: start 0.84 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.20 / xA 0.23 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.13</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Gibbs-White</b> <span class="ptag">MID &middot; NFO &middot; &pound;8.0</span>
+    <span class="pnum">GW1 <b>4.84</b> &middot; H6 <b>25.5</b> &middot; owned 12%</span></div>
+  <div class="cbar"><i style="width:36.4%;background:var(--c-app)" title="appearance 1.83"></i><i style="width:37.6%;background:var(--c-goal)" title="goals 1.89"></i><i style="width:8.3%;background:var(--c-ast)" title="assists 0.42"></i><i style="width:17.7%;background:var(--c-bn)" title="bonus 0.89"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.8 4.1 4.9 4.1 6.2 4.8</span>
+    <span>inputs: start 0.92 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.29 / xA 0.12 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.14</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Virgil</b> <span class="ptag">DEF &middot; LIV &middot; &pound;6.5</span>
+    <span class="pnum">GW1 <b>4.35</b> &middot; H6 <b>25.4</b> &middot; owned 16%</span></div>
+  <div class="cbar"><i style="width:40.2%;background:var(--c-app)" title="appearance 1.99"></i><i style="width:17.4%;background:var(--c-goal)" title="goals 0.86"></i><i style="width:3.8%;background:var(--c-ast)" title="assists 0.19"></i><i style="width:18.8%;background:var(--c-cs)" title="clean sheet 0.93"></i><i style="width:15.4%;background:var(--c-dc)" title="DefCon 0.76"></i><i style="width:4.4%;background:var(--c-bn)" title="bonus 0.22"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.3 5.0 5.0 5.2 4.7 4.6</span>
+    <span>inputs: start 1.00 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.09 / xA 0.04 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.72, cards -0.16</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>E.Le Fée</b> <span class="ptag">MID &middot; SUN &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>4.86</b> &middot; H6 <b>24.7</b> &middot; owned 10%</span></div>
+  <div class="cbar"><i style="width:33.4%;background:var(--c-app)" title="appearance 1.72"></i><i style="width:17.7%;background:var(--c-goal)" title="goals 0.91"></i><i style="width:19.4%;background:var(--c-ast)" title="assists 1.00"></i><i style="width:7.0%;background:var(--c-dc)" title="DefCon 0.36"></i><i style="width:22.5%;background:var(--c-bn)" title="bonus 1.16"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.9 5.5 4.5 4.1 3.4 5.5</span>
+    <span>inputs: start 0.87 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.17 / xA 0.27 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.13</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Senesi</b> <span class="ptag">DEF &middot; TOT &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>4.37</b> &middot; H6 <b>24.0</b> &middot; owned 11%</span></div>
+  <div class="cbar"><i style="width:38.5%;background:var(--c-app)" title="appearance 1.94"></i><i style="width:4.6%;background:var(--c-goal)" title="goals 0.23"></i><i style="width:12.1%;background:var(--c-ast)" title="assists 0.61"></i><i style="width:17.1%;background:var(--c-cs)" title="clean sheet 0.86"></i><i style="width:23.2%;background:var(--c-dc)" title="DefCon 1.17"></i><i style="width:4.6%;background:var(--c-bn)" title="bonus 0.23"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.4 4.9 4.4 4.7 4.6 4.1</span>
+    <span>inputs: start 0.97 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.04 / xA 0.14 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.74, cards -0.15</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Szoboszlai</b> <span class="ptag">MID &middot; LIV &middot; &pound;7.0</span>
+    <span class="pnum">GW1 <b>4.77</b> &middot; H6 <b>23.8</b> &middot; owned 47%</span></div>
+  <div class="cbar"><i style="width:38.2%;background:var(--c-app)" title="appearance 1.89"></i><i style="width:18.8%;background:var(--c-goal)" title="goals 0.93"></i><i style="width:22.6%;background:var(--c-ast)" title="assists 1.12"></i><i style="width:7.1%;background:var(--c-dc)" title="DefCon 0.35"></i><i style="width:13.3%;background:var(--c-bn)" title="bonus 0.66"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.8 4.3 5.1 4.8 4.1 3.7</span>
+    <span>inputs: start 0.95 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.11 / xA 0.20 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.15</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Tarkowski</b> <span class="ptag">DEF &middot; EVE &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>4.84</b> &middot; H6 <b>23.1</b> &middot; owned 10%</span></div>
+  <div class="cbar"><i style="width:37.5%;background:var(--c-app)" title="appearance 1.94"></i><i style="width:7.5%;background:var(--c-goal)" title="goals 0.39"></i><i style="width:7.0%;background:var(--c-ast)" title="assists 0.36"></i><i style="width:23.2%;background:var(--c-cs)" title="clean sheet 1.20"></i><i style="width:17.6%;background:var(--c-dc)" title="DefCon 0.91"></i><i style="width:7.2%;background:var(--c-bn)" title="bonus 0.37"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.8 4.0 4.1 4.1 4.6 4.4</span>
+    <span>inputs: start 0.97 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.06 / xA 0.10 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.57, cards -0.16</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Raya</b> <span class="ptag">GK &middot; ARS &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>4.75</b> &middot; H6 <b>21.7</b> &middot; owned 30%</span></div>
+  <div class="cbar"><i style="width:37.2%;background:var(--c-app)" title="appearance 1.94"></i><i style="width:42.1%;background:var(--c-cs)" title="clean sheet 2.20"></i><i style="width:12.8%;background:var(--c-sv)" title="saves 0.67"></i><i style="width:7.9%;background:var(--c-bn)" title="bonus 0.41"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.8 3.7 4.3 3.7 3.6 4.3</span>
+    <span>inputs: start 0.97 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.00 / xA 0.00 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.28, cards -0.15</span></span></div>
+  
+</div><p class="benchlab">Bench</p><div class="prow">
+  <div class="pmeta"><b>Destan</b> <span class="ptag">FWD &middot; HUL &middot; &pound;4.5</span>
+    <span class="pnum">GW1 <b>0.78</b> &middot; H6 <b>6.0</b> &middot; owned 3%</span></div>
+  <div class="cbar"><i style="width:45.5%;background:var(--c-app)" title="appearance 0.45"></i><i style="width:24.2%;background:var(--c-goal)" title="goals 0.24"></i><i style="width:8.1%;background:var(--c-ast)" title="assists 0.08"></i><i style="width:22.2%;background:var(--c-bn)" title="bonus 0.22"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 0.8 1.4 1.2 1.0 1.2 1.2</span>
+    <span>inputs: start 0.25 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.37 / xA 0.17 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.04</span></span></div>
+  <div class="warn">&#9650; start prob 0.25 (price-rank proxy), cold-start prior (no PL history)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Heaton</b> <span class="ptag">GK &middot; MUN &middot; &pound;4.0</span>
+    <span class="pnum">GW1 <b>0.90</b> &middot; H6 <b>4.2</b> &middot; owned 0%</span></div>
+  <div class="cbar"><i style="width:44.6%;background:var(--c-app)" title="appearance 0.45"></i><i style="width:36.6%;background:var(--c-cs)" title="clean sheet 0.37"></i><i style="width:18.8%;background:var(--c-sv)" title="saves 0.19"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 0.9 0.8 0.8 0.8 0.8 0.8</span>
+    <span>inputs: start 0.25 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.00 / xA 0.00 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.10, cards -0.04</span></span></div>
+  <div class="warn">&#9650; start prob 0.25 (price-rank proxy), cold-start prior (no PL history)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Amass</b> <span class="ptag">DEF &middot; MUN &middot; &pound;4.0</span>
+    <span class="pnum">GW1 <b>0.88</b> &middot; H6 <b>4.0</b> &middot; owned 0%</span></div>
+  <div class="cbar"><i style="width:48.9%;background:var(--c-app)" title="appearance 0.45"></i><i style="width:5.4%;background:var(--c-goal)" title="goals 0.05"></i><i style="width:5.4%;background:var(--c-ast)" title="assists 0.05"></i><i style="width:40.2%;background:var(--c-cs)" title="clean sheet 0.37"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 0.9 0.7 0.7 0.7 0.7 0.8</span>
+    <span>inputs: start 0.25 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.03 / xA 0.04 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.10, cards -0.04</span></span></div>
+  <div class="warn">&#9650; start prob 0.25 (price-rank proxy), cold-start prior (no PL history)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Ramsay</b> <span class="ptag">DEF &middot; LIV &middot; &pound;4.0</span>
+    <span class="pnum">GW1 <b>0.63</b> &middot; H6 <b>3.9</b> &middot; owned 0%</span></div>
+  <div class="cbar"><i style="width:57.7%;background:var(--c-app)" title="appearance 0.45"></i><i style="width:10.3%;background:var(--c-goal)" title="goals 0.08"></i><i style="width:7.7%;background:var(--c-ast)" title="assists 0.06"></i><i style="width:24.4%;background:var(--c-cs)" title="clean sheet 0.19"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 0.6 0.8 0.8 0.8 0.7 0.8</span>
+    <span>inputs: start 0.25 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.04 / xA 0.06 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.18, cards -0.04</span></span></div>
+  <div class="warn">&#9650; start prob 0.25 (price-rank proxy), cold-start prior (no PL history)</div>
+</div>
+<div class="callout"><b>Bench, doctrine-corrected (owner-approved method).</b> The raw knapsack bench was
+cold-start junk with &pound;4.0 unspent; replaced by the best playing bench under the freed &pound;20.5:
+S&aacute;nchez (CHE GK &pound;5.0, GW1 3.3 / H6 18.6), N.Williams (NFO DEF &pound;5.0, 4.3 / 19.9),
+Shaw (MUN DEF &pound;4.5, 4.2 / 18.8), Calvert-Lewin (LEE FWD &pound;6.0, 3.9 / 22.8). Squad total:
+&pound;100.0 exactly, fifteen genuine starters, clubs within caps (MUN 2, NFO 2, TOT 1).
+An all-playing 15 makes a <b>GW1 Bench Boost</b> a live option: the bench projects 15.7 xPts.
+Components above are per-sim means; totals use the engine&rsquo;s conditional assembly, so a bar can
+differ from the total by a few tenths.</div>
+
+<h2><span class="n">5</span>The consensus squad (best follower)</h2>
+<p>Mention-tally across 7 expert sources, made legal under budget/quotas (&pound;99.5). Captain: <b>Haaland</b>
+(majority call) &mdash; and by owner decision this squad owns him <i>because the crowd does</i>: following experts,
+shield included, is its entire strategy. Green dots mark players whose minutes now come from
+<b>research notes derived from the expert corpus</b> (12 notes written 2026-08-19, each sourced, pending
+Bartek&rsquo;s review before the deadline).</p>
+<div class="prow">
+  <div class="pmeta"><b>Verbruggen</b> <span class="ptag">GK &middot; BHA &middot; &pound;4.5</span>
+    <span class="pnum">GW1 <b>3.42</b> &middot; H6 <b>15.8</b> &middot; owned 17%</span></div>
+  <div class="cbar"><i style="width:46.8%;background:var(--c-app)" title="appearance 1.99"></i><i style="width:23.9%;background:var(--c-cs)" title="clean sheet 1.02"></i><i style="width:22.4%;background:var(--c-sv)" title="saves 0.95"></i><i style="width:6.9%;background:var(--c-bn)" title="bonus 0.29"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 3.4 2.5 3.4 2.6 3.4 2.5</span>
+    <span>inputs: start 1.00 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.00 / xA 0.00 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.68, cards -0.16</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Mosquera</b> <span class="ptag">DEF &middot; ARS &middot; &pound;5.5</span>
+    <span class="pnum">GW1 <b>4.48</b> &middot; H6 <b>8.6</b> &middot; owned 17%</span></div>
+  <div class="cbar"><i style="width:36.3%;background:var(--c-app)" title="appearance 1.69"></i><i style="width:0.8%;background:var(--c-goal)" title="goals 0.04"></i><i style="width:6.2%;background:var(--c-ast)" title="assists 0.29"></i><i style="width:41.2%;background:var(--c-cs)" title="clean sheet 1.92"></i><i style="width:10.6%;background:var(--c-dc)" title="DefCon 0.49"></i><i style="width:4.9%;background:var(--c-bn)" title="bonus 0.23"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.5 0.9 1.1 0.9 0.9 1.1</span>
+    <span>inputs: start 0.85 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.01 / xA 0.06 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.24, cards -0.14</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.85 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Calafiori</b> <span class="ptag">DEF &middot; ARS &middot; &pound;5.5</span>
+    <span class="pnum">GW1 <b>5.22</b> &middot; H6 <b>15.8</b> &middot; owned 14%</span></div>
+  <div class="cbar"><i style="width:29.9%;background:var(--c-app)" title="appearance 1.63"></i><i style="width:23.3%;background:var(--c-goal)" title="goals 1.27"></i><i style="width:3.1%;background:var(--c-ast)" title="assists 0.17"></i><i style="width:32.8%;background:var(--c-cs)" title="clean sheet 1.78"></i><i style="width:1.0%;background:var(--c-dc)" title="DefCon 0.06"></i><i style="width:9.9%;background:var(--c-bn)" title="bonus 0.54"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 5.2 2.2 2.6 2.3 2.3 2.9</span>
+    <span>inputs: start 0.85 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.12 / xA 0.04 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.24, cards -0.13</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.85 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Shaw</b> <span class="ptag">DEF &middot; MUN &middot; &pound;4.5</span>
+    <span class="pnum">GW1 <b>4.18</b> &middot; H6 <b>18.8</b> &middot; owned 23%</span></div>
+  <div class="cbar"><i style="width:45.7%;background:var(--c-app)" title="appearance 1.98"></i><i style="width:1.9%;background:var(--c-goal)" title="goals 0.08"></i><i style="width:6.1%;background:var(--c-ast)" title="assists 0.26"></i><i style="width:41.2%;background:var(--c-cs)" title="clean sheet 1.78"></i><i style="width:3.4%;background:var(--c-dc)" title="DefCon 0.15"></i><i style="width:1.7%;background:var(--c-bn)" title="bonus 0.07"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.2 3.5 3.3 3.4 3.3 3.5</span>
+    <span>inputs: start 1.00 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.01 / xA 0.05 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.39, cards -0.15</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>B.Fernandes</b> <span class="ptag">MID &middot; MUN &middot; &pound;12.0</span>
+    <span class="pnum">GW1 <b>8.85</b> &middot; H6 <b>37.8</b> &middot; owned 49%</span></div>
+  <div class="cbar"><i style="width:20.0%;background:var(--c-app)" title="appearance 1.84"></i><i style="width:31.5%;background:var(--c-goal)" title="goals 2.89"></i><i style="width:21.5%;background:var(--c-ast)" title="assists 1.97"></i><i style="width:2.1%;background:var(--c-dc)" title="DefCon 0.19"></i><i style="width:24.9%;background:var(--c-bn)" title="bonus 2.28"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 8.8 8.1 6.5 5.5 6.5 6.8</span>
+    <span>inputs: start 0.92 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.19 / xA 0.30 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.15</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Mbeumo</b> <span class="ptag">MID &middot; MUN &middot; &pound;8.0</span>
+    <span class="pnum">GW1 <b>5.03</b> &middot; H6 <b>21.7</b> &middot; owned 14%</span></div>
+  <div class="cbar"><i style="width:30.2%;background:var(--c-app)" title="appearance 1.61"></i><i style="width:39.2%;background:var(--c-goal)" title="goals 2.09"></i><i style="width:13.3%;background:var(--c-ast)" title="assists 0.71"></i><i style="width:17.2%;background:var(--c-bn)" title="bonus 0.92"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 5.0 4.6 3.7 3.3 3.8 3.9</span>
+    <span>inputs: start 0.82 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.25 / xA 0.14 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.13</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Szoboszlai</b> <span class="ptag">MID &middot; LIV &middot; &pound;7.0</span>
+    <span class="pnum">GW1 <b>4.69</b> &middot; H6 <b>23.7</b> &middot; owned 47%</span></div>
+  <div class="cbar"><i style="width:38.7%;background:var(--c-app)" title="appearance 1.89"></i><i style="width:17.9%;background:var(--c-goal)" title="goals 0.87"></i><i style="width:23.1%;background:var(--c-ast)" title="assists 1.12"></i><i style="width:7.2%;background:var(--c-dc)" title="DefCon 0.35"></i><i style="width:13.1%;background:var(--c-bn)" title="bonus 0.64"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.7 4.3 5.1 4.8 4.1 3.7</span>
+    <span>inputs: start 0.95 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.11 / xA 0.20 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.15</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Groß</b> <span class="ptag">MID &middot; BHA &middot; &pound;5.5</span>
+    <span class="pnum">GW1 <b>3.30</b> &middot; H6 <b>11.1</b> &middot; owned 3%</span></div>
+  <div class="cbar"><i style="width:48.5%;background:var(--c-app)" title="appearance 1.70"></i><i style="width:8.2%;background:var(--c-goal)" title="goals 0.29"></i><i style="width:27.1%;background:var(--c-ast)" title="assists 0.95"></i><i style="width:4.1%;background:var(--c-dc)" title="DefCon 0.14"></i><i style="width:12.1%;background:var(--c-bn)" title="bonus 0.43"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 3.3 1.6 2.0 2.2 1.6 1.8</span>
+    <span>inputs: start 0.85 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.06 / xA 0.24 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.13</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.85 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Sangaré</b> <span class="ptag">MID &middot; NFO &middot; &pound;5.0</span>
+    <span class="pnum">GW1 <b>2.38</b> &middot; H6 <b>11.6</b> &middot; owned 0%</span></div>
+  <div class="cbar"><i style="width:58.2%;background:var(--c-app)" title="appearance 1.47"></i><i style="width:6.6%;background:var(--c-goal)" title="goals 0.17"></i><i style="width:12.9%;background:var(--c-ast)" title="assists 0.33"></i><i style="width:18.3%;background:var(--c-dc)" title="DefCon 0.46"></i><i style="width:4.0%;background:var(--c-bn)" title="bonus 0.10"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 2.4 2.0 2.2 2.0 2.4 2.1</span>
+    <span>inputs: start 0.75 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.05 / xA 0.12 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.12</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.75 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Haaland</b> <span class="ptag">FWD &middot; MCI &middot; &pound;15.5</span>
+    <span class="pnum">GW1 <b>7.83</b> &middot; H6 <b>33.0</b> &middot; owned 75%</span></div>
+  <div class="cbar"><i style="width:21.8%;background:var(--c-app)" title="appearance 1.78"></i><i style="width:50.0%;background:var(--c-goal)" title="goals 4.09"></i><i style="width:3.3%;background:var(--c-ast)" title="assists 0.27"></i><i style="width:25.0%;background:var(--c-bn)" title="bonus 2.04"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 7.8 5.6 7.0 4.8 6.8 4.8</span>
+    <span>inputs: start 0.89 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.35 / xA 0.05 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.14</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>João Pedro</b> <span class="ptag">FWD &middot; CHE &middot; &pound;7.5</span>
+    <span class="pnum">GW1 <b>4.03</b> &middot; H6 <b>20.0</b> &middot; owned 52%</span></div>
+  <div class="cbar"><i style="width:37.3%;background:var(--c-app)" title="appearance 1.62"></i><i style="width:33.0%;background:var(--c-goal)" title="goals 1.44"></i><i style="width:5.0%;background:var(--c-ast)" title="assists 0.22"></i><i style="width:24.8%;background:var(--c-bn)" title="bonus 1.08"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.0 4.1 2.8 4.5 3.5 3.6</span>
+    <span>inputs: start 0.82 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.26 / xA 0.06 <span class="chip chip-api">FPL API</span> <span class="negs">cards -0.13</span></span></div>
+  
+</div><p class="benchlab">Bench</p><div class="prow">
+  <div class="pmeta"><b>Kinsky</b> <span class="ptag">GK &middot; TOT &middot; &pound;4.5</span>
+    <span class="pnum">GW1 <b>2.48</b> &middot; H6 <b>5.0</b> &middot; owned 17%</span></div>
+  <div class="cbar"><i style="width:50.6%;background:var(--c-app)" title="appearance 1.69"></i><i style="width:22.3%;background:var(--c-cs)" title="clean sheet 0.75"></i><i style="width:25.3%;background:var(--c-sv)" title="saves 0.84"></i><i style="width:1.8%;background:var(--c-bn)" title="bonus 0.06"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 2.5 0.6 0.6 0.6 0.6 0.5</span>
+    <span>inputs: start 0.85 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.00 / xA 0.00 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.64, cards -0.14</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.85 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Hume</b> <span class="ptag">DEF &middot; SUN &middot; &pound;4.5</span>
+    <span class="pnum">GW1 <b>3.36</b> &middot; H6 <b>15.5</b> &middot; owned 1%</span></div>
+  <div class="cbar"><i style="width:47.3%;background:var(--c-app)" title="appearance 1.78"></i><i style="width:11.7%;background:var(--c-goal)" title="goals 0.44"></i><i style="width:7.6%;background:var(--c-ast)" title="assists 0.29"></i><i style="width:26.2%;background:var(--c-cs)" title="clean sheet 0.99"></i><i style="width:3.6%;background:var(--c-dc)" title="DefCon 0.14"></i><i style="width:3.6%;background:var(--c-bn)" title="bonus 0.14"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 3.4 3.5 2.3 3.0 2.0 3.4</span>
+    <span>inputs: start 0.89 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.08 / xA 0.09 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.58, cards -0.14</span></span></div>
+  
+</div><div class="prow">
+  <div class="pmeta"><b>Diop</b> <span class="ptag">DEF &middot; IPS &middot; &pound;4.0</span>
+    <span class="pnum">GW1 <b>3.26</b> &middot; H6 <b>6.1</b> &middot; owned 21%</span></div>
+  <div class="cbar"><i style="width:42.2%;background:var(--c-app)" title="appearance 1.58"></i><i style="width:15.8%;background:var(--c-goal)" title="goals 0.59"></i><i style="width:0.7%;background:var(--c-ast)" title="assists 0.03"></i><i style="width:22.4%;background:var(--c-cs)" title="clean sheet 0.84"></i><i style="width:5.8%;background:var(--c-dc)" title="DefCon 0.22"></i><i style="width:13.0%;background:var(--c-bn)" title="bonus 0.49"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 3.3 0.6 0.6 0.6 0.6 0.8</span>
+    <span>inputs: start 0.80 <span class="chip chip-notes">NOTES</span> &middot; xG share 0.13 / xA 0.02 <span class="chip chip-api">FPL API</span> <span class="negs">conceded -0.53, cards -0.12</span></span></div>
+  <div class="warn" style="color:var(--green)">&#9679; research note applied: starter, start 0.80 <span class="chip chip-notes">NOTES</span> (from expert corpus, pending review)</div>
+</div><div class="prow">
+  <div class="pmeta"><b>Calvert-Lewin</b> <span class="ptag">FWD &middot; LEE &middot; &pound;6.0</span>
+    <span class="pnum">GW1 <b>3.95</b> &middot; H6 <b>22.8</b> &middot; owned 18%</span></div>
+  <div class="cbar"><i style="width:36.7%;background:var(--c-app)" title="appearance 1.57"></i><i style="width:38.0%;background:var(--c-goal)" title="goals 1.63"></i><i style="width:2.0%;background:var(--c-ast)" title="assists 0.09"></i><i style="width:23.3%;background:var(--c-bn)" title="bonus 1.00"></i></div>
+  <div class="pdetail"><span class="mono">gw1-6: 4.0 4.5 4.3 5.3 4.6 3.2</span>
+    <span>inputs: start 0.79 <span class="chip chip-proxy">PROXY</span> &middot; xG share 0.32 / xA 0.04 <span class="chip chip-api">FPL API</span> &middot; <b>penalty taker</b> <span class="negs">cards -0.12</span></span></div>
+  
+</div>
+<h2><span class="n">6</span>Model vs crowd: one number that matters</h2>
+<div class="grid2">
+<div class="callout"><span class="big">66.27</span><br>Model XI, GW1 expected points (with captain), notes active (share re-normalisation within clubs moves it slightly from the pre-notes 68.21).</div>
+<div class="callout"><span class="big">61.21</span><br>Consensus XI with the sourced expert notes applied (54.45 on raw price-proxy minutes; 68.20 if every expert start claim is taken at full confidence).</div>
+</div>
+<p><b>The model and the crowd agree on fixtures and talent almost perfectly; the entire gap is minutes
+information.</b> This is also what the literature finds (appearance probability is the biggest error source in
+every published FPL projection system). Consequence: the highest-value action before any deadline is
+minutes notes, not model tuning. Season experiment: both squads play publicly, and the weekly gap between
+them measures exactly whose minutes information is better.</p>
+
+<h2><span class="n">7</span>The shield call, in plain terms</h2>
+<p>Haaland is ~74% owned. When a player this popular hauls and you do not own him, roughly three quarters
+of the field gains on you at once; owning him neutralizes that swing (a <b>shield</b>). Pure EV says his &pound;15.5
+buys more points spread across three players &mdash; forcing him in costs about 1&ndash;2.5 expected points in GW1.
+So the choice is: pay ~2 points of expectation as insurance against a rank shock, or take the EV and accept
+the variance. It is a risk-preference decision, not a model output.
+(Same logic scaled by captaincy: his effective ownership with armbands exceeds 100%.)</p>
+<div class="callout"><b>Resolved 2026-08-19 (owner):</b> the two squads split the question instead of
+compromising on it. The consensus squad owns Haaland (c) &mdash; following the crowd, shield included, is its
+entire strategy. The model squad holds the pure-EV line: he is not our guy at &pound;15.5. Neither squad
+hedges its philosophy; the weekly scoreboard between them is the argument.</div>
+
+<h2><span class="n">8</span>FPL is not the World Cup game</h2>
+<p>The WC engine assumed weekly flexibility: full squad rebuilds between rounds, odds always available a few
+days ahead, six one-shot rounds. FPL inverts all three:</p>
+<div class="twrap"><table>
+<tr><th></th><th>World Cup games</th><th>FPL</th></tr>
+<tr><td>Squad changes</td><td>Rebuild every round</td><td><b>1 free transfer/week</b> (bank up to 5, &minus;4 per extra)</td></tr>
+<tr><td>Decision horizon</td><td>This round only</td><td>GW1&ndash;6+ &mdash; the initial 15 is a 6-week commitment</td></tr>
+<tr><td>Odds coverage</td><td>Always priced pre-round</td><td>Current GW only; futures must be derived</td></tr>
+<tr><td>One-week spikes</td><td>Great picks</td><td>Traps (you cannot ditch them next week for free)</td></tr>
+<tr><td>Season length</td><td>8 rounds</td><td>38 GWs: chips, price ladder, rank game theory</td></tr>
+</table></div>
+<p>Architecture rule (owner, 2026-08-19): the core stays shared where it genuinely fits (sim engine, odds
+math, scoring assembly); anything FPL needs that the WC never did &mdash; team-strength persistence, a real
+minutes model, a multi-GW transfer optimizer &mdash; is built properly as an FPL module, never shimmed.
+Prediction quality outranks architectural reuse.</p>
+
+<h2><span class="n">9</span>Known limits, ranked by damage</h2>
+<div class="twrap"><table>
+<tr><th>#</th><th>limit</th><th>fix</th></tr>
+<tr><td>1</td><td>Start probabilities are price-rank proxies; proven today to be the entire model-vs-crowd gap</td><td>Minutes notes before Friday; a real minutes model later</td></tr>
+<tr><td>2</td><td>GW2&ndash;6 &lambda; are FDR priors with ~22% error</td><td>Weekly odds replace each GW; solved strengths accumulate</td></tr>
+<tr><td>3</td><td>163 cold-start players (much of COV/HUL/IPS/SUN) guessed from price</td><td>Notes for any we actually consider; data accrues from GW1</td></tr>
+<tr><td>4</td><td>Greedy knapsack, single-objective; left &pound;4.0 unspent, junk bench</td><td>MILP with bench value + horizon (the literature&rsquo;s #1 adoptable)</td></tr>
+<tr><td>5</td><td>No EO/rank objective; no chip planner; no backtest yet</td><td>All start banking data at GW1 kickoff; graded vs FPL&rsquo;s ep_next</td></tr>
+</table></div>
+
+<footer>
+Generated 2026-08-19 from: data/fpl/odds_gw1.json (DraftKings via ESPN, captured 12:33 UTC) &middot;
+data/fpl/odds_gw2&ndash;6.json (FDR prior, marked non-market) &middot; data/fpl/xpts_gw1_6.json (20k sims/GW) &middot;
+data/fpl/provenance_gw1.json (exact per-player event means) &middot; expert corpus docs/research/2026-08-19-gw1-experts/ &middot;
+engine games/fpl/model.py + core/engine_events.py (seed 12345, suite 553 green).
+Derived model outputs only; no bookmaker prices republished.
+</footer>
+</main>
