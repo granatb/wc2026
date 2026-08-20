@@ -162,3 +162,19 @@ class TestArtifactRoundTrip(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
         simcache.store("k6", {"rows": []})
         self.assertIsNotNone(simcache.load("k6"))
+
+
+class TestArtifactsForGameweek(unittest.TestCase):
+    def test_lists_only_this_gameweeks_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(simcache, "CACHE_DIR", tmp):
+                simcache.store("aaa", {"rows": []}, meta={"gameweek": 1})
+                simcache.store("bbb", {"rows": []}, meta={"gameweek": 1})
+                simcache.store("ccc", {"rows": []}, meta={"gameweek": 2})
+                self.assertEqual(sorted(simcache.artifacts_for(1)), ["aaa", "bbb"])
+                self.assertEqual(simcache.artifacts_for(2), ["ccc"])
+                self.assertEqual(simcache.artifacts_for(3), [])
+
+    def test_missing_cache_dir_is_empty_not_an_error(self):
+        with mock.patch.object(simcache, "CACHE_DIR", "/nonexistent/path/xyz"):
+            self.assertEqual(simcache.artifacts_for(1), [])

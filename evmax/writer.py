@@ -9,6 +9,8 @@ article_prose(article, round_no, entries, columns,
     Markdown twin of body_html (used for the agent-facing .md article pages).
 """
 
+from __future__ import annotations
+
 import html
 import json
 import os
@@ -659,8 +661,375 @@ _TEMPLATES = {
     },
 }
 
+def _pct(v) -> str:
+    return f"{(v or 0.0) * 100:.0f}%"
+
+
+def _is_double_gameweek(entry) -> bool:
+    """True when this player's club has more than one fixture this gameweek.
+
+    Guards the defenders prose: bonus/defcon/cs_points are per-MATCH means
+    while x_points is a per-WEEK total (games/fpl/model._derive_row), so
+    framing them as components of the total is only true for a single
+    fixture. A missing count reads as single — the build stamps the real
+    count from the match summaries, and 0 (a blank) has nothing to double.
+    TODO(pre-first-DGW): retire with the per-sim column rework (review
+    2026-08-19, finding 7)."""
+    return (entry.get("fixtures") or 0) > 1
+
+
+def _captain_vice_kickoff_sentence(e: list) -> str:
+    """The vice-timing sentence for the captains template.
+
+    kickoff_order is a dense rank over distinct kickoff instants (see
+    fpl_articles.captains), so equality means the two candidates genuinely
+    kick off together — usually the same match — and neither "first" nor
+    "later" is a true claim. Missing orders compare equal on purpose: with no
+    kickoff data the prose must not invent a timing edge either way.
+    """
+    first, second = e[0].get("kickoff_order"), e[1].get("kickoff_order")
+    if first is None or second is None or first == second:
+        return ("He kicks off at the same time, so as vice he is pure "
+                "insurance against a late scratch.")
+    if second < first:
+        return "He kicks off first, so he is the safer vice."
+    return ("He kicks off later, so he works as a vice only if your "
+            "captain's match is already done.")
+
+
+# FPL slug templates, keyed separately from _TEMPLATES because four FPL slugs
+# (captains, wildcard, defenders, efficiency) collide with World Cup slugs whose
+# prose is pinned. Selected by _template_prose when unit == "Gameweek".
+# Owner decision 2026-07-30: a --no-llm build must read like a real article,
+# never "Gameweek analysis: Defcon".
+_FPL_TEMPLATES = {
+    "captains": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the gameweek {r} captain"),
+        "standfirst": lambda e, r, subj: (
+            f"{_fmt_pts(e[0]['captain_ev'])} captain EV, "
+            f"{_fmt_pts(e[0]['ceiling'])} ceiling — the best armband in the model."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} ({html.escape(e[0].get('team', ''))}) "
+            f"projects {_fmt_pts(e[0]['captain_ev'])} captained, off "
+            f"{_fmt_pts(e[0]['x_points'])} expected points, with a ceiling of "
+            # the FPL ceiling is a tail mean, not a percentile — say what it is
+            f"{_fmt_pts(e[0]['ceiling'])} — the average of his best 15% of "
+            f"simulations.</p>"
+            + (f"<p>{html.escape(e[1]['name'])} is the alternative at "
+               f"{_fmt_pts(e[1]['captain_ev'])}. "
+               + _captain_vice_kickoff_sentence(e)
+               + "</p>" if len(e) > 1 else "")),
+        "bottom_line": lambda e, r, subj: (
+            f"Captain {e[0]['name']} — {_fmt_pts(e[0]['captain_ev'])} is the "
+            f"highest doubled projection on the board."),
+    },
+    "wildcard": {
+        "headline": lambda e, r, subj: (
+            f"The gameweek {r} draft squad: {_wc_formation(e)}"),
+        "standfirst": lambda e, r, subj: (
+            f"A legal 15 for {_wc_total_cost(e):.1f}m, with an XI projecting "
+            f"{_wc_xi_xpoints(e):.1f} points."),
+        "body": lambda e, r, subj: (
+            f"<p>The model's draft squad lines up {_wc_formation(e)} and costs "
+            f"{_wc_total_cost(e):.1f}m of the 100.0m budget, leaving "
+            f"{_wc_left_over(e):.1f}m in the bank. The starting XI projects "
+            f"{_wc_xi_xpoints(e):.1f} points.</p>"
+            f"<p>The bench is deliberately cheap — four enablers that make the 15 "
+            f"legal so the spending sits in the XI. No club contributes more than "
+            f"three players, which is the squad rule that most often forces a "
+            f"compromise on the premium picks.</p>"),
+        "bottom_line": lambda e, r, subj: (
+            f"Build around this {_wc_formation(e)}: "
+            f"{_wc_xi_xpoints(e):.1f} projected points for "
+            f"{_wc_total_cost(e):.1f}m."),
+    },
+    "ticker": {
+        "headline": lambda e, r, subj: (
+            f"Gameweek {r} fixture ticker: {e[0]['name']} lead the clean sheets"),
+        "standfirst": lambda e, r, subj: (
+            f"{e[0]['name']} project {e[0]['exp_clean_sheets']:.2f} expected clean "
+            f"sheets against {e[0]['opponents']}."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} top the ticker at "
+            f"{e[0]['exp_clean_sheets']:.2f} expected clean sheets "
+            f"({html.escape(e[0]['opponents'])}), conceding an expected "
+            f"{e[0]['exp_goals_against']:.1f}. "
+            f"{'These numbers are market-derived.' if e[0].get('basis') == 'market' else 'These numbers come from our own team ratings, not the betting market — treat them as the softer read.'}"
+            f"</p>"
+            + _fpl_ticker_blanks_doubles(e)),
+        "bottom_line": lambda e, r, subj: (
+            f"Target {e[0]['name']} defenders — "
+            f"{e[0]['exp_clean_sheets']:.2f} expected clean sheets is the best on "
+            f"the board."),
+    },
+    "defenders": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} leads the gameweek {r} defenders"),
+        "standfirst": lambda e, r, subj: (
+            f"{_fmt_pts(e[0]['x_points'])} expected points, with "
+            f"{_fmt_pts(e[0].get('cs_points', 0))} of it from clean sheets alone."
+            if not _is_double_gameweek(e[0]) else
+            f"{_fmt_pts(e[0]['x_points'])} expected points across "
+            f"{e[0]['fixtures']} fixtures this gameweek."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) projects "
+            f"{_fmt_pts(e[0]['x_points'])}: "
+            f"{_fmt_pts(e[0].get('cs_points', 0))} from clean sheets, "
+            f"{_fmt_pts(e[0].get('defcon', 0))} from defensive contribution and "
+            f"{_fmt_pts(e[0].get('bonus', 0))} from bonus. Where a defender's "
+            f"points come from matters as much as the total — a clean-sheet "
+            f"projection lives or dies on one fixture, while defensive "
+            f"contribution pays regardless of the scoreline.</p>"
+            if not _is_double_gameweek(e[0]) else
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) projects "
+            f"{_fmt_pts(e[0]['x_points'])} expected points across "
+            f"{e[0]['fixtures']} fixtures this gameweek. His clean-sheet, "
+            f"DefCon and bonus columns are per-match rates rather than shares "
+            f"of that total, so read them per fixture — the doubled minutes, "
+            f"not the rates, are what make a double gameweek pay.</p>"),
+        "bottom_line": lambda e, r, subj: (
+            f"{e[0]['name']} at {_fmt_price(e[0].get('price'))} is the defensive "
+            f"pick of the gameweek."),
+    },
+    "efficiency": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the best value in gameweek {r}"),
+        "standfirst": lambda e, r, subj: (
+            f"{e[0]['value']:.2f} points per million at "
+            f"{_fmt_price(e[0].get('price'))}."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} returns {e[0]['value']:.2f} points "
+            f"per million — {_fmt_pts(e[0]['x_points'])} expected points at "
+            f"{_fmt_price(e[0].get('price'))}.</p>"
+            + _wc_efficiency_tier_paragraph(e)),
+        "bottom_line": lambda e, r, subj: _wc_efficiency_tier_bottom_line(e),
+    },
+    "our-squad": {
+        # Squad-framed (subject=None): the article is about the team we field,
+        # not any one player. Owner-decided reasoning (2026-08-19): horizon EV,
+        # market-implied rates, no ownership shields, captain by EV.
+        "headline": lambda e, r, subj: (
+            f"Our gameweek {r} squad: {_sq_captain(e).get('name', '?')} "
+            f"captains a {_wc_formation(e)}"),
+        "standfirst": lambda e, r, subj: (
+            f"The engine's own 15 — a {_wc_formation(e)} projecting "
+            f"{_fmt_pts(_sq_projected(e))} points with the captain doubled, "
+            f"picked on six-gameweek horizon value, not one-week form."),
+        "body": lambda e, r, subj: (
+            f"<p>This is the team we actually field, and it stands or falls in "
+            f"public. The engine optimises expected points over a discounted "
+            f"six-gameweek horizon on market-implied scoring rates, so every "
+            f"pick is a horizon bet rather than a one-fixture spike. The XI "
+            f"lines up {_wc_formation(e)} and projects "
+            f"{_fmt_pts(_sq_xi_total(e))} points before the armband; with "
+            f"{html.escape(_sq_captain(e).get('name', '?'))} doubled that "
+            f"becomes {_fmt_pts(_sq_projected(e))}.</p>\n"
+            + _sq_no_haaland_quote(e)
+            + f"<p>{html.escape(_sq_captain(e).get('name', '?'))} wears the "
+            f"armband because he tops this squad's doubled projection at "
+            f"{_fmt_pts(_sq_captain(e).get('captain_ev', 0))} — captaincy here "
+            f"is expected value, never narrative. "
+            f"{html.escape(_sq_vice(e).get('name', '?'))} is vice: if the "
+            f"captain's match falls through, the armband moves to the "
+            f"next-best number, not to a hunch.</p>\n"
+            + _sq_bench_sentence(e)),
+        "bottom_line": lambda e, r, subj: (
+            f"{_wc_formation(e)}, {_sq_captain(e).get('name', '?')} (c), "
+            f"{_sq_vice(e).get('name', '?')} vice — "
+            f"{_fmt_pts(_sq_projected(e))} projected with the armband applied."),
+    },
+    "consensus-squad": {
+        # Squad-framed (subject=None). Method statement only: mention-tally
+        # across the expert corpus, majority captain, minutes from sourced
+        # research notes. Never names a bookmaker, never reproduces expert text.
+        "headline": lambda e, r, subj: (
+            f"The consensus XI: the experts' gameweek {r} team"),
+        "standfirst": lambda e, r, subj: (
+            f"A mention-tally across {_sq_sources_noun(e)}, assembled into a "
+            f"legal 15 — {_sq_captain(e).get('name', '?')} carries the "
+            f"majority armband."),
+        "body": lambda e, r, subj: (
+            f"<p>This squad follows the crowd on purpose. We tally which "
+            f"players the expert consensus sources keep "
+            f"naming{_sq_source_count_clause(e)} keep the names most lists "
+            f"agree on, and assemble "
+            f"them into a quota-, budget- and club-legal 15. The captain is "
+            f"the majority call, not ours: "
+            f"{html.escape(_sq_captain(e).get('name', '?'))}, with "
+            f"{html.escape(_sq_vice(e).get('name', '?'))} as vice.</p>\n"
+            f"<blockquote><p>Its minutes come from sourced research notes "
+            f"rather than our engine — where the experts assert a starter, "
+            f"this squad believes them. The weekly gap between this team and "
+            f"our own squad measures exactly whose information about who "
+            f"actually plays is better.</p></blockquote>\n"
+            f"<p>Scored on our numbers, the {_wc_formation(e)} XI projects "
+            f"{_fmt_pts(_sq_xi_total(e))} points, "
+            f"{_fmt_pts(_sq_projected(e))} with the captain doubled. Both "
+            f"squads are published before every deadline and graded after it — "
+            f"the season scoreboard settles the argument.</p>"),
+        "bottom_line": lambda e, r, subj: (
+            f"The crowd's 15: {_wc_formation(e)}, "
+            f"{_sq_captain(e).get('name', '?')} (c) — "
+            f"{_fmt_pts(_sq_projected(e))} projected on our model's numbers."),
+    },
+    "defcon": {
+        "headline": lambda e, r, subj: (
+            f"{subj or e[0]['name']} is the gameweek {r} DefCon banker"),
+        "standfirst": lambda e, r, subj: (
+            f"He clears the {e[0]['defcon_threshold']}-action threshold in "
+            f"{_pct(e[0]['p_defcon'])} of simulations."),
+        "body": lambda e, r, subj: (
+            f"<p>{html.escape(e[0]['name'])} "
+            f"({html.escape(e[0].get('team', ''))}) records at least "
+            f"{e[0]['defcon_threshold']} defensive actions in "
+            f"{_pct(e[0]['p_defcon'])} of our simulations, worth "
+            f"{_fmt_pts(e[0].get('defcon', 0))} on its own. Defensive "
+            f"contribution is a threshold, not a rate: a player either clears the "
+            f"count in a given match or earns nothing, which is why we quote the "
+            f"hit rate rather than an average.</p>"
+            + (f"<p>{html.escape(e[1]['name'])} is next at "
+               f"{_pct(e[1]['p_defcon'])} against a "
+               f"{e[1]['defcon_threshold']}-action threshold.</p>"
+               if len(e) > 1 else "")),
+        "bottom_line": lambda e, r, subj: (
+            f"{e[0]['name']} is the most reliable route to the 2-point defensive "
+            f"bonus — {_pct(e[0]['p_defcon'])} of simulations."),
+    },
+}
+
+
+
+# ---------------------------------------------------------------------------
+# squad-slug template helpers -- entries are squad_article's 15 (XI in state
+# order + bench in bench_order), each carrying role / is_captain / is_vice.
+# ---------------------------------------------------------------------------
+
+def _sq_xi(entries):
+    xi = [e for e in entries if e.get("role") == "XI"]
+    return xi if xi else entries[:11]
+
+
+def _sq_bench(entries):
+    bench = [e for e in entries if e.get("role") == "Bench"]
+    return bench if bench else entries[11:]
+
+
+def _sq_captain(entries):
+    xi = _sq_xi(entries)
+    return next((e for e in xi if e.get("is_captain")), xi[0] if xi else {})
+
+
+def _sq_vice(entries):
+    xi = _sq_xi(entries)
+    return next((e for e in xi if e.get("is_vice")), {})
+
+
+def _sq_xi_total(entries):
+    return round(sum(e.get("x_points") or 0.0 for e in _sq_xi(entries)), 2)
+
+
+def _sq_projected(entries):
+    """XI total with the captain counted twice — the number the duel strip and
+    both squad articles headline."""
+    cap = _sq_captain(entries)
+    return round(_sq_xi_total(entries) + (cap.get("x_points") or 0.0), 2)
+
+
+def _sq_bench_sentence(entries) -> str:
+    bench = _sq_bench(entries)
+    if not bench:
+        return ""
+    names = ", ".join(f"{i}. {html.escape(b.get('name', '?'))}"
+                      for i, b in enumerate(bench, 1))
+    return (f"<p>The bench, in order: {names}. It is deliberately thin — the "
+            f"first name is the backup keeper, and the spend sits in the XI "
+            f"where the points are.</p>")
+
+
+def _sq_no_haaland_quote(entries) -> str:
+    """The model squad's standing conviction, stated only while it is TRUE —
+    the gameweek Haaland enters the squad, this paragraph must vanish on its
+    own rather than contradict the team sheet above it.
+
+    The closing sentence points at the OTHER squad, so it renders only when
+    the consensus squad actually owns Haaland — the build stamps
+    `consensus_owns_haaland` on these entries because only it holds both
+    squads (review 2026-08-19, finding 5). No flag means no claim: the prose
+    never asserts what it cannot check."""
+    if any(e.get("name") == "Haaland" for e in entries):
+        return ""
+    quote = ("No Haaland, by conviction rather than oversight. "
+             "At his price the model wants the budget spread across three "
+             "lines, and we do not pay a premium for an ownership shield.")
+    if any(e.get("consensus_owns_haaland") for e in entries):
+        quote += (" If the crowd is right about him, the consensus XI on "
+                  "this site owns him and will collect the evidence.")
+    return f"<blockquote><p>{quote}</p></blockquote>\n"
+
+
+# Reader-facing number words for the consensus corpus size. Prose says "seven
+# expert sources", not "7 expert sources"; anything past twelve falls back to
+# the numeral rather than inventing "twenty-three".
+_NUM_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+              7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven",
+              12: "twelve"}
+
+
+def _sq_source_count(entries):
+    """The consensus corpus size squad_article stamped on the entries, or None.
+    Derived from the state file, never hardcoded — a GW2 tally over nine
+    sources must not publish a template's 'seven'."""
+    for e in entries:
+        n = e.get("source_count")
+        if isinstance(n, int) and not isinstance(n, bool) and n > 0:
+            return n
+    return None
+
+
+def _sq_sources_noun(entries) -> str:
+    """"seven expert sources" when the count is known, else a phrase that
+    claims no number at all."""
+    n = _sq_source_count(entries)
+    if n is None:
+        return "the expert consensus sources"
+    return f"{_NUM_WORDS.get(n, str(n))} expert sources"
+
+
+def _sq_source_count_clause(entries) -> str:
+    """The parenthetical count in the consensus body, or a plain comma when
+    the data carries no count to quote."""
+    n = _sq_source_count(entries)
+    if n is None:
+        return ","
+    return f" — {_NUM_WORDS.get(n, str(n))} of them this gameweek —"
+
+
+def _fpl_ticker_blanks_doubles(entries: list) -> str:
+    """A paragraph naming the gameweek's blanks and doubles, or "" if there are
+    none. These are the two facts that change a manager's week, so they are never
+    left to the reader to spot in the table."""
+    blanks = [e["name"] for e in entries if e.get("fixtures") == 0]
+    doubles = [e["name"] for e in entries if (e.get("fixtures") or 0) > 1]
+    parts = []
+    if doubles:
+        parts.append(f"{', '.join(doubles)} play twice — a double gameweek, and "
+                     f"the single biggest edge available")
+    if blanks:
+        parts.append(f"{', '.join(blanks)} have a blank gameweek and score nothing")
+    if not parts:
+        return ""
+    # NOT str.capitalize(): that lowercases everything after the first character,
+    # turning club codes ("EVE") into nonsense ("Eve"). The sentence already
+    # starts with a club name, so only ensure the first character is upper.
+    text = "; ".join(parts)
+    return "<p>" + html.escape(text[0].upper() + text[1:]) + ".</p>"
+
 _GENERIC_TEMPLATE = {
-    "headline": lambda e, r, slug, subj: f"Round analysis: {slug.replace('-', ' ').title()}",
+    "headline": lambda e, r, slug, subj, unit="Round": (
+        f"{unit} analysis: {slug.replace('-', ' ').title()}"),
     "standfirst": lambda e, r, subj: (
         f"{subj or e[0]['name']} leads with {_fmt_pts(e[0]['x_points'])} xPts."
     ),
@@ -678,15 +1047,18 @@ _GENERIC_TEMPLATE = {
 
 
 def _template_prose(article: str, entries: list, columns: list,
-                    round_no: int = 0, subject=None) -> dict:
+                    round_no: int = 0, subject=None, unit: str = "Round") -> dict:
     """Build deterministic template prose from entries.
 
     subject: the player to centre the prose on (or None for team-framing in best-xi).
+    unit: the reader-facing period word — selects the FPL template table when it
+    is "Gameweek", because four FPL slugs share names with World Cup slugs whose
+    prose must not change.
     """
     if not entries:
         body_html = "<p>No entries available for this article.</p>"
         return {
-            "headline": f"Round analysis: {article}",
+            "headline": f"{unit} analysis: {article}",
             "standfirst": "No data available.",
             "body_html": body_html,
             "body_md": _html_to_md(body_html),
@@ -694,23 +1066,26 @@ def _template_prose(article: str, entries: list, columns: list,
             "source": "template",
         }
 
-    # For best-xi, wildcard, matches and fixtures (no player subject), skip
-    # per-player framing
+    # For best-xi, wildcard, matches, fixtures, the FPL ticker and the two
+    # published squads (no player subject), skip per-player framing
     if subject is not None:
         subj = subject
-    elif article in ("best-xi", "wildcard", "matches", "fixtures"):
+    elif article in ("best-xi", "wildcard", "matches", "fixtures", "ticker",
+                     "our-squad", "consensus-squad"):
         subj = None
     else:
         subj = entries[0].get("name") if entries else None
 
-    tmpl = _TEMPLATES.get(article)
+    table = _FPL_TEMPLATES if unit == "Gameweek" else _TEMPLATES
+    tmpl = table.get(article)
     if tmpl:
         headline = tmpl["headline"](entries, round_no, subj)
         standfirst = tmpl["standfirst"](entries, round_no, subj)
         body_html = tmpl["body"](entries, round_no, subj)
         bottom_line = tmpl["bottom_line"](entries, round_no, subj)
     else:
-        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj)
+        headline = _GENERIC_TEMPLATE["headline"](entries, round_no, article, subj,
+                                                 unit)
         standfirst = _GENERIC_TEMPLATE["standfirst"](entries, round_no, subj)
         body_html = _GENERIC_TEMPLATE["body"](entries, round_no, subj)
         bottom_line = _GENERIC_TEMPLATE["bottom_line"](entries, round_no, subj)
@@ -730,8 +1105,14 @@ def _template_prose(article: str, entries: list, columns: list,
 # ---------------------------------------------------------------------------
 
 def _llm_prose(article: str, round_no: int, entries: list, columns: list,
-               cache_dir: str, subject=None):
-    """Call the Claude API and return prose dict, or None if we should fall through."""
+               cache_dir: str, subject=None, cache_name: str | None = None,
+               unit: str = "Round"):
+    """Call the Claude API and return prose dict, or None if we should fall through.
+
+    cache_name namespaces the write-back exactly like article_prose's read path —
+    an FPL article cached under round-{n} would poison the World Cup round's
+    prose (and vice versa).
+    """
     if not _ANTHROPIC_AVAILABLE:
         return None
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -739,7 +1120,7 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     from evmax.prompts import build_prompt
 
-    prompt = build_prompt(article, round_no, entries, subject=subject)
+    prompt = build_prompt(article, round_no, entries, subject=subject, unit=unit)
 
     try:
         client = _anthropic.Anthropic()
@@ -818,7 +1199,8 @@ def _llm_prose(article: str, round_no: int, entries: list, columns: list,
 
     # Cache the result as markdown
     try:
-        cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+        cache_path = os.path.join(cache_dir, cache_name or f"round-{round_no}",
+                                  f"{article}.md")
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, "w", encoding="utf-8") as fh:
             fh.write(f"# {data['headline']}\n\n")
@@ -843,33 +1225,44 @@ def article_prose(
     cache_dir: str = "data/articles",
     use_llm: bool = True,
     subject=None,
+    cache_name: str | None = None,
+    unit: str = "Round",
 ) -> dict:
     """Generate prose for an article using tiered resolution: cache → LLM → template.
 
     Parameters
     ----------
-    article   : article slug, e.g. "captains"
-    round_no  : fantasy round number
-    entries   : list of ranked row dicts (from articles.py)
-    columns   : list of column keys to feature in prose
-    cache_dir : base directory for cached markdown files
-    use_llm   : whether to attempt the LLM tier (default True)
-    subject   : player name to centre prose on, or None for team-framing (best-xi)
+    article    : article slug, e.g. "captains"
+    round_no   : fantasy round number
+    entries    : list of ranked row dicts (from articles.py)
+    columns    : list of column keys to feature in prose
+    cache_dir  : base directory for cached markdown files
+    use_llm    : whether to attempt the LLM tier (default True)
+    subject    : player name to centre prose on, or None for team-framing (best-xi)
+    cache_name : subdirectory under cache_dir, defaulting to "round-{round_no}".
+                 The FPL build passes "fpl-gw{n}" — without it, FPL gameweek 1 and
+                 World Cup round 1 share a cache entry and one serves the other's
+                 article.
+    unit       : the reader-facing word for the period ("Round" or "Gameweek"),
+                 passed through to the LLM prompt and the templates.
 
     Returns
     -------
     dict with keys: headline, standfirst, body_html, body_md, bottom_line, source
     """
+    cache_name = cache_name or f"round-{round_no}"
     # Tier 1: cache
-    cache_path = os.path.join(cache_dir, f"round-{round_no}", f"{article}.md")
+    cache_path = os.path.join(cache_dir, cache_name, f"{article}.md")
     if os.path.isfile(cache_path):
         return _parse_cache_md(cache_path)
 
     # Tier 2: LLM (optional)
     if use_llm:
-        result = _llm_prose(article, round_no, entries, columns, cache_dir, subject=subject)
+        result = _llm_prose(article, round_no, entries, columns, cache_dir,
+                            subject=subject, cache_name=cache_name, unit=unit)
         if result is not None:
             return result
 
     # Tier 3: template
-    return _template_prose(article, entries, columns, round_no=round_no, subject=subject)
+    return _template_prose(article, entries, columns, round_no=round_no,
+                           subject=subject, unit=unit)

@@ -59,6 +59,21 @@ names, cached to `data/athletes.json`; only matters once player priors are popul
 Without `--refresh`, models run off whatever is cached (reproducible, offline). Knockout
 matches have no odds until teams are set — those fall back to `ratings.py` priors.
 
+### Site build (evmax)
+
+```bash
+python3 -m evmax.build --round 8 --no-llm   # World Cup round into dist/round/8/
+python3 -m evmax.build --gw 1 --no-llm      # FPL gameweek into dist/fpl/gw1/
+```
+
+`--gw` builds the six FPL articles (captains, wildcard, ticker, defenders,
+efficiency, defcon) plus the JSON/markdown twins and agent files. `/` serves the
+current FPL gameweek; the World Cup tree under `/round/N/` stays live and untouched
+(its landing is at `/round/8/`). Drop `--no-llm` to enable the LLM prose tier
+(needs `ANTHROPIC_API_KEY`); either way the hand-written templates and any cached
+prose in `data/articles/` keep the pages publishable. `--no-cache` (FPL only)
+forces a fresh simulation past the sim cache.
+
 ## Dashboard (Streamlit)
 
 A local web UI over the engine — squads + EVs + captain per game, the Målspillet board,

@@ -1,7 +1,140 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(553 tests). App: `streamlit run app.py`.
+(725 tests). App: `streamlit run app.py`.
+
+## 2026-08-19 — Phase 4 review fixes (pre-merge)
+
+Nine findings from the pre-merge review of the FPL port, fixed one commit
+each. Correctness: **`kickoff_order` is now a dense rank over the published
+top-20's distinct kickoff instants** (it enumerated all ~560 rows, giving two
+players in the same match different orders and letting the captains prose
+claim a false "kicks off later" — the vice sentence now claims first/later
+only when the instants genuinely differ); **the sim cache key covers kickoff
+times** (a fixture re-slotted for TV with unchanged odds used to HIT and serve
+the stale kickoff); **the FPL sitemap keeps prior gameweeks** (the disk-walk
+only covered `out/round`, so building GW2 would have dropped every GW1 URL — a
+deindexing request); **both builds write the root-level site chrome** via one
+shared `write_site_chrome` (the FPL build produced no GSC verification file,
+`/_redirects` or `/track-record/` while pointing at the latter from its own
+nav and sitemap).
+
+Honesty of the prose: **"seven expert sources" now derives from
+`source_count` in the consensus state** (validated, stamped through
+`squad_article` onto entries) and the **"the consensus XI owns him" sentence
+renders only when the consensus squad actually owns Haaland** (flag stamped by
+the build, the only layer holding both squads); **FPL pages describe the
+ceiling as what it is** — the average of a player's best 15% of simulations, a
+tail mean strictly ≥ the p85 the old "85th-percentile" wording claimed (WC
+text byte-identical via the Section descriptor). Double-gameweek minimum fix:
+`_derive_row` documents that bonus/defcon/cs_points are per-MATCH while
+x_points is per-WEEK, rows carry their club's fixture count, and the defenders
+prose frames the columns as components of the weekly total only for
+single-fixture players (full per-sim rework deferred to a pre-first-DGW task).
+Hardening: the state validator rejects bool `bench_order` and validates
+`free_transfers` as a non-negative int; `TestGameweekBuild` skips (not errors)
+without the data cache. WC pages verified byte-identical at render level.
+Suite: 696 → 725.
+
+## 2026-08-19 — FPL phase 4b: the two squad slugs, the landing duel, the FPL rate page
+
+The site now fields its own teams. Two persistent squad states —
+`games/fpl/state.json` (**The Model XI**: pure engine EV over the discounted
+GW1–6 horizon, 3-5-2, B.Fernandes (c), Thiago vice, £100.0, no Haaland by
+conviction) and `games/fpl/state_consensus.json` (**The Consensus XI**: the
+best-follower team from the 7-source expert mention-tally, 3-5-2, Haaland (c),
+B.Fernandes vice, £99.5) — are validated at build time by the new
+`games/fpl/state.py`: exact FPL web_names (diacritics intact — "Gross" is not
+"Groß"), position/quota/budget/club-cap legality, XI formation, exactly one
+captain + one vice (both starters), bench_order 1–4 with the GK first. Prices
+come from the bootstrap at load time, never stored.
+
+Two new slugs publish them — **`our-squad`** ("Our squad", the hero) and
+**`consensus-squad`** ("The consensus XI") — eight FPL articles per gameweek
+now, each squad page carrying the XI on the pitch (captain badged from the
+state, not rank), the full page family, and a `squad` meta block in its JSON
+envelope. `fpl_articles.squad_article` joins state to artifact rows in state
+order and RAISES on a name with no row — a published squad never silently
+ships a 14-man team. Hand-written prose per the Phase 4 standard: our-squad
+states the model's reasoning (horizon EV, market-implied rates, the no-Haaland
+conviction — a template line that auto-retires the day he joins — captain by
+EV); consensus-squad states the method (mention-tally, majority captain,
+minutes from sourced research notes). No bookmaker names, no expert text.
+
+The FPL landing leads with our-squad, captains is the first feed card, and a
+**model-vs-consensus duel strip** shows both squads' projected XI totals
+(captain doubled) side by side from the squad metas — no new simulation; the
+strip can never disagree with the pages it links. Duel markup and CSS are
+injected only when a duel is passed, so World Cup landings keep today's bytes.
+**`/rate/` now serves the section that built last**: a gameweek build titles it
+"Rate my FPL team", states the 15 = 2/5/5/3 shape, points at the gameweek
+players feed and explains FPL's post-deadline autosubs (rate.js labels results
+via a `data-unit` attribute, defaulting to "Round"); the WC rate page was
+verified byte-identical against the pre-change renderer. Preflight grew squad
+checks: both states load + validate, every state name matches the artifact
+rows, projected totals are finite.
+
+Verified on a real GW1 production build (offline, cached feeds, sim cache HIT):
+`/round/` byte-untouched (checksummed before/after), hero + duel render — the
+duel shows **65.92 (model) vs 60.74 (consensus)** projected — and all eight
+projection snapshots froze pre-lock. Post-GW realized-vs-projected is next
+phase (needs live data). 65 new tests. Suite: 696.
+
+## 2026-08-19 — FPL port phase 4: the site (`/fpl/gw{N}/`, six articles, `--gw` CLI)
+
+The FPL section exists. `python3 -m evmax.build --gw N` builds six articles per
+gameweek under `/fpl/gw{N}/` — `captains`, `wildcard`, `ticker`, `defenders`,
+`efficiency`, `defcon` — each with the full page family (HTML, JSON envelope keyed
+`"gameweek"` not `"round"`, agent-facing `.md` twin, players bulk feed, llms.txt,
+sitemap). **`/` now serves the current gameweek** (owner decision 2026-07-30): the
+FPL build writes the landing to both `/index.html` and `/fpl/gw{N}/index.html`. The
+World Cup tree under `/round/N/` is never touched — its landing survives at
+`/round/8/`, its URLs stay in the FPL build's sitemap (dropping them reads as a
+deindexing request), and `--round` builds exactly what it built yesterday.
+
+How the one renderer serves two competitions: a `Section` descriptor in
+`evmax/render.py` (paths, unit words, pill labels, points-table naming,
+methodology line) threads through every page function **with a World Cup
+default**, so every existing call site renders byte-identical HTML — the WC suites
+passed unchanged, which was the regression gate. This is deliberately NOT the
+templating refactor (spec §12, September): a second page family sharing
+primitives, not one template engine.
+
+The FPL-specific pieces live outside the frozen WC modules: `evmax/fpl_articles.py`
+(pure ranking + squad building) and `evmax/fpl_build.py` (pipeline + preflight).
+The 15-man squad builder enforces the **three-per-club cap** on every selection and
+every swap — the one rule `articles.wildcard_squad` doesn't have, and retrofitting
+it would have put the track record's dependency at risk. The ticker is one row per
+CLUB (not per fixture) so **blanks and doubles** render correctly months before
+live data exhibits them (synthetic tests only, by necessity), sums expected clean
+sheets across a double (points-denominated, so it can exceed 1.0), and labels every
+row's provenance — `market` / `model` / `mixed` — because ESPN prices only days
+ahead and silent uniformity would misrepresent confidence.
+
+The carried Phase 3 double-gameweek bonus question is **settled, and the answer is
+NO**: `total_points`' `played/sims` scaling never approaches 2.0 for a doubled
+player (`ps.sims` counts per match appearance), so the assembly path is a per-MATCH
+average — exactly half the week. The order book's `x_points` now reads off
+`SimPointsAccumulator.mean()`, which sums a player's matches within each sim.
+Pinned at 2x in `tests/test_fpl_model.TestDoubleGameweekTotalPoints`.
+
+Also landed on the way: derived row columns in the cached artifact (`captain_ev`,
+`value`, `p_defcon`, `cs_points`, `kickoff`; rounding at the single `_derive_row`
+choke point), per-match scoreline summaries stored IN the artifact (spec §6 —
+`MatchSample` doesn't survive JSON, so derivation happens before the store),
+`simcache.artifacts_for()` so preflight can tell an expected first-build miss from
+an unexpected one, a **GW-stage filter** in the FPL model layer (WC round numbers
+collide with FPL gameweek numbers in the shared SCHEDULE; without it the ticker
+published 48 national teams), section-namespaced prose caching
+(`data/articles/fpl-gw{N}/` — GW1 no longer collides with WC round 1), an FPL
+field glossary + `defcon`/`ticker` focus blocks in the LLM prompt, and hand-written
+prose templates for all six slugs so a `--no-llm` build reads like a real article
+("B.Fernandes is the gameweek 1 captain", never "Gameweek analysis: Captains").
+
+Verified on a real GW1 build (50k sims, offline off the cached feeds): 563 players,
+legal 3-5-2 at 98.0m under the club cap, 20-club ticker with no blanks, projection
+snapshots frozen to `evmax/assets/projections/fpl-gw1/` (GW1 was still open — the
+same production-only + pre-lock guards as the WC's). 78 new tests. Suite: 631.
 
 ## 2026-08-19 — FPL market lambdas: the fixture layer exists now (`core/fpl_odds.py`)
 

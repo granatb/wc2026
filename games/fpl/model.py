@@ -92,6 +92,20 @@ def defcon_threshold(position: str) -> int | None:
     return DEFCON_THRESHOLD.get(position)
 
 
+def defcon_probability(position: str, defcon_samples: list) -> float:
+    """P(defensive-contribution count >= this position's threshold).
+
+    Conditional on having played, like save_samples and defcon_samples generally
+    (they only accumulate on sims where the player was on the pitch). Callers
+    scale by appearance_probability to make it unconditional.
+    """
+    threshold = defcon_threshold(position)
+    if threshold is None or not defcon_samples:
+        return 0.0
+    hits = sum(1 for c in defcon_samples if c >= threshold)
+    return hits / float(len(defcon_samples))
+
+
 def defcon_points(position: str, defcon_samples: list) -> float:
     """Expected DefCon points: 2 x P(count >= threshold).
 
@@ -99,11 +113,7 @@ def defcon_points(position: str, defcon_samples: list) -> float:
     over-paying players who never reach it and under-paying those who always do.
     The payout is capped at 2 no matter how far past the threshold a player goes.
     """
-    threshold = defcon_threshold(position)
-    if threshold is None or not defcon_samples:
-        return 0.0
-    hits = sum(1 for c in defcon_samples if c >= threshold)
-    return DEFCON_PTS * hits / float(len(defcon_samples))
+    return DEFCON_PTS * defcon_probability(position, defcon_samples)
 
 
 # --- Bonus points ---------------------------------------------------------
@@ -220,6 +230,20 @@ class BonusAccumulator:
             self._total[name] = self._total.get(name, 0) + award
 
     def expected(self, name: str) -> float:
+        """Mean bonus per MATCH APPEARANCE, not per sim.
+
+        Double gameweeks: the Phase 3 plan left open whether total_points'
+        played/sims scaling reconstructs the SUM across a two-fixture week.
+        Settled 2026-08-19 against SimPointsAccumulator.mean() on a synthetic
+        double (tests/test_fpl_model.TestDoubleGameweekTotalPoints), and the
+        answer is NO: ps.sims counts once per MATCH appearance (twice per
+        outer sim for a doubled player), so played/sims stays ~1.0 and the
+        whole assembled total — this bonus term included — comes out as a
+        per-MATCH average, exactly half the gameweek total. The order book's
+        x_points therefore comes from SimPointsAccumulator.mean(), which sums
+        a player's matches within each sim; total_points remains correct for
+        any single-fixture player.
+        """
         sims = self._sims.get(name, 0)
         if not sims:
             return 0.0
@@ -540,22 +564,172 @@ def _bps_baselines(players_by_name: dict) -> dict:
     return baselines
 
 
-def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
-              sims: int, use_cache: bool = True) -> list:
-    """Simulate (or fetch from cache) and return the sorted order-book rows.
+def match_summaries(match_samples: dict, fx: list) -> list:
+    """One JSON-safe dict per fixture: scoreline distribution, 1X2, clean sheets.
+
+    Derived here rather than in the site layer because MatchSample objects do not
+    survive a JSON round trip, and spec §6 requires the cached artifact to carry
+    the per-match distribution — so the derivation must happen before the store.
+
+    Deliberately NOT evmax.articles.match_predictions: that function emits
+    p_advance_home/p_advance_away for any round >= 4 (World Cup knockout), which
+    for gameweek 4 of a league season would publish a survival probability for a
+    tie that does not exist.
+
+    `market` records whether the fixture's lambdas came from the odds feed or fell
+    back to ratings priors, so the ticker can label each column's provenance
+    instead of presenting a uniform confidence it does not have (spec §8).
+    """
+    out = []
+    for f in fx:
+        ms = match_samples.get(f.match_id)
+        if ms is not None and ms.sims > 0:
+            probs = ms.outcome_probs()
+            p_home = probs.get("H", 0.0)
+            p_draw = probs.get("D", 0.0)
+            p_away = probs.get("A", 0.0)
+            best_sl = max(ms.scorelines, key=lambda k: ms.scorelines[k])
+            mh, ma = ms.marginal_home(), ms.marginal_away()
+            exp_h = sum(g * p for g, p in mh.items())
+            exp_a = sum(g * p for g, p in ma.items())
+            # A team keeps a clean sheet iff the OPPONENT scores zero.
+            p_cs_home, p_cs_away = ma.get(0, 0.0), mh.get(0, 0.0)
+        else:
+            # No sample for this fixture (a blank, or a match the engine skipped).
+            p_home = p_draw = p_away = 0.0
+            best_sl = (0, 0)
+            exp_h = exp_a = p_cs_home = p_cs_away = 0.0
+
+        total_p = p_home + p_draw + p_away
+        if total_p > 0:
+            p_home, p_draw, p_away = (p_home / total_p, p_draw / total_p,
+                                      p_away / total_p)
+
+        out.append({
+            "match_id": f.match_id,
+            "home": f.home,
+            "away": f.away,
+            "kickoff": f.kickoff.isoformat(),
+            "exp_home_goals": round(exp_h, 2),
+            "exp_away_goals": round(exp_a, 2),
+            "exp_total": round(exp_h + exp_a, 2),
+            "top_scoreline": f"{best_sl[0]}-{best_sl[1]}",
+            "p_home": round(p_home, 3),
+            "p_draw": round(p_draw, 3),
+            "p_away": round(p_away, 3),
+            "p_cs_home": round(p_cs_home, 3),
+            "p_cs_away": round(p_cs_away, 3),
+            "market": f.lam_home is not None and f.lam_away is not None,
+        })
+    out.sort(key=lambda m: m["kickoff"])
+    return out
+
+
+def _kickoffs_by_team(fx: list) -> dict:
+    """{team: EARLIEST kickoff ISO string} for the gameweek.
+
+    Earliest, not only, because a double-gameweek team has two. The captains
+    article orders by the first fixture — that is the one a manager's captain
+    decision is locked against.
+    """
+    out: dict = {}
+    for f in fx:
+        iso = f.kickoff.isoformat()
+        for team in (f.home, f.away):
+            if team not in out or iso < out[team]:
+                out[team] = iso
+    return out
+
+
+def _match_projection(fx: list) -> dict:
+    """{match_id: {"lambdas", "kickoff"}} — the cache key's match layer.
+
+    Kickoff is part of the projection because the cached artifact SERVES it:
+    every row's kickoff column and every match summary carry it. A fixture
+    re-slotted for TV with unchanged odds must therefore miss the cache and
+    re-derive, not hit and republish the stale kickoff (review 2026-08-19,
+    finding 2).
+    """
+    return {f.match_id: {"lambdas": f.lambdas(),
+                         "kickoff": f.kickoff.isoformat()}
+            for f in fx}
+
+
+def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
+                bonus: float, defcon_pts: float, p_defcon: float,
+                price, ownership, kickoff) -> dict:
+    """One order-book row with every column the six articles consume.
+
+    Kept as a standalone pure function (rather than an inline dict literal in
+    build_rows) so the derived columns can be unit-tested against hand-computed
+    inputs without running a simulation.
+
+    UNIT WARNING — the columns mix two denominators. x_points (and therefore
+    captain_ev, value and ceiling) is a per-WEEK total: SimPointsAccumulator
+    sums a player's matches within each sim, so a double-gameweek player's
+    figure covers both fixtures. bonus, defcon, p_defcon and cs_points are
+    per-MATCH quantities: they come off event_means / per-match accumulators
+    whose divisor increments once per APPEARANCE (see the RETIRED total_points
+    note and TestDoubleGameweekTotalPoints), so for a doubled player they are
+    single-match averages and do NOT sum to x_points. Prose that frames them
+    as components of the weekly total must render only for a single-fixture
+    player (evmax.writer guards this on the row's stamped fixture count).
+    TODO(pre-first-DGW): rework these columns per-sim so every column shares
+    the per-week denominator (review 2026-08-19, finding 7 — the minimum fix
+    is this documentation plus the prose guard).
+
+    Rounding happens HERE and only here: these rows are what the cache stores and
+    what the public JSON feed serves, and 14 significant figures of Monte-Carlo
+    noise is not information.
+    """
+    pos = means["position"]
+    return {
+        "name": name,
+        "team": means["team"],
+        "position": pos,
+        "x_points": round(x_points, 2),
+        "captain_ev": round(2 * x_points, 2),
+        "ceiling": round(ceiling, 2),
+        "price": price,
+        "ownership_pct": ownership,
+        "value": round(x_points / price, 3) if price else None,
+        "bonus": round(bonus, 2),
+        # Points and probability are the same quantity in two units
+        # (points == 2 x probability). The DefCon article headlines the
+        # probability; the tables print the points. Emitting both keeps every
+        # surface reading the same number.
+        "defcon": round(defcon_pts, 2),
+        "p_defcon": round(p_defcon, 3),
+        "cs_points": round(means.get("clean_sheet", 0.0) * CS_PTS.get(pos, 0), 2),
+        "kickoff": kickoff,
+    }
+
+
+def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
+                   sims: int, use_cache: bool = True) -> tuple:
+    """Simulate (or fetch from cache); return ({"rows", "matches"}, cache_hit).
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
     every input that determines the derived rows (see the `priors`, `research`,
-    `lambdas` and `config` projections below) plus a fingerprint of this file and
+    match (lambdas + kickoffs) and `config` projections below) plus a fingerprint of this file and
     the shared engine's source, so an edit to a scoring constant can never
     silently serve a stale artifact. `use_cache=False` always simulates, for an
     operator who wants to force a fresh run regardless of the cache.
+
+    cache_hit is the second return value so the build preflight can tell an
+    expected first-build miss from an unexpected one (spec §9).
     """
     import config
     from core import fixtures, research, simcache
 
-    fx = fixtures.by_round(gameweek)
-    lambdas = {f.match_id: f.lambdas() for f in fx}
+    # GW-stage only: the shared SCHEDULE also carries World Cup fixtures whose
+    # fantasy_round numbers collide with FPL gameweeks (WC round 1 == GW1).
+    # The engine still simulates everything registered for the round number —
+    # that is its contract and the rng stream depends on it — but the FPL
+    # artifact's match layer, kickoffs and cache-key lambdas are GW business
+    # only; without this filter the ticker would publish 48 national teams.
+    fx = [f for f in fixtures.by_round(gameweek) if f.stage == "GW"]
+    match_projection = _match_projection(fx)
     research_entries = research.load_entries("players", gameweek)
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
@@ -585,7 +759,7 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     }
 
     key = simcache.cache_key(
-        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=lambdas,
+        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=match_projection,
         priors=priors_projection, research=research_projection,
         config=sim_config,
     )
@@ -593,7 +767,13 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     if use_cache:
         cached = simcache.load(key)
         if cached is not None:
-            return cached["rows"]
+            # .get("matches", []): artifacts written before the match layer
+            # existed have no matches key. They cannot actually be served — the
+            # source fingerprint covers this file, so the edit that added the
+            # layer invalidated all of them — but the .get costs nothing and
+            # means a hand-copied artifact degrades rather than crashing.
+            return {"rows": cached["rows"],
+                    "matches": cached.get("matches", [])}, True
 
     baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
@@ -603,7 +783,7 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
         bonus.observe(match_id, rows, sim_index)
         points.observe(match_id, rows, sim_index)
 
-    samples, _matches = engine_events.simulate_round(
+    samples, match_samples = engine_events.simulate_round(
         gameweek, sims=sims, seed=_SEED,
         priors=lambda team: priors_by_team.get(team, []),
         research=research_entries,
@@ -612,33 +792,48 @@ def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
     )
     means = engine_events.event_means(samples)
 
+    kickoffs = _kickoffs_by_team(fx)
     rows = []
     for name, ps in samples.items():
         m = means[name]
-        # conceded is accumulated as a running total; rebuild the per-sim series
-        # the threshold needs from the mean over the sims the player appeared in.
-        conceded_samples = _conceded_series(ps)
         player_bonus = bonus.expected(name)
-        pts = total_points(m, ps, conceded_samples, bonus=player_bonus)
+        # x_points comes from the per-sim distribution, NOT the older
+        # total_points assembly: for a double-gameweek player the assembly path
+        # is a per-MATCH average — half the week's total (settled 2026-08-19,
+        # see BonusAccumulator.expected's docstring and
+        # tests/test_fpl_model.TestDoubleGameweekTotalPoints) — while
+        # SimPointsAccumulator.mean sums a player's matches within each sim.
+        pts = points.mean(name)
+        p_played = appearance_probability(ps)
         meta = players_by_name.get(name, {})
-        rows.append({
-            "name": name, "team": m["team"], "position": m["position"],
-            "x_points": pts, "price": meta.get("price"),
-            "ownership_pct": meta.get("ownership"),
-            "ceiling": points.tail_mean(name),
-            "bonus": player_bonus,
-            # Scaled by P(played): defcon_points on its own is E[DefCon points
-            # | played], which would show a rotation player as if he started
-            # every game. See appearance_probability's docstring.
-            "defcon": defcon_points(m["position"], ps.defcon_samples)
-                     * appearance_probability(ps),
-        })
+        # Scaled by P(played): the raw threshold probability is conditional on
+        # appearing, which would show a rotation player as if he started every
+        # week. See appearance_probability's docstring.
+        p_defcon = defcon_probability(m["position"], ps.defcon_samples) * p_played
+        rows.append(_derive_row(
+            name=name, means=m, x_points=pts, ceiling=points.tail_mean(name),
+            bonus=player_bonus, defcon_pts=p_defcon * DEFCON_PTS,
+            p_defcon=p_defcon, price=meta.get("price"),
+            ownership=meta.get("ownership"),
+            kickoff=kickoffs.get(m["team"])))
     rows.sort(key=lambda r: -r["x_points"])
 
+    artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}
     if use_cache:
-        simcache.store(key, {"rows": rows}, meta={"gameweek": gameweek, "sims": sims})
+        simcache.store(key, artifact, meta={"gameweek": gameweek, "sims": sims})
+    return artifact, False
 
-    return rows
+
+def build_rows(priors_by_team: dict, players_by_name: dict, gameweek: int,
+              sims: int, use_cache: bool = True) -> list:
+    """The order-book rows alone — `run()`'s view of build_artifact.
+
+    Kept so the CLI order book and its tests do not have to care about the match
+    layer, which only the site consumes.
+    """
+    artifact, _hit = build_artifact(priors_by_team, players_by_name, gameweek,
+                                    sims, use_cache=use_cache)
+    return artifact["rows"]
 
 
 def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:

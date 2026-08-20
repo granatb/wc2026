@@ -41,6 +41,9 @@
   var resultsEl = document.getElementById("rate-results");
   var btn = document.getElementById("rate-btn");
   var round = form.getAttribute("data-round");
+  // "Round" (WC, the default) or "Gameweek" (the FPL rate page sets
+  // data-unit) -- display label only, nothing else branches on it.
+  var unit = form.getAttribute("data-unit") || "Round";
   var playersUrl = form.getAttribute("data-players-url");
   var datalist = document.getElementById("players-dl");
 
@@ -374,7 +377,7 @@
 
     var lede = el("p", {
       cls: "rate-hint",
-      text: "Ran your team through the model (" + simsLabel + ", Round " + roundNo + "):",
+      text: "Ran your team through the model (" + simsLabel + ", " + unit + " " + roundNo + "):",
     });
     card.appendChild(lede);
 
@@ -499,7 +502,7 @@
   function asPlainText(result, roundNo, simsLabel) {
     var out = [];
     out.push("Ran your team through my Monte-Carlo model (" + simsLabel +
-      " on de-vigged market odds, Round " + roundNo + "):");
+      " on de-vigged market odds, " + unit + " " + roundNo + "):");
     out.push("");
 
     function pushLine(line) {

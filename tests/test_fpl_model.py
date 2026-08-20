@@ -4,6 +4,7 @@ from unittest import mock
 
 from core import engine_events, fixtures, ratings
 from games.fpl import model
+from games.fpl import model as fpl_model
 
 
 def _ev(**kw):
@@ -517,6 +518,208 @@ class TestZeroSimsGuard(unittest.TestCase):
         self.assertAlmostEqual(acc.tail_mean("nobody"), 0.0)
 
 
+def _tiny_build_rows(sims=300, gameweek=98):
+    """A 2-team, 1-fixture synthetic gameweek run through build_rows, cache off."""
+    from core import fixtures
+    from core.ratings import PlayerPrior
+
+    squads = {
+        "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                             start_prob=1.0, exp_minutes=90, defcon_per90=9.0),
+                 PlayerPrior(name="H-Fwd", team="Home", position="FWD",
+                             start_prob=1.0, exp_minutes=90, goal_share=0.5)],
+        "Away": [PlayerPrior(name="A-Gk", team="Away", position="GK",
+                             start_prob=1.0, exp_minutes=90, saves_per90=3.5)],
+    }
+    players_by_name = {
+        "H-Def": {"name": "H-Def", "price": 4.5, "ownership": 2.0,
+                  "minutes": 2700, "bps": 500},
+        "H-Fwd": {"name": "H-Fwd", "price": 8.0, "ownership": 30.0,
+                  "minutes": 2700, "bps": 600},
+        "A-Gk": {"name": "A-Gk", "price": 5.0, "ownership": 5.0,
+                 "minutes": 3420, "bps": 700},
+    }
+    saved = list(fixtures.SCHEDULE)
+    try:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.append(fixtures.Fixture(
+            match_id="tiny-1", home="Home", away="Away",
+            kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=gameweek, neutral=False,
+            lam_home=1.6, lam_away=1.1))
+        return fpl_model.build_rows(
+            {t: s for t, s in squads.items()}, players_by_name,
+            gameweek, sims, use_cache=False)
+    finally:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend(saved)
+
+
+def _tiny_build_artifact(sims=300, gameweek=98, priced=True, use_cache=False):
+    """_tiny_build_rows' fixture, but returning the full (artifact, cache_hit)."""
+    from core import fixtures
+    from core.ratings import PlayerPrior
+
+    squads = {
+        "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                             start_prob=1.0, exp_minutes=90, defcon_per90=9.0)],
+        "Away": [PlayerPrior(name="A-Gk", team="Away", position="GK",
+                             start_prob=1.0, exp_minutes=90, saves_per90=3.5)],
+    }
+    players_by_name = {
+        "H-Def": {"name": "H-Def", "price": 4.5, "ownership": 2.0,
+                  "minutes": 2700, "bps": 500},
+        "A-Gk": {"name": "A-Gk", "price": 5.0, "ownership": 5.0,
+                 "minutes": 3420, "bps": 700},
+    }
+    saved = list(fixtures.SCHEDULE)
+    try:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.append(fixtures.Fixture(
+            match_id="tiny-1", home="Home", away="Away",
+            kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+            stage="GW", fantasy_round=gameweek, neutral=False,
+            lam_home=1.6 if priced else None,
+            lam_away=1.1 if priced else None))
+        return fpl_model.build_artifact(
+            squads, players_by_name, gameweek, sims, use_cache=use_cache)
+    finally:
+        fixtures.SCHEDULE.clear()
+        fixtures.SCHEDULE.extend(saved)
+
+
+class TestMatchSummaries(unittest.TestCase):
+    def test_summary_fields_and_probability_normalisation(self):
+        artifact, _hit = _tiny_build_artifact()
+        self.assertEqual(len(artifact["matches"]), 1)
+        m = artifact["matches"][0]
+        for key in ("match_id", "home", "away", "kickoff", "exp_home_goals",
+                    "exp_away_goals", "exp_total", "top_scoreline", "p_home",
+                    "p_draw", "p_away", "p_cs_home", "p_cs_away", "market"):
+            self.assertIn(key, m)
+        self.assertAlmostEqual(m["p_home"] + m["p_draw"] + m["p_away"], 1.0, places=2)
+        self.assertAlmostEqual(m["exp_total"],
+                               m["exp_home_goals"] + m["exp_away_goals"], places=2)
+
+    def test_no_advancement_fields_ever(self):
+        """FPL has no knockout. articles.match_predictions would emit p_advance_*
+        for any round >= 4; this path must never grow that field, or GW4 would
+        publish a survival probability for a league season."""
+        artifact, _hit = _tiny_build_artifact(gameweek=7)
+        self.assertNotIn("p_advance_home", artifact["matches"][0])
+        self.assertNotIn("p_advance_away", artifact["matches"][0])
+
+    def test_market_flag_tracks_priced_fixtures(self):
+        """A fixture with odds-derived lambdas is market-derived; one falling back
+        to ratings is not. The ticker labels the columns from this."""
+        priced, _ = _tiny_build_artifact()
+        self.assertTrue(priced["matches"][0]["market"])
+        unpriced, _ = _tiny_build_artifact(priced=False)
+        self.assertFalse(unpriced["matches"][0]["market"])
+
+    def test_artifact_round_trips_through_the_cache(self):
+        # CACHE_DIR is patched to a fresh temp dir so the first call is a real
+        # miss on EVERY suite run — against the real dir, the artifact stored by
+        # a previous run would make hit_first True and fail the assertion.
+        import tempfile
+
+        from core import simcache
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(simcache, "CACHE_DIR", tmp):
+                first, hit_first = _tiny_build_artifact(use_cache=True, gameweek=97)
+                second, hit_second = _tiny_build_artifact(use_cache=True, gameweek=97)
+        self.assertFalse(hit_first)
+        self.assertTrue(hit_second)
+        self.assertEqual(first["matches"], second["matches"])
+        self.assertEqual(first["rows"], second["rows"])
+
+
+class TestGwStageFilter(unittest.TestCase):
+    """The shared SCHEDULE holds World Cup rounds AND FPL gameweeks, and their
+    round numbers collide (WC round 1 == FPL GW1). The FPL artifact must only
+    see stage=="GW" fixtures — otherwise the ticker publishes 48 national teams
+    and the preflight warns about unpriced June fixtures."""
+
+    def test_non_gw_fixtures_are_excluded_from_the_artifact(self):
+        from core import fixtures
+        saved = list(fixtures.SCHEDULE)
+        try:
+            fixtures.SCHEDULE.clear()
+            # A World Cup fixture sharing the same fantasy_round number.
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="wc-1", home="Mexico", away="South Africa",
+                kickoff=datetime(2026, 6, 11, 20, 0, tzinfo=timezone.utc),
+                stage="GROUP_MD1", fantasy_round=98, neutral=False,
+                lam_home=1.4, lam_away=0.9))
+        finally:
+            # _tiny_build_artifact saves/clears/restores SCHEDULE itself, so we
+            # re-add the WC fixture inside a fresh saved copy instead.
+            pass
+        try:
+            from core.ratings import PlayerPrior
+            squads = {
+                "Home": [PlayerPrior(name="H-Def", team="Home", position="DEF",
+                                     start_prob=1.0, exp_minutes=90,
+                                     defcon_per90=9.0)],
+            }
+            fixtures.SCHEDULE.append(fixtures.Fixture(
+                match_id="tiny-gw", home="Home", away="Away",
+                kickoff=datetime(2026, 8, 21, 19, 0, tzinfo=timezone.utc),
+                stage="GW", fantasy_round=98, neutral=False,
+                lam_home=1.6, lam_away=1.1))
+            artifact, _hit = fpl_model.build_artifact(
+                squads, {}, 98, 100, use_cache=False)
+            match_ids = [m["match_id"] for m in artifact["matches"]]
+            self.assertEqual(match_ids, ["tiny-gw"],
+                             "non-GW fixtures leaked into the FPL artifact")
+        finally:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.extend(saved)
+
+
+class TestDerivedRowColumns(unittest.TestCase):
+    def test_derived_columns_present_and_consistent(self):
+        row = fpl_model._derive_row(
+            name="Testy", means={"team": "ARS", "position": "DEF",
+                                 "clean_sheet": 0.4},
+            x_points=6.0, ceiling=11.0, bonus=0.5, defcon_pts=1.2,
+            p_defcon=0.6, price=5.5, ownership=12.3,
+            kickoff="2026-08-21T19:00:00+00:00")
+        self.assertEqual(row["captain_ev"], 12.0)
+        self.assertEqual(row["value"], 1.091)          # 6.0 / 5.5
+        self.assertEqual(row["p_defcon"], 0.6)
+        self.assertEqual(row["cs_points"], 1.6)        # 0.4 * CS_PTS["DEF"] == 4
+        self.assertEqual(row["kickoff"], "2026-08-21T19:00:00+00:00")
+
+    def test_value_is_none_without_a_price(self):
+        row = fpl_model._derive_row(
+            name="Pricy", means={"team": "ARS", "position": "MID",
+                                 "clean_sheet": 0.0},
+            x_points=6.0, ceiling=9.0, bonus=0.0, defcon_pts=0.0, p_defcon=0.0,
+            price=None, ownership=None, kickoff=None)
+        self.assertIsNone(row["value"])
+        self.assertEqual(row["captain_ev"], 12.0)
+
+    def test_p_defcon_is_the_points_column_halved(self):
+        """defcon points are exactly 2 x P(threshold) x P(played), so the two
+        columns must never disagree — the article prints one and the table the
+        other."""
+        row = fpl_model._derive_row(
+            name="Blocker", means={"team": "BUR", "position": "DEF",
+                                   "clean_sheet": 0.2},
+            x_points=4.0, ceiling=7.0, bonus=0.0, defcon_pts=1.44, p_defcon=0.72,
+            price=4.5, ownership=1.0, kickoff=None)
+        self.assertAlmostEqual(row["defcon"], row["p_defcon"] * fpl_model.DEFCON_PTS,
+                               places=6)
+
+    def test_build_rows_carries_the_new_columns(self):
+        rows = _tiny_build_rows()      # helper defined above
+        self.assertTrue(rows)
+        for key in ("captain_ev", "value", "p_defcon", "cs_points", "kickoff"):
+            self.assertIn(key, rows[0], f"{key} missing from build_rows output")
+
+
 # ---------------------------------------------------------------------------
 # build_rows / sim cache wiring
 # ---------------------------------------------------------------------------
@@ -843,3 +1046,125 @@ class TestDistributionMeanAgreesWithTotalPoints(unittest.TestCase):
     def test_agrees_at_low_appearance_probability(self):
         total, dist_mean = self._run(982, 0.3)
         self.assertAlmostEqual(total, dist_mean, delta=0.03)
+
+
+class TestDoubleGameweekTotalPoints(unittest.TestCase):
+    """The carried Phase 3 question: does total_points sum bonus across a double?
+
+    SimPointsAccumulator.mean() sums each sim's matches explicitly and has its own
+    double-gameweek coverage, so it is the reference. total_points goes through the
+    older assembly path (expected_points + conditional components scaled by
+    played/sims) and is the one in question.
+    """
+
+    def _double_gameweek_samples(self, sims=4000):
+        """Simulate a synthetic gameweek where one team plays TWICE."""
+        from core import fixtures
+        from core.ratings import PlayerPrior
+
+        squads = {
+            "Alpha": [PlayerPrior(name="A-Striker", team="Alpha", position="FWD",
+                                  start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                  assist_share=0.2),
+                      PlayerPrior(name="A-Keeper", team="Alpha", position="GK",
+                                  start_prob=1.0, exp_minutes=90, saves_per90=3.0)],
+            "Beta": [PlayerPrior(name="B-Striker", team="Beta", position="FWD",
+                                 start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                 assist_share=0.2)],
+            "Gamma": [PlayerPrior(name="G-Striker", team="Gamma", position="FWD",
+                                  start_prob=1.0, exp_minutes=90, goal_share=0.4,
+                                  assist_share=0.2)],
+        }
+        saved = list(fixtures.SCHEDULE)
+        try:
+            fixtures.SCHEDULE.clear()
+            for mid, home, away in (("dgw-1", "Alpha", "Beta"),
+                                    ("dgw-2", "Gamma", "Alpha")):
+                fixtures.SCHEDULE.append(fixtures.Fixture(
+                    match_id=mid, home=home, away=away,
+                    kickoff=datetime(2026, 8, 21, 17, 30, tzinfo=timezone.utc),
+                    stage="GW", fantasy_round=99, neutral=False,
+                    lam_home=1.5, lam_away=1.2))
+            baselines = {}
+            bonus = fpl_model.BonusAccumulator(baselines)
+            points = fpl_model.SimPointsAccumulator(baselines, sims)
+
+            def hook(match_id, rows, sim_index):
+                bonus.observe(match_id, rows, sim_index)
+                points.observe(match_id, rows, sim_index)
+
+            samples, _ = engine_events.simulate_round(
+                99, sims=sims, seed=4242,
+                priors=lambda team: squads.get(team, []),
+                per_match_hook=hook)
+            return samples, engine_events.event_means(samples), bonus, points
+        finally:
+            fixtures.SCHEDULE.clear()
+            fixtures.SCHEDULE.extend(saved)
+
+    def test_double_gameweek_assembly_path_is_per_match_not_per_gameweek(self):
+        """ANSWERED 2026-08-19, and the answer is NO: the assembled path does
+        NOT reconstruct the sum across a double.
+
+        As first drafted this asserted assembled == per-sim reference; it
+        failed at exactly a factor of two (7.149 vs 14.298). The Phase 3
+        note's premise was wrong: ps.sims increments once per MATCH appearance
+        (twice per outer sim for a doubled player), so played/sims stays ~1.0
+        — it never approaches 2.0 — and every component of total_points
+        (event_means division included) comes out as a per-MATCH average, half
+        the gameweek total. Pinned at 2x so the answer stays settled; the
+        order book therefore reads x_points off SimPointsAccumulator.mean(),
+        which sums a player's matches within each sim.
+        """
+        samples, means, bonus, points = self._double_gameweek_samples()
+        ps = samples["A-Striker"]          # Alpha plays twice
+        assembled = fpl_model.total_points(
+            means["A-Striker"], ps, fpl_model._conceded_series(ps),
+            bonus=bonus.expected("A-Striker"))
+        reference = points.mean("A-Striker")
+        self.assertAlmostEqual(assembled * 2, reference, delta=0.35,
+                               msg=f"double-GW characterisation drifted: "
+                                   f"assembled={assembled:.3f} (expected per-match, "
+                                   f"i.e. half) per-sim={reference:.3f}")
+
+    def test_single_fixture_player_still_agrees(self):
+        """Control: a single-fixture player must agree just as closely, so a
+        failure above is attributable to the double and not to general drift."""
+        samples, means, bonus, points = self._double_gameweek_samples()
+        ps = samples["B-Striker"]          # Beta plays once
+        assembled = fpl_model.total_points(
+            means["B-Striker"], ps, fpl_model._conceded_series(ps),
+            bonus=bonus.expected("B-Striker"))
+        self.assertAlmostEqual(assembled, points.mean("B-Striker"), delta=0.35)
+
+
+class TestSimCacheKeyKickoffs(unittest.TestCase):
+    """Review finding 2: a fixture re-slotted for TV with unchanged odds must
+    MISS the sim cache — the artifact's rows and match summaries carry the
+    kickoff, so a key blind to it would serve stale kickoffs."""
+
+    def _fixture(self, kickoff):
+        return fixtures.Fixture(
+            "KEY1", "Home", "Away", kickoff=kickoff,
+            stage="GW", fantasy_round=1, neutral=False,
+            lam_home=1.4, lam_away=1.1)
+
+    def test_projection_carries_lambdas_and_kickoff(self):
+        fx = self._fixture(datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc))
+        proj = fpl_model._match_projection([fx])
+        self.assertEqual(proj["KEY1"]["lambdas"], (1.4, 1.1))
+        self.assertEqual(proj["KEY1"]["kickoff"],
+                         "2026-08-22T15:00:00+00:00")
+
+    def test_reslotted_kickoff_changes_the_cache_key(self):
+        from core import simcache
+
+        def key_for(kickoff):
+            return simcache.cache_key(
+                gameweek=1, sims=100, seed=7,
+                lambdas=fpl_model._match_projection([self._fixture(kickoff)]),
+                priors={}, research={}, config={})
+
+        saturday = key_for(datetime(2026, 8, 22, 15, 0, tzinfo=timezone.utc))
+        monday = key_for(datetime(2026, 8, 24, 19, 0, tzinfo=timezone.utc))
+        self.assertNotEqual(saturday, monday)

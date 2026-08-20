@@ -65,18 +65,99 @@ METHODOLOGY = ("Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte
 NEWSLETTER_ACTION = "https://buttondown.com/api/emails/embed-subscribe/evmax"
 
 
+# One-line reader-facing ceiling definitions, reused in figcaptions and the
+# article footer so the stat is never a bare unexplained number. The two
+# sections compute DIFFERENT statistics and each must say what its own is:
+#   WC:  the 85th percentile of the per-sim totals (games/fifa/model.
+#        ceiling_points) — the historical text, pinned byte-identical.
+#   FPL: the tail MEAN — the average of the best 15% of sims (games/fpl/model.
+#        tail_mean), strictly >= the p85 — so percentile wording would
+#        misstate it (review 2026-08-19, finding 6).
+CEILING_EXPLAINER = (
+    "Ceiling = the 85th-percentile outcome across our 50,000 simulations — "
+    "the score when a player's best realistic game happens, not a fantasy cap.")
+FPL_CEILING_EXPLAINER = (
+    "Ceiling = the average of a player's best 15% of our 50,000 simulations — "
+    "the score when his best realistic games happen, not a fantasy cap.")
+
+
+class Section:
+    """A URL namespace and its reader-facing vocabulary.
+
+    The site serves two competitions from one renderer. Rather than fork the page
+    functions (or do the September templating refactor early), each function takes
+    a Section and defaults to WC, so every existing call site keeps producing
+    byte-identical HTML.
+
+    unit_abbr is the round-switcher pill label: "R5" for the World Cup, "GW5" for
+    FPL. table_label names the official points table in reader-facing copy,
+    methodology is the one-line method string pages print, and
+    ceiling_explainer defines the section's own ceiling statistic — all default
+    to the World Cup wording, which is what every existing page pins.
+    """
+
+    def __init__(self, key, label, unit, unit_abbr, base, api_base,
+                 table_label=None, methodology=None, ceiling_explainer=None):
+        self.key = key                # "round" | "fpl"
+        self.label = label            # "World Cup Fantasy" | "Fantasy Premier League"
+        self.unit = unit              # "Round" | "Gameweek"
+        self.unit_abbr = unit_abbr    # "R" | "GW"
+        self.base = base              # "/round/{r}" | "/fpl/gw{r}"
+        self.api_base = api_base      # "/api/round/{r}" | "/api/fpl/gw{r}"
+        self.table_label = table_label or "FIFA World Cup Fantasy"
+        self.methodology = methodology or METHODOLOGY
+        self.ceiling_explainer = ceiling_explainer or CEILING_EXPLAINER
+
+    def landing_path(self, n):
+        return self.base.format(r=n) + "/"
+
+    def article_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}/"
+
+    def md_path(self, n, slug):
+        return f"{self.base.format(r=n)}/{slug}.md"
+
+    def json_path(self, n, slug):
+        return f"{self.api_base.format(r=n)}/{slug}.json"
+
+    def players_json_path(self, n):
+        return f"{self.api_base.format(r=n)}/players.json"
+
+    def kicker(self, n):
+        return f"{self.unit} {n}"
+
+    def switcher_base(self):
+        return self.base + "/"
+
+
+WC = Section("round", "World Cup Fantasy", "Round", "R",
+             "/round/{r}", "/api/round/{r}")
+FPL = Section("fpl", "Fantasy Premier League", "Gameweek", "GW",
+              "/fpl/gw{r}", "/api/fpl/gw{r}",
+              table_label="Fantasy Premier League",
+              methodology=("Market odds (de-vigged) → Dixon-Coles scorelines → "
+                           "50k Monte-Carlo simulations, scored on the official "
+                           "Fantasy Premier League points table."),
+              ceiling_explainer=FPL_CEILING_EXPLAINER)
+
+
 def article_json(competition, fantasy_round, article, title, generated_at, sims, entries,
-                 extra_fields=None):
+                 extra_fields=None, section=WC):
     """extra_fields: optional dict merged into the envelope as additional top-level
-    keys (e.g. wildcard's {"squad": {...}} meta). Never overrides the standard keys."""
+    keys (e.g. wildcard's {"squad": {...}} meta). Never overrides the standard keys.
+
+    The unit key is named for the section — "round" for the World Cup, "gameweek"
+    for FPL — because a consumer reading `"round": 1` off an FPL feed would
+    reasonably think it meant a knockout round."""
+    unit_key = "round" if section.key == "round" else "gameweek"
     env = {
         "competition": competition,
-        "round": fantasy_round,
+        unit_key: fantasy_round,
         "article": article,
         "title": title,
         "generated_at": generated_at,
         "sims": sims,
-        "methodology": METHODOLOGY,
+        "methodology": section.methodology,
         "entries": entries,
         "source": SITE_URL,
         "license": DATA_LICENSE_URL,
@@ -105,6 +186,18 @@ def summary_sentence(article, entries):
         xi_xpoints = round(sum(e.get("x_points") or 0.0 for e in xi), 2)
         return (f"A {formation_of(xi)} wildcard squad costing {total_cost}m of the "
                 f"{SQUAD_BUDGET}m budget, projecting {xi_xpoints} xPts from the XI.")
+    if article in ("our-squad", "consensus-squad"):
+        # entries are squad_article's 15 in state order; the summary quotes the
+        # duel-strip number (XI total with the captain doubled).
+        from evmax.articles import formation_of
+        xi = [e for e in entries if e.get("role") == "XI"] or entries[:11]
+        cap = next((e for e in xi if e.get("is_captain")), xi[0])
+        total = round(sum(e.get("x_points") or 0.0 for e in xi)
+                      + (cap.get("x_points") or 0.0), 2)
+        whose = "Our" if article == "our-squad" else "The expert-consensus"
+        return (f"{whose} {formation_of(xi)} this gameweek: "
+                f"{cap.get('name', '?')} captains, {total} projected points "
+                f"with the armband doubled.")
     top = entries[0]
     if article == "transfers" and "name" in top:
         return (f"{top['name']} ({top.get('team', '')}) is the top priority transfer: "
@@ -133,6 +226,15 @@ def summary_sentence(article, entries):
     if article == "fixtures":
         return (f"{name} ({team}) has the best clean-sheet odds this round: "
                 f"{top['p_clean_sheet'] * 100:.0f}%.")
+    # FPL-only slugs (no World Cup article shares these names). The ticker's
+    # rows are CLUBS with no x_points at all, so the generic fallback below
+    # would KeyError; defcon's headline number is a probability, not points.
+    if article == "ticker":
+        return (f"{name} lead the fixture ticker at "
+                f"{(top.get('exp_clean_sheets') or 0.0):.2f} expected clean sheets.")
+    if article == "defcon":
+        return (f"{name} ({team}) hits the defensive-contribution threshold in "
+                f"{(top.get('p_defcon') or 0.0) * 100:.0f}% of simulations.")
     return f"{name} ({team}) tops the list at {top['x_points']:.1f} expected points."
 
 
@@ -165,10 +267,15 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               "value": "Pts/m", "price": "Price", "ownership_pct": "Owned %",
               "priority_score": "Priority", "vor": "VOR", "p_advance": "Advance %",
               "p_clean_sheet": "CS %", "exp_goals_for": "xGF", "exp_goals_against": "xGA",
-              "top_def": "Best DEF", "top_gk": "Best GK"}
+              "top_def": "Best DEF", "top_gk": "Best GK",
+              # FPL columns (spec §8): reader-facing labels so table headers and
+              # landing stat labels never print a raw key.
+              "p_defcon": "P(DefCon)", "defcon": "DefCon pts", "cs_points": "CS pts",
+              "exp_clean_sheets": "Clean sheets", "fixtures": "Fixtures",
+              "basis": "Basis", "bonus": "Bonus"}
 
 # Columns whose value is already a display-ready string (not a number to format).
-_STRING_COLS = {"top_def", "top_gk"}
+_STRING_COLS = {"top_def", "top_gk", "basis", "opponents"}
 
 
 def _fmt(col, row):
@@ -179,7 +286,7 @@ def _fmt(col, row):
         return str(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col == "p_clean_sheet":
+    if col in ("p_clean_sheet", "p_defcon"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -417,7 +524,8 @@ def _nav_html(active=None):
     return "<nav>" + "".join(items) + "</nav>"
 
 
-def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/"):
+def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/",
+                         abbr="R"):
     """Pill row of every round that's actually been built (see build.py's
     available_rounds -- computed from what's on disk, so this never links to
     a round that doesn't exist). Without this, older rounds are still live
@@ -427,17 +535,18 @@ def _round_switcher_html(available_rounds, current_round, base_path="/round/{r}/
         return ""
     tabs = "".join(
         f'<a class="round-tab{" active" if r == current_round else ""}" '
-        f'href="{base_path.format(r=r)}">R{r}</a>'
+        f'href="{base_path.format(r=r)}">{abbr}{r}</a>'
         for r in available_rounds
     )
-    return f'<div class="round-switcher"><span class="rs-label">Rounds</span>{tabs}</div>'
+    label = "Rounds" if abbr == "R" else "Gameweeks"
+    return f'<div class="round-switcher"><span class="rs-label">{label}</span>{tabs}</div>'
 
 
 def _rate_cta_html():
     return ('<a class="rate-cta" href="/rate/">Rate my team <span class="arrow">&rarr;</span></a>')
 
 
-def _live_xi_html(live_xi: dict, round_no: int) -> str:
+def _live_xi_html(live_xi: dict, round_no: int, section=WC) -> str:
     """Mid-round strip: how the round's PUBLISHED XI (frozen at lock) is doing
     so far -- realized official points vs what those already-played players
     were expected to score, vs their combined ceiling. The articles themselves
@@ -463,7 +572,7 @@ def _live_xi_html(live_xi: dict, round_no: int) -> str:
         f'<b class="lx-diff {diff_cls}">{diff_str}</b></span>'
         f'<span class="lx-stat">{live_xi["ceiling"]:.1f} ceiling</span>'
         f'</span>'
-        f'<a class="lx-link" href="/round/{round_no}/wildcard/">The XI &rarr;</a>'
+        f'<a class="lx-link" href="{section.article_path(round_no, "wildcard")}">The XI &rarr;</a>'
         f'</div>'
     )
     # second row: what the full XI is aiming for by the end of the round --
@@ -576,6 +685,11 @@ def pitch_svg(xi_entries):
     ROW_GAP = 14 + NAME_DY + 18  # node radius + name + minimum clear gap
     row_y = {"FWD": 62, "MID": 62 + ROW_GAP, "DEF": 62 + 2 * ROW_GAP, "GK": 62 + 3 * ROW_GAP}
 
+    # Squad-article entries carry an explicit captain flag (the armband is a
+    # state decision, not the top projection); everything else keeps the
+    # rank-1/first-entry rule, so existing WC pitches render byte-identically.
+    has_cap_flag = any("is_captain" in e for e in xi)
+
     def _row_nodes(players, y):
         if not players:
             return ""
@@ -585,7 +699,10 @@ def pitch_svg(xi_entries):
             x = W * (i + 1) / (n + 1)
             label = _html.escape(_pitch_label(p["name"]))
             xpts = p.get("x_points", 0.0)
-            is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
+            if has_cap_flag:
+                is_captain = bool(p.get("is_captain"))
+            else:
+                is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
             cap_badge = ""
             if is_captain:
                 # 8px-radius badge at the node's top-right; offset far enough
@@ -812,7 +929,7 @@ def _md_fmt(col, row):
         return _escape_pipes(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col == "p_clean_sheet":
+    if col in ("p_clean_sheet", "p_defcon"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -857,7 +974,7 @@ def _article_md_table(article: str, entries: list, columns: list) -> str:
 
 
 def article_md(round_no, slug, title, prose, entries, columns, generated_at,
-               date_str, canonical_path):
+               date_str, canonical_path, section=WC):
     """Content-only Markdown twin of an article, for AI agents (the llms.txt
     convention) -- purpose-built to replace paid edge markdown-conversion.
 
@@ -869,7 +986,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
     body_md = prose.get("body_md", "")
     bottom_line = prose.get("bottom_line", "")
     table_md = _article_md_table(slug, entries, columns)
-    json_url = f"{SITE_URL}/api/round/{round_no}/{slug}.json"
+    json_url = f"{SITE_URL}{section.json_path(round_no, slug)}"
 
     parts = [
         f"# {headline}",
@@ -887,7 +1004,7 @@ def article_md(round_no, slug, title, prose, entries, columns, generated_at,
         table_md,
         "",
         "---",
-        f"Method: {METHODOLOGY}",
+        f"Method: {section.methodology}",
         f"Data license: CC BY 4.0 (attribution: evmax, {SITE_URL}). "
         f"Machine-readable JSON: {json_url}",
     ]
@@ -1244,35 +1361,43 @@ def track_record_json(record: dict) -> dict:
 # Articles whose viz is the pitch SVG (a starting XI), vs everything else which
 # gets an ev_bar top-slice chart. "matches" gets neither -- its cards are
 # self-explanatory, so no figure/figcaption wrapper is added at all.
-_PITCH_ARTICLES = {"best-xi", "wildcard"}
+_PITCH_ARTICLES = {"best-xi", "wildcard", "our-squad", "consensus-squad"}
+
+# Pitch figcaptions that differ from the default "model's optimal XI" line --
+# the two published squads are FIELDED teams (one ours, one the crowd's), not
+# an optimiser's output, and the caption must not claim otherwise.
+_PITCH_CAPTIONS = {
+    "our-squad": ("Our starting XI · number = projected points (xPts) · "
+                  "C = captain"),
+    "consensus-squad": ("The consensus starting XI · number = projected "
+                        "points (xPts) · C = captain"),
+}
 
 
 # Articles whose chart pairs a floor bar with a faint ceiling reach -- kept in
 # sync with build._CEILING_PAIRED_METRIC (render.py has no import on build.py).
 _CEILING_REACH_ARTICLES = {"captains", "defenders", "risky", "blowout-transfers"}
 
-# One-line reader-facing definition, reused in figcaptions and the article
-# footer. "85th percentile of 50,000 sims" is the honest definition (see
-# games/fifa/model.ceiling_points) phrased for a fantasy reader.
-CEILING_EXPLAINER = (
-    "Ceiling = the 85th-percentile outcome across our 50,000 simulations — "
-    "the score when a player's best realistic game happens, not a fantasy cap.")
+# The ceiling definitions themselves (CEILING_EXPLAINER / FPL_CEILING_EXPLAINER)
+# live above the Section class, which carries the right one per section.
 
 
-def _article_fig_caption(article: str, columns: list):
+def _article_fig_caption(article: str, columns: list, section=WC):
     """Caption text for the figure wrapping an article's viz, or None for
     articles (matches) that render without a figure at all -- the cards are
     self-explanatory."""
     if article == "matches":
         return None
     if article in _PITCH_ARTICLES:
-        return "The model's optimal XI · number = projected points (xPts)"
+        return _PITCH_CAPTIONS.get(
+            article, "The model's optimal XI · number = projected points (xPts)")
     metric = columns[0] if columns else ""
     metric_label = _COL_LABEL.get(metric, metric)
     base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
             "red = under 10% owned. Full list in the table below.")
     if article in _CEILING_REACH_ARTICLES:
-        return f"{base} Solid bar = {metric_label}, faint bar = ceiling. {CEILING_EXPLAINER}"
+        return (f"{base} Solid bar = {metric_label}, faint bar = ceiling. "
+                f"{section.ceiling_explainer}")
     return base
 
 
@@ -1294,7 +1419,8 @@ def _split_lede(body_html: str) -> tuple:
 
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
-                 generated_at=None, date_str=None, show_table=True, available_rounds=None):
+                 generated_at=None, date_str=None, show_table=True,
+                 available_rounds=None, section=WC):
     """v2 editorial article page.
 
     Published articles are frozen claims: this page always renders the exact
@@ -1317,7 +1443,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     dataset_ld_raw = _json.dumps({
         "@context": "https://schema.org", "@type": "Dataset",
         "name": title,
-        "description": METHODOLOGY,
+        "description": section.methodology,
         "url": f"{SITE_URL}{json_url}",
         "creator": {"@type": "Organization", "name": "evmax"},
         "variableMeasured": [_COL_LABEL.get(c, c) for c in columns],
@@ -1337,7 +1463,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
         article_ld_obj["datePublished"] = generated_at
     article_ld = _json.dumps(article_ld_obj).replace("</", "<\\/")
     kicker_label = _html.escape(
-        _COL_LABEL.get(article, article.replace("-", " ").title()) + f" · Round {round_no}")
+        _COL_LABEL.get(article, article.replace("-", " ").title())
+        + f" · {section.kicker(round_no)}")
     table_html = _rank_table_html(entries, columns) if show_table else ""
     data_section = f"<h2>The data</h2>\n{table_html}" if show_table else ""
     bottom_line = _html.escape(prose.get("bottom_line", ""))
@@ -1349,7 +1476,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     # (whole body after the figure) rather than guessing at a split.
     lede_html, rest_html = _split_lede(prose["body_html"])
 
-    caption = _article_fig_caption(article, columns)
+    caption = _article_fig_caption(article, columns, section=section)
     if caption is None:
         # matches: cards are self-explanatory, no figure/figcaption wrapper.
         viz_section = viz_html
@@ -1362,8 +1489,11 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 
     # Any article whose table carries a ceiling column gets the one-line
     # definition in the footer, so the stat is never a bare unexplained number.
+    # The section supplies its own: WC's ceiling is a percentile, FPL's a tail
+    # mean, and each page must describe the statistic it actually publishes.
     ceiling_method_html = (
-        f"{_html.escape(CEILING_EXPLAINER)}\n" if "ceiling" in (columns or []) else "")
+        f"{_html.escape(section.ceiling_explainer)}\n"
+        if "ceiling" in (columns or []) else "")
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -1371,8 +1501,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <title>{_html.escape(title)} | {TITLE_BRAND}</title>
 <meta name="description" content="{_html.escape(summary)}">
 <link rel="alternate" type="application/json" href="{json_url}">
-<link rel="alternate" type="text/markdown" href="/round/{round_no}/{article}.md">
-{_og_meta(prose["headline"], summary, f"/round/{round_no}/{article}/", "article")}
+<link rel="alternate" type="text/markdown" href="{section.md_path(round_no, article)}">
+{_og_meta(prose["headline"], summary, section.article_path(round_no, article), "article")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
@@ -1386,7 +1516,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <div class="wrap">
 <article class="art">
 <div class="kick">{kicker_label}</div>
-{_round_switcher_html(available_rounds or [round_no], round_no)}
+{_round_switcher_html(available_rounds or [round_no], round_no,
+                      base_path=section.switcher_base(), abbr=section.unit_abbr)}
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
@@ -1397,7 +1528,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <h2>Bottom line</h2>
 <p>{bottom_line}</p>
 {_newsletter_html()}
-<p class="method"><b>How we get these numbers.</b> {METHODOLOGY}
+<p class="method"><b>How we get these numbers.</b> {section.methodology}
 {ceiling_method_html}Every figure here is machine-readable at <a href="{json_url}" style="color:var(--greend)">{json_url}</a>.</p>
 </div>
 </article>
@@ -1435,13 +1566,14 @@ def hub_page(round_no, nav, highlights):
 {_footer_html()}</body></html>"""
 
 
-def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None):
-    """A single v2 feed card linking to /round/{round_no}/{slug}/."""
+def feed_card(slug, round_no, headline, teaser, stat_value, stat_label, date_str=None,
+              section=WC):
+    """A single v2 feed card linking to the section's article page."""
     kicker = _html.escape(slug.replace("-", " ").title())
     date_html = (f'<span style="font-size:11px;color:var(--ink3);margin-top:-4px">'
                  f'{_html.escape(date_str)}</span>' if date_str else "")
     return (
-        f'<a class="card" href="/round/{round_no}/{slug}/">'
+        f'<a class="card" href="{section.article_path(round_no, slug)}">'
         f'<span class="ck">{kicker}</span>'
         f'<h3>{_html.escape(headline)}</h3>'
         f'{date_html}'
@@ -1530,7 +1662,8 @@ def _quick_picks_html(picks: list) -> str:
     return f'<div class="pagelabel">Quick picks</div>{rows}'
 
 
-def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
+def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
+                        section=WC) -> str:
     """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
     list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
     close/top_scoreline, and possibly finished/final_score).
@@ -1538,13 +1671,18 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     Foldable on mobile via a zero-JS checkbox pattern: the checkbox + label are
     hidden on desktop (content always shown); on mobile the label becomes a
     tappable card and `.rail-content` is display:none until the checkbox (its
-    sibling) is checked. No JS anywhere on the site."""
+    sibling) is checked. No JS anywhere on the site.
+
+    The all-fixtures link points at the section's fixture article: the World Cup
+    publishes a dedicated "matches" page; FPL's fixture coverage lives in the
+    ticker, and linking a nonexistent /fpl/gwN/matches/ would ship a dead link."""
     rows = "".join(_fixtures_rail_row(m) for m in fixtures)
     qp = _quick_picks_html(quick_picks) if quick_picks else ""
+    fixtures_slug = "matches" if section.key == "round" else "ticker"
     content = (
         f'{qp}<div class="pagelabel">This round\'s ties</div>'
         f'{rows}'
-        f'<a class="rail-link" href="/round/{round_no}/matches/">All match predictions →</a>'
+        f'<a class="rail-link" href="{section.article_path(round_no, fixtures_slug)}">All match predictions →</a>'
     )
     return (
         '<aside class="rail">'
@@ -1555,8 +1693,57 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None) -> str:
     )
 
 
+# Duel-strip CSS is injected ONLY when a duel is passed (see landing_page):
+# _STYLE is embedded byte-for-byte in every World Cup page, and those pages are
+# frozen published claims — appending to _STYLE itself would change them all.
+_DUEL_CSS = (
+    ".duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;"
+    "gap:14px;background:var(--surf);border:1px solid var(--line);"
+    "border-radius:12px;padding:14px 18px;margin-bottom:22px}"
+    ".duel-side{display:flex;flex-direction:column;gap:2px;min-width:0}"
+    ".duel-side.consensus{text-align:right;align-items:flex-end}"
+    ".duel-side:hover .duel-meta{color:var(--greend)}"
+    ".duel-tag{font-size:10.5px;font-weight:800;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--ink3)}"
+    ".duel-total{font-size:24px;font-weight:800;color:var(--ink);"
+    "font-variant-numeric:tabular-nums;line-height:1.15}"
+    ".duel-total .du{font-size:12px;font-weight:600;color:var(--ink3);"
+    "margin-left:4px}"
+    ".duel-meta{font-size:12.5px;color:var(--ink2)}"
+    ".duel-vs{font-size:12px;font-weight:800;color:var(--ink3);"
+    "text-transform:uppercase;letter-spacing:1px}"
+)
+
+
+def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
+    """The landing's compact model-vs-consensus strip: both published squads'
+    projected XI totals (captain doubled) side by side, each side linking to
+    its article. Data is the two squad articles' own meta — no new simulation,
+    so the strip can never disagree with the pages it points at.
+
+    duel: {"model": squad_article meta, "consensus": squad_article meta}.
+    """
+    if not duel:
+        return ""
+    sides = {}
+    for key, slug, label in (("model", "our-squad", "Model"),
+                             ("consensus", "consensus-squad", "Consensus")):
+        m = duel[key]
+        sides[key] = (
+            f'<a class="duel-side {key}" '
+            f'href="{section.article_path(round_no, slug)}">'
+            f'<span class="duel-tag">{label}</span>'
+            f'<span class="duel-total">{m["projected_total"]:.2f}'
+            f'<span class="du">proj</span></span>'
+            f'<span class="duel-meta">{_html.escape(m["formation"])} · '
+            f'{_html.escape(m["captain"])} (c)</span>'
+            f'</a>')
+    return (f'<div class="duel">{sides["model"]}'
+            f'<span class="duel-vs">vs</span>{sides["consensus"]}</div>')
+
+
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
-                 available_rounds=None, live_xi=None):
+                 available_rounds=None, live_xi=None, duel=None, section=WC):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -1569,8 +1756,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
               with the aside placed after the main content).
     """
     og_block = _og_meta(
-        f"World Cup Fantasy Round {round_no} — simulation-based picks",
-        f"Captain EV, expected points and match predictions for Round {round_no}, "
+        f"{section.label} {section.kicker(round_no)} — simulation-based picks",
+        f"Captain EV, expected points and match predictions for {section.kicker(round_no)}, "
         f"from 50,000 Monte-Carlo simulations. Graded publicly.", "/", "website")
     org_ld = _json.dumps({
         "@context": "https://schema.org", "@type": "Organization", "name": "evmax",
@@ -1587,23 +1774,26 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     feat_viz = featured.get("viz_html", "")
     feat_kicker = "Featured · " + _html.escape(
         feat_slug.replace("-", " ").title())
-    feat_url = f"/round/{round_no}/{feat_slug}/"
+    feat_url = section.article_path(round_no, feat_slug)
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
 
     feed_cards = "".join(
         feed_card(
             f["slug"], round_no, f["headline"], f["teaser"],
-            f["stat_value"], f["stat_label"], date_str=date_str)
+            f["stat_value"], f["stat_label"], date_str=date_str,
+            section=section)
         for f in feed)
 
     hero_actions = (
         f'<div class="hero-actions">'
-        f'{_round_switcher_html(available_rounds or [round_no], round_no)}'
+        f'{_round_switcher_html(available_rounds or [round_no], round_no, base_path=section.switcher_base(), abbr=section.unit_abbr)}'
         f'{_rate_cta_html()}</div>'
     )
-    feat_content = f"""<div class="pagelabel">World Cup Fantasy · Round {round_no}</div>
+    # duel shares live_xi's template line so a duel-less landing (every World
+    # Cup build) keeps today's whitespace byte-for-byte.
+    feat_content = f"""<div class="pagelabel">{section.label} · {section.kicker(round_no)}</div>
 {hero_actions}
-{_live_xi_html(live_xi, round_no)}
+{_live_xi_html(live_xi, round_no, section=section)}{_duel_strip_html(duel, round_no, section=section)}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -1618,7 +1808,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     feed_content = f"""<div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 {_newsletter_html()}
-<p class="method"><b>Method.</b> {METHODOLOGY}</p>"""
+<p class="method"><b>Method.</b> {section.methodology}</p>"""
 
     if fixtures:
         # Grid-areas puts the rail in its own right-hand column spanning both
@@ -1627,7 +1817,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         # DOM order overall. On mobile the single-column stack collapses to
         # feat -> rail (folded) -> feed via the areas list, so the owner can
         # actually find the rail without scrolling to the very bottom.
-        rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks)
+        rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks,
+                                        section=section)
         body_content = (
             '<div class="landing-grid">'
             f'<div class="feat-area">{feat_content}</div>'
@@ -1641,15 +1832,15 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Cup Fantasy Round {round_no} picks &amp; captains | {TITLE_BRAND}</title>
-<meta name="description" content="evmax is an independent fantasy football simulation project: World Cup Fantasy Round {round_no} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
+<title>{section.label} {section.kicker(round_no)} picks &amp; captains | {TITLE_BRAND}</title>
+<meta name="description" content="evmax is an independent fantasy football simulation project: {section.label} {section.kicker(round_no)} picks — best XI, captains and value from 50,000 Monte-Carlo runs.">
 {og_block}
 <script type="application/ld+json">{org_ld}</script>
 <script type="application/ld+json">{site_ld}</script>
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_MATCH_CSS}</style>
+<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel else ""}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
@@ -1664,20 +1855,20 @@ _AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web"
             "PerplexityBot", "Google-Extended", "CCBot", "Applebot-Extended"]
 
 
-def llms_txt(round_no, nav):
+def llms_txt(round_no, nav, section=WC):
     lines = [
-        "# evmax — simulation-based World Cup Fantasy picks",
+        f"# evmax — simulation-based {section.label} picks",
         "",
         "> Free, transparent fantasy picks from 50,000 Monte-Carlo simulations on "
-        "de-vigged market odds, scored on the official FIFA World Cup Fantasy table. "
+        f"de-vigged market odds, scored on the official {section.table_label} table. "
         "Numbers are machine-readable JSON; attribution to evmax is requested.",
         "",
-        f"## Round {round_no} articles",
+        f"## {section.kicker(round_no)} articles",
     ]
     for slug, title in nav:
-        lines.append(f"- [{title}]({SITE_URL}/round/{round_no}/{slug}/) — "
-                     f"data: {SITE_URL}/api/round/{round_no}/{slug}.json"
-                     f" · markdown: {SITE_URL}/round/{round_no}/{slug}.md")
+        lines.append(f"- [{title}]({SITE_URL}{section.article_path(round_no, slug)}) — "
+                     f"data: {SITE_URL}{section.json_path(round_no, slug)}"
+                     f" · markdown: {SITE_URL}{section.md_path(round_no, slug)}")
     lines += [
         "",
         "## Track record",
@@ -1688,7 +1879,7 @@ def llms_txt(round_no, nav):
         "## API",
         f"- Article index: {SITE_URL}/api/latest.json",
         f"- Graded prediction accuracy: {SITE_URL}/api/track-record.json",
-        f"- Full player projections: {SITE_URL}/api/round/{round_no}/players.json",
+        f"- Full player projections: {SITE_URL}{section.players_json_path(round_no)}",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1699,11 +1890,18 @@ def robots_txt():
     return "\n\n".join(blocks) + f"\n\nSitemap: {SITE_URL}/sitemap.xml\n"
 
 
-def sitemap_xml(round_no, nav, lastmod=None):
+def sitemap_xml(round_no, nav, lastmod=None, section=WC, extra_urls=None):
+    """extra_urls: absolute site paths to include verbatim, beyond this section's
+    own pages. The FPL build passes the World Cup tree here: those pages are still
+    live and still indexed (spec D5), and a sitemap that silently drops them reads
+    to a crawler as a request to deindex them. The static pages (/about/ etc.)
+    stay listed for every section — they are shared site chrome, not section
+    pages, and the existing WC sitemap pins them."""
     urls = [f"{SITE_URL}/", f"{SITE_URL}/about/", f"{SITE_URL}/privacy/",
             f"{SITE_URL}/track-record/", f"{SITE_URL}/rate/",
-            f"{SITE_URL}/round/{round_no}/"]
-    urls += [f"{SITE_URL}/round/{round_no}/{slug}/" for slug, _ in nav]
+            f"{SITE_URL}{section.landing_path(round_no)}"]
+    urls += [f"{SITE_URL}{section.article_path(round_no, slug)}" for slug, _ in nav]
+    urls += [f"{SITE_URL}{p}" for p in (extra_urls or [])]
     lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
     items = "".join(f"<url><loc>{u}</loc>{lm}</url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
@@ -1969,26 +2167,80 @@ _RATE_CSS = (
 )
 
 
-def rate_page(round_no: int) -> str:
-    """/rate/ -- paste-a-squad client-side team rater.
+def rate_page(round_no: int, section=WC) -> str:
+    """/rate/ -- paste-a-squad client-side team rater, serving whichever
+    section built last.
 
-    All computation happens in the browser (see /js/rate.js, fetched from
-    /api/round/{round_no}/players.json, embedded via data-round below). This
-    function only emits static markup + the <noscript> fallback; it makes no
-    server-side prediction of the user's team.
+    All computation happens in the browser (see /js/rate.js, fetched from the
+    section's players feed, embedded via data-players-url below). This function
+    only emits static markup + the <noscript> fallback; it makes no server-side
+    prediction of the user's team.
+
+    Section-aware copy only: an FPL build titles the page for FPL, states the
+    15 = 2/5/5/3 squad shape, points at the gameweek feed and explains FPL's
+    post-gameweek autosubs; a World Cup build keeps today's page byte-for-byte
+    (including the manual-subs chain copy, which is a WC rule FPL lacks).
     """
-    title = f"Rate my World Cup fantasy team | {TITLE_BRAND}"
-    description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
-                   "projection, captain check and injury flags -- entirely in your "
-                   "browser, nothing uploaded.")
-    json_url = f"/api/round/{round_no}/players.json"
+    is_fpl = section.key != "round"
+    json_url = section.players_json_path(round_no)
+    if is_fpl:
+        page_title = "Rate my FPL team"
+        title = f"{page_title} | {TITLE_BRAND}"
+        description = ("Paste your FPL squad and get an instant Monte-Carlo "
+                       "projection, captain check and injury flags -- entirely in "
+                       "your browser, nothing uploaded.")
+        stand = ("Pick your 15 — 2 goalkeepers, 5 defenders, 5 midfielders, "
+                 "3 forwards — and get instant Monte-Carlo projections, a captain "
+                 "check and injury flags. Nothing leaves your browser.")
+        # data-unit lets the shared rate.js label results "Gameweek N"; the WC
+        # page omits the attribute and rate.js falls back to "Round".
+        unit_attr = ' data-unit="Gameweek"'
+        bench_hint = "counted separately — autosubs only fire after the gameweek"
+        placeholder = ("Haaland (C), Saka, Virgil, Watkins (B), …  — comma or "
+                       "newline separated, (C) marks captain, (B) marks bench")
+        method_tail = ("Player names are matched against\n"
+                       "this gameweek's projections entirely client-side against\n"
+                       f'<a href="{json_url}" style="color:var(--greend)">{json_url}</a> '
+                       "-- no squad is ever sent\n"
+                       "to our servers or anyone else's. Mark bench players with (B): "
+                       "they're shown with\nprojected points but left out of your "
+                       "total. Your squad locks at the gameweek deadline --\nFPL's "
+                       "automatic substitutions only fire after the gameweek ends, "
+                       "replacing a starter\nwho recorded no minutes with the first "
+                       "eligible name in your bench order -- so the\nbench is "
+                       "insurance you set before the deadline, not a mid-week "
+                       "decision.")
+    else:
+        page_title = "Rate my World Cup fantasy team"
+        title = f"{page_title} | {TITLE_BRAND}"
+        description = ("Paste your World Cup fantasy squad and get an instant Monte-Carlo "
+                       "projection, captain check and injury flags -- entirely in your "
+                       "browser, nothing uploaded.")
+        stand = ("Pick your 15 — get instant Monte-Carlo projections, captain check,\n"
+                 "sub-chain notes and injury flags. Nothing leaves your browser.")
+        unit_attr = ""
+        bench_hint = "counted separately, chain notes included"
+        placeholder = ("Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or "
+                       "newline separated, (C) marks captain, (B) marks bench")
+        method_tail = ("Player names are matched against\n"
+                       "this round's projections entirely client-side against\n"
+                       f'<a href="{json_url}" style="color:var(--greend)">{json_url}</a> '
+                       "-- no squad is ever sent\n"
+                       "to our servers or anyone else's. Mark bench players with (B): "
+                       "they're shown with\nprojected points but left out of your total, "
+                       "and flagged with a \"chain option\" note\nwhen a same-position "
+                       "starter of yours kicks off earlier -- FIFA's automatic subs "
+                       "only\nfire on a did-not-play at the very end of the round, but "
+                       "manual subs are allowed up\nuntil the round's last kickoff, so a "
+                       "strong bench pick with a later fixture is often a\ndeliberate "
+                       "hedge, not a wasted slot.")
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title>
 <meta name="description" content="{_html.escape(description)}">
 {_og_meta(
-    "Rate my World Cup fantasy team",
+    page_title,
     description, "/rate/", "website")}
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -2001,28 +2253,27 @@ def rate_page(round_no: int) -> str:
 <div class="wrap">
 <div class="rate-wrap">
 <div class="pagelabel" style="margin-top:34px">Interactive</div>
-<h1>Rate my World Cup fantasy team</h1>
-<p class="stand">Pick your 15 — get instant Monte-Carlo projections, captain check,
-sub-chain notes and injury flags. Nothing leaves your browser.</p>
+<h1>{page_title}</h1>
+<p class="stand">{stand}</p>
 
 <noscript><div class="rate-noscript">This tool needs JavaScript (self-hosted, no
 tracking). Prefer no JS? The full projections are at
 <a href="{json_url}">{json_url}</a> and in every article.</div></noscript>
 
-<form class="rate-form" id="rate-form" data-round="{round_no}" data-players-url="{json_url}">
+<form class="rate-form" id="rate-form" data-round="{round_no}"{unit_attr} data-players-url="{json_url}">
 <datalist id="players-dl"></datalist>
 <div class="slot-grid" id="slot-grid">
 <div class="slot-head">Starting XI <span class="rate-hint">tap C to captain</span></div>
 {"".join(f'''<div class="slot-row"><input class="slot" list="players-dl" data-bench="0"
 placeholder="Player {i}" autocomplete="off" spellcheck="false"><label class="cappick"
 title="captain"><input type="radio" name="cap" value="{i - 1}"><span>C</span></label></div>''' for i in range(1, 12))}
-<div class="slot-head">Bench <span class="rate-hint">counted separately, chain notes included</span></div>
+<div class="slot-head">Bench <span class="rate-hint">{bench_hint}</span></div>
 {"".join(f'''<div class="slot-row"><input class="slot slot-bench" list="players-dl" data-bench="1"
 placeholder="Bench {i}" autocomplete="off" spellcheck="false"></div>''' for i in range(1, 5))}
 </div>
 <details class="rate-paste"><summary>prefer to paste the whole squad as text?</summary>
 <textarea id="team-input" name="team" rows="6"
-placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline separated, (C) marks captain, (B) marks bench"></textarea>
+placeholder="{placeholder}"></textarea>
 </details>
 <div class="rate-actions">
 <button type="submit" id="rate-btn">Rate my team</button>
@@ -2032,15 +2283,7 @@ placeholder="Messi (C), Mbappé, Cunha, Freeman (B), …  — comma or newline s
 
 <div id="rate-results" aria-live="polite"></div>
 
-<p class="method"><b>How this works.</b> {METHODOLOGY} Player names are matched against
-this round's projections entirely client-side against
-<a href="{json_url}" style="color:var(--greend)">{json_url}</a> -- no squad is ever sent
-to our servers or anyone else's. Mark bench players with (B): they're shown with
-projected points but left out of your total, and flagged with a "chain option" note
-when a same-position starter of yours kicks off earlier -- FIFA's automatic subs only
-fire on a did-not-play at the very end of the round, but manual subs are allowed up
-until the round's last kickoff, so a strong bench pick with a later fixture is often a
-deliberate hedge, not a wasted slot.</p>
+<p class="method"><b>How this works.</b> {section.methodology} {method_tail}</p>
 </div>
 </div>
 {_footer_html()}
