@@ -794,6 +794,136 @@ def pitch_svg(xi_entries):
     )
 
 
+def pitch_svg_fpl(xi_entries):
+    """The FPL squad pitch: an attacking HALF-pitch, so four rows fill the canvas.
+
+    Differences from the shared pitch_svg (which WC pages pin byte-identically and
+    therefore must not change): halfway line + centre arc at the top, penalty box,
+    D and goal mouth at the bottom, mow-stripe grass, and a three-part player node
+    — xPts disc, solid name pill below it (names never sit raw on the grass), club
+    letters under the pill. Captain wears an armband-style badge on the disc; a
+    vice badge renders only when the entry carries is_vice.
+    """
+    from evmax.articles import formation_of  # lazy to avoid circular at module level
+    xi = list(xi_entries)
+    if not xi:
+        return '<svg viewBox="0 0 420 520" xmlns="http://www.w3.org/2000/svg"/>'
+    gks = [e for e in xi if e.get("position") == "GK"]
+    defs = [e for e in xi if e.get("position") == "DEF"]
+    mids = [e for e in xi if e.get("position") == "MID"]
+    fwds = [e for e in xi if e.get("position") == "FWD"]
+    placed = set(id(e) for e in gks + defs + mids + fwds)
+    for e in xi:
+        if id(e) not in placed:
+            mids.append(e)
+
+    W, H = 420, 520
+    INSET = 14
+    GRASS_A, GRASS_B = "#2e7e4c", "#338755"
+    LINE = 'stroke="#fff" stroke-width="1.2" opacity=".4" fill="none"'
+    INK, PAPER, GREEND = "#15140f", "#fbfaf7", "#0a4f2d"
+
+    row_y = {"FWD": 96, "MID": 208, "DEF": 318, "GK": 424}
+    has_cap_flag = any("is_captain" in e for e in xi)
+
+    def _pill_w(text):
+        return max(46, round(len(text) * 6.4 + 14))
+
+    def _row_nodes(players, y):
+        if not players:
+            return ""
+        n = len(players)
+        nodes = []
+        for i, p in enumerate(players):
+            x = W * (i + 1) / (n + 1)
+            label = _html.escape(_pitch_label(p["name"]))
+            club = _html.escape(str(p.get("team") or ""))
+            xpts = p.get("x_points", 0.0)
+            if has_cap_flag:
+                is_captain = bool(p.get("is_captain"))
+            else:
+                is_captain = (p.get("rank") == 1) or (xi and p is xi[0])
+            is_vice = bool(p.get("is_vice"))
+            ring = GREEND if is_captain else "rgba(10,79,45,.55)"
+            ring_w = 2.5 if is_captain else 1.6
+            badge = ""
+            if is_captain:
+                bx, by = x + 14, y - 13
+                badge = (f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="9" fill="{GREEND}" '
+                         f'stroke="{PAPER}" stroke-width="1.5"/>'
+                         f'<text x="{bx:.1f}" y="{by + 3.2:.1f}" text-anchor="middle" '
+                         f'font-size="9.5" font-weight="800" fill="#fff">C</text>')
+            elif is_vice:
+                bx, by = x + 14, y - 13
+                badge = (f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="9" fill="{PAPER}" '
+                         f'stroke="{GREEND}" stroke-width="1.5"/>'
+                         f'<text x="{bx:.1f}" y="{by + 3.2:.1f}" text-anchor="middle" '
+                         f'font-size="9.5" font-weight="800" fill="{GREEND}">V</text>')
+            pw = _pill_w(label)
+            nodes.append(
+                f'<circle cx="{x:.1f}" cy="{y}" r="17" fill="{PAPER}" '
+                f'stroke="{ring}" stroke-width="{ring_w}"/>'
+                f'<text x="{x:.1f}" y="{y + 4.5}" text-anchor="middle" '
+                f'font-size="12.5" font-weight="800" fill="{INK}">{xpts:.1f}</text>'
+                f'<rect x="{x - pw / 2:.1f}" y="{y + 23}" width="{pw}" height="18" '
+                f'rx="9" fill="{PAPER}"/>'
+                f'<text x="{x:.1f}" y="{y + 35.5}" text-anchor="middle" '
+                f'font-size="10.5" font-weight="700" fill="{INK}">{label}</text>'
+                + (f'<text x="{x:.1f}" y="{y + 54}" text-anchor="middle" '
+                   f'font-size="8.5" font-weight="700" letter-spacing="1" '
+                   f'fill="rgba(255,255,255,.75)">{club}</text>' if club else "")
+                + badge
+            )
+        return "".join(nodes)
+
+    stripes = "".join(
+        f'<rect x="0" y="{i * H / 6:.1f}" width="{W}" height="{H / 6:.1f}" '
+        f'fill="{GRASS_A if i % 2 == 0 else GRASS_B}"/>' for i in range(6))
+    L, R = INSET, W - INSET
+    B = H - INSET
+    box_w, box_h = 212, 74
+    six_w, six_h = 100, 30
+    pitch = (
+        f'<defs><clipPath id="pitchclip"><rect x="0" y="0" width="{W}" height="{H}" rx="10"/>'
+        f'</clipPath></defs>'
+        f'<g clip-path="url(#pitchclip)">{stripes}</g>'
+        # boundary: halfway line is the TOP edge of this half
+        f'<rect x="{L}" y="{INSET}" width="{R - L}" height="{B - INSET}" rx="2" {LINE}/>'
+        # centre arc bulging down from the halfway line
+        f'<path d="M {W / 2 - 42} {INSET} A 42 42 0 0 0 {W / 2 + 42} {INSET}" {LINE}/>'
+        f'<circle cx="{W / 2}" cy="{INSET}" r="2.5" fill="#fff" opacity=".4"/>'
+        # penalty box, six-yard box, spot, and the D
+        f'<rect x="{W / 2 - box_w / 2}" y="{B - box_h}" width="{box_w}" height="{box_h}" {LINE}/>'
+        f'<rect x="{W / 2 - six_w / 2}" y="{B - six_h}" width="{six_w}" height="{six_h}" {LINE}/>'
+        f'<circle cx="{W / 2}" cy="{B - 50}" r="2.5" fill="#fff" opacity=".4"/>'
+        f'<path d="M {W / 2 - 40} {B - box_h} A 44 44 0 0 1 {W / 2 + 40} {B - box_h}" {LINE}/>'
+        # goal mouth
+        f'<rect x="{W / 2 - 40}" y="{B}" width="80" height="6" {LINE}/>'
+        # corner arcs
+        f'<path d="M {L} {B - 12} A 12 12 0 0 0 {L + 12} {B}" {LINE}/>'
+        f'<path d="M {R - 12} {B} A 12 12 0 0 0 {R} {B - 12}" {LINE}/>'
+    )
+
+    nodes_svg = (_row_nodes(fwds, row_y["FWD"]) + _row_nodes(mids, row_y["MID"])
+                 + _row_nodes(defs, row_y["DEF"]) + _row_nodes(gks, row_y["GK"]))
+
+    formation = formation_of(xi)
+    chip_w = _pill_w(formation)
+    formation_chip = (
+        f'<rect x="{L + 8}" y="{INSET + 8}" width="{chip_w}" height="20" rx="10" '
+        f'fill="{PAPER}"/>'
+        f'<text x="{L + 8 + chip_w / 2:.1f}" y="{INSET + 22}" text-anchor="middle" '
+        f'font-size="11" font-weight="800" fill="{GREEND}">{formation}</text>')
+
+    return (
+        f'<svg viewBox="0 0 {W} {H}" width="100%" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="XI pitch">'
+        f'<g font-family="\'Hanken Grotesk\',sans-serif">'
+        f'{pitch}{nodes_svg}{formation_chip}'
+        f'</g></svg>'
+    )
+
+
 def ev_bar(entries, metric, width=360, row_h=30, max_rows=None,
           label_size=13, value_size=12, bar_h=15, reach_metric=None, reach_scale=1.0):
     """Horizontal bar viz (v2-styled). Top entry green, differentials red, others muted.

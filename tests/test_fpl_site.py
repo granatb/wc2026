@@ -736,6 +736,16 @@ class TestSquadRenderPieces(unittest.TestCase):
         self.assertEqual(svg2.count(">C</text>"), 1)
         self.assertNotEqual(svg, svg2)
 
+    def test_pitch_svg_fpl_flags_captain_and_vice_once(self):
+        xi = [e for e in _squad_entries() if e["role"] == "XI"]
+        svg = render.pitch_svg_fpl(xi)
+        self.assertEqual(svg.count('r="17"'), 11)      # one disc per player
+        self.assertEqual(svg.count(">C</text>"), 1)
+        self.assertLessEqual(svg.count(">V</text>"), 1)
+        for e in xi:                                    # armband moves with the state
+            e["is_captain"] = e["name"] == "F2"
+        self.assertNotEqual(render.pitch_svg_fpl(xi), svg)
+
     def test_pitch_svg_without_captain_flags_keeps_the_rank_rule(self):
         xi = [{"name": f"P{i}", "position": "MID", "x_points": 5.0, "rank": i}
               for i in range(1, 12)]

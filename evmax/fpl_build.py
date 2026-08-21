@@ -364,7 +364,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         prose_map[slug] = prose
 
         if slug == "wildcard" or slug in SQUAD_SLUGS:
-            viz_html = render.pitch_svg([e for e in entries
+            viz_html = render.pitch_svg_fpl([e for e in entries
                                          if e.get("role") == "XI"])
         else:
             pair = _CEILING_PAIRED_METRIC.get(slug)
@@ -431,7 +431,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     featured = {
         "slug": "our-squad",
         "prose": prose_map["our-squad"],
-        "viz_html": render.pitch_svg([e for e in entries_map["our-squad"]
+        "viz_html": render.pitch_svg_fpl([e for e in entries_map["our-squad"]
                                       if e.get("role") == "XI"]),
     }
     feed = []
