@@ -1,7 +1,50 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(725 tests). App: `streamlit run app.py`.
+(832 tests). App: `streamlit run app.py`.
+
+## 2026-08-24 — FPL phase 4c: the live duel (points so far) + consensus reset machinery
+
+The WC-style "so far" reality layer, FPL edition. New **`core/fpl_live.py`**
+(network/pure split, mirroring fpl_api): `event/{gw}/live/` +
+`fixtures/?event={gw}` behind `refresh_live` (cache `data/fpl/live_gw{N}.json`,
+always overwritten — a convenience, not a record) and a pure **`grade_squad`**
+returning per-player {name, club, points, multiplier, status
+played|pending|blank|autosub_in, note} plus total_so_far / players_pending /
+autosubs_applied / captain_effective. Autosubs walk the PUBLISHED bench order —
+first player who actually PLAYED whose entry keeps the XI formation legal
+(≥3 DEF, ≥2 MID, ≥1 FWD; GK swaps GK-only); the armband falls captain→vice,
+never to the sub; pending players stay "to play". Everything is provisional
+mid-gameweek by construction — the next rebuild self-corrects. Names shift
+under a live season ("Sangaré" → "I.Sangaré"), so every live join resolves via
+the state files' new validated **`aliases`** map and FAILS LOUDLY listing every
+unresolved name (a silent skip would publish a 14-man total as if real).
+
+**`--gw N --live`** renders exactly two live surfaces: the landing duel strip
+gains each squad's realized total ("**44** so far · 1 to play") next to the
+frozen projections, and each squad page gets a compact realized table above the
+frozen prose, stamped "live — updates on rebuild · as of <fetch> UTC". Default
+is auto — on when the bootstrap marks the gameweek current and a fixture has
+started, cache-only (never the network), `--no-live` opts out. The standing
+07-04 freeze is now test-enforced: with the clock pinned, a --live build and a
+plain build differ in EXACTLY four files (the landing's root + section copies
+and the two squad pages' HTML); every other article byte — squad JSON
+envelopes and md twins included — survives byte-identically.
+
+**`--gw N --reset-consensus`** (owner decision: from GW2 the Consensus XI is
+the actual most-owned legal template; the GW1 expert mention-tally retires
+with a method note; the squad declares its first Wildcard): new
+`games/fpl/consensus.py` builds the top-selected_by_percent 15, greedily
+legalised under budget/quota/club-cap (budget repair sheds the least ownership
+per pound saved), XI = the most-owned legal formation, captain = the
+highest-owned premium (≥10.0m) with the vice next; writes
+state_consensus.json (house style, `chips_used: ["wildcard"]`, method_note)
+only after games/fpl/state.py validates it — an illegal template aborts and
+leaves the current file untouched. Implemented + tested on synthetic
+bootstraps only; the owner triggers it before the GW2 deadline. README gains
+the in-gameweek routine (`--live` rebuild + deploy after each match day; the
+one-off consensus reset). Suite: 748 → 832, all offline, synthetic payloads
+shaped like the real API.
 
 ## 2026-08-19 — Phase 4 review fixes (pre-merge)
 
