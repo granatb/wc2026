@@ -26,6 +26,19 @@ _GSC_VERIFICATION_CONTENT = "google-site-verification: google8d25fd2122a8aadd.ht
 # can patch it and keep smoke builds from overwriting the live operator kit.
 _REDDIT_DIR = os.path.join("data", "reddit")
 
+# The IndexNow ownership key (indexnow.org). Committed once at this path and
+# NEVER rotated casually — it is not a secret (it proves domain control purely
+# by being served at /{key}.txt), and scripts/deploy.sh + scripts/
+# indexnow_ping.py read the same file, so one source can never drift from the
+# other.
+_INDEXNOW_KEY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "assets", "indexnow_key.txt")
+
+
+def indexnow_key() -> str:
+    with open(_INDEXNOW_KEY_PATH, encoding="utf-8") as fh:
+        return fh.read().strip()
+
 
 def write_site_chrome(w) -> None:
     """Root-level files EVERY section build must regenerate, whichever
@@ -38,6 +51,12 @@ def write_site_chrome(w) -> None:
     2026-08-19, finding 4).
     """
     w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
+    # IndexNow key file (task 8): /{key}.txt containing exactly the key —
+    # domain proof for the post-deploy ping (scripts/indexnow_ping.py). Lives
+    # in the shared chrome because an FPL publish that omitted it would
+    # silently de-verify the domain, exactly the GSC failure mode above.
+    key = indexnow_key()
+    w(f"/{key}.txt", key + "\n")
     # Cloudflare Pages redirects /foo.html -> /foo by default, which breaks
     # Google's exact-path verification check. Force this one path to serve
     # as-is.
@@ -735,14 +754,9 @@ def build(fantasy_round: int, sims: int, out: str, url: str,
     w("/robots.txt", render.robots_txt())
     w("/sitemap.xml", render.sitemap_xml(fantasy_round, nav, lastmod=generated_at[:10]))
 
-    # --- IndexNow key file (see scripts/deploy.sh) ---
-    # IndexNow requires a plaintext file at /<key>.txt containing exactly the key,
-    # proving control of the domain before search engines accept push notifications.
-    indexnow_key_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "assets", "indexnow_key.txt")
-    with open(indexnow_key_path, encoding="utf-8") as fh:
-        indexnow_key = fh.read().strip()
-    w(f"/{indexnow_key}.txt", indexnow_key + "\n")
+    # (The IndexNow key file used to be written here; it moved into
+    # write_site_chrome above so the FPL build regenerates it too — a deploy
+    # replaces the whole tree.)
 
     # Warnings ride on the FINAL line: the detailed guard output above gets
     # cut off by `... | tail -1`-style ops filtering (which is exactly how an

@@ -88,6 +88,54 @@ def preflight(gameweek: int, players: list, cold_start: list) -> list:
     return warnings
 
 
+def dossier_gate(gameweek: int, states: dict, all_players: list,
+                 priors_by_team: dict, boot: dict) -> None:
+    """The publish gate (spec D1): abort unless every red-flagged player in
+    BOTH published squads is covered by a sourced, dated research note.
+
+    Assembles a dossier for every squad member (games/fpl/dossier) from the
+    live bootstrap, the priors' start probabilities and the feed-snapshot
+    flags (core/fpl_diff), then refuses the build listing every failing
+    dossier verbatim. There is deliberately NO --force-publish escape hatch:
+    the GW1 failures happened precisely because validation was skippable
+    under deadline pressure. The fix is a note under research/players/ with
+    non-empty sources (or changing the squad), never a flag.
+    """
+    from core import fpl_diff
+    from games.fpl import dossier
+
+    notes = research.load_entries("players", gameweek)
+    start_probs = {}
+    for squad in priors_by_team.values():
+        for p in squad:
+            start_probs[p.name] = p.start_prob
+
+    prev = fpl_diff.load_previous()
+    captured_teams = ({pid: row["team_short"] for pid, row in prev.items()
+                       if pid != "taken_at"} if prev else None)
+    snapshot_date = ((prev or {}).get("taken_at") or "")[:10] or None
+    outflow_ids = {s["id"]
+                   for s in fpl_diff.outflow_spikes(fpl_diff.snapshot(boot))}
+
+    problems = []
+    for key, state in states.items():
+        dossiers = dossier.assemble(state, all_players, start_probs, notes,
+                                    captured_teams=captured_teams,
+                                    outflow_ids=outflow_ids)
+        _ok, failures = dossier.gate(dossiers, notes,
+                                     snapshot_date=snapshot_date)
+        for f in failures:
+            problems.append(f"{state.get('team_name', key)}: {f['name']} — "
+                            + "; ".join(f["reasons"]))
+    if problems:
+        raise SystemExit(
+            "evmax fpl build preflight failed — the publish gate refuses "
+            "red-flagged players without an overriding note (a file under "
+            "research/players/ with non-empty sources: and updated: on/after "
+            "the feed snapshot). Research each player, write the note or "
+            "change the squad, re-run:\n- " + "\n- ".join(problems))
+
+
 def cache_warnings(gameweek: int, cache_hit: bool) -> list:
     """Spec §9's "the sim cache missed unexpectedly".
 
@@ -259,7 +307,7 @@ def live_layer(gameweek: int, states: dict, boot: dict,
 
 
 def _article_entries(rows: list, matches: list, clubs: list,
-                     states: dict) -> tuple:
+                     states: dict, note_names=frozenset()) -> tuple:
     """({slug: entries}, {slug: squad meta}) — the meta dicts (wildcard's draft
     squad plus the two published squads) are not flat lists, so they travel
     separately into the JSON envelopes and the landing duel."""
@@ -284,7 +332,9 @@ def _article_entries(rows: list, matches: list, clubs: list,
     owns_haaland = any(e["name"] == "Haaland" for e in cons_entries)
     for e in our_entries:
         e["consensus_owns_haaland"] = owns_haaland
-    squad_entries, squad_meta = fpl_articles.fpl_squad(rows)
+    # Optimizer v2 (spec D6): the wildcard/draft builder honours the minutes
+    # floor via the rows' start_prob, overridable only by a sourced note.
+    squad_entries, squad_meta = fpl_articles.fpl_squad(rows, notes=note_names)
     entries_map = {
         "our-squad":       our_entries,
         "consensus-squad": cons_entries,
@@ -304,13 +354,13 @@ def _article_entries(rows: list, matches: list, clubs: list,
 
 
 def entries_or_abort(rows: list, matches: list, clubs: list,
-                     states: dict) -> tuple:
+                     states: dict, note_names=frozenset()) -> tuple:
     """_article_entries, converting article-layer ValueErrors into the same
     clean SystemExit the rest of preflight speaks. The main offender is a state
     name with no artifact row (name drift / stale bootstrap) — spec-level
     preflight: "every state name matches the artifact rows"."""
     try:
-        return _article_entries(rows, matches, clubs, states)
+        return _article_entries(rows, matches, clubs, states, note_names)
     except ValueError as e:
         raise SystemExit(f"evmax fpl build preflight failed:\n- {e}")
 
@@ -358,6 +408,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
     warnings = preflight(gameweek, all_players, cold_start)
     states = load_states(all_players)
+    # The publish gate (spec D1): no red-flagged player ships without a
+    # sourced note. Runs on BOTH squads before any simulation is spent.
+    dossier_gate(gameweek, states, all_players, priors_by_team, boot)
 
     # The live "so far" layer (phase 4c): realized points NEXT TO the frozen
     # projections. Article bodies stay frozen — live data reaches exactly two
@@ -380,8 +433,23 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             f"cache is stale. Refresh with `python3 manage.py fpl --round "
             f"{gameweek} --refresh`.")
 
+    # Thread each row's start probability in from the priors (optimizer v2's
+    # minutes floor reads it) — rows are keyed by the same disambiguated
+    # names the priors carry, whether they came fresh from the sim or from
+    # the artifact cache (which predates this column).
+    start_probs = {p.name: p.start_prob
+                   for squad in priors_by_team.values() for p in squad}
+    rows = [dict(r, start_prob=start_probs.get(r["name"])) for r in rows]
+    # Names with a SOURCED research note may override the optimizer's floor —
+    # the same bar the publish gate holds (a source-less note vouches for
+    # nothing).
+    note_names = {name for name, e
+                  in research.load_entries("players", gameweek).items()
+                  if e.sources}
+
     clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
-    entries_map, metas = entries_or_abort(rows, matches, clubs, states)
+    entries_map, metas = entries_or_abort(rows, matches, clubs, states,
+                                          note_names)
     squad_preflight(metas)
 
     # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
@@ -421,6 +489,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     prose_map: dict = {}
     used_leads: set = set()
     is_production = os.path.basename(os.path.normpath(out)) == "dist"
+    # FPL's own pre-deadline projection, frozen into the snapshot archive so
+    # the Monday grading (scripts/grade_gw.py) has its benchmark. Keyed by
+    # the DISAMBIGUATED names the rows carry (players_by_name is the
+    # load_gameweek parse, post-disambiguation).
+    ep_by_name = {name: p.get("ep_next")
+                  for name, p in players_by_name.items()}
 
     for slug in ARTICLES:
         entries = entries_map[slug]
@@ -474,9 +548,17 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "assets", "projections", f"fpl-gw{gameweek}")
             os.makedirs(snap_dir, exist_ok=True)
+            # The SNAPSHOT copy additionally freezes FPL's own ep_next per
+            # player (task 6) — the accuracy grading's benchmark. The public
+            # /api envelope above stays exactly as rendered; GW1's committed
+            # snapshots predate this and are frozen history (never
+            # regenerated — the open-gameweek guard on this branch is what
+            # makes that mechanical).
+            from games.fpl import grading
+            env_snap = grading.stamp_ep_next(env, ep_by_name)
             with open(os.path.join(snap_dir, f"{slug}.json"), "w",
                       encoding="utf-8") as fh:
-                fh.write(env_json)
+                fh.write(json.dumps(env_snap, ensure_ascii=False, indent=2))
 
         # Squad pages get the realized-points panel ABOVE the frozen prose when
         # live data is in play; every other byte of every article stays frozen

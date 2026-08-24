@@ -444,6 +444,68 @@ def total_points(means: dict, sample, conceded_samples: list,
 
 # --- run path -------------------------------------------------------------
 
+def gameweek_odds(gameweek: int, rows: list, refresh: bool = False,
+                  fetch=None) -> dict:
+    """The odds dict for one gameweek, with the strength-table upgrade.
+
+    Precedence (spec D6 / phase 5 task 4):
+      1. This gameweek's own REAL market lines (cached or freshly fetched)
+         always win — they are prices, not estimates.
+      2. Entries that are absent or fdr-prior-sourced are re-priced from
+         core.fpl_strength once >= 2 gameweeks of real market data exist,
+         stamped `source: "strength_table_v1"`.
+      3. With less accumulated data than that, the FDR-prior cache stays as
+         the zero-data fallback, exactly as before this module existed.
+
+    `fetch` is injectable for the tests (default core.fpl_odds.fetch_gw_odds,
+    the only network in this path); the upgrade itself never overwrites the
+    on-disk cache — the cache keeps recording what each source actually said.
+    """
+    from core import fpl_odds, fpl_strength
+
+    fetch = fetch or fpl_odds.fetch_gw_odds
+    odds = None if refresh else fpl_odds.read_cached(gameweek)
+    if odds is None:
+        try:
+            odds = fetch(gameweek, rows)
+        except Exception as exc:  # network down / feed shape change
+            print(f"  [fpl] WARNING: odds fetch failed ({exc}) -- "
+                  "running on flat prior lambdas")
+            odds = {"matches": {}}
+
+    matches = odds.get("matches") or {}
+
+    def needs_upgrade(m):
+        return (m is None or m.get("lam_home") is None
+                or str(m.get("source") or "").startswith("fdr_prior"))
+
+    if not any(needs_upgrade(matches.get(r["match_id"])) for r in rows):
+        return odds                       # fully market-priced: hands off
+    if fpl_strength.real_gw_count(gameweek) < 2:
+        return odds                       # not enough data: FDR fallback
+
+    strength = fpl_strength.table(gameweek)
+    upgraded = dict(odds)
+    upgraded["matches"] = dict(matches)
+    repriced = 0
+    for r in rows:
+        m = matches.get(r["match_id"])
+        if not needs_upgrade(m):
+            continue
+        lam_home, lam_away = fpl_strength.future_lambdas(r["home"], r["away"],
+                                                         strength)
+        upgraded["matches"][r["match_id"]] = {
+            "home": r["home"], "away": r["away"],
+            "lam_home": round(lam_home, 3), "lam_away": round(lam_away, 3),
+            "source": "strength_table_v1",
+        }
+        repriced += 1
+    if repriced:
+        print(f"  [fpl] strength table v1 priced {repriced} fixture(s) from "
+              f"accumulated market data (FDR prior superseded)")
+    return upgraded
+
+
 def load_gameweek(gameweek: int, refresh: bool = False):
     """Load FPL data, register the gameweek's fixtures and deadline, build priors.
 
@@ -485,15 +547,9 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     # Market lambdas: without this every fixture simulates at league-average
     # strength (ARS v COV == NEW v LIV), so the order book carries no fixture
     # signal at all. Cached per GW; --refresh re-captures the current lines.
-    from core import fpl_odds
-    odds = None if refresh else fpl_odds.read_cached(gameweek)
-    if odds is None:
-        try:
-            odds = fpl_odds.fetch_gw_odds(gameweek, rows)
-        except Exception as exc:  # network down / feed shape change
-            print(f"  [fpl] WARNING: odds fetch failed ({exc}) -- "
-                  "running on flat prior lambdas")
-            odds = {"matches": {}}
+    # Absent/fdr-sourced entries are re-priced from the strength table once
+    # >=2 real gameweeks of market data exist (see gameweek_odds).
+    odds = gameweek_odds(gameweek, rows, refresh=refresh)
     priced, unpriced = 0, []
     for f in fixtures.SCHEDULE:
         if f.stage != "GW" or f.fantasy_round != gameweek:

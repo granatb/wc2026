@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from evmax import fpl_articles
 
@@ -180,6 +181,134 @@ class TestFplSquad(unittest.TestCase):
         rows[0]["price"] = None
         entries, _meta = fpl_articles.fpl_squad(rows)
         self.assertNotIn(rows[0]["name"], [e["name"] for e in entries])
+
+
+class TestObjective(unittest.TestCase):
+    """Phase 5 task 3 (spec D6): the optimizer's objective is XI xPts + the
+    best player's xPts again — the doubled captain's second helping."""
+
+    def test_counts_the_best_player_twice(self):
+        xi = [_row(f"P{i}", "MID", 4.0) for i in range(10)]
+        xi.append(_row("Star", "MID", 8.0))
+        self.assertEqual(fpl_articles.objective(xi), 56.0)
+
+    def test_empty_xi_is_zero(self):
+        self.assertEqual(fpl_articles.objective([]), 0.0)
+
+
+class TestMinutesFloor(unittest.TestCase):
+    """XI members need start_prob >= 0.75 unless a research note overrides;
+    rows without a start_prob (older callers) are untouched."""
+
+    def _pool_with_risky(self):
+        rows = _pool()
+        for r in rows:
+            r["start_prob"] = 0.95
+        rows.append(_row("Risky", "MID", 9.0, price=5.0, team="TOT",
+                         start_prob=0.6))
+        return rows
+
+    def test_low_start_prob_is_excluded_from_the_xi_without_a_note(self):
+        entries, _meta = fpl_articles.fpl_squad(self._pool_with_risky())
+        xi = [e["name"] for e in entries if e["role"] == "XI"]
+        self.assertNotIn("Risky", xi)
+
+    def test_a_note_overrides_the_floor(self):
+        entries, _meta = fpl_articles.fpl_squad(self._pool_with_risky(),
+                                                notes={"Risky"})
+        xi = [e["name"] for e in entries if e["role"] == "XI"]
+        self.assertIn("Risky", xi)
+
+    def test_rows_without_start_prob_are_not_floored(self):
+        entries, _meta = fpl_articles.fpl_squad(_pool())
+        self.assertEqual(len(entries), 15)
+
+
+class TestBenchCap(unittest.TestCase):
+    """Bench total cost <= 18.5 (doctrine band). The pool below makes the
+    old builder's best formation (3-5-2) carry a 20.5 bench — an expensive
+    benched forward; the cap forces the sweep onto a formation whose bench
+    is legal."""
+
+    def _pool(self):
+        teams = ("ARS", "LIV", "MCI", "CHE", "NEW", "AVL", "BHA")
+        rows, i = [], 0
+
+        def add(name, pos, xp, price):
+            nonlocal i
+            i += 1
+            rows.append(_row(name, pos, xp, price=price,
+                             team=teams[i % len(teams)]))
+
+        for k in range(2):
+            add(f"GK{k}", "GK", 5.0 - k, 4.5)
+        for k in range(6):
+            add(f"DEF{k}", "DEF", 1.0, 4.0)
+        for k in range(5):
+            add(f"MID{k}", "MID", 7.0, 5.0)
+        add("MID5", "MID", 6.5, 5.0)
+        for k in range(3):
+            add(f"FWD{k}", "FWD", 2.0, 8.0)
+        return rows
+
+    def test_bench_cost_capped_at_18_5(self):
+        entries, _meta = fpl_articles.fpl_squad(self._pool())
+        bench_cost = sum(e["price"] for e in entries if e["role"] == "Bench")
+        self.assertLessEqual(bench_cost, fpl_articles.BENCH_BUDGET_CAP)
+
+    def test_the_old_preference_really_was_an_expensive_bench(self):
+        """Pin the counterfactual: without the cap this pool benches a
+        20.5 (the 8.0m forward) — proving the cap changed behaviour."""
+        with mock.patch.object(fpl_articles, "BENCH_BUDGET_CAP", 100.0):
+            entries, _meta = fpl_articles.fpl_squad(self._pool())
+        bench_cost = sum(e["price"] for e in entries if e["role"] == "Bench")
+        self.assertEqual(bench_cost, 20.5)
+
+
+class TestCaptaincyObjectiveChangesSelection(unittest.TestCase):
+    """A Haaland-priced row (15.5, top xPts) enters when the doubling
+    justifies him — and the identical pool WITHOUT the doubling excludes
+    him. This pins that the objective actually changed behaviour: the
+    budget repair compares objective lost per pound saved, and the doubled
+    captain makes dropping him twice as expensive."""
+
+    _BUDGET = 84.5
+
+    def _pool(self):
+        rows = [
+            _row("G1", "GK", 5.0, price=5.0, team="ARS"),
+            _row("G2", "GK", 1.0, price=4.5, team="LIV"),
+            _row("D1", "DEF", 5.0, price=5.0, team="MCI"),
+            _row("D2", "DEF", 5.0, price=5.0, team="CHE"),
+            _row("D3", "DEF", 5.0, price=5.0, team="NEW"),
+            _row("D4", "DEF", 0.5, price=4.0, team="AVL"),
+            _row("D5", "DEF", 0.5, price=4.0, team="BHA"),
+            _row("M1", "MID", 6.0, price=12.0, team="ARS"),
+            _row("M2", "MID", 5.8, price=5.0, team="LIV"),
+            _row("M3", "MID", 5.8, price=5.0, team="MCI"),
+            _row("M4", "MID", 5.8, price=5.0, team="CHE"),
+            _row("M5", "MID", 0.4, price=4.0, team="NEW"),
+            _row("M6", "MID", 0.5, price=4.5, team="AVL"),
+            _row("Haaland", "FWD", 9.0, price=15.5, team="MCI"),
+            _row("F1", "FWD", 6.2, price=6.5, team="BHA"),
+            _row("F3", "FWD", 6.0, price=6.0, team="ARS"),
+            _row("F2", "FWD", 5.0, price=7.0, team="LIV"),
+        ]
+        return rows
+
+    def test_doubling_keeps_haaland_in_the_xi(self):
+        entries, _meta = fpl_articles.fpl_squad(self._pool(),
+                                                budget=self._BUDGET)
+        xi = [e["name"] for e in entries if e["role"] == "XI"]
+        self.assertIn("Haaland", xi)
+
+    def test_the_same_pool_without_doubling_excludes_him(self):
+        plain = lambda xi: sum(r["x_points"] for r in xi)  # noqa: E731
+        with mock.patch.object(fpl_articles, "objective", plain):
+            entries, _meta = fpl_articles.fpl_squad(self._pool(),
+                                                    budget=self._BUDGET)
+        names = [e["name"] for e in entries]
+        self.assertNotIn("Haaland", names)
 
 
 def _match(home, away, p_cs_home=0.4, p_cs_away=0.2, gf=1.6, ga=1.1,
