@@ -582,6 +582,60 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           f"sim cache {'HIT' if cache_hit else 'MISS'}){suffix}")
 
 
+def format_state(state: dict) -> str:
+    """games/fpl/*.json house style: top-level keys one per line, each squad
+    entry on its own line, diacritics unescaped — the files are hand-reviewed
+    published claims, and a review diff must read player-per-line."""
+    lines = ["{"]
+    for key in (k for k in state if k != "squad"):
+        lines.append(f'  {json.dumps(key)}: '
+                     f'{json.dumps(state[key], ensure_ascii=False)},')
+    lines.append('  "squad": [')
+    lines.append(",\n".join(f'    {json.dumps(e, ensure_ascii=False)}'
+                            for e in state["squad"]))
+    lines.append("  ]")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def reset_consensus(gameweek: int, out_path: str = None) -> str:
+    """Rebuild state_consensus.json as the most-owned legal template — the
+    squad's declared Wildcard (owner decision 2026-08-24, from GW2).
+
+    Owner-triggered before the deadline via
+        python3 -m evmax.build --gw N --reset-consensus
+    NEVER run by the site build: it rewrites a published state file, and that
+    is an editorial act, not a rendering one. Validates the rebuilt squad via
+    games/fpl/state.py against the same bootstrap before writing — an illegal
+    template aborts and leaves the current file untouched.
+    """
+    from games.fpl import consensus
+    from games.fpl import state as fpl_state
+
+    boot = fpl_api.read_cache("bootstrap")
+    if boot is None:
+        raise SystemExit(
+            "consensus reset failed:\n- data/fpl/bootstrap.json is missing — "
+            "populate the cache with\n"
+            f"    python3 manage.py fpl --round {gameweek} --refresh\n"
+            "  (the reset needs CURRENT ownership, so refresh right before "
+            "running it)")
+    players = fpl_api.parse_players(boot)
+    try:
+        state = consensus.build_consensus_state(players, gameweek)
+        fpl_state.validate_state(state, players)
+    except ValueError as e:
+        raise SystemExit(f"consensus reset failed:\n- {e}")
+    path = out_path or STATE_FILES["consensus"]
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(format_state(state))
+    captain = next(e["name"] for e in state["squad"] if e["is_captain"])
+    print(f"Consensus XI reset for gameweek {gameweek} → {path} "
+          f"({captain} (c), wildcard declared). Review the diff, then rebuild "
+          f"with `python3 -m evmax.build --gw {gameweek}` before the deadline.")
+    return path
+
+
 def _persisted_urls(out: str, current_gameweek: int) -> list:
     """Every page already on disk that this build does not re-list itself: the
     World Cup tree AND previously built FPL gameweeks.
