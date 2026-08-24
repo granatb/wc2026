@@ -58,6 +58,8 @@ One odds/simulation engine feeding two flywheels:
 | 08-19 | Visibility phase opened (owner). Adopted from the parallel fpl-phase4 branch: growth measurement plan + core/growth/ Cloudflare source + entity-disambiguation schema (re-implemented, both sameAs verified 200, deployed). NOTE: that branch also holds unmerged phases 5–6 (lineup notes consumption, FDR ticker, multi-GW horizon, transfer plan) — mine for ideas, do NOT merge wholesale; main's market-odds fixture layer supersedes its strength-ratings approach |
 | 08-24 | **Landscape shift (competitor research, docs/research/2026-08-24-fpl-competitor-landscape.md): the July "nobody grades themselves, nobody serves agents" premise is DEAD.** Onside Arena ships a graded ledger vs ep_next (51,518 predictions, MAE 0.86) + llms.txt + free API + dormant MCP server + Wikidata entity; Solio (Çay/solver community) ships odds-anchored stochastic model + no-auth 4-hourly agent endpoint; FPL Review now BLOCKS AI crawlers; official app absorbed the utility tier; Reddit auto-kills tool launches (~15 in 10 weeks). Defensible position = the CONJUNCTION nobody else can hold: open method + CC BY data + graded ledger + free/no-ads + the two-squad duel + visible weekly community presence. Each incumbent is structurally blocked from one leg. Window: ~8 weeks before the stack is copyable; the storyline (unbroken weekly grading streak) is the only retroactively-uncopyable asset |
 | 08-24 | Consequences adopted: (1) two-squad duel = THE product (verified unclaimed, incl. by Onside); (2) named comparison pages vs Onside (private recipe) and Solio (no ledger); (3) productize distributions (captain-EV spread, simulated bonus under the reworked BPS) — nobody ships joint-sim outputs; (4) enter the grading meta: submit to Onside's Open xPts Benchmark + audit the field's self-reported accuracy claims; (5) MCP server + public dataset promoted from "later" to next-phase (Onside's is dormant at v0.2.0); do NOT build live-rank/price utilities, AI chat/screenshot raters, or any paid solver |
+| 08-24 | **Player cards product (owner):** card-search MVP first, then the full 563-page tree + tier boards; "this week's top cards" opens the page. Visual identity = GENERATIVE STAT-ART (card art drawn from the player's own sim data) — no photos, no AI likenesses (image/personality rights attach to the person, not the medium), no crests/kit designs (trademarks); club colors as accents only. FC-game ratings may be ingested as INTERNAL model features (cold-start priors, minutes model), never displayed — derived-only rule |
+| 08-24 | **Premium line drawn now, ships GW10+ (owner):** monetization rung 2 = premium fields on the player cards. Free forever: everything credibility rests on (projections, verdicts, duel, accuracy league, methodology, CC BY feed, free API). Premium: depth + personalization (full distributions, your-team transfer/captain tools, dossier alerts, history, bulk API). Public framing: "we will never charge you to see what we predicted." Card layout reserves premium slots from day one. Before shipping: write the zero-tracking carve-out for functional auth |
 
 ## 4. Legal / ToU guardrails (standing policy)
 
@@ -151,6 +153,61 @@ The first interactive tool, chosen because it meets every manager where they are
 
 ### Parked: draft-game simulator (the 38-0 opportunity)
 *Logged 07-04.* 38-0 (38-0.app) is a viral draft game (wheel → real club-season → pick player → fill XI → simulate a season; 3.5M players, 50M impressions, hobbyist-built in days) and its fast-follower 38-0-0 ALSO hit the UK App Store top ten — proof that (a) draft+simulate mechanics are currently viral, (b) the improved clone captures the market, (c) build-time is days not months. Our angle if/when we build: **"draft your XI, a real 50k-sim Monte-Carlo engine plays it out"** — their sims are toys, ours is the genuine article, and the share-card ("my XI survived to the semis, 12% of sims won it all") feeds the social flywheel. Blockers: needs client-side interactivity (JS or a JS port of a slim sim core) — breaks our zero-JS posture on the main site, so it should live on a subpath/subdomain as the first Tools-tab entry. Natural window: post-World-Cup lull or FPL launch. Revisit then; don't build during the tournament.
+
+## 12. The 2026/27 campaign — from here to winning the market
+
+*Written 2026-08-24 (GW1 done, duel live, ~8-week copyability window per the
+competitor landscape). The moat is the CONJUNCTION: open method + CC BY data +
+graded ledger + free/no-ads + the two-squad duel + visible weekly presence. Every
+phase below strengthens a leg no incumbent can copy without breaking their model.*
+
+**Phase 0 — this week (GW2).** The machine starts running: credibility engine lands
+(gate, diff, dossiers, strength table, transfer optimizer, accuracy grading,
+IndexNow); first Thursday runbook end-to-end (Watkins transfer, consensus Wildcard
+reset to the real template, GW2 squads published gated); first Monday scorecard post
+(the receipts franchise, week 1 of an unbroken streak); newsletter activated
+(Buttondown, ladder rung 1); Bing Webmaster via owner's browser. KPI: zero
+knowledge-layer errors published.
+
+**Phase 1 — GW3–5.** The product face: player cards MVP (instant search + the card:
+projection with decomposition, distribution stats, six-week vector,
+ownership-vs-projection gap, note provenance, verdict tier) + "this week's top
+cards" landing module; generative stat-art card identity (no likenesses, no crests
+— data-drawn, legally clean, regenerated weekly); accuracy league goes live vs
+ep_next (~GW4, once 3 GWs of receipts exist); submit our column to Onside's Open
+xPts Benchmark (third-party grading beats self-grading); methodology comparison
+page (open method vs Onside's private recipe vs Solio's ungraded model — named,
+factual, linked). Strength table replaces FDR for future GWs (~GW4). Weekly
+cadence locked: Monday scorecard, Thursday shortlist comment. KPI: returning
+visitors + newsletter subs trend (needs CF_API_TOKEN).
+
+**Phase 2 — GW5–9.** The surfaces nobody else will hold: full player-page tree
+(563 static pages, per-player JSON, the SEO long-tail + agent surface) + tier
+boards; MCP server + public CC BY dataset repo (Onside's is dormant; ship a live
+one); share-card PNGs generated per player at build (the social pipeline
+automates); distribution products page (captain-EV spreads, simulated bonus under
+the reworked BPS — the joint-sim edge nobody ships); "audit the graders" content
+piece (test the field's self-reported accuracy claims). KPI: indexed player pages,
+AI-crawler hits on per-player JSON, first LLM citation wins.
+
+**Phase 3 — GW8–12.** The intelligence layer: minutes/start-prob ML v1 (the proven
+biggest error source; features incl. realized starts, price, pre-season, FC-game
+ratings ingested as INTERNAL priors only — never republished, derived-only rule);
+cold-start priors v2 for the no-history players; exact MILP squad/transfer
+optimizer; full DGW-correct split columns (the pre-first-double task). Training
+data: our own accumulating dossier→outcome ledger, an asset with no copy.
+
+**Standing rules through all phases:** the streak never breaks (a missed Monday
+scorecard is a moat breach, not a slipped task); never build live-rank/price
+utilities, AI chat raters, or anything paywalled while the position depends on
+free+open; monetization follows the §6 ladder only after the track record exists
+(~GW10 earliest for rung 2 thinking); every mistake lands in season-learnings with
+its structural fix.
+
+**The win condition, stated honestly:** by GW12 evmax is the only FPL source that
+is simultaneously open-method, open-data, third-party-graded, free, and running a
+public model-vs-crowd experiment with an unbroken weekly record — and the Reddit
+community knows it by the scorecard, not by launch posts.
 
 ## 11. Metrics
 
