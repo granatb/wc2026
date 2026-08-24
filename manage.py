@@ -107,6 +107,87 @@ def refresh(fantasy_round: int, with_props: bool = False) -> None:
     print(f"  cached goal rates for {len(rates)} players.")
 
 
+def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
+    """Print the weekly transfer table for both published FPL squads.
+
+    All the I/O for games/fpl/transfers.recommend (which is pure): the cached
+    bootstrap, the newest horizon matrix (data/fpl/xpts_gw*.json — regenerated
+    by the weekly session), the priors' start probabilities, the research
+    notes, and the dossier flags (red dossiers are forced to the top of the
+    table as sale candidates — the Watkins rule).
+    """
+    import glob
+
+    from core import fpl_api, fpl_diff, fpl_priors, research
+    from games.fpl import dossier, transfers
+    from games.fpl import state as fpl_state
+
+    boot = fpl_api.read_cache("bootstrap")
+    if boot is None:
+        raise SystemExit(
+            "fpl --transfers: data/fpl/bootstrap.json is missing — refresh "
+            f"with\n    python3 manage.py fpl --round {fantasy_round} --refresh")
+
+    paths = sorted(glob.glob(os.path.join(HERE, "data", "fpl",
+                                          "xpts_gw*.json")))
+    if not paths:
+        raise SystemExit(
+            "fpl --transfers: no horizon matrix under data/fpl/xpts_gw*.json "
+            "— regenerate it in the weekly session (per-GW sims over the "
+            "priced horizon) before asking for transfers.")
+    with open(paths[-1], encoding="utf-8") as fh:
+        matrix = json.load(fh)
+
+    rows_by_gw: dict = {}
+    for name, rec in matrix.items():
+        for gw_str, xp in (rec.get("gw") or {}).items():
+            gw = int(gw_str)
+            if gw < fantasy_round:
+                continue
+            rows_by_gw.setdefault(gw, {})[name] = {
+                "name": name, "team": rec.get("team"),
+                "position": rec.get("position"), "price": rec.get("price"),
+                "x_points": xp,
+            }
+    if not rows_by_gw:
+        raise SystemExit(f"fpl --transfers: the horizon matrix "
+                         f"({os.path.basename(paths[-1])}) carries no "
+                         f"gameweek >= {fantasy_round} — regenerate it.")
+
+    # Two parses on purpose: build_with_flags disambiguates colliding
+    # web_names IN PLACE (priors keys), while state resolution needs the raw
+    # web_names — same split evmax/fpl_build.build runs on.
+    players = fpl_api.parse_players(boot)
+    priors_by_team, _flags = fpl_priors.build_with_flags(
+        fpl_api.parse_players(boot), 38)
+    start_probs = {p.name: p.start_prob
+                   for squad in priors_by_team.values() for p in squad}
+    for gw_rows in rows_by_gw.values():
+        for name, row in gw_rows.items():
+            row["start_prob"] = start_probs.get(name)
+
+    notes = research.load_entries("players", fantasy_round)
+    note_names = {name for name, e in notes.items() if e.sources}
+    prev = fpl_diff.load_previous()
+    captured_teams = ({pid: row["team_short"] for pid, row in prev.items()
+                       if pid != "taken_at"} if prev else None)
+    outflow_ids = {s["id"]
+                   for s in fpl_diff.outflow_spikes(fpl_diff.snapshot(boot))}
+
+    for key in ("state", "state_consensus"):
+        path = os.path.join(HERE, "games", "fpl", f"{key}.json")
+        state = fpl_state.load_squad(path, players)
+        dossiers = dossier.assemble(state, players, start_probs, notes,
+                                    captured_teams=captured_teams,
+                                    outflow_ids=outflow_ids)
+        flagged = {d["name"] for d in dossiers if d["red"]}
+        recs = transfers.recommend(state, rows_by_gw,
+                                   state.get("free_transfers", 1), bank,
+                                   flagged=flagged, notes=note_names)
+        print(transfers.format_table(recs, state["team_name"],
+                                     state.get("free_transfers", 1), bank))
+
+
 def run_game(game: str, fantasy_round: int, sims: int, no_cache: bool = False) -> None:
     state = load_state(game)
     # Inject the tunables from config.py (the single control panel) so state.json
@@ -135,6 +216,11 @@ def main() -> None:
                     help="also fetch ESPN anytime-goal player props (slower; with --refresh)")
     ap.add_argument("--no-cache", action="store_true", dest="no_cache",
                     help="(fpl) skip the sim cache and force a fresh simulation")
+    ap.add_argument("--transfers", action="store_true",
+                    help="(fpl) print the weekly single-swap transfer table "
+                         "for both published squads instead of the order book")
+    ap.add_argument("--bank", type=float, default=0.0,
+                    help="(fpl --transfers) money in the bank, in millions")
     args = ap.parse_args()
 
     if args.game == "config":
@@ -143,6 +229,12 @@ def main() -> None:
 
     if args.fantasy_round is None:
         ap.error("--round is required when running a game")
+
+    if args.transfers:
+        if args.game != "fpl":
+            ap.error("--transfers is FPL-only")
+        fpl_transfers(args.fantasy_round, bank=args.bank)
+        return
 
     if args.refresh:
         try:
