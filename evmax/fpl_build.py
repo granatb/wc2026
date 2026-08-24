@@ -16,7 +16,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 
-from core import fixtures, fpl_api, research, simcache
+from core import fixtures, fpl_api, fpl_live, research, simcache
 from evmax import fpl_articles, render, writer
 from games.fpl import model as fpl_model
 
@@ -124,6 +124,9 @@ ARTICLES = ["our-squad", "captains", "consensus-squad", "wildcard", "ticker",
 # ranking over the full player pool.
 SQUAD_SLUGS = ("our-squad", "consensus-squad")
 
+# slug -> the state/grade key its live panel reads.
+SQUAD_LIVE_KEYS = {"our-squad": "model", "consensus-squad": "consensus"}
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE_FILES = {
     "model": os.path.join(_ROOT, "games", "fpl", "state.json"),
@@ -189,6 +192,70 @@ def load_states(players: list) -> dict:
         raise SystemExit("evmax fpl build preflight failed:\n- " +
                          "\n- ".join(problems))
     return out
+
+
+def _live_default(gameweek: int, boot, now=None) -> bool:
+    """--live's auto mode: on mid-gameweek, off otherwise.
+
+    "Mid-gameweek" means the bootstrap marks this gameweek current AND the
+    fixtures cache shows at least one started fixture. Reads the caches only,
+    never the network — a plain `--gw N` build stays offline-reproducible, and
+    the tests stay offline with it. The pre-season/pre-deadline case (is_next,
+    nothing kicked off) is correctly False on both counts.
+    """
+    event = next((e for e in (boot or {}).get("events", [])
+                  if e.get("id") == gameweek), None)
+    if not event or not event.get("is_current"):
+        return False
+    fx = [f for f in (fpl_api.read_cache("fixtures") or [])
+          if f.get("event") == gameweek]
+    return fpl_live.any_fixture_started(fx, now=now)
+
+
+def live_layer(gameweek: int, states: dict, boot: dict,
+               refresh: bool) -> tuple:
+    """Grade both published squads against the live feed.
+
+    refresh=True (an explicit --live) fetches both live endpoints and
+    OVERWRITES data/fpl/live_gw{N}.json, falling back to the cached payload
+    with a loud warning if the network fails; refresh=False (auto mode) reads
+    the cache only. Returns ({"model": grade, "consensus": grade,
+    "fetched_at": iso} | None, warnings) — None means the layer is skipped
+    (no data at all in auto mode), and the landing/panels simply omit the
+    live surfaces.
+
+    A state name that no longer resolves against the bootstrap ABORTS the
+    build in preflight's voice: grade_squad already fails loudly listing every
+    unresolved name, and publishing a 14-man "so far" total would be a wrong
+    public claim, not a degraded one.
+    """
+    warnings = []
+    payload = None
+    if refresh:
+        try:
+            payload = fpl_live.refresh_live(gameweek)
+        except Exception as exc:  # noqa: BLE001 — any network failure, same fallback
+            warnings.append(
+                f"LIVE REFRESH FAILED ({exc}) — falling back to the cached "
+                f"live payload; the panel timestamp shows how stale it is.")
+    if payload is None:
+        payload = fpl_live.read_live_cache(gameweek)
+    if payload is None:
+        message = (f"no live payload for gameweek {gameweek} — refresh with\n"
+                   f"    python3 -m evmax.build --gw {gameweek} --live")
+        if refresh:
+            raise SystemExit(f"evmax fpl build --live failed:\n- {message}")
+        warnings.append(f"LIVE LAYER SKIPPED: {message}")
+        return None, warnings
+
+    out = {"fetched_at": payload.get("fetched_at", "")}
+    try:
+        for key in ("model", "consensus"):
+            out[key] = fpl_live.grade_squad(states[key], payload.get("live", {}),
+                                            payload.get("fixtures", []), boot)
+    except ValueError as e:
+        raise SystemExit(f"evmax fpl build live layer failed:\n- {e}")
+    return out, warnings
 
 
 def _article_entries(rows: list, matches: list, clubs: list,
@@ -275,7 +342,11 @@ def squad_preflight(metas: dict) -> None:
 
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           url: str = "https://evmax.ai", use_llm: bool = True,
-          use_cache: bool = True, cache_dir: str = "data/articles") -> None:
+          use_cache: bool = True, cache_dir: str = "data/articles",
+          live=None) -> None:
+    """live: True = refresh the live feed and render the so-far layer;
+    False = force it off; None (default) = auto — on mid-gameweek from the
+    cached payload only (see _live_default / live_layer)."""
     render.SITE_URL = url
     section = render.FPL
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -287,6 +358,16 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
     warnings = preflight(gameweek, all_players, cold_start)
     states = load_states(all_players)
+
+    # The live "so far" layer (phase 4c): realized points NEXT TO the frozen
+    # projections. Article bodies stay frozen — live data reaches exactly two
+    # surfaces, the landing duel strip and the squad pages' panel block.
+    live_on = live if live is not None else _live_default(gameweek, boot)
+    live_data = None
+    if live_on:
+        live_data, live_warnings = live_layer(gameweek, states, boot,
+                                              refresh=(live is True))
+        warnings += live_warnings
 
     artifact, cache_hit = fpl_model.build_artifact(
         priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
@@ -397,11 +478,18 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                       encoding="utf-8") as fh:
                 fh.write(env_json)
 
+        # Squad pages get the realized-points panel ABOVE the frozen prose when
+        # live data is in play; every other byte of every article stays frozen
+        # (live_html="" renders byte-identical pages — tested).
+        live_html = ""
+        if live_data and slug in SQUAD_LIVE_KEYS:
+            live_html = render.squad_live_panel_html(
+                live_data[SQUAD_LIVE_KEYS[slug]], live_data["fetched_at"])
         w(f"{section.base.format(r=gameweek)}/{slug}/index.html",
           render.article_page(gameweek, slug, title, prose, entries, columns,
                               json_url, viz_html, generated_at=generated_at,
                               date_str=date_str, available_rounds=available,
-                              section=section))
+                              section=section, live_html=live_html))
         w(section.md_path(gameweek, slug),
           render.article_md(gameweek, slug, title, prose, entries, columns,
                             generated_at, date_str,
@@ -456,9 +544,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             "stat_label": stat_label,
         })
 
-    # The model-vs-consensus duel strip: the two squads' own article meta,
-    # no new simulation (post-GW realized-vs-projected is next phase).
+    # The model-vs-consensus duel strip: the two squads' own article meta, no
+    # new simulation — plus, mid-gameweek, each side's REALIZED total so far
+    # from the live layer, rendered next to (never instead of) the projection.
     duel = {"model": metas["our-squad"], "consensus": metas["consensus-squad"]}
+    if live_data:
+        duel["live"] = live_data
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
                                   duel=duel, section=section)

@@ -1586,14 +1586,17 @@ def _split_lede(body_html: str) -> tuple:
 
 def article_page(round_no, article, title, prose, entries, columns, json_url, viz_html,
                  generated_at=None, date_str=None, show_table=True,
-                 available_rounds=None, section=WC):
+                 available_rounds=None, section=WC, live_html=""):
     """v2 editorial article page.
 
     Published articles are frozen claims: this page always renders the exact
-    pre-lock projection, with no live/in-progress mutation. The one place
-    reality shows up post-lock is the matches article's predicted-vs-actual
-    panel (see match_predictions_html), which is driven entirely by data on
-    each entry (finished/final_score), not by a flag here.
+    pre-lock projection, with no live/in-progress mutation. The places reality
+    shows up post-lock are the matches article's predicted-vs-actual panel
+    (see match_predictions_html), driven entirely by data on each entry
+    (finished/final_score), and the FPL squad pages' realized-points panel:
+    `live_html` (squad_live_panel_html output) renders ABOVE the frozen prose
+    and touches nothing else — an empty string keeps the page byte-identical,
+    which is what every non-live build passes.
 
     prose: dict {headline, standfirst, body_html, bottom_line, source}
     viz_html: already-safe HTML string (pitch SVG or ev_bar)
@@ -1672,7 +1675,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}</style>
+<style>{_STYLE}{_LIVE_PANEL_CSS if live_html else ""}</style>
 <script type="application/ld+json">{dataset_ld}</script>
 <script type="application/ld+json">{article_ld}</script>
 </head><body>
@@ -1687,7 +1690,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 <h1>{_html.escape(prose["headline"])}</h1>
 <p class="stand">{_html.escape(prose["standfirst"])}</p>
 <div class="meta"><span class="av">e</span><span>By the evmax model{byline_date}</span></div>
-<div class="prose">{lede_html}
+{live_html}<div class="prose">{lede_html}
 {viz_section}
 {rest_html}
 {data_section}
@@ -1878,7 +1881,21 @@ _DUEL_CSS = (
     ".duel-meta{font-size:12.5px;color:var(--ink2)}"
     ".duel-vs{font-size:12px;font-weight:800;color:var(--ink3);"
     "text-transform:uppercase;letter-spacing:1px}"
+    ".duel-so-far{font-size:13px;color:var(--ink2);"
+    "font-variant-numeric:tabular-nums}"
+    ".duel-so-far b{font-size:16px;color:var(--greend)}"
 )
+
+
+def _duel_side_live_html(side_live: dict) -> str:
+    """One side's realized 'so far' line, next to (never instead of) the frozen
+    projection. side_live: that squad's fpl_live.grade_squad summary."""
+    if not side_live:
+        return ""
+    pending = side_live["players_pending"]
+    suffix = f"{pending} to play" if pending else "all played"
+    return (f'<span class="duel-so-far"><b>{side_live["total_so_far"]}</b>'
+            f' so far · {suffix}</span>')
 
 
 def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
@@ -1887,10 +1904,15 @@ def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
     its article. Data is the two squad articles' own meta — no new simulation,
     so the strip can never disagree with the pages it points at.
 
-    duel: {"model": squad_article meta, "consensus": squad_article meta}.
+    duel: {"model": squad_article meta, "consensus": squad_article meta,
+    optionally "live": {"model"/"consensus": fpl_live.grade_squad output}}.
+    The live line shows REALIZED points so far beside the frozen projection —
+    the WC "our XI so far" pattern (07-06): projections never mutate, reality
+    renders next to them.
     """
     if not duel:
         return ""
+    live = duel.get("live") or {}
     sides = {}
     for key, slug, label in (("model", "our-squad", "Model"),
                              ("consensus", "consensus-squad", "Consensus")):
@@ -1901,11 +1923,81 @@ def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
             f'<span class="duel-tag">{label}</span>'
             f'<span class="duel-total">{m["projected_total"]:.2f}'
             f'<span class="du">proj</span></span>'
+            f'{_duel_side_live_html(live.get(key))}'
             f'<span class="duel-meta">{_html.escape(m["formation"])} · '
             f'{_html.escape(m["captain"])} (c)</span>'
             f'</a>')
     return (f'<div class="duel">{sides["model"]}'
             f'<span class="duel-vs">vs</span>{sides["consensus"]}</div>')
+
+
+# Squad-page live-panel CSS is injected ONLY when a panel is passed (see
+# article_page): _STYLE is embedded byte-for-byte in every frozen article page
+# — WC and FPL alike — and appending to it would change them all.
+_LIVE_PANEL_CSS = (
+    ".live-panel{background:var(--surf);border:1px solid var(--line);"
+    "border-radius:12px;padding:14px 18px;margin:18px 0}"
+    ".live-panel .lp-head{display:flex;align-items:baseline;gap:10px;"
+    "flex-wrap:wrap;margin-bottom:8px}"
+    ".live-panel .lp-total{font-size:14px;color:var(--ink2)}"
+    ".live-panel .lp-total b{font-size:18px;color:var(--ink);"
+    "font-variant-numeric:tabular-nums}"
+    ".live-panel .lp-stamp{font-size:11.5px;color:var(--ink3);margin-left:auto}"
+    ".live-panel table{width:100%;border-collapse:collapse;font-size:13px}"
+    ".live-panel th{text-align:left;font-size:10.5px;font-weight:800;"
+    "letter-spacing:1px;text-transform:uppercase;color:var(--ink3);"
+    "padding:3px 8px 3px 0}"
+    ".live-panel td{padding:3px 8px 3px 0;border-top:1px solid var(--line);"
+    "color:var(--ink2);font-variant-numeric:tabular-nums}"
+    ".live-panel td.lp-pts{font-weight:700;color:var(--ink)}"
+    ".live-panel tr.lp-out td{color:var(--ink3)}"
+)
+
+_LIVE_STATUS_LABEL = {"played": "played", "pending": "to play",
+                      "blank": "blank", "autosub_in": "autosub in"}
+
+
+def squad_live_panel_html(grade: dict, fetched_at: str) -> str:
+    """The squad page's realized-points panel — reality NEXT TO the frozen
+    prose, never inside it (standing 07-04 rule: published articles do not
+    mutate; this panel and the landing strip are the FPL section's deliberate
+    live surfaces, like the WC's live-XI strip).
+
+    grade: one squad's fpl_live.grade_squad output. fetched_at: the live
+    payload's ISO fetch timestamp — printed on the panel so a stale rebuild
+    labels its own staleness instead of passing as current.
+    """
+    if not grade:
+        return ""
+    rows = grade["rows"]
+    pending = grade["players_pending"]
+    suffix = f"{pending} to play" if pending else "all played"
+    stamp = f"{fetched_at[:16].replace('T', ' ')} UTC" if fetched_at else "?"
+    body = []
+    for r in rows:
+        mult = r["multiplier"]
+        pts = f"{r['points'] * mult}" if mult else f"({r['points']})"
+        if mult == 2:
+            pts += " (c)"
+        cls = ' class="lp-out"' if mult == 0 else ""
+        note = f' — {r["note"]}' if r["note"] else ""
+        body.append(
+            f'<tr{cls}><td>{_html.escape(r["name"])}</td>'
+            f'<td>{_html.escape(r["club"])}</td>'
+            f'<td class="lp-pts">{pts}</td>'
+            f'<td>{_LIVE_STATUS_LABEL.get(r["status"], r["status"])}'
+            f'{_html.escape(note)}</td></tr>')
+    return (
+        '<div class="live-panel">'
+        '<div class="lp-head"><span class="live-tag">Live</span>'
+        f'<span class="lp-total"><b>{grade["total_so_far"]}</b> pts so far · '
+        f'{suffix}</span>'
+        f'<span class="lp-stamp">live — updates on rebuild · as of {stamp}'
+        '</span></div>'
+        '<table><thead><tr><th>Player</th><th>Club</th><th>Pts</th>'
+        '<th>Status</th></tr></thead>'
+        f'<tbody>{"".join(body)}</tbody></table>'
+        '</div>')
 
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
