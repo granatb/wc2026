@@ -942,3 +942,55 @@ class TestSquadBuildGuards(unittest.TestCase):
         self.assertEqual(fpl_build.ARTICLES[0], "our-squad")
         self.assertEqual(fpl_build.ARTICLES[1], "captains")
         self.assertIn("consensus-squad", fpl_build.ARTICLES)
+
+
+class TestPublishGate(unittest.TestCase):
+    """Phase 5 task 2 (spec D1): a build whose published squad contains a
+    red-flagged player exits with the gate message unless a sourced, dated
+    note overrides. Synthetic states à la tests/test_fpl_live_build.py —
+    the gate function is exercised directly, exactly like live_layer is."""
+
+    @staticmethod
+    def _boot(status="a"):
+        return {"teams": [{"id": 1, "short_name": "AVL"}],
+                "elements": [{"id": 10, "web_name": "Watkins", "team": 1,
+                              "element_type": 4, "status": status,
+                              "now_cost": 90, "selected_by_percent": "20.0",
+                              "transfers_in_event": 0,
+                              "transfers_out_event": 0,
+                              "news": "Hamstring" if status != "a" else ""}]}
+
+    _STATE = {"team_name": "The Model XI", "aliases": {},
+              "squad": [{"name": "Watkins", "position": "FWD",
+                         "is_starter": True, "bench_order": None,
+                         "is_captain": True, "is_vice": False}]}
+
+    def _gate(self, status, notes=None):
+        from core import fpl_api, ratings
+        boot = self._boot(status)
+        priors = {"AVL": [ratings.PlayerPrior(name="Watkins", team="AVL",
+                                              position="FWD",
+                                              start_prob=0.87)]}
+        with mock.patch.object(fpl_build.research, "load_entries",
+                               return_value=notes or {}), \
+             mock.patch("core.fpl_diff.load_previous", return_value=None):
+            fpl_build.dossier_gate(1, {"model": self._STATE},
+                                   fpl_api.parse_players(boot), priors, boot)
+
+    def test_green_squad_gates_silently(self):
+        self._gate("a")
+
+    def test_injured_player_without_note_aborts_naming_him(self):
+        with self.assertRaises(SystemExit) as ctx:
+            self._gate("i")
+        msg = str(ctx.exception)
+        self.assertIn("Watkins", msg)
+        self.assertIn("publish gate", msg)
+        self.assertIn("Hamstring", msg)
+
+    def test_sourced_note_lets_the_same_red_through(self):
+        from core.research import ResearchEntry
+        note = ResearchEntry(name="Watkins",
+                             sources=["https://example.test/press-conf"],
+                             updated="2026-08-24")
+        self._gate("i", notes={"Watkins": note})

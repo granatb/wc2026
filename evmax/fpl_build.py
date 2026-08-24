@@ -88,6 +88,54 @@ def preflight(gameweek: int, players: list, cold_start: list) -> list:
     return warnings
 
 
+def dossier_gate(gameweek: int, states: dict, all_players: list,
+                 priors_by_team: dict, boot: dict) -> None:
+    """The publish gate (spec D1): abort unless every red-flagged player in
+    BOTH published squads is covered by a sourced, dated research note.
+
+    Assembles a dossier for every squad member (games/fpl/dossier) from the
+    live bootstrap, the priors' start probabilities and the feed-snapshot
+    flags (core/fpl_diff), then refuses the build listing every failing
+    dossier verbatim. There is deliberately NO --force-publish escape hatch:
+    the GW1 failures happened precisely because validation was skippable
+    under deadline pressure. The fix is a note under research/players/ with
+    non-empty sources (or changing the squad), never a flag.
+    """
+    from core import fpl_diff
+    from games.fpl import dossier
+
+    notes = research.load_entries("players", gameweek)
+    start_probs = {}
+    for squad in priors_by_team.values():
+        for p in squad:
+            start_probs[p.name] = p.start_prob
+
+    prev = fpl_diff.load_previous()
+    captured_teams = ({pid: row["team_short"] for pid, row in prev.items()
+                       if pid != "taken_at"} if prev else None)
+    snapshot_date = ((prev or {}).get("taken_at") or "")[:10] or None
+    outflow_ids = {s["id"]
+                   for s in fpl_diff.outflow_spikes(fpl_diff.snapshot(boot))}
+
+    problems = []
+    for key, state in states.items():
+        dossiers = dossier.assemble(state, all_players, start_probs, notes,
+                                    captured_teams=captured_teams,
+                                    outflow_ids=outflow_ids)
+        _ok, failures = dossier.gate(dossiers, notes,
+                                     snapshot_date=snapshot_date)
+        for f in failures:
+            problems.append(f"{state.get('team_name', key)}: {f['name']} — "
+                            + "; ".join(f["reasons"]))
+    if problems:
+        raise SystemExit(
+            "evmax fpl build preflight failed — the publish gate refuses "
+            "red-flagged players without an overriding note (a file under "
+            "research/players/ with non-empty sources: and updated: on/after "
+            "the feed snapshot). Research each player, write the note or "
+            "change the squad, re-run:\n- " + "\n- ".join(problems))
+
+
 def cache_warnings(gameweek: int, cache_hit: bool) -> list:
     """Spec §9's "the sim cache missed unexpectedly".
 
@@ -358,6 +406,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
     warnings = preflight(gameweek, all_players, cold_start)
     states = load_states(all_players)
+    # The publish gate (spec D1): no red-flagged player ships without a
+    # sourced note. Runs on BOTH squads before any simulation is spent.
+    dossier_gate(gameweek, states, all_players, priors_by_team, boot)
 
     # The live "so far" layer (phase 4c): realized points NEXT TO the frozen
     # projections. Article bodies stay frozen — live data reaches exactly two
