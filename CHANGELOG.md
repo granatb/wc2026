@@ -1,7 +1,59 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(832 tests). App: `streamlit run app.py`.
+(907 tests). App: `streamlit run app.py`.
+
+## 2026-08-24 — FPL phase 5: the credibility engine
+
+Every GW1 credibility dent was a knowledge failure, not an engine failure
+(double-Spurs-keeper advice, the wrong Sangaré, the Watkins hold, Isak/Maguire
+minutes mispriced until Reddit corrected us). This phase makes that class of
+failure mechanically unpublishable and lands the community-validated engine
+fixes (spec: `docs/superpowers/specs/2026-08-24-credibility-engine-design.md`,
+decisions D1–D8).
+
+- **`core/fpl_diff.py`** — the feed churn detector: compact bootstrap snapshot
+  (`data/fpl/feed_snapshot.json`), categorised diff (renames, club moves,
+  status/price changes, arrivals/departures, transfer-out z-spikes ≥ 3.0),
+  human report via `python3 -m core.fpl_diff`. Would have caught the Sangaré
+  rename, the Konsa move and the Watkins exodus.
+- **Player dossiers + the publish gate** (`games/fpl/dossier.py` +
+  `evmax/fpl_build.dossier_gate`): every published player is red iff status
+  ≠ 'a', proxy start prob < 0.75, club changed since the snapshot, outflow
+  spike, or unresolved name — and a red **aborts the build** unless a research
+  note with non-empty `sources:` dated on/after the feed snapshot overrides
+  it. Deliberately no `--force-publish` (D1: refusal, not warning). The GW1
+  states gate green off the committed round-1 notes.
+- **Optimizer v2** (`evmax/fpl_articles`, D6): objective = XI xPts + the best
+  player's again (the doubled captain), compared by the formation sweep and
+  both repair loops — pinned by a test where a 15.5m premium enters under the
+  joint objective and is sold under the plain sum; XI minutes floor
+  (start_prob ≥ 0.75 unless a sourced note vouches, threaded from the priors
+  through the build); bench cost capped at 18.5.
+- **`core/fpl_strength.py`** (D6): per-team att/def multipliers fitted in log
+  space from every real-market odds-cache entry, recency-weighted 0.85/week,
+  shrunk (k=2) toward the FDR-calibrated prior. `games/fpl/model.gameweek_odds`
+  re-prices absent/fdr-sourced future entries from the table once ≥2 real
+  gameweeks exist (`source: strength_table_v1`); the current week's real odds
+  always win; below 2 real GWs the FDR prior stays, so a GW1-only world builds
+  identically.
+- **Transfer optimizer v1** (`games/fpl/transfers.py` +
+  `manage.py fpl --round N --transfers [--bank M]`): every legal single swap
+  scored on the discounted-horizon delta (0.95/week), hit-adjusted at 0 FTs,
+  red-dossier players forced to the top of the sale block regardless of delta
+  — the Watkins rule; GW2's Watkins call is its first live user.
+- **Accuracy grading v1** (`games/fpl/grading.py` + `scripts/grade_gw.py`):
+  our frozen x_points vs FPL's own `ep_next` (now frozen per player into the
+  projection snapshots for future gameweeks) vs realized points, banked to
+  `evmax/assets/accuracy/gw{N}.json`; squad-level projected-vs-realized from
+  the frozen envelope meta. The C-metric, banked weekly; a site surface comes
+  with the next site phase.
+- **Runbooks + learnings**: `docs/runbooks/thursday-pre-deadline.md` and
+  `monday-post-gw.md` (numbered, exact commands, "schedule later" sections
+  PARKED per D3); `docs/research/season-learnings.md` seeded with GW1's six
+  entries in mistake → root cause → structural fix → status form.
+
+Suite: 832 → 907, all offline, synthetic payloads shaped like the real APIs.
 
 ## 2026-08-24 — FPL phase 4c: the live duel (points so far) + consensus reset machinery
 

@@ -105,6 +105,30 @@ python3 -m evmax.build --gw 2 --reset-consensus    # rewrites games/fpl/state_co
 # review the diff, then build + deploy as usual
 ```
 
+### Weekly runbooks (FPL — the credibility engine)
+
+The weekly routine is fully documented, command by command, in
+[docs/runbooks/thursday-pre-deadline.md](docs/runbooks/thursday-pre-deadline.md)
+(refresh → feed diff → red-flag research → notes → re-sim → transfers → the
+publish gate → build --live → deploy → post drafts → owner summary) and
+[docs/runbooks/monday-post-gw.md](docs/runbooks/monday-post-gw.md) (grade the
+gameweek → duel + vs-average scoreboard → scorecard draft → transfer preview →
+season-learnings entry). Sessions are manual by owner decision; each runbook
+ends with the parked schedule-it-later incantations. The standing pieces:
+
+```bash
+python3 -m core.fpl_diff                            # feed churn since last week
+python3 manage.py fpl --round 2 --transfers         # weekly swap table, both squads
+python3 scripts/grade_gw.py --gw 1 --refresh        # bank the accuracy JSON post-GW
+```
+
+The build itself enforces the knowledge layer: every published player gets a
+dossier (status, minutes source, club/name drift, transfer-out spikes) and a
+red dossier **aborts the build** unless a sourced, dated research note under
+`research/players/` overrides it. Mistakes and their structural fixes are
+logged append-only in
+[docs/research/season-learnings.md](docs/research/season-learnings.md).
+
 ## Dashboard (Streamlit)
 
 A local web UI over the engine — squads + EVs + captain per game, the Målspillet board,
