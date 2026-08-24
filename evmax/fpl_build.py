@@ -489,6 +489,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     prose_map: dict = {}
     used_leads: set = set()
     is_production = os.path.basename(os.path.normpath(out)) == "dist"
+    # FPL's own pre-deadline projection, frozen into the snapshot archive so
+    # the Monday grading (scripts/grade_gw.py) has its benchmark. Keyed by
+    # the DISAMBIGUATED names the rows carry (players_by_name is the
+    # load_gameweek parse, post-disambiguation).
+    ep_by_name = {name: p.get("ep_next")
+                  for name, p in players_by_name.items()}
 
     for slug in ARTICLES:
         entries = entries_map[slug]
@@ -542,9 +548,17 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "assets", "projections", f"fpl-gw{gameweek}")
             os.makedirs(snap_dir, exist_ok=True)
+            # The SNAPSHOT copy additionally freezes FPL's own ep_next per
+            # player (task 6) — the accuracy grading's benchmark. The public
+            # /api envelope above stays exactly as rendered; GW1's committed
+            # snapshots predate this and are frozen history (never
+            # regenerated — the open-gameweek guard on this branch is what
+            # makes that mechanical).
+            from games.fpl import grading
+            env_snap = grading.stamp_ep_next(env, ep_by_name)
             with open(os.path.join(snap_dir, f"{slug}.json"), "w",
                       encoding="utf-8") as fh:
-                fh.write(env_json)
+                fh.write(json.dumps(env_snap, ensure_ascii=False, indent=2))
 
         # Squad pages get the realized-points panel ABOVE the frozen prose when
         # live data is in play; every other byte of every article stays frozen
