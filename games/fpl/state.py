@@ -24,6 +24,14 @@ State shape (see the two JSON files):
     squad          exactly 15 of {name, position, is_starter, bench_order,
                    is_captain, is_vice} — `name` is the player's exact FPL
                    web_name, diacritics intact ("Sánchez", "Groß", "João Pedro")
+    aliases        (optional) {state squad name: current web_name} — web_names
+                   shift under a live season ("Sangaré" became "I.Sangaré"
+                   when a second Sangaré joined the league), and the state
+                   files are frozen published claims whose names must NOT be
+                   rewritten. An alias lets the frozen name keep resolving
+                   against a refreshed bootstrap; resolution tries the exact
+                   name first, the alias second. Every alias key must name a
+                   squad member — an alias for nobody is a typo.
 """
 
 from __future__ import annotations
@@ -56,7 +64,7 @@ def load_squad(path: str, players: list) -> dict:
     return validate_state(load_state(path), players)
 
 
-def _resolve(entry: dict, by_name: dict) -> dict:
+def _resolve(entry: dict, by_name: dict, aliases: dict = None) -> dict:
     """The bootstrap player this squad entry names, or raise.
 
     Names are exact web_names (diacritics intact) — "Sánchez" is a different
@@ -64,12 +72,20 @@ def _resolve(entry: dict, by_name: dict) -> dict:
     public feeds key on the web_name too. Two real players can share a
     web_name; the entry's position disambiguates, and a still-ambiguous name
     is an error rather than a guess — this file is a published claim.
+
+    The exact name wins; the state's aliases map is only the fallback for a
+    player the season renamed after the state was published.
     """
     name = entry["name"]
     candidates = by_name.get(name)
+    looked_up = name
+    if not candidates and aliases and name in aliases:
+        looked_up = aliases[name]
+        candidates = by_name.get(looked_up)
     if not candidates:
+        hint = (f" (alias {looked_up!r} tried too)" if looked_up != name else "")
         raise ValueError(f"squad name {name!r} does not resolve against the FPL "
-                         f"bootstrap — names must be exact web_names, "
+                         f"bootstrap{hint} — names must be exact web_names, "
                          f"diacritics included")
     matches = [p for p in candidates if p["position"] == entry["position"]]
     if not matches:
@@ -127,6 +143,21 @@ def validate_state(state: dict, players: list) -> dict:
     if len(set(names)) != 15:
         dupes = sorted({n for n in names if names.count(n) > 1})
         raise ValueError(f"duplicate squad name(s): {', '.join(dupes)}")
+    aliases = state.get("aliases", {})
+    if "aliases" in state:
+        if not isinstance(aliases, dict):
+            raise ValueError(f"aliases must be an object mapping squad names "
+                             f"to current web_names, got {aliases!r}")
+        for k, v in aliases.items():
+            if not isinstance(k, str) or not k \
+                    or not isinstance(v, str) or not v:
+                raise ValueError(f"aliases entries must map a non-empty squad "
+                                 f"name to a non-empty web_name, got "
+                                 f"{k!r}: {v!r}")
+        unknown = sorted(set(aliases) - set(names))
+        if unknown:
+            raise ValueError(f"aliases key(s) name no squad member: "
+                             f"{', '.join(unknown)}")
 
     # --- Name resolution + enrichment ---------------------------------------
     by_name: dict = {}
@@ -134,7 +165,7 @@ def validate_state(state: dict, players: list) -> dict:
         by_name.setdefault(p["name"], []).append(p)
     enriched = []
     for entry in squad:
-        player = _resolve(entry, by_name)
+        player = _resolve(entry, by_name, aliases)
         e = dict(entry)
         e["team"] = player["team"]
         e["price"] = player["price"]
