@@ -22,6 +22,33 @@ from games.fpl.model import DEFCON_THRESHOLD
 # FPL squad rules (2026/27 official, games/fpl/rules.md).
 SQUAD_BUDGET = 100.0
 MAX_PER_CLUB = 3
+
+# Optimizer v2 dials (spec D6, owner-approved 2026-08-24).
+# The XI minutes floor mirrors games/fpl/dossier.START_FLOOR so the builder
+# can never propose an XI the publish gate would refuse; the bench cap is the
+# doctrine band ("spend nothing on the bench" made a hard number).
+XI_START_FLOOR = 0.75
+BENCH_BUDGET_CAP = 18.5
+
+
+def objective(xi_rows: list) -> float:
+    """XI expected points + the best player's again — the armband's second
+    helping. This is what the formation sweep and both repair loops compare
+    on: a captaincy-blind objective undervalues premium captains exactly
+    enough to sell Haaland every week (the community's GW1 critique)."""
+    if not xi_rows:
+        return 0.0
+    pts = [r["x_points"] for r in xi_rows]
+    return sum(pts) + max(pts)
+
+
+def _xi_eligible(row: dict, notes) -> bool:
+    """The minutes floor: XI members need start_prob >= XI_START_FLOOR unless
+    a research note vouches for them. Rows without a start_prob (older
+    callers, hand-built pools) are not floored — no data is not a red flag
+    here; the dossier gate handles the published squads."""
+    sp = row.get("start_prob")
+    return sp is None or sp >= XI_START_FLOOR or row["name"] in notes
 # Positions the defenders article covers. FPL pays goalkeepers a 4-point clean
 # sheet and a 10-point goal, so they belong with defenders rather than in an
 # article of their own — the reader's decision is "which end of the pitch do I
@@ -103,7 +130,7 @@ def _key(r: dict) -> tuple:
 
 
 def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
-              max_per_club: int = MAX_PER_CLUB) -> tuple:
+              max_per_club: int = MAX_PER_CLUB, notes=None) -> tuple:
     """A legal 15-man FPL squad: quota, budget, formation and club cap.
 
     Returns (entries, meta) with the same shape articles.wildcard_squad returns, so
@@ -113,9 +140,16 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
       meta:    {"total_cost", "xi_xpoints", "formation", "budget", "left_over"}
 
     Method: sweep every legal XI formation, greedily build the cheapest legal bench
-    and the best XI for each, repair over budget by the smallest xPts-lost-per-pound,
-    then spend what is left on the best xPts-gained-per-pound XI upgrade. Best
-    xi_xpoints wins.
+    and the best XI for each, repair over budget by the smallest OBJECTIVE lost per
+    pound, then spend what is left on the best objective-gained-per-pound XI
+    upgrade. Best `objective` (XI xPts + the best player's again — the doubled
+    captain) wins the sweep; ties break toward the cheaper squad.
+
+    Optimizer v2 constraints (spec D6): XI members need start_prob >= 0.75 when
+    the rows carry one, unless `notes` (a set of player names with a sourced
+    research note) vouches for them; the bench must cost <= BENCH_BUDGET_CAP —
+    a formation whose cheapest legal bench busts the cap is skipped, exactly
+    like one that busts the budget.
 
     The club cap is checked on every selection AND every swap, not once at the end.
     Checking at the end would mean rejecting an otherwise-optimal squad with no way
@@ -138,11 +172,13 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
     for xi_counts in legal_xi_formations():
         try:
             entries, meta = _squad_for_formation(pool, xi_counts, budget,
-                                                 max_per_club)
+                                                 max_per_club,
+                                                 notes or frozenset())
         except ValueError as e:
             last_err = e
             continue
-        key = (meta["xi_xpoints"], -meta["total_cost"])
+        xi_rows = [e for e in entries if e["role"] == "XI"]
+        key = (objective(xi_rows), -meta["total_cost"])
         if best is None or key > best[0]:
             best = (key, entries, meta)
     if best is None:
@@ -151,7 +187,7 @@ def fpl_squad(rows: list, budget: float = SQUAD_BUDGET,
 
 
 def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
-                         cap: int) -> tuple:
+                         cap: int, notes=frozenset()) -> tuple:
     """One greedy build with the XI formation fixed. See fpl_squad's docstring."""
 
     def club_ok(squad, candidate, replacing=None):
@@ -188,10 +224,25 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
         if taken < need:
             raise ValueError(f"cannot fill the {pos} bench under the club cap")
 
-    # --- XI: the best x_points players completing each position's quota.
+    # Bench budget cap (spec D6): the doctrine band made a hard constraint.
+    # The bench above is already the cheapest legal filler, so a violation is
+    # structural to this formation (expensive benched positions) and the fix
+    # is a different formation — raise and let the sweep move on, exactly
+    # like an unaffordable squad. Repairs below only ever make the bench
+    # cheaper (3a downgrades, 3b skips it), so checking once here holds.
+    bench_cost = round(sum(r["price"] for r in squad
+                           if bench_flags[_key(r)]), 2)
+    if bench_cost > BENCH_BUDGET_CAP:
+        raise ValueError(
+            f"cheapest legal bench costs {bench_cost}m — over the "
+            f"{BENCH_BUDGET_CAP}m bench cap")
+
+    # --- XI: the best x_points players completing each position's quota,
+    # subject to the minutes floor (start_prob >= 0.75 unless a note vouches).
     for pos in ("GK", "DEF", "MID", "FWD"):
         need = xi_counts.get(pos, 1 if pos == "GK" else 0)
-        candidates = sorted([r for r in pool if r["position"] == pos],
+        candidates = sorted([r for r in pool if r["position"] == pos
+                             and _xi_eligible(r, notes)],
                             key=lambda r: -r["x_points"])
         taken = 0
         for c in candidates:
@@ -202,7 +253,8 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
             take(c, False)
             taken += 1
         if taken < need:
-            raise ValueError(f"cannot fill the {pos} XI slots under the club cap")
+            raise ValueError(f"cannot fill the {pos} XI slots under the club "
+                             f"cap and minutes floor")
 
     def total_cost(sq):
         return round(sum(r["price"] for r in sq), 2)
@@ -210,25 +262,44 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
     def in_squad(sq):
         return {_key(r) for r in sq}
 
-    # --- Repair 3a: downgrade until legal on budget, smallest xPts loss per pound.
+    def xi_rows(sq):
+        return [r for r in sq if not bench_flags[_key(r)]]
+
+    def swap_objective_delta(sq, i, repl):
+        """objective(after) - objective(before) for replacing slot i.
+
+        Zero for a bench slot — the bench never scores, so a bench downgrade
+        is objectively free. For an XI slot the delta prices the armband too:
+        losing the best player costs his points twice.
+        """
+        if bench_flags[_key(sq[i])]:
+            return 0.0
+        before = xi_rows(sq)
+        after = [repl if r is sq[i] else r for r in before]
+        return objective(after) - objective(before)
+
+    # --- Repair 3a: downgrade until legal on budget, smallest objective loss
+    # per pound saved. XI replacements must clear the minutes floor.
     guard = 0
     while total_cost(squad) > budget and guard < len(squad) * len(pool):
         guard += 1
         best_swap, best_ratio = None, None
         members = in_squad(squad)
         for i, slot in enumerate(squad):
+            is_xi = not bench_flags[_key(slot)]
             cheaper = [r for r in pool
                        if r["position"] == slot["position"]
                        and _key(r) not in members
                        and r["price"] < slot["price"]
+                       and (not is_xi or _xi_eligible(r, notes))
                        and club_ok(squad, r, replacing=slot)]
             if not cheaper:
                 continue
             cheaper.sort(key=lambda r: (r["price"], -r["x_points"]))
             repl = cheaper[0]
             saved = slot["price"] - repl["price"]
-            ratio = ((slot["x_points"] - repl["x_points"]) / saved
-                     if saved > 0 else float("inf"))
+            loss = -swap_objective_delta(squad, i, repl)
+            ratio = loss / saved if saved > 0 else float("inf")
             if best_ratio is None or ratio < best_ratio:
                 best_ratio, best_swap = ratio, (i, repl)
         if best_swap is None:
@@ -243,7 +314,9 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
             f"no legal 15-man squad fits within budget {budget}m "
             f"(cheapest assembled squad costs {total_cost(squad)}m)")
 
-    # --- Repair 3b: spend what is left on the best XI upgrade per pound.
+    # --- Repair 3b: spend what is left on the best XI upgrade — objective
+    # gained per pound, so a premium captain's doubled points justify his
+    # price when they genuinely do.
     guard = 0
     while guard < len(squad) * len(pool):
         guard += 1
@@ -255,21 +328,22 @@ def _squad_for_formation(pool: list, xi_counts: dict, budget: float,
         for i, slot in enumerate(squad):
             if bench_flags[_key(slot)]:
                 continue           # the bench stays cheap by design
+            # x_points > slot's is still a sound prefilter under the joint
+            # objective: a strictly lower-xPts row lowers the XI sum and can
+            # never raise the max, so it can never raise the objective.
             better = [r for r in pool
                       if r["position"] == slot["position"]
                       and _key(r) not in members
                       and r["price"] <= left_over + slot["price"]
                       and r["x_points"] > slot["x_points"]
+                      and _xi_eligible(r, notes)
                       and club_ok(squad, r, replacing=slot)]
-            if not better:
-                continue
-            better.sort(key=lambda r: -r["x_points"])
-            repl = better[0]
-            spent = repl["price"] - slot["price"]
-            ratio = ((repl["x_points"] - slot["x_points"]) / spent
-                     if spent > 0 else float("inf"))
-            if ratio > best_ratio:
-                best_ratio, best_swap = ratio, (i, repl)
+            for repl in better:
+                spent = repl["price"] - slot["price"]
+                gain = swap_objective_delta(squad, i, repl)
+                ratio = gain / spent if spent > 0 else float("inf")
+                if ratio > best_ratio:
+                    best_ratio, best_swap = ratio, (i, repl)
         if best_swap is None:
             break
         i, repl = best_swap
