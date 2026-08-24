@@ -102,12 +102,18 @@ red player and why. Fix each one by writing the missing sourced note (step 3)
 or changing the squad (step 4) — never by weakening a rule. There is no
 `--force-publish`, deliberately.
 
-## 6. Build live and deploy
+## 6. Build live, deploy, ping the engines
 
 ```bash
 python3 -m evmax.build --gw N --live
 scripts/deploy.sh
+python3 scripts/indexnow_ping.py --out dist   # deploy.sh already pings; this is the explicit re-runnable form
 ```
+
+The IndexNow ping tells Bing/Yandex (and therefore Copilot/Perplexity
+grounding) about every deployed URL immediately instead of waiting for a
+crawl. It exits nonzero on failure but never breaks a deploy — re-run it by
+hand any time.
 
 ## 7. Draft the posts (nothing auto-posts — D4)
 
@@ -127,6 +133,18 @@ Gate: {n} red flags, {m} cleared by sourced notes, 0 shipped unresearched.
 Watch: {the one thing that could invalidate a pick before Friday}.
 Post: shortlist comment drafted; newsletter blurb ready.
 ```
+
+## Appendix: first-time indexing setup (once, then never again)
+
+- **IndexNow (Bing/Yandex/Seznam — powers Copilot + Perplexity grounding):**
+  nothing to do. The key is committed (`evmax/assets/indexnow_key.txt`),
+  every build serves it at `/{key}.txt` via the shared site chrome, and the
+  ping runs post-deploy. No account, no console.
+- **Google (does NOT consume IndexNow):** owner action, in his browser —
+  Google Search Console → the `evmax.ai` property (the GSC verification file
+  is already served by every build) → Sitemaps → submit
+  `https://evmax.ai/sitemap.xml`. Google then discovers new gameweeks from
+  the sitemap on its own crawl schedule.
 
 ## To schedule this later — PARKED (owner decision D3)
 

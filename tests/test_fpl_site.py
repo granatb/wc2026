@@ -503,6 +503,11 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("<!doctype html>", self._read("/track-record/index.html"))
         record = json.loads(self._read("/api/track-record.json"))
         self.assertIn("rounds", record)
+        # Task 8: the IndexNow ownership key rides in the same chrome — an
+        # FPL publish that dropped /{key}.txt would silently de-verify the
+        # domain for the post-deploy ping (scripts/indexnow_ping.py).
+        key = wc_build.indexnow_key()
+        self.assertEqual(self._read(f"/{key}.txt"), key + "\n")
 
     def test_rate_page_serves_the_fpl_section(self):
         html = self._read("/rate/index.html")

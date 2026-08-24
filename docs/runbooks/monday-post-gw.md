@@ -26,6 +26,7 @@ from core import fpl_api
 e = [x for x in fpl_api.read_cache('bootstrap')['events'] if x['id'] == N][0]
 print('GW average manager:', e['average_entry_score'], '· highest:', e.get('highest_score'))"
 python3 -m evmax.build --gw N --live && scripts/deploy.sh   # final realized panels
+python3 scripts/indexnow_ping.py --out dist                 # tell the engines (deploy.sh already pings; explicit re-run form)
 ```
 
 Collect: both squads' final totals (the build's live layer prints them into

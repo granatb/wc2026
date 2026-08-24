@@ -1,7 +1,7 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(907 tests). App: `streamlit run app.py`.
+(914 tests). App: `streamlit run app.py`.
 
 ## 2026-08-24 — FPL phase 5: the credibility engine
 
@@ -52,8 +52,16 @@ decisions D1–D8).
   `monday-post-gw.md` (numbered, exact commands, "schedule later" sections
   PARKED per D3); `docs/research/season-learnings.md` seeded with GW1's six
   entries in mistake → root cause → structural fix → status form.
+- **IndexNow on every deploy**: the ownership key file `/{key}.txt` moved
+  into the shared site chrome (an FPL publish used to silently drop it —
+  only the WC build wrote it), and the inline curl in `scripts/deploy.sh` is
+  replaced by the tested `scripts/indexnow_ping.py --out dist` (stdlib,
+  injectable opener, ≤10k URLs, exits nonzero but NEVER raises on network
+  failure — a failed ping must not break a deploy). Google doesn't consume
+  IndexNow; the one-time GSC sitemap submission is documented in the Thursday
+  runbook's first-time appendix.
 
-Suite: 832 → 907, all offline, synthetic payloads shaped like the real APIs.
+Suite: 832 → 914, all offline, synthetic payloads shaped like the real APIs.
 
 ## 2026-08-24 — FPL phase 4c: the live duel (points so far) + consensus reset machinery
 
