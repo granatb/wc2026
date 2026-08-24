@@ -3,6 +3,7 @@
   "strategy": "model",
   "free_transfers": 1,
   "chips_used": [],
+  "aliases": {},
   "squad": [
     {"name": "Raya", "position": "GK", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
     {"name": "Virgil", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},

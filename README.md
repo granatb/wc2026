@@ -66,13 +66,44 @@ python3 -m evmax.build --round 8 --no-llm   # World Cup round into dist/round/8/
 python3 -m evmax.build --gw 1 --no-llm      # FPL gameweek into dist/fpl/gw1/
 ```
 
-`--gw` builds the six FPL articles (captains, wildcard, ticker, defenders,
-efficiency, defcon) plus the JSON/markdown twins and agent files. `/` serves the
-current FPL gameweek; the World Cup tree under `/round/N/` stays live and untouched
-(its landing is at `/round/8/`). Drop `--no-llm` to enable the LLM prose tier
-(needs `ANTHROPIC_API_KEY`); either way the hand-written templates and any cached
-prose in `data/articles/` keep the pages publishable. `--no-cache` (FPL only)
-forces a fresh simulation past the sim cache.
+`--gw` builds the eight FPL articles (our-squad, captains, consensus-squad,
+wildcard, ticker, defenders, efficiency, defcon) plus the JSON/markdown twins and
+agent files. `/` serves the current FPL gameweek; the World Cup tree under
+`/round/N/` stays live and untouched (its landing is at `/round/8/`). Drop
+`--no-llm` to enable the LLM prose tier (needs `ANTHROPIC_API_KEY`); either way
+the hand-written templates and any cached prose in `data/articles/` keep the
+pages publishable. `--no-cache` (FPL only) forces a fresh simulation past the
+sim cache.
+
+### In-gameweek routine (the FPL live duel)
+
+While a gameweek runs, refresh live points + rebuild + deploy after each match
+day (manual for now; a cron wrapper can come later):
+
+```bash
+python3 -m evmax.build --gw 2 --live && scripts/deploy.sh
+```
+
+`--live` fetches the official live feed (`event/{gw}/live/` +
+`fixtures/?event={gw}`) into `data/fpl/live_gw{N}.json` (always overwritten — a
+convenience, not a record) and renders the reality layer: the landing duel strip
+gains each squad's realized total ("44 so far · 1 to play") next to the frozen
+projections, and both squad pages get a realized table above the frozen prose,
+stamped with the fetch time. Article bodies (HTML/JSON/md) stay frozen — the
+freeze is test-enforced. Without the flag the layer is automatic mid-gameweek
+from the cached payload only (no network); `--no-live` forces it off. A squad
+name the season has renamed is bridged by the state file's `aliases` map
+(validated); an unresolved name kills the build rather than publishing a
+14-man total.
+
+Before the GW2 deadline (one-off): rebuild the consensus squad from actual
+ownership — its declared Wildcard, retiring the GW1 expert mention-tally:
+
+```bash
+python3 -c "from core import fpl_api; fpl_api.refresh()"   # current ownership first
+python3 -m evmax.build --gw 2 --reset-consensus    # rewrites games/fpl/state_consensus.json
+# review the diff, then build + deploy as usual
+```
 
 ## Dashboard (Streamlit)
 

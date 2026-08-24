@@ -284,6 +284,52 @@ class TestValidateState(unittest.TestCase):
                 self._check(lambda s, b=bad: s.update(source_count=b),
                             "source_count")
 
+    # --- aliases (the renamed-player shim, phase 4c) ---------------------------
+
+    def test_empty_aliases_map_is_accepted(self):
+        state = copy.deepcopy(self.state)
+        state["aliases"] = {}
+        out = fpl_state.validate_state(state, self.players)
+        self.assertEqual(out["aliases"], {})
+
+    def test_alias_resolves_a_renamed_player(self):
+        """The season renamed 'Groß' — the frozen state name must keep
+        resolving via the alias against the refreshed bootstrap."""
+        players = [dict(p, name="M.Groß") if p["name"] == "Groß" else p
+                   for p in self.players]
+        state = copy.deepcopy(self.state)
+        state["aliases"] = {"Groß": "M.Groß"}
+        out = fpl_state.validate_state(state, players)
+        entry = next(e for e in out["squad"] if e["name"] == "Groß")
+        self.assertEqual(entry["team"], "GGG")   # name stays the published claim
+        self.assertEqual(entry["price"], 5.5)
+
+    def test_exact_name_wins_over_the_alias(self):
+        state = copy.deepcopy(self.state)
+        state["aliases"] = {"Groß": "Mid1"}      # a bad alias must stay unused
+        out = fpl_state.validate_state(state, self.players)
+        entry = next(e for e in out["squad"] if e["name"] == "Groß")
+        self.assertEqual(entry["team"], "GGG")
+
+    def test_alias_pointing_nowhere_names_both_strings(self):
+        players = [p for p in self.players if p["name"] != "Groß"]
+        state = copy.deepcopy(self.state)
+        state["aliases"] = {"Groß": "Nobody"}
+        with self.assertRaises(ValueError) as ctx:
+            fpl_state.validate_state(state, players)
+        self.assertIn("does not resolve", str(ctx.exception))
+        self.assertIn("Nobody", str(ctx.exception))
+
+    def test_aliases_must_be_a_dict_of_non_empty_strings(self):
+        for bad in (["Groß"], "Groß", {"Groß": ""}, {"": "M.Groß"},
+                    {"Groß": 7}):
+            with self.subTest(bad=bad):
+                self._check(lambda s, b=bad: s.update(aliases=b), "aliases")
+
+    def test_alias_key_must_name_a_squad_member(self):
+        self._check(lambda s: s.update(aliases={"Haaland": "E.Haaland"}),
+                    "no squad member")
+
 
 class TestLoadState(unittest.TestCase):
     def test_load_squad_reads_validates_and_enriches(self):

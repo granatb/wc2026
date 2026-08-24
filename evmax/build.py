@@ -781,10 +781,29 @@ def main() -> None:
                     help="Skip the LLM tier; use cache-or-template only")
     ap.add_argument("--no-cache", dest="no_cache", action="store_true",
                     help="FPL only: always simulate, ignoring the sim cache")
+    ap.add_argument("--live", dest="live", action="store_true", default=None,
+                    help="FPL only: refresh live points and render the "
+                         "so-far layer (default: auto — on mid-gameweek, "
+                         "from the cached payload)")
+    ap.add_argument("--no-live", dest="live", action="store_false",
+                    help="FPL only: force the live layer off")
+    ap.add_argument("--reset-consensus", dest="reset_consensus",
+                    action="store_true",
+                    help="FPL only: rewrite games/fpl/state_consensus.json as "
+                         "the most-owned legal template from the cached "
+                         "bootstrap (the squad's Wildcard). Writes the state "
+                         "file and builds nothing — refresh the bootstrap "
+                         "first, review the diff, then rebuild.")
+    ap.set_defaults(live=None)
     a = ap.parse_args()
-    if a.gw is not None:
+    if a.reset_consensus:
+        if a.gw is None:
+            ap.error("--reset-consensus requires --gw")
+        fpl_build.reset_consensus(a.gw)
+    elif a.gw is not None:
         fpl_build.build(gameweek=a.gw, sims=a.sims, out=a.out, url=a.url,
-                        use_llm=not a.no_llm, use_cache=not a.no_cache)
+                        use_llm=not a.no_llm, use_cache=not a.no_cache,
+                        live=a.live)
     else:
         build(a.round, a.sims, a.out, a.url, use_llm=not a.no_llm)
 
