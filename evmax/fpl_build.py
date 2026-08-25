@@ -17,7 +17,7 @@ import shutil
 from datetime import datetime, timezone
 
 from core import fixtures, fpl_api, fpl_live, research, simcache
-from evmax import fpl_articles, render, writer
+from evmax import fpl_articles, fpl_players, render, writer
 from games.fpl import model as fpl_model
 
 # A gameweek with no availability flags at all. FPL's bootstrap always carries
@@ -393,10 +393,16 @@ def squad_preflight(metas: dict) -> None:
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           url: str = "https://evmax.ai", use_llm: bool = True,
           use_cache: bool = True, cache_dir: str = "data/articles",
-          live=None) -> None:
+          live=None, player_pages_cap=None) -> None:
     """live: True = refresh the live feed and render the so-far layer;
     False = force it off; None (default) = auto — on mid-gameweek from the
-    cached payload only (see _live_default / live_layer)."""
+    cached payload only (see _live_default / live_layer).
+
+    player_pages_cap: TESTS ONLY — cap how many per-player pages/JSONs are
+    written (the top N by x_points), so the end-to-end smoke build never pays
+    for 563 pages. None (production) writes every player. The index and tier
+    boards list the same capped set, so a capped build never links a page it
+    did not write."""
     render.SITE_URL = url
     section = render.FPL
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -467,10 +473,32 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         with open(full, "w", encoding="utf-8") as fh:
             fh.write(text)
 
+    # --- Player cards (STRATEGY §12 phase 1): assemble every player's payload
+    # from the artifact + bootstrap + notes + horizon matrix + odds caches.
+    # Assembled BEFORE the bulk feed so the feed can carry each player's page.
+    notes = research.load_entries("players", gameweek)
+    squad_names = {key: {e["name"] for e in entries_map[slug]}
+                   for slug, key in SQUAD_LIVE_KEYS.items()}
+    fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
+                                         fpl_api.parse_teams(boot or {}))
+    payloads, unmatched = fpl_players.assemble_payloads(
+        rows, players_by_name, {e["id"]: e for e in (boot or {}).get("elements", [])},
+        notes, squad_names, _load_horizon_matrix(), fx_rows_all,
+        _odds_caches(gameweek), gameweek, generated_at)
+    if unmatched:
+        names = ", ".join(unmatched[:6]) + (" ..." if len(unmatched) > 6 else "")
+        warnings.append(
+            f"{len(unmatched)} ARTIFACT ROW(S) WITHOUT A BOOTSTRAP MATCH — no "
+            f"player page/JSON for: {names}. A cached artifact predating a "
+            f"rename usually explains it; refresh and rebuild.")
+    if player_pages_cap is not None:
+        payloads = payloads[:player_pages_cap]
+    page_by_name = {p["name"]: p["page"] for p in payloads}
+
     # --- Bulk players feed. Same guardrail as the World Cup's: derived model
     # outputs and name/team/position ONLY. No price, no ownership — those stay
     # per-player context inside articles, never in the public bulk feed.
-    notes = research.load_entries("players", gameweek)
+    # `page` is each player's card page (the /fpl/players/ search links it).
     w(section.players_json_path(gameweek), json.dumps({
         "gameweek": gameweek,
         "generated_at": generated_at,
@@ -481,10 +509,31 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
              "position": r.get("position"), "x_points": r["x_points"],
              "captain_ev": r["captain_ev"], "ceiling": r["ceiling"],
              "kickoff": r.get("kickoff"),
-             "flag": _player_flag(r["name"], notes)}
+             "flag": _player_flag(r["name"], notes),
+             "page": page_by_name.get(r["name"])}
             for r in rows
         ],
     }, ensure_ascii=False, indent=2))
+
+    # --- Player pages + per-player JSON + index + tier boards. Living
+    # surfaces like the landing: regenerated every gameweek, never frozen.
+    for p in payloads:
+        w(fpl_players.json_path(gameweek, p["id"]), json.dumps(
+            fpl_players.player_json(p, section.methodology, url,
+                                    render.DATA_LICENSE_URL,
+                                    render.DATA_LICENSE_TEXT),
+            ensure_ascii=False, indent=2))
+        w(f"{fpl_players.page_path(p['slug'])}index.html",
+          fpl_players.player_page_html(p, gameweek, date_str=date_str,
+                                       methodology=section.methodology))
+    w(f"{fpl_players.PLAYERS_BASE}/index.html",
+      fpl_players.index_page_html(payloads, gameweek,
+                                  section.players_json_path(gameweek),
+                                  date_str=date_str))
+    for pos, _seg in fpl_players.TIER_SEGMENTS:
+        w(f"{fpl_players.tier_path(pos)}index.html",
+          fpl_players.tier_page_html(pos, payloads, gameweek,
+                                     date_str=date_str))
 
     prose_map: dict = {}
     used_leads: set = set()
@@ -634,7 +683,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         duel["live"] = live_data
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
-                                  duel=duel, section=section)
+                                  duel=duel, section=section,
+                                  pre_feed_html=fpl_players.top_cards_html(
+                                      payloads),
+                                  extra_style=fpl_players.CARD_CSS)
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at
@@ -648,7 +700,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         {"gameweek": gameweek, "generated_at": generated_at,
          "articles": {s: section.json_path(gameweek, s) for s in ARTICLES}},
         ensure_ascii=False, indent=2))
-    w("/llms.txt", render.llms_txt(gameweek, nav, section=section))
+    w("/llms.txt", render.llms_txt(gameweek, nav, section=section,
+                                   extra_lines=_llms_player_lines(
+                                       gameweek, len(payloads), url)))
     w("/robots.txt", render.robots_txt())
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
                                          section=section,
@@ -661,6 +715,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
               f"filters" if warnings else "")
     print(f"Built FPL gameweek {gameweek} → {out}/ "
           f"({len(rows)} players, {len(ARTICLES)} articles, "
+          f"{len(payloads)} player pages, "
           f"sim cache {'HIT' if cache_hit else 'MISS'}){suffix}")
 
 
@@ -754,6 +809,58 @@ def _player_flag(name: str, notes: dict):
     exposes. Imported rather than reimplemented so the two never drift."""
     from evmax.articles import player_flag
     return player_flag(name, notes)
+
+
+def _llms_player_lines(gameweek: int, count: int, url: str) -> list:
+    """The llms.txt player-cards section (render.llms_txt extra_lines)."""
+    tiers = " · ".join(
+        f"[{pos}]({url}{fpl_players.tier_path(pos)})"
+        for pos, _seg in fpl_players.TIER_SEGMENTS)
+    return [
+        "## Player cards",
+        f"- [Check your player — all {count} cards]"
+        f"({url}{fpl_players.PLAYERS_BASE}/) — one living page per player "
+        "(projection with decomposition, season so far, fixtures, verdict "
+        "tier), regenerated every gameweek.",
+        f"- Tier boards (S–D by position): {tiers}",
+        f"- Per-player JSON: {url}/api/fpl/gw{gameweek}/players/"
+        "{element_id}.json — element ids and page URLs are in the players "
+        "feed below.",
+    ]
+
+
+def _load_horizon_matrix():
+    """The newest six-week horizon matrix (data/fpl/xpts_gw*.json), or None.
+
+    Same discovery rule as manage.py's fpl_transfers: the lexicographically
+    last file wins. The matrix is regenerated by the weekly session; a fresh
+    checkout has none (data/ is gitignored), and the player cards degrade
+    gracefully — six_week_xpts renders null, never a guess."""
+    import glob
+
+    paths = sorted(glob.glob(os.path.join(_ROOT, "data", "fpl",
+                                          "xpts_gw*.json")))
+    if not paths:
+        return None
+    try:
+        with open(paths[-1], encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _odds_caches(gameweek: int, horizon: int = 6) -> dict:
+    """{gw: cached odds payload} for the fixture strips — cache reads only,
+    NEVER the network (a plain build stays offline-reproducible). A missing
+    gameweek cache simply prices that strip entry as "unpriced"."""
+    from core import fpl_odds
+
+    out = {}
+    for gw in range(gameweek, gameweek + horizon):
+        cached = fpl_odds.read_cached(gw)
+        if cached:
+            out[gw] = cached
+    return out
 
 
 def _format_date(generated_at: str) -> str:
