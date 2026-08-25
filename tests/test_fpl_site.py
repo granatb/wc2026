@@ -1035,6 +1035,39 @@ class TestRatePageSection(unittest.TestCase):
         self.assertNotIn("data-unit", html)
         self.assertIn("manual subs are allowed up", html)
 
+    def test_fpl_rate_picker_is_a_pitch(self):
+        """Owner correction 2026-08-25 ("rate my team doesn't look like a
+        pitch"): the FPL picker lays the 15 slots out on the grass — position
+        rows on a half-pitch, bench strip below — while keeping the exact
+        slot/captain contract rate.js already reads."""
+        html = render.rate_page(1, section=render.FPL)
+        self.assertIn('class="pitch-picker" id="slot-grid"', html)
+        self.assertIn('class="pp-lines"', html)          # white markings SVG
+        self.assertIn(".pp-pitch{", html)                # pitch CSS shipped
+        self.assertIn("repeating-linear-gradient", html)  # mow-stripe grass
+        # position rows on the pitch, top to bottom, then the bench strip
+        order = [html.find(f'class="pp-row pp-{p}"')
+                 for p in ("fwd", "mid", "def", "gk")]
+        self.assertTrue(all(at > -1 for at in order))
+        self.assertEqual(order, sorted(order))
+        self.assertLess(order[-1], html.find('class="pp-bench"'))
+        # the same 11+4 slot contract rate.js reads, captain radios 0..10
+        self.assertEqual(html.count('data-bench="0"'), 11)
+        self.assertEqual(html.count('data-bench="1"'), 4)
+        for v in range(11):
+            self.assertIn(f'name="cap" value="{v}"', html)
+        # paste flow, no-JS fallback and the shared script all survive
+        self.assertIn("prefer to paste the whole squad as text?", html)
+        self.assertIn("<noscript>", html)
+        self.assertIn('<script src="/js/rate.js" defer></script>', html)
+
+    def test_wc_rate_page_carries_no_pitch_markup_or_css(self):
+        html = render.rate_page(5)
+        self.assertIn('class="slot-grid" id="slot-grid"', html)
+        self.assertNotIn("pitch-picker", html)
+        self.assertNotIn("pp-pitch", html)
+        self.assertNotIn("pp-bench", html)
+
     def test_rate_js_defaults_the_unit_to_round(self):
         """The shared rate.js must keep labelling WC results 'Round N' when the
         page carries no data-unit attribute."""
