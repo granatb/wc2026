@@ -1445,13 +1445,76 @@ def _track_record_round_card(round_data: dict) -> str:
            f'<p class="tr-claim">{claim}</p>{table}{cov_note}{misses_html}</div>')
 
 
-def track_record_page(record: dict) -> str:
+# FPL-ledger styles for /track-record/ — injected ONLY when an FPL ledger is
+# passed (FPL builds), so a World Cup build's page stays byte-identical.
+_TR_FPL_CSS = (
+    ".tr-section-h{font-size:22px;font-weight:800;letter-spacing:-.4px;"
+    "margin:30px 0 12px}"
+    ".tr-fpl-note{font-size:13px;color:var(--ink3);margin-top:14px}"
+    ".tr-fpl-links{font-size:12.5px;color:var(--ink3);margin-top:6px}"
+    ".tr-fpl-links a{color:var(--greend)}"
+)
+
+
+def _tr_fpl_section(ledger: list) -> str:
+    """/track-record/'s FPL block (FPL builds only): the graded ledger from
+    evmax/assets/accuracy/gw*.json — one row per graded gameweek (our MAE,
+    ep_next MAE where captured, both frozen squad projections against realized
+    official points, the running model-vs-crowd duel score) — followed by the
+    heading the existing World Cup retrospective now sits under. Deterministic
+    text only, the same bar as the rest of this page."""
+    body_rows = []
+    for r in ledger:
+        ep = (f"{r['mae_ep_next']:.3f}" if r.get("mae_ep_next") is not None
+              else '<span class="na">—</span>')
+        body_rows.append(
+            f"<tr><td>GW{r['gw']}</td>"
+            f"<td>{r['mae_ours']:.3f}</td>"
+            f"<td>{ep}</td>"
+            f"<td>{r['model_projected']:.2f} → {r['model_realized']}</td>"
+            f"<td>{r['consensus_projected']:.2f} → {r['consensus_realized']}</td>"
+            f"<td>{r['duel_model']}-{r['duel_consensus']} "
+            f"({_html.escape(r['duel_label'])})</td></tr>")
+    links = " · ".join(
+        f'<a href="{r["json_path"]}">gw{r["gw"]}.json</a>' for r in ledger)
+    return f"""<h2 class="tr-section-h">FPL 2026/27 — the graded ledger</h2>
+<p class="tr-claim">One row per graded gameweek: our mean absolute error on player
+projections (against FPL's own <b>ep_next</b> where captured), both published squads'
+frozen projected totals against realized official points, and the running
+model-vs-crowd duel score.</p>
+<div class="tr-card"><div class="tr-table-wrap"><table class="tr-metrics">
+<thead><tr><th>GW</th><th>Our MAE</th><th>ep_next MAE</th>
+<th>Model squad (proj → official)</th><th>Consensus squad (proj → official)</th>
+<th>Duel (model-crowd)</th></tr></thead>
+<tbody>{"".join(body_rows)}</tbody>
+</table></div>
+<p class="tr-fpl-note"><b>Method.</b> Projections frozen pre-deadline; grading JSONs public.</p>
+<p class="tr-fpl-links">Grading data: {links}</p>
+</div>
+<h2 class="tr-section-h">World Cup 2026 — the retrospective</h2>"""
+
+
+def track_record_page(record: dict, fpl: list = None) -> str:
     """/track-record/ — the site's credibility layer. Deterministic text only:
     every number here comes straight from evmax.backtest, no LLM prose, because
     trust requires that this specific page never has room for a model to shade
-    the truth."""
+    the truth.
+
+    fpl: the graded FPL ledger (evmax.fpl_build.fpl_track_ledger output). When
+    passed — FPL builds — the FPL section renders FIRST and the World Cup
+    record follows under its own heading. None (every World Cup build) keeps
+    today's page byte-identical."""
     rounds = record.get("rounds", [])
     summary = record.get("summary", {})
+
+    fpl_html = _tr_fpl_section(fpl) if fpl else ""
+    fpl_css = _TR_FPL_CSS if fpl else ""
+    description = (
+        "evmax grades its own fantasy predictions against official points, misses "
+        "included — the FPL gameweek ledger and the World Cup 2026 retrospective."
+        if fpl else
+        "evmax grades its own World Cup Fantasy predictions against official points, "
+        "misses included. No cherry-picking — every round, every article.")
 
     cards = "".join(_track_record_round_card(r) for r in rounds)
 
@@ -1472,11 +1535,11 @@ def track_record_page(record: dict) -> str:
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Every prediction, graded | {TITLE_BRAND}</title>
-<meta name="description" content="evmax grades its own World Cup Fantasy predictions against official points, misses included. No cherry-picking — every round, every article.">
+<meta name="description" content="{description}">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_TRACK_RECORD_CSS}</style>
+<style>{_STYLE}{_TRACK_RECORD_CSS}{fpl_css}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
@@ -1485,7 +1548,7 @@ def track_record_page(record: dict) -> str:
 <article class="art" style="max-width:820px">
 <div class="kick">Accountability</div>
 <h1>Every prediction, graded</h1>
-<p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
+{fpl_html}<p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
 snapshot. Once the round finishes, we grade that exact snapshot against the official FIFA
 World Cup Fantasy points — no do-overs, no rebuilding the model after the fact. Misses are
 shown alongside hits. Rounds marked retrospective were reconstructed after results were
