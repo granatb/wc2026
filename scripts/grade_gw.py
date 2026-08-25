@@ -119,6 +119,23 @@ def main(argv=None) -> int:
     envelopes = load_snapshots(args.gw)
     realized = realized_points(args.gw, refresh=args.refresh)
     payload = assemble(args.gw, envelopes, realized)
+    # Official FPL scoring (autosubs + captain fallback) alongside the
+    # as-published grading line — readers compare official totals.
+    try:
+        from core import fpl_live
+        from games.fpl import state as fpl_state
+        lp = fpl_live.read_live_cache(args.gw)
+        if lp:
+            boot = fpl_api.read_cache("bootstrap")
+            for slug, path in (("our-squad", "games/fpl/state.json"),
+                               ("consensus-squad", "games/fpl/state_consensus.json")):
+                st = fpl_state.load_state(path)
+                g = fpl_live.grade_squad(st, lp["live"], lp["fixtures"], boot)
+                if g["players_pending"] == 0:
+                    payload["squads"][slug]["realized_official"] = g["total_so_far"]
+                    payload["squads"][slug]["autosubs"] = g["autosubs_applied"]
+    except Exception as exc:  # official line is additive; grading must still bank
+        print(f"  (official-scoring line unavailable: {exc})")
     path = grading.write_accuracy(args.gw, payload, out_dir=args.out)
     print(grading.format_report(payload))
     print(f"\nbanked → {os.path.relpath(path, _HERE)} (commit it with the "

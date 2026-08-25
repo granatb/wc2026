@@ -86,3 +86,26 @@ deleted — a repeated root cause is the signal that a fix did not hold.
   matters.
 - **Status:** closed (runbook live); watch for one clean gameweek before
   calling the process proven.
+
+## GW1 result (2026-08-25, Monday close)
+
+**The duel, week 1: Consensus 53 — Model 44. The crowd won by 9.** Field average 50
+(the model finished 6 UNDER average; the mid-week "+8 over average" was a mirage of
+early kickoffs). João Pedro (11) decided it — the exact player the model rated ~#25
+and the community roast called a troll. The model's other misses: Gakpo 12 (rated
+4.8, unowned), Bruno (c) 2, Thiago 0, Watkins 0-minutes. Its wins: Ndiaye 9,
+Calafiori 9 (the "best value in the game" call landed — in the OTHER squad),
+Tarkowski 6, the Watkins autosub insurance (+2). Player-level MAE 2.734 over 58
+graded players (noise ceiling ≈2.8; small sample).
+
+- Mistake: mid-GW average (36) treated as a benchmark; final averages run much
+  higher once all matches land. Fix: never quote average until the GW closes
+  (runbook wording updated).
+- Mistake: grading.squad_line banked as-published XI (42) as "realized"; readers
+  compare official scores. Fix: `realized_official` (autosubs + captain fallback)
+  banked alongside, with the autosub trail (shipped 2026-08-25).
+- Bug found: `scripts/grade_gw.py --refresh` refreshes the BOOTSTRAP, which
+  invalidates the frozen GW's sim cache — the Monday rebuild then drifts from the
+  frozen snapshots. Fix needed: grading refresh must touch only the live cache, or
+  the Monday runbook must restore the frozen bootstrap before rebuilding (done
+  manually this week; make structural before GW3).
