@@ -40,7 +40,7 @@ def indexnow_key() -> str:
         return fh.read().strip()
 
 
-def write_site_chrome(w) -> None:
+def write_site_chrome(w, fpl_ledger=None) -> None:
     """Root-level files EVERY section build must regenerate, whichever
     competition it serves: the GSC verification file, /_redirects and the
     track-record page + JSON feed. `w(path, text)` is the caller's writer.
@@ -49,6 +49,10 @@ def write_site_chrome(w) -> None:
     these, publishing a gameweek would strip Google's site verification and
     the /track-record/ page its own nav and sitemap point at (review
     2026-08-19, finding 4).
+
+    fpl_ledger: the graded FPL rows (evmax.fpl_build.fpl_track_ledger) — the
+    FPL build passes them so /track-record/ leads with the FPL section; the
+    World Cup build passes nothing and its page stays byte-identical.
     """
     w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
     # IndexNow key file (task 8): /{key}.txt containing exactly the key —
@@ -67,7 +71,8 @@ def write_site_chrome(w) -> None:
     # Track record (backtest our own published predictions vs reality) — the
     # site's credibility layer, linked from every page's nav.
     record = backtest.build_track_record()
-    w("/track-record/index.html", render.track_record_page(record))
+    w("/track-record/index.html", render.track_record_page(record,
+                                                           fpl=fpl_ledger))
     w("/api/track-record.json", json.dumps(
         render.track_record_json(record), ensure_ascii=False, indent=2))
 

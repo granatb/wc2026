@@ -1445,13 +1445,76 @@ def _track_record_round_card(round_data: dict) -> str:
            f'<p class="tr-claim">{claim}</p>{table}{cov_note}{misses_html}</div>')
 
 
-def track_record_page(record: dict) -> str:
+# FPL-ledger styles for /track-record/ — injected ONLY when an FPL ledger is
+# passed (FPL builds), so a World Cup build's page stays byte-identical.
+_TR_FPL_CSS = (
+    ".tr-section-h{font-size:22px;font-weight:800;letter-spacing:-.4px;"
+    "margin:30px 0 12px}"
+    ".tr-fpl-note{font-size:13px;color:var(--ink3);margin-top:14px}"
+    ".tr-fpl-links{font-size:12.5px;color:var(--ink3);margin-top:6px}"
+    ".tr-fpl-links a{color:var(--greend)}"
+)
+
+
+def _tr_fpl_section(ledger: list) -> str:
+    """/track-record/'s FPL block (FPL builds only): the graded ledger from
+    evmax/assets/accuracy/gw*.json — one row per graded gameweek (our MAE,
+    ep_next MAE where captured, both frozen squad projections against realized
+    official points, the running model-vs-crowd duel score) — followed by the
+    heading the existing World Cup retrospective now sits under. Deterministic
+    text only, the same bar as the rest of this page."""
+    body_rows = []
+    for r in ledger:
+        ep = (f"{r['mae_ep_next']:.3f}" if r.get("mae_ep_next") is not None
+              else '<span class="na">—</span>')
+        body_rows.append(
+            f"<tr><td>GW{r['gw']}</td>"
+            f"<td>{r['mae_ours']:.3f}</td>"
+            f"<td>{ep}</td>"
+            f"<td>{r['model_projected']:.2f} → {r['model_realized']}</td>"
+            f"<td>{r['consensus_projected']:.2f} → {r['consensus_realized']}</td>"
+            f"<td>{r['duel_model']}-{r['duel_consensus']} "
+            f"({_html.escape(r['duel_label'])})</td></tr>")
+    links = " · ".join(
+        f'<a href="{r["json_path"]}">gw{r["gw"]}.json</a>' for r in ledger)
+    return f"""<h2 class="tr-section-h">FPL 2026/27 — the graded ledger</h2>
+<p class="tr-claim">One row per graded gameweek: our mean absolute error on player
+projections (against FPL's own <b>ep_next</b> where captured), both published squads'
+frozen projected totals against realized official points, and the running
+model-vs-crowd duel score.</p>
+<div class="tr-card"><div class="tr-table-wrap"><table class="tr-metrics">
+<thead><tr><th>GW</th><th>Our MAE</th><th>ep_next MAE</th>
+<th>Model squad (proj → official)</th><th>Consensus squad (proj → official)</th>
+<th>Duel (model-crowd)</th></tr></thead>
+<tbody>{"".join(body_rows)}</tbody>
+</table></div>
+<p class="tr-fpl-note"><b>Method.</b> Projections frozen pre-deadline; grading JSONs public.</p>
+<p class="tr-fpl-links">Grading data: {links}</p>
+</div>
+<h2 class="tr-section-h">World Cup 2026 — the retrospective</h2>"""
+
+
+def track_record_page(record: dict, fpl: list = None) -> str:
     """/track-record/ — the site's credibility layer. Deterministic text only:
     every number here comes straight from evmax.backtest, no LLM prose, because
     trust requires that this specific page never has room for a model to shade
-    the truth."""
+    the truth.
+
+    fpl: the graded FPL ledger (evmax.fpl_build.fpl_track_ledger output). When
+    passed — FPL builds — the FPL section renders FIRST and the World Cup
+    record follows under its own heading. None (every World Cup build) keeps
+    today's page byte-identical."""
     rounds = record.get("rounds", [])
     summary = record.get("summary", {})
+
+    fpl_html = _tr_fpl_section(fpl) if fpl else ""
+    fpl_css = _TR_FPL_CSS if fpl else ""
+    description = (
+        "evmax grades its own fantasy predictions against official points, misses "
+        "included — the FPL gameweek ledger and the World Cup 2026 retrospective."
+        if fpl else
+        "evmax grades its own World Cup Fantasy predictions against official points, "
+        "misses included. No cherry-picking — every round, every article.")
 
     cards = "".join(_track_record_round_card(r) for r in rounds)
 
@@ -1472,11 +1535,11 @@ def track_record_page(record: dict) -> str:
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Every prediction, graded | {TITLE_BRAND}</title>
-<meta name="description" content="evmax grades its own World Cup Fantasy predictions against official points, misses included. No cherry-picking — every round, every article.">
+<meta name="description" content="{description}">
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_TRACK_RECORD_CSS}</style>
+<style>{_STYLE}{_TRACK_RECORD_CSS}{fpl_css}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
@@ -1485,7 +1548,7 @@ def track_record_page(record: dict) -> str:
 <article class="art" style="max-width:820px">
 <div class="kick">Accountability</div>
 <h1>Every prediction, graded</h1>
-<p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
+{fpl_html}<p class="stand">Before every round locks, we publish our picks as a frozen, timestamped
 snapshot. Once the round finishes, we grade that exact snapshot against the official FIFA
 World Cup Fantasy points — no do-overs, no rebuilding the model after the fact. Misses are
 shown alongside hits. Rounds marked retrospective were reconstructed after results were
@@ -2002,7 +2065,7 @@ def squad_live_panel_html(grade: dict, fetched_at: str) -> str:
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
                  available_rounds=None, live_xi=None, duel=None, section=WC,
-                 pre_feed_html="", extra_style=""):
+                 pre_feed_html="", extra_style="", pre_content_html=""):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2014,10 +2077,14 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
               the main content in a two-column grid (single column on mobile,
               with the aside placed after the main content).
     pre_feed_html / extra_style: an optional module rendered above the feed
-              ("this week's top cards" on the FPL landing) and the style block
-              it needs (fpl_players.CARD_CSS). Both default to "" so every
+              and the style block it needs. Both default to "" so every
               existing call site — the whole World Cup tree — keeps producing
               byte-identical pages, same contract as `duel`.
+    pre_content_html: an optional module rendered as the page's very FIRST
+              content section, above everything else in the wrap — the FPL
+              landing's full top-cards row (owner correction 2026-08-25: the
+              cards go at the very top, above the duel strip and the hero
+              article). Defaults to "" — World Cup landings byte-identical.
     """
     og_block = _og_meta(
         f"{section.label} {section.kicker(round_no)} — simulation-based picks",
@@ -2111,7 +2178,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
 </div></header>
 <div class="wrap">
-{body_content}
+{pre_content_html}{body_content}
 </div>
 {_footer_html()}</body></html>"""
 
@@ -2437,6 +2504,111 @@ _RATE_CSS = (
     ".rate-paste summary:hover{color:var(--greend)}"
 )
 
+# FPL-only pitch styling for the /rate/ slot picker (owner correction
+# 2026-08-25: "rate my team doesn't look like a pitch"). Injected ONLY on FPL
+# builds so the World Cup /rate/ page stays byte-identical. Visual language
+# borrowed from pitch_svg_fpl: mow-stripe grass, white half-pitch markings
+# (an inline aria-hidden SVG behind the rows), paper card-slot chips on top.
+_RATE_PITCH_CSS = (
+    ".pitch-picker{margin-bottom:14px}"
+    ".pp-pitch{position:relative;margin-top:10px;border-radius:14px 14px 0 0;"
+    "padding:34px 18px 40px;min-height:400px;display:flex;flex-direction:column;"
+    "justify-content:space-between;gap:24px;overflow:hidden;"
+    "background:repeating-linear-gradient(180deg,#2e7e4c 0,#2e7e4c 16.66%,"
+    "#338755 16.66%,#338755 33.33%)}"
+    ".pp-lines{position:absolute;inset:0;width:100%;height:100%;"
+    "pointer-events:none}"
+    ".pp-row{position:relative;display:flex;justify-content:center;gap:12px;"
+    "flex-wrap:wrap}"
+    ".pp-lab{position:absolute;left:4px;top:50%;transform:translateY(-50%);"
+    "font-size:10px;font-weight:800;letter-spacing:1.5px;"
+    "color:rgba(255,255,255,.75)}"
+    ".pp-slot{position:relative;flex:0 1 122px;min-width:96px}"
+    ".pp-slot .slot{width:100%;text-align:center;font-weight:700;"
+    "font-size:13px;background:var(--surf);border:1px solid rgba(10,79,45,.45);"
+    "border-radius:10px;padding:12px 8px;box-shadow:0 2px 6px rgba(0,0,0,.22)}"
+    ".pp-slot .slot::placeholder{color:var(--ink3);font-weight:600;"
+    "letter-spacing:.6px;text-transform:uppercase;font-size:11px}"
+    ".pp-slot .cappick{position:absolute;top:-9px;right:-6px}"
+    ".pp-slot .cappick span{width:22px;height:22px;font-size:10px;"
+    "box-shadow:0 1px 3px rgba(0,0,0,.25)}"
+    # the dugout: bench strip attached under the pitch
+    ".pp-bench{background:var(--chipbg);border:1px solid var(--line);"
+    "border-top:0;border-radius:0 0 14px 14px;padding:12px 16px 14px}"
+    ".pp-bench .slot-head{margin-top:0;margin-bottom:8px}"
+    ".pp-bench-slots{display:flex;gap:10px;flex-wrap:wrap}"
+    ".pp-bench-slots .pp-slot{flex:1 1 110px}"
+    ".pp-bench-slots .slot-bench{background:var(--surf)}"
+    "@media(max-width:560px){.pp-pitch{padding:26px 10px 32px;min-height:340px;"
+    "gap:16px}.pp-row{gap:8px}.pp-slot{flex:0 1 45%;min-width:0}"
+    ".pp-lab{display:none}}"
+)
+
+# Half-pitch markings for the picker, same geometry as pitch_svg_fpl's
+# 420x520 canvas (halfway line + centre arc at the top, penalty box, six-yard
+# box, spot, D, goal mouth and corner arcs at the bottom); stretched to the
+# picker's box with preserveAspectRatio="none". Decorative only.
+_RATE_PITCH_LINES_SVG = (
+    '<svg class="pp-lines" viewBox="0 0 420 520" preserveAspectRatio="none" '
+    'xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+    '<g stroke="#fff" stroke-width="1.2" opacity=".4" fill="none">'
+    '<rect x="14" y="14" width="392" height="492" rx="2"/>'
+    '<path d="M 168 14 A 42 42 0 0 0 252 14"/>'
+    '<rect x="104" y="432" width="212" height="74"/>'
+    '<rect x="160" y="476" width="100" height="30"/>'
+    '<path d="M 170 432 A 44 44 0 0 1 250 432"/>'
+    '<rect x="170" y="506" width="80" height="6"/>'
+    '<path d="M 14 494 A 12 12 0 0 0 26 506"/>'
+    '<path d="M 394 506 A 12 12 0 0 0 406 494"/>'
+    '</g>'
+    '<circle cx="210" cy="14" r="2.5" fill="#fff" opacity=".4"/>'
+    '<circle cx="210" cy="456" r="2.5" fill="#fff" opacity=".4"/>'
+    '</svg>')
+
+# XI rows on the pitch, top (attacking) to bottom (goal), 4-4-2. The rows are
+# a visual guide only: every slot is the same free-text autocomplete input and
+# rate.js reads slots in DOM order regardless of position, so any formation
+# still rates correctly.
+_RATE_PITCH_ROWS = (("FWD", 2), ("MID", 4), ("DEF", 4), ("GK", 1))
+
+
+def _rate_pitch_picker_html(bench_hint: str) -> str:
+    """The FPL /rate/ picker as a pitch: the same 11+4 .slot inputs and
+    captain radios the grid picker carries (rate.js is untouched — selectors,
+    data-bench attributes and DOM-order captain indices all match), laid out
+    as positioned rows on the grass with the bench strip as a dugout below."""
+    rows = []
+    idx = 0
+    for label, n in _RATE_PITCH_ROWS:
+        slots = []
+        for j in range(1, n + 1):
+            ph = label if n == 1 else f"{label} {j}"
+            slots.append(
+                f'<div class="pp-slot"><input class="slot" list="players-dl" '
+                f'data-bench="0" placeholder="{ph}" autocomplete="off" '
+                f'spellcheck="false"><label class="cappick" title="captain">'
+                f'<input type="radio" name="cap" value="{idx}"><span>C</span>'
+                f'</label></div>')
+            idx += 1
+        rows.append(f'<div class="pp-row pp-{label.lower()}">'
+                    f'<span class="pp-lab">{label}</span>{"".join(slots)}</div>')
+    bench_slots = "".join(
+        f'<div class="pp-slot"><input class="slot slot-bench" '
+        f'list="players-dl" data-bench="1" placeholder="Bench {i}" '
+        f'autocomplete="off" spellcheck="false"></div>'
+        for i in range(1, 5))
+    return (
+        '<div class="pitch-picker" id="slot-grid">\n'
+        '<div class="slot-head">Starting XI <span class="rate-hint">tap C to '
+        'captain — any formation, the rows are just a guide</span></div>\n'
+        f'<div class="pp-pitch">{_RATE_PITCH_LINES_SVG}{"".join(rows)}</div>\n'
+        '<div class="pp-bench">\n'
+        f'<div class="slot-head">Bench <span class="rate-hint">{bench_hint}'
+        '</span></div>\n'
+        f'<div class="pp-bench-slots">{bench_slots}</div>\n'
+        '</div>\n'
+        '</div>')
+
 
 def rate_page(round_no: int, section=WC) -> str:
     """/rate/ -- paste-a-squad client-side team rater, serving whichever
@@ -2481,6 +2653,9 @@ def rate_page(round_no: int, section=WC) -> str:
                        "eligible name in your bench order -- so the\nbench is "
                        "insurance you set before the deadline, not a mid-week "
                        "decision.")
+        # Owner correction 2026-08-25: the FPL picker looks like a pitch.
+        picker = _rate_pitch_picker_html(bench_hint)
+        pitch_css = _RATE_PITCH_CSS
     else:
         page_title = "Rate my World Cup fantasy team"
         title = f"{page_title} | {TITLE_BRAND}"
@@ -2505,6 +2680,17 @@ def rate_page(round_no: int, section=WC) -> str:
                        "manual subs are allowed up\nuntil the round's last kickoff, so a "
                        "strong bench pick with a later fixture is often a\ndeliberate "
                        "hedge, not a wasted slot.")
+        # The World Cup picker keeps today's flat slot grid byte-for-byte.
+        picker = f"""<div class="slot-grid" id="slot-grid">
+<div class="slot-head">Starting XI <span class="rate-hint">tap C to captain</span></div>
+{"".join(f'''<div class="slot-row"><input class="slot" list="players-dl" data-bench="0"
+placeholder="Player {i}" autocomplete="off" spellcheck="false"><label class="cappick"
+title="captain"><input type="radio" name="cap" value="{i - 1}"><span>C</span></label></div>''' for i in range(1, 12))}
+<div class="slot-head">Bench <span class="rate-hint">{bench_hint}</span></div>
+{"".join(f'''<div class="slot-row"><input class="slot slot-bench" list="players-dl" data-bench="1"
+placeholder="Bench {i}" autocomplete="off" spellcheck="false"></div>''' for i in range(1, 5))}
+</div>"""
+        pitch_css = ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2516,7 +2702,7 @@ def rate_page(round_no: int, section=WC) -> str:
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_RATE_CSS}</style>
+<style>{_STYLE}{_RATE_CSS}{pitch_css}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="rate")}
@@ -2533,15 +2719,7 @@ tracking). Prefer no JS? The full projections are at
 
 <form class="rate-form" id="rate-form" data-round="{round_no}"{unit_attr} data-players-url="{json_url}">
 <datalist id="players-dl"></datalist>
-<div class="slot-grid" id="slot-grid">
-<div class="slot-head">Starting XI <span class="rate-hint">tap C to captain</span></div>
-{"".join(f'''<div class="slot-row"><input class="slot" list="players-dl" data-bench="0"
-placeholder="Player {i}" autocomplete="off" spellcheck="false"><label class="cappick"
-title="captain"><input type="radio" name="cap" value="{i - 1}"><span>C</span></label></div>''' for i in range(1, 12))}
-<div class="slot-head">Bench <span class="rate-hint">{bench_hint}</span></div>
-{"".join(f'''<div class="slot-row"><input class="slot slot-bench" list="players-dl" data-bench="1"
-placeholder="Bench {i}" autocomplete="off" spellcheck="false"></div>''' for i in range(1, 5))}
-</div>
+{picker}
 <details class="rate-paste"><summary>prefer to paste the whole squad as text?</summary>
 <textarea id="team-input" name="team" rows="6"
 placeholder="{placeholder}"></textarea>

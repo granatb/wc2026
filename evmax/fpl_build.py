@@ -653,7 +653,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # site on every gameweek publish. Imported lazily — evmax.build imports
     # this module at load time, so a module-level import back would be a cycle.
     from evmax.build import write_site_chrome
-    write_site_chrome(w)
+    write_site_chrome(w, fpl_ledger=fpl_track_ledger())
+    _publish_accuracy(w)
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------
@@ -696,9 +697,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
                                   duel=duel, section=section,
-                                  pre_feed_html=fpl_players.top_cards_html(
+                                  pre_content_html=fpl_players.top_cards_html(
                                       payloads),
-                                  extra_style=fpl_players.CARD_CSS)
+                                  extra_style=(fpl_players.CARD_CSS +
+                                               fpl_players.TOP_CARDS_CSS))
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at
@@ -881,6 +883,80 @@ def _format_date(generated_at: str) -> str:
         return dt.strftime("%-d %B %Y")
     except ValueError:
         return dt.strftime("%d %B %Y").lstrip("0")
+
+
+def _accuracy_dir() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "assets", "accuracy")
+
+
+def fpl_track_ledger() -> list:
+    """The graded FPL ledger for /track-record/ (task 2026-08-25): one row per
+    graded gameweek, straight from evmax/assets/accuracy/gw{N}.json — our MAE,
+    ep_next's MAE where captured, both frozen squad projections against
+    realized OFFICIAL points, and the running model-vs-crowd duel score (a
+    gameweek goes to whichever squad realized more official points; a tie
+    moves neither column). Rows also carry the public JSON path each grading
+    file is published at (_publish_accuracy)."""
+    acc_dir = _accuracy_dir()
+    if not os.path.isdir(acc_dir):
+        return []
+    graded = []
+    for fname in sorted(os.listdir(acc_dir)):
+        if not (fname.startswith("gw") and fname.endswith(".json")
+                and fname[2:-5].isdigit()):
+            continue
+        with open(os.path.join(acc_dir, fname), encoding="utf-8") as fh:
+            graded.append((int(fname[2:-5]), json.load(fh)))
+    graded.sort(key=lambda kv: kv[0])
+
+    rows, model_wins, cons_wins = [], 0, 0
+    for gw, acc in graded:
+        squads = acc.get("squads", {})
+        ours = squads.get("our-squad", {})
+        cons = squads.get("consensus-squad", {})
+        our_real = ours.get("realized_official")
+        cons_real = cons.get("realized_official")
+        if our_real is not None and cons_real is not None:
+            if our_real > cons_real:
+                model_wins += 1
+            elif cons_real > our_real:
+                cons_wins += 1
+        if model_wins > cons_wins:
+            label = "model leads"
+        elif cons_wins > model_wins:
+            label = "crowd leads"
+        else:
+            label = "level"
+        rows.append({
+            "gw": gw,
+            "mae_ours": acc.get("mae_ours"),
+            "mae_ep_next": acc.get("mae_ep_next"),
+            "model_projected": ours.get("projected"),
+            "model_realized": our_real,
+            "consensus_projected": cons.get("projected"),
+            "consensus_realized": cons_real,
+            "duel_model": model_wins,
+            "duel_consensus": cons_wins,
+            "duel_label": label,
+            "json_path": f"/api/fpl/accuracy/gw{gw}.json",
+        })
+    return rows
+
+
+def _publish_accuracy(w) -> None:
+    """Publish the committed grading JSONs verbatim — the ledger's method note
+    says "grading JSONs public", so the FPL build ships every gw{N}.json at
+    /api/fpl/accuracy/gw{N}.json, byte-for-byte what the repo grades against."""
+    acc_dir = _accuracy_dir()
+    if not os.path.isdir(acc_dir):
+        return
+    for fname in sorted(os.listdir(acc_dir)):
+        if not (fname.startswith("gw") and fname.endswith(".json")
+                and fname[2:-5].isdigit()):
+            continue
+        with open(os.path.join(acc_dir, fname), encoding="utf-8") as fh:
+            w(f"/api/fpl/accuracy/{fname}", fh.read())
 
 
 def _copy_assets(out: str) -> None:

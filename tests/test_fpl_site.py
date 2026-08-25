@@ -474,12 +474,21 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.out, "js",
                                                     "players.js")))
 
-    def test_landing_carries_the_top_cards_module(self):
+    def test_landing_opens_with_the_full_top_cards_row(self):
+        """Owner correction 2026-08-25: FULL card faces at the very top —
+        above the duel strip and the hero article — not thumbnails."""
         html = self._read("/index.html")
-        self.assertIn("This week's top cards", html)
-        self.assertEqual(html.count('class="tc-card"'), 6)
+        self.assertIn("This week's top cards — from 50,000 simulations", html)
+        self.assertEqual(html.count('<figure class="player-card"'), 4)
+        self.assertNotIn("tc-card", html)               # thumbnails are gone
         self.assertIn('href="/fpl/players/"', html)
-        # the module's numbers are the feed's own top six by x_points
+        # the row renders BEFORE the duel strip and the featured article
+        row_at = html.find('<section class="top-cards-full">')
+        self.assertGreater(row_at, -1)
+        self.assertLess(row_at, html.find('<div class="duel">'))
+        self.assertLess(row_at, html.find('<section class="feat">'))
+        # the row's cards are the feed's own top four by x_points, each face
+        # linking to its player page
         feed = json.loads(self._read("/api/fpl/gw1/players.json"))
         top = sorted(feed["players"],
                      key=lambda p: (-p["x_points"], p["name"]))[0]
@@ -597,6 +606,31 @@ class TestGameweekBuild(unittest.TestCase):
         # domain for the post-deploy ping (scripts/indexnow_ping.py).
         key = wc_build.indexnow_key()
         self.assertEqual(self._read(f"/{key}.txt"), key + "\n")
+
+    def test_track_record_leads_with_the_fpl_ledger(self):
+        """Owner correction 2026-08-25 ("track record is still wc"): an FPL
+        build's /track-record/ opens with the graded FPL ledger, the WC
+        retrospective follows under its own heading, and the grading JSONs
+        ship verbatim under /api/fpl/accuracy/."""
+        html = self._read("/track-record/index.html")
+        fpl_at = html.find("FPL 2026/27 — the graded ledger")
+        wc_at = html.find("World Cup 2026 — the retrospective")
+        self.assertGreater(fpl_at, -1)
+        self.assertLess(fpl_at, wc_at)
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("<td>2.734</td>", html)
+        self.assertIn("65.92 → 44", html)
+        self.assertIn("60.74 → 53", html)
+        self.assertIn("0-1 (crowd leads)", html)
+        self.assertIn("Projections frozen pre-deadline; grading JSONs public",
+                      html)
+        # the linked grading JSON is the committed file, byte-for-byte
+        import evmax
+        src = os.path.join(os.path.dirname(os.path.abspath(evmax.__file__)),
+                           "assets", "accuracy", "gw1.json")
+        with open(src, encoding="utf-8") as fh:
+            self.assertEqual(self._read("/api/fpl/accuracy/gw1.json"),
+                             fh.read())
 
     def test_rate_page_serves_the_fpl_section(self):
         html = self._read("/rate/index.html")
@@ -1001,6 +1035,39 @@ class TestRatePageSection(unittest.TestCase):
         self.assertNotIn("data-unit", html)
         self.assertIn("manual subs are allowed up", html)
 
+    def test_fpl_rate_picker_is_a_pitch(self):
+        """Owner correction 2026-08-25 ("rate my team doesn't look like a
+        pitch"): the FPL picker lays the 15 slots out on the grass — position
+        rows on a half-pitch, bench strip below — while keeping the exact
+        slot/captain contract rate.js already reads."""
+        html = render.rate_page(1, section=render.FPL)
+        self.assertIn('class="pitch-picker" id="slot-grid"', html)
+        self.assertIn('class="pp-lines"', html)          # white markings SVG
+        self.assertIn(".pp-pitch{", html)                # pitch CSS shipped
+        self.assertIn("repeating-linear-gradient", html)  # mow-stripe grass
+        # position rows on the pitch, top to bottom, then the bench strip
+        order = [html.find(f'class="pp-row pp-{p}"')
+                 for p in ("fwd", "mid", "def", "gk")]
+        self.assertTrue(all(at > -1 for at in order))
+        self.assertEqual(order, sorted(order))
+        self.assertLess(order[-1], html.find('class="pp-bench"'))
+        # the same 11+4 slot contract rate.js reads, captain radios 0..10
+        self.assertEqual(html.count('data-bench="0"'), 11)
+        self.assertEqual(html.count('data-bench="1"'), 4)
+        for v in range(11):
+            self.assertIn(f'name="cap" value="{v}"', html)
+        # paste flow, no-JS fallback and the shared script all survive
+        self.assertIn("prefer to paste the whole squad as text?", html)
+        self.assertIn("<noscript>", html)
+        self.assertIn('<script src="/js/rate.js" defer></script>', html)
+
+    def test_wc_rate_page_carries_no_pitch_markup_or_css(self):
+        html = render.rate_page(5)
+        self.assertIn('class="slot-grid" id="slot-grid"', html)
+        self.assertNotIn("pitch-picker", html)
+        self.assertNotIn("pp-pitch", html)
+        self.assertNotIn("pp-bench", html)
+
     def test_rate_js_defaults_the_unit_to_round(self):
         """The shared rate.js must keep labelling WC results 'Round N' when the
         page carries no data-unit attribute."""
@@ -1101,3 +1168,85 @@ class TestPublishGate(unittest.TestCase):
                              sources=["https://example.test/press-conf"],
                              updated="2026-08-24")
         self._gate("i", notes={"Watkins": note})
+
+
+class TestFplTrackRecord(unittest.TestCase):
+    """Task 2026-08-25 (owner: "track record is still wc"): FPL builds render
+    /track-record/ with the graded FPL ledger FIRST, the WC retrospective
+    under its own heading; WC builds keep today's page byte-identical."""
+
+    def test_ledger_reads_the_committed_gw1_grading(self):
+        rows = fpl_build.fpl_track_ledger()
+        self.assertGreaterEqual(len(rows), 1)
+        gw1 = rows[0]
+        self.assertEqual(gw1["gw"], 1)
+        self.assertEqual(gw1["mae_ours"], 2.734)
+        self.assertIsNone(gw1["mae_ep_next"])
+        self.assertEqual(gw1["model_projected"], 65.92)
+        self.assertEqual(gw1["model_realized"], 44)
+        self.assertEqual(gw1["consensus_projected"], 60.74)
+        self.assertEqual(gw1["consensus_realized"], 53)
+        # GW1 went to the crowd: 44 < 53 official points
+        self.assertEqual(gw1["duel_model"], 0)
+        self.assertEqual(gw1["duel_consensus"], 1)
+        self.assertEqual(gw1["duel_label"], "crowd leads")
+        self.assertEqual(gw1["json_path"], "/api/fpl/accuracy/gw1.json")
+
+    def test_duel_score_is_running_across_gameweeks(self):
+        import os
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            for gw, ours, cons in ((1, 44, 53), (2, 70, 60), (3, 50, 50)):
+                with open(os.path.join(tmp, f"gw{gw}.json"), "w",
+                          encoding="utf-8") as fh:
+                    json.dump({"gameweek": gw, "mae_ours": 2.0,
+                               "mae_ep_next": 2.5,
+                               "squads": {
+                                   "our-squad": {"projected": 65.0,
+                                                 "realized_official": ours},
+                                   "consensus-squad": {"projected": 60.0,
+                                                       "realized_official": cons},
+                               }}, fh)
+            with mock.patch.object(fpl_build, "_accuracy_dir",
+                                   return_value=tmp):
+                rows = fpl_build.fpl_track_ledger()
+        self.assertEqual([(r["duel_model"], r["duel_consensus"],
+                           r["duel_label"]) for r in rows],
+                         [(0, 1, "crowd leads"), (1, 1, "level"),
+                          (1, 1, "level")])
+
+    def _page(self, fpl):
+        record = {"rounds": [], "summary": {"rounds_graded": 0,
+                                            "mean_captain_mae": None,
+                                            "mean_spearman": None,
+                                            "captain_regrets": []}}
+        return render.track_record_page(record, fpl=fpl)
+
+    def test_fpl_section_renders_first_with_the_gw1_row(self):
+        html = self._page(fpl_build.fpl_track_ledger())
+        fpl_at = html.find("FPL 2026/27 — the graded ledger")
+        wc_at = html.find("World Cup 2026 — the retrospective")
+        stand_at = html.find("Before every round locks")
+        self.assertGreater(fpl_at, -1)
+        self.assertGreater(wc_at, -1)
+        # FPL first; the existing WC record under its own heading
+        self.assertLess(fpl_at, wc_at)
+        self.assertLess(wc_at, stand_at)
+        # the graded GW1 row, exactly as banked
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("<td>2.734</td>", html)
+        self.assertIn("65.92 → 44", html)
+        self.assertIn("60.74 → 53", html)
+        self.assertIn("0-1 (crowd leads)", html)
+        # the one-line method note + public grading JSONs
+        self.assertIn("Projections frozen pre-deadline; grading JSONs public",
+                      html)
+        self.assertIn('href="/api/fpl/accuracy/gw1.json"', html)
+
+    def test_wc_page_is_byte_identical_without_a_ledger(self):
+        self.assertEqual(self._page(None), self._page([]))
+        html = self._page(None)
+        self.assertNotIn("FPL 2026/27", html)
+        self.assertNotIn("tr-section-h", html)
+        self.assertNotIn("/api/fpl/accuracy/", html)

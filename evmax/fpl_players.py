@@ -409,25 +409,6 @@ CARD_CSS = (
     "font-size:14.5px;font-variant-numeric:tabular-nums}"
     ".pd-table td:last-child{text-align:right;font-weight:700}"
     ".pc-provenance{font-size:13px;color:var(--ink3);margin:14px 0}"
-    # -- "this week's top cards" landing module ------------------------------
-    ".tc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;"
-    "margin-top:8px}"
-    ".tc-card{background:var(--surf);border:1px solid var(--line);"
-    "border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;"
-    "gap:4px;transition:border-color .12s,transform .12s}"
-    ".tc-card:hover{border-color:var(--green);transform:translateY(-2px)}"
-    ".tc-card .tc-club{font-size:10.5px;font-weight:700;color:var(--ink3);"
-    "text-transform:uppercase;letter-spacing:.8px;display:flex;"
-    "justify-content:space-between;align-items:center}"
-    ".tc-card h3{font-family:var(--serif),Georgia,serif;font-size:17px;"
-    "font-weight:700;letter-spacing:-.2px}"
-    ".tc-card .tc-xp{font-family:var(--serif),Georgia,serif;font-size:20px;"
-    "font-weight:700;color:var(--greend);font-variant-numeric:tabular-nums}"
-    ".tc-card .tc-xp span{font-size:10.5px;color:var(--ink3);font-weight:600;"
-    "text-transform:uppercase;letter-spacing:.5px;margin-left:5px}"
-    ".tc-all{margin:14px 0 4px;font-size:13.5px;font-weight:600}"
-    ".tc-all a{color:var(--green)}"
-    "@media(max-width:760px){.tc-grid{grid-template-columns:repeat(2,1fr)}}"
     # -- players index (search) ----------------------------------------------
     ".pi-search{margin:18px 0 8px}"
     "#player-search{width:100%;max-width:420px;font-family:var(--sans);"
@@ -450,6 +431,34 @@ CARD_CSS = (
 # =============================================================================
 # END CARD STYLE BLOCK
 # =============================================================================
+
+# Landing-only styles for the full-card top row (owner correction 2026-08-25:
+# the compact thumbnail module was rejected — "I wanted cards at the very top
+# really like trading cards as we designed"). Kept OUT of CARD_CSS so player
+# pages, which embed CARD_CSS via _page_shell, do not carry landing layout
+# rules. The row shows four full card_html faces: 4-up on desktop, 2x2 under
+# 900px, a horizontal scroller inside its own overflow container on mobile.
+TOP_CARDS_CSS = (
+    ".top-cards-full{margin:26px 0 6px}"
+    ".tcf-kicker{font-size:12px;font-weight:800;letter-spacing:2px;"
+    "text-transform:uppercase;color:var(--ink3)}"
+    ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
+    ".tcf-check a{color:var(--green)}"
+    ".tcf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;"
+    "margin-top:12px}"
+    ".tcf-row>a{display:block;color:inherit;text-decoration:none}"
+    ".tcf-row .player-card{margin:0;height:100%;"
+    "transition:border-color .12s,transform .12s}"
+    ".tcf-row>a:hover .player-card{border-color:var(--green);"
+    "transform:translateY(-2px)}"
+    # full faces at quarter width: scale the display type down a notch
+    ".tcf-row .pc-name{font-size:19px}"
+    ".tcf-row .pc-hero b{font-size:34px}"
+    "@media(max-width:900px){.tcf-row{grid-template-columns:repeat(2,1fr)}}"
+    "@media(max-width:600px){.tcf-row{display:flex;overflow-x:auto;"
+    "-webkit-overflow-scrolling:touch;padding-bottom:10px}"
+    ".tcf-row>a{flex:0 0 272px}}"
+)
 
 
 # --- HTML emitters ------------------------------------------------------------
@@ -681,28 +690,28 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'</figure>')
 
 
-def top_cards_html(payloads: list, count: int = 6) -> str:
-    """The FPL landing's "this week's top cards" module: compact thumbnails
-    for the top `count` by x_points, each opening the player page; the module
-    itself opens the searchable index (decision 2026-08-24)."""
+def top_cards_html(payloads: list, count: int = 4) -> str:
+    """The FPL landing's top-cards row: the FULL Ledger card face (card_html —
+    form-wave art, decomposition strip, stat rows, fixture chips, verdict,
+    premium slot) for the top `count` players by x_points, each face linking
+    to its player page. Rendered as the landing's FIRST content section (owner
+    correction 2026-08-25 — the compact thumbnail module was rejected). One
+    kicker line above the row, the "Check your player" link right under it.
+    Reuses card_html verbatim (heading="h2") — no second card implementation;
+    the size difference is TOP_CARDS_CSS only."""
     cards = []
     for p in payloads[:count]:
         cards.append(
-            f'<a class="tc-card" href="{page_path(p["slug"])}" '
-            f'data-id="{p["id"]}" data-tier="{p["verdict"]["tier"]}">'
-            f'<span class="tc-club">{_html.escape(p["team"] or "")} · '
-            f'{_html.escape(p["position"] or "")}'
-            f'<span class="pc-tier">{p["verdict"]["tier"]}</span></span>'
-            f'<h3>{_html.escape(p["name"])}</h3>'
-            f'<span class="tc-xp">{_fmt(p["projection"].get("x_points"))}'
-            f'<span>xPts</span></span>'
-            f'</a>')
+            f'<a href="{page_path(p["slug"])}" '
+            f'aria-label="{_html.escape(p["name"])} — full player card">'
+            f'{card_html(p, heading="h2")}</a>')
     return (
-        '<section class="top-cards">'
-        '<div class="pagelabel">This week\'s top cards</div>'
-        f'<div class="tc-grid">{"".join(cards)}</div>'
-        f'<p class="tc-all"><a href="{PLAYERS_BASE}/">Check your player — '
+        '<section class="top-cards-full">'
+        '<div class="tcf-kicker">This week\'s top cards — from 50,000 '
+        'simulations</div>'
+        f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your player — '
         'search all cards →</a></p>'
+        f'<div class="tcf-row">{"".join(cards)}</div>'
         '</section>')
 
 
