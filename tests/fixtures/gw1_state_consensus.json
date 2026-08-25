@@ -1,0 +1,25 @@
+{
+  "team_name": "The Consensus XI",
+  "strategy": "consensus",
+  "free_transfers": 1,
+  "chips_used": [],
+  "source_count": 7,
+  "aliases": {"Sangaré": "I.Sangaré"},
+  "squad": [
+    {"name": "Verbruggen", "position": "GK", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Mosquera", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Calafiori", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Shaw", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "B.Fernandes", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": true},
+    {"name": "Mbeumo", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Szoboszlai", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Groß", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Sangaré", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Haaland", "position": "FWD", "is_starter": true, "bench_order": null, "is_captain": true, "is_vice": false},
+    {"name": "João Pedro", "position": "FWD", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Kinsky", "position": "GK", "is_starter": false, "bench_order": 1, "is_captain": false, "is_vice": false},
+    {"name": "Hume", "position": "DEF", "is_starter": false, "bench_order": 2, "is_captain": false, "is_vice": false},
+    {"name": "Calvert-Lewin", "position": "FWD", "is_starter": false, "bench_order": 3, "is_captain": false, "is_vice": false},
+    {"name": "Diop", "position": "DEF", "is_starter": false, "bench_order": 4, "is_captain": false, "is_vice": false}
+  ]
+}

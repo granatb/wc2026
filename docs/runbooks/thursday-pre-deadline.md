@@ -156,3 +156,28 @@ routine has earned trust.
   stop before deploy and post the five-line summary".
 - Plain cron (local, mac): `0 9 * * 4 cd ~/personal/projects/wc2026 && python3 -m core.fpl_diff >> data/fpl/diff.log 2>&1`
   (the diff only — research and publish stay human-triggered).
+
+## Source rolodex (which tool answers which question)
+
+| Question | Source | Notes |
+|---|---|---|
+| Predicted lineups / xMins | fpl.team (fetchable), Hive League (JS-only — read via owner's Chrome) | two agreeing sources = strong override |
+| Injuries + return dates | premierinjuries.com (403 to fetchers — via Dinnery/FFS coverage), @BenDinnery | official feed `status`/`news` is the floor, not the ceiling |
+| Blank/double GW schedule | @BenCrellin | seasonal read, chip planning |
+| Top-10k EO | LiveFPL | consensus/rank context, cite in notes |
+| Price-change timing | Fix / WhatTheFPL predictors | glance only; informs sell-timing, never a build input |
+| Everything else | official feed first, always | names/clubs re-validated every build |
+
+## Hard rules learned the expensive way
+
+1. **Recency check on every verdict driving a sale**: search "<player> news today";
+   timestamp every source; a 24h-old freeze-out story missed a return-to-training.
+2. **Verdicts are probability ranges, not words**: "treat as OUT" hid a 0.40.
+3. **Never quote the GW average mid-gameweek** (36 mid-week became 50 final).
+4. **Season-rollover rates**: after GW1 the bootstrap's per-90s are current-season
+   noise. Until the priors blend historical rates properly (pre-GW3 task), merge
+   preseason rates + live fields before simulating (see season-learnings 08-25).
+5. **Out-flow spikes get investigated, not obeyed**: 117k sold Bruno after one
+   blank at Hull; 90 clean minutes, no news — panic, not information.
+6. **Cadence (owner 2026-08-24)**: next GW's articles publish once the previous
+   GW closes (Monday run); Thursday finalizes and freezes at the deadline.

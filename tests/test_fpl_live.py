@@ -397,8 +397,11 @@ class TestReferenceTruthGW1(unittest.TestCase):
                      "Shaw": 1}
 
     def _published_state(self):
-        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-        with open(os.path.join(root, "games", "fpl", "state.json"),
+        # The GW1 state as published, frozen as a fixture — the live state
+        # file mutates weekly (lineups, transfers) and must not move this
+        # reference truth.
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "fixtures", "gw1_state_model.json"),
                   encoding="utf-8") as fh:
             return json.load(fh)
 

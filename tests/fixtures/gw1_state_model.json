@@ -1,0 +1,24 @@
+{
+  "team_name": "The Model XI",
+  "strategy": "model",
+  "free_transfers": 1,
+  "chips_used": [],
+  "aliases": {},
+  "squad": [
+    {"name": "Raya", "position": "GK", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Virgil", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Senesi", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Tarkowski", "position": "DEF", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "B.Fernandes", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": true, "is_vice": false},
+    {"name": "Ndiaye", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Gibbs-White", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "E.Le Fée", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Szoboszlai", "position": "MID", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Thiago", "position": "FWD", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": true},
+    {"name": "Watkins", "position": "FWD", "is_starter": true, "bench_order": null, "is_captain": false, "is_vice": false},
+    {"name": "Sánchez", "position": "GK", "is_starter": false, "bench_order": 1, "is_captain": false, "is_vice": false},
+    {"name": "N.Williams", "position": "DEF", "is_starter": false, "bench_order": 2, "is_captain": false, "is_vice": false},
+    {"name": "Calvert-Lewin", "position": "FWD", "is_starter": false, "bench_order": 3, "is_captain": false, "is_vice": false},
+    {"name": "Shaw", "position": "DEF", "is_starter": false, "bench_order": 4, "is_captain": false, "is_vice": false}
+  ]
+}

@@ -93,6 +93,12 @@ def dossier_gate(gameweek: int, states: dict, all_players: list,
     """The publish gate (spec D1): abort unless every red-flagged player in
     BOTH published squads is covered by a sourced, dated research note.
 
+    Applies to OPEN gameweeks only: once a gameweek is graded (its accuracy
+    record exists under evmax/assets/accuracy/), it is frozen history and a
+    rebuild must not be re-judged against a LATER feed snapshot — round-scoped
+    notes cannot answer for events that happened after the deadline. The gate
+    protects new claims, not archives.
+
     Assembles a dossier for every squad member (games/fpl/dossier) from the
     live bootstrap, the priors' start probabilities and the feed-snapshot
     flags (core/fpl_diff), then refuses the build listing every failing
@@ -416,7 +422,13 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     states = load_states(all_players)
     # The publish gate (spec D1): no red-flagged player ships without a
     # sourced note. Runs on BOTH squads before any simulation is spent.
-    dossier_gate(gameweek, states, all_players, priors_by_team, boot)
+    _acc = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "evmax", "assets", "accuracy", f"gw{gameweek}.json")
+    if os.path.exists(_acc):
+        print(f"  [fpl] gameweek {gameweek} is graded history — publish gate "
+              f"applies to open gameweeks only, skipping")
+    else:
+        dossier_gate(gameweek, states, all_players, priors_by_team, boot)
 
     # The live "so far" layer (phase 4c): realized points NEXT TO the frozen
     # projections. Article bodies stay frozen — live data reaches exactly two

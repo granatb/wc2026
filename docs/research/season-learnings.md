@@ -109,3 +109,34 @@ graded players (noise ceiling ≈2.8; small sample).
   frozen snapshots. Fix needed: grading refresh must touch only the live cache, or
   the Monday runbook must restore the frozen bootstrap before rebuilding (done
   manually this week; make structural before GW3).
+
+- Mistake (owner-caught): our own "best value in the game" call (Calafiori, 0.931
+  pts/£m) was never in the Model squad — the squad was optimized BEFORE the
+  expert-corpus notes upgraded his minutes (0.58 proxy → 0.85), and selection was
+  never re-run after the notes landed. The consensus squad got him via the experts
+  directly; he scored 9. Root cause: optimize-then-research ordering. Fix: the
+  Thursday runbook hard-orders research → notes → optimize → gate; a post-notes
+  re-optimization is now structurally guaranteed. (GW1, entry added 2026-08-25.)
+
+## GW2 preparation (2026-08-25)
+
+- Bug: season rollover broke priors — post-GW1 bootstrap carries current-season
+  per-90s (1-game noise) and team_matches=38 assumption; De Cuyper projected 12.3,
+  300 cold-starts incl. Saliba. Interim fix: merge preseason rates + live fields.
+  Structural fix (pre-GW3): priors blend element-summary history with current
+  season by minutes.
+- Gate catch #1: 117k/110k/83k out-spikes on Bruno/Mbeumo/DCL — investigated, all
+  90 clean minutes, panic selling; held with documented notes.
+- Gate catch #2: consensus template reset imported Hughes (0 GW1 minutes, 49k
+  correcting owners) from raw ownership — replaced with evidenced Slater;
+  consensus.py should gain an evidence filter (minutes > 0) next revision.
+- Gate semantics fixed: graded gameweeks skip the gate (frozen history must not be
+  re-judged against later snapshots).
+- Owner recency correction: Watkins "treat as OUT" was 24h stale (returned to
+  training + apology); rewritten as 0.40 with both-sides sources. Recency rule
+  added to runbook.
+- Decision: FT BANKED (2 next week, window closes Sept 1 = full information);
+  risks handled free: DCL→XI over Gibbs-White (knee, 0.55), vice→Szoboszlai,
+  bench order re-tuned. Optimizer confirmed: all GW-W sales horizon-negative.
+- Tests decoupled from weekly state content (GW1 reference truths frozen as
+  fixtures) — state files mutate weekly by design.
