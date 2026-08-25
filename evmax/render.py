@@ -2002,7 +2002,7 @@ def squad_live_panel_html(grade: dict, fetched_at: str) -> str:
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
                  available_rounds=None, live_xi=None, duel=None, section=WC,
-                 pre_feed_html="", extra_style=""):
+                 pre_feed_html="", extra_style="", pre_content_html=""):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2014,10 +2014,14 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
               the main content in a two-column grid (single column on mobile,
               with the aside placed after the main content).
     pre_feed_html / extra_style: an optional module rendered above the feed
-              ("this week's top cards" on the FPL landing) and the style block
-              it needs (fpl_players.CARD_CSS). Both default to "" so every
+              and the style block it needs. Both default to "" so every
               existing call site — the whole World Cup tree — keeps producing
               byte-identical pages, same contract as `duel`.
+    pre_content_html: an optional module rendered as the page's very FIRST
+              content section, above everything else in the wrap — the FPL
+              landing's full top-cards row (owner correction 2026-08-25: the
+              cards go at the very top, above the duel strip and the hero
+              article). Defaults to "" — World Cup landings byte-identical.
     """
     og_block = _og_meta(
         f"{section.label} {section.kicker(round_no)} — simulation-based picks",
@@ -2111,7 +2115,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
 </div></header>
 <div class="wrap">
-{body_content}
+{pre_content_html}{body_content}
 </div>
 {_footer_html()}</body></html>"""
 

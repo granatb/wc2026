@@ -696,9 +696,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
                                   duel=duel, section=section,
-                                  pre_feed_html=fpl_players.top_cards_html(
+                                  pre_content_html=fpl_players.top_cards_html(
                                       payloads),
-                                  extra_style=fpl_players.CARD_CSS)
+                                  extra_style=(fpl_players.CARD_CSS +
+                                               fpl_players.TOP_CARDS_CSS))
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at

@@ -474,12 +474,21 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.out, "js",
                                                     "players.js")))
 
-    def test_landing_carries_the_top_cards_module(self):
+    def test_landing_opens_with_the_full_top_cards_row(self):
+        """Owner correction 2026-08-25: FULL card faces at the very top —
+        above the duel strip and the hero article — not thumbnails."""
         html = self._read("/index.html")
-        self.assertIn("This week's top cards", html)
-        self.assertEqual(html.count('class="tc-card"'), 6)
+        self.assertIn("This week's top cards — from 50,000 simulations", html)
+        self.assertEqual(html.count('<figure class="player-card"'), 4)
+        self.assertNotIn("tc-card", html)               # thumbnails are gone
         self.assertIn('href="/fpl/players/"', html)
-        # the module's numbers are the feed's own top six by x_points
+        # the row renders BEFORE the duel strip and the featured article
+        row_at = html.find('<section class="top-cards-full">')
+        self.assertGreater(row_at, -1)
+        self.assertLess(row_at, html.find('<div class="duel">'))
+        self.assertLess(row_at, html.find('<section class="feat">'))
+        # the row's cards are the feed's own top four by x_points, each face
+        # linking to its player page
         feed = json.loads(self._read("/api/fpl/gw1/players.json"))
         top = sorted(feed["players"],
                      key=lambda p: (-p["x_points"], p["name"]))[0]

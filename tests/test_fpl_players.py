@@ -371,9 +371,12 @@ class TestCardHtml(unittest.TestCase):
             src = fh.read()
         self.assertIn("CARD STYLE — DIRECTION", src)    # the marked block
         self.assertIn(".player-card{", fpl_players.CARD_CSS)
-        self.assertIn(".tc-card{", fpl_players.CARD_CSS)
         self.assertIn(".pd-table{", fpl_players.CARD_CSS)
         self.assertIn(".pc-premium", fpl_players.CARD_CSS)
+        # landing-row layout lives in its own block so player pages (which
+        # embed CARD_CSS) never carry landing rules — and vice versa
+        self.assertIn(".tcf-row{", fpl_players.TOP_CARDS_CSS)
+        self.assertNotIn(".tcf-row", fpl_players.CARD_CSS)
 
 
 class TestPlayerPage(unittest.TestCase):
@@ -465,20 +468,43 @@ class TestTierPage(unittest.TestCase):
 
 
 class TestTopCards(unittest.TestCase):
-    def test_top_six_by_x_points_linking_to_pages(self):
-        rows = _pool(8)
+    """Owner correction 2026-08-25: the landing's top-cards row shows the
+    FULL card_html face for the top four — not compact thumbnails."""
+
+    def _payloads(self, n=8):
+        rows = _pool(n)
         by_name = {r["name"]: {"id": i} for i, r in enumerate(rows)}
         by_id = {i: {"id": i, "web_name": r["name"], "status": "a", "news": "",
                      "total_points": 0, "event_points": 0, "minutes": 0}
                  for i, r in enumerate(rows)}
         payloads, _ = fpl_players.assemble_payloads(
             rows, by_name, by_id, {}, {}, None, [], {}, 2, "t")
-        html = fpl_players.top_cards_html(payloads)
-        self.assertIn("This week's top cards", html)
-        self.assertEqual(html.count('class="tc-card"'), 6)
+        return payloads
+
+    def test_top_four_full_faces_linking_to_pages(self):
+        html = fpl_players.top_cards_html(self._payloads())
+        # four FULL card faces — the same figure card_html emits
+        self.assertEqual(html.count('<figure class="player-card"'), 4)
         self.assertIn('href="/fpl/players/0-p00/"', html)
-        self.assertNotIn(">P07<", html)                  # 7th does not render
+        self.assertNotIn(">P04<", html)                  # 5th does not render
+        # full-face internals present (not the rejected thumbnail module)
+        self.assertIn("pc-statrow", html)
+        self.assertIn("pc-verdict", html)
+        self.assertIn("pc-premium", html)
+        self.assertNotIn("tc-card", html)
+
+    def test_kicker_line_and_check_your_player_link(self):
+        html = fpl_players.top_cards_html(self._payloads())
+        self.assertIn("This week's top cards — from 50,000 simulations", html)
         self.assertIn('href="/fpl/players/"', html)      # opens the index
+        # the kicker renders before the row, the link right under the kicker
+        self.assertLess(html.find("tcf-kicker"), html.find("tcf-check"))
+        self.assertLess(html.find("tcf-check"), html.find("tcf-row"))
+
+    def test_embedded_faces_use_h2_not_h1(self):
+        html = fpl_players.top_cards_html(self._payloads())
+        self.assertIn('<h2 class="pc-name">', html)
+        self.assertNotIn("<h1", html)
 
 
 class TestPlayersJs(unittest.TestCase):
