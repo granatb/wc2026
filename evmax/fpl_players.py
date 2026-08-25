@@ -11,14 +11,16 @@ Pure emitters + pure assembly only (mirrors evmax/render.py): the build
 (evmax/fpl_build.py) does all I/O and hands everything in. No network, no
 disk reads here.
 
-DESIGN STATUS: the card face is a deliberate PLACEHOLDER. A separate design
-pass will restyle it into the generative stat-art identity (owner decision
-2026-08-24: card art drawn from the player's own sim data — no photos, no AI
-likenesses, no crests/kits; club colors as accents only). To keep that pass
-surgical:
+DESIGN STATUS: the card face implements direction "A — Ledger" (owner
+decision 2026-08-24): site-native editorial — paper/ink/green tokens, serif
+name and hero number, an area-chart of the six-week vector as the stat-art
+element (data-drawn, layered to suggest the simulation cloud), a
+decomposition strip, difficulty-tinted fixture chips, and club SHORT-CODES in
+club color only (no photos, no AI likenesses, no crests/kits — the legal line
+from the same decision). The wordmark/logo is untouched site-wide.
   * ALL card styling lives in the single CARD_CSS block below;
   * the card markup (card_html) is semantic — figure.player-card with data-*
-    attributes carrying the stats — so a restyle never has to touch the data.
+    attributes carrying the stats — so any further restyle never touches data.
 """
 from __future__ import annotations
 
@@ -297,75 +299,106 @@ def player_json(payload: dict, methodology: str, site_url: str,
 
 
 # =============================================================================
-# CARD STYLE — PLACEHOLDER, THE DESIGN PASS STARTS HERE
+# CARD STYLE — DIRECTION "A: LEDGER" (owner decision 2026-08-24)
 # =============================================================================
-# TODO(design pass): restyle into the generative stat-art identity (decision
-# 2026-08-24). Everything visual about the card, the top-cards landing module,
-# the players index and the tier boards lives in THIS ONE BLOCK — site palette
-# only (paper --bg/--surf, ink --ink*, green --green accents), no images, no
-# club assets. The markup below is semantic and carries the stats as data-*
-# attributes, so the restyle should not need to touch any emitter.
+# Everything visual about the card, the top-cards landing module, the players
+# index and the tier boards lives in THIS ONE BLOCK — site palette only (paper
+# --bg/--surf, ink --ink*, green --green accents), club COLOR only (the
+# .club-* classes below), no images, no club assets. The markup in card_html
+# is semantic and carries the stats as data-* attributes, so any further
+# restyle should not need to touch any emitter.
 # =============================================================================
+
+# Club short-code accent colors (color only — never a crest or kit design,
+# per the stat-art decision). Light kit colors are darkened for contrast on
+# the paper background; an unmapped club falls back to var(--ink2).
+CLUB_COLORS = {
+    "ARS": "#c2000b", "AVL": "#670e36", "BOU": "#b3001e", "BRE": "#c30610",
+    "BHA": "#0057b8", "BUR": "#6c1d45", "CHE": "#034694", "CRY": "#1b458f",
+    "EVE": "#003399", "FUL": "#15140f", "LEE": "#9c7c00", "LIV": "#c8102e",
+    "MCI": "#1e6f9c", "MUN": "#b7000f", "NEW": "#241f20", "NFO": "#b30000",
+    "SUN": "#c8102e", "TOT": "#132257", "WHU": "#7a263a", "WOL": "#a87c00",
+}
+
+# Decomposition strip segment colors (spec: #0f7a45/#3E8E8C/#A8925A/#C9A227).
+_DECOMP_SEGMENTS = (
+    ("attack", "#0f7a45", "Goals, assists & appearance"),
+    ("cs", "#3e8e8c", "Clean sheets (per-match est.)"),
+    ("defcon", "#a8925a", "Defensive contribution (per-match est.)"),
+    ("bonus", "#c9a227", "Bonus (per-match est.)"),
+)
+
 CARD_CSS = (
     # -- the card face (player pages + anything embedding card_html) --------
     ".player-card{background:var(--surf);border:1px solid var(--line);"
-    "border-radius:16px;padding:22px 24px;margin:6px 0 26px}"
-    ".player-card .pc-head{display:flex;align-items:baseline;gap:12px;"
-    "flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}"
-    ".player-card .pc-name{font-size:clamp(26px,4vw,36px);font-weight:800;"
-    "letter-spacing:-1px;line-height:1.05;margin:0}"
-    ".player-card .pc-club{font-size:13px;font-weight:700;color:var(--ink3);"
-    "text-transform:uppercase;letter-spacing:1px}"
-    ".player-card .pc-price{font-size:13px;font-weight:700;color:var(--ink2);"
-    "margin-left:auto;font-variant-numeric:tabular-nums}"
-    ".pc-tier{display:inline-flex;align-items:center;justify-content:center;"
-    "min-width:30px;height:30px;border-radius:8px;background:var(--green);"
-    "color:#fff;font-weight:800;font-size:15px;padding:0 8px}"
-    ".pc-call{font-size:11px;font-weight:800;text-transform:uppercase;"
-    "letter-spacing:1px;color:var(--greend);background:#eaf5ee;"
-    "border-radius:6px;padding:3px 8px}"
-    ".player-card .pc-stats{display:grid;"
-    "grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:14px;"
-    "padding:16px 0}"
-    ".player-card .pc-stat b{display:block;font-size:22px;font-weight:800;"
+    "border-radius:14px;padding:18px;margin:6px 0 26px;"
+    "box-shadow:0 1px 3px rgba(21,20,15,.08)}"
+    ".player-card .pc-head{display:block;margin:0}"
+    ".player-card .pc-toprow{display:flex;align-items:center;"
+    "justify-content:space-between;gap:10px;margin-bottom:10px}"
+    ".pc-tier{display:inline-flex;align-items:center;gap:6px;font-size:11px;"
+    "font-weight:800;letter-spacing:1.4px;text-transform:uppercase;"
+    "color:var(--greend);background:#eaf3ec;border-radius:8px;padding:4px 9px}"
+    ".player-card .pc-clubcode{font-size:12px;font-weight:800;"
+    "letter-spacing:1.6px;color:var(--ink2)}"
+    + "".join(f".player-card .club-{code}{{color:{color}}}"
+              for code, color in CLUB_COLORS.items()) +
+    ".player-card .pc-name{font-family:var(--serif),Georgia,serif;"
+    "font-size:25px;font-weight:700;line-height:1.1;margin:0;"
+    "letter-spacing:-.3px}"
+    ".player-card .pc-meta{font-size:12.5px;color:var(--ink3);margin-top:2px}"
+    ".player-card .pc-hero{display:flex;align-items:baseline;gap:7px;"
+    "margin:10px 0 4px}"
+    ".player-card .pc-hero b{font-family:var(--serif),Georgia,serif;"
+    "font-size:44px;font-weight:700;color:var(--greend);line-height:1;"
     "font-variant-numeric:tabular-nums}"
-    ".player-card .pc-stat span{font-size:11px;color:var(--ink3);"
-    "text-transform:uppercase;letter-spacing:.5px}"
+    ".player-card .pc-hero span{font-size:11px;font-weight:700;"
+    "letter-spacing:1px;text-transform:uppercase;color:var(--ink3)}"
     ".player-card .pc-news{font-size:13px;color:#a8331c;background:#fdeee9;"
-    "border-radius:8px;padding:8px 12px;margin-bottom:12px}"
-    # fixture strip
-    ".player-card .pc-fixtures{display:flex;gap:8px;flex-wrap:wrap;"
-    "padding:12px 0;border-top:1px solid var(--line)}"
-    ".player-card .fx{flex:1;min-width:96px;background:var(--chipbg);"
-    "border-radius:10px;padding:8px 10px;font-size:12px;color:var(--ink2)}"
-    ".player-card .fx b{display:block;font-size:14px;color:var(--ink)}"
-    ".player-card .fx .fx-diff{float:right;font-weight:800;"
+    "border-radius:8px;padding:8px 12px;margin:10px 0 2px}"
+    # form art: layered area chart of the six-week vector (the sim cloud)
+    ".player-card .pc-sixweek{margin:8px 0 2px}"
+    ".player-card .pc-sixweek svg{display:block;width:100%;height:60px}"
+    # decomposition strip: thin stacked segments, rounded
+    ".player-card .pc-decomp{display:flex;height:8px;border-radius:4px;"
+    "overflow:hidden;margin:10px 0 2px;background:var(--chipbg)}"
+    ".player-card .pc-decomp span{display:block;height:100%}"
+    + "".join(f".player-card .pcd-{key}{{background:{color}}}"
+              for key, color, _label in _DECOMP_SEGMENTS) +
+    # stat rows: ceiling · captain · own / season pts · realized · gap
+    ".player-card .pc-statrow{display:flex;justify-content:space-between;"
+    "gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);"
+    "margin-top:8px;font-variant-numeric:tabular-nums}"
+    ".player-card .pc-statrow b{font-weight:800;color:var(--ink)}"
+    ".player-card .pc-statrow.pc-statrow2{color:var(--ink3);margin-top:4px}"
+    # fixture strip: next-4 chips, difficulty tinted (green = easy per
+    # lambda, warm = hard, gray + dashed = unpriced)
+    ".player-card .pc-fixtures{display:flex;gap:6px;flex-wrap:wrap;"
+    "margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}"
+    ".player-card .fx{display:inline-flex;align-items:baseline;gap:6px;"
+    "font-size:11px;font-weight:700;border-radius:8px;padding:4px 9px;"
+    "background:var(--chipbg);color:var(--ink2)}"
+    ".player-card .fx i{font-style:normal;font-weight:600;font-size:10px;"
+    "color:var(--ink3)}"
+    ".player-card .fx-d1,.player-card .fx-d2{background:#eaf3ec;"
     "color:var(--greend)}"
-    ".player-card .fx .fx-diff.hard{color:var(--acc)}"
-    ".player-card .fx .fx-gw{color:var(--ink3)}"
-    # six-week vector
-    ".player-card .pc-sixweek{display:flex;gap:8px;flex-wrap:wrap;"
-    "padding:10px 0;font-size:12px;color:var(--ink3)}"
-    ".player-card .pc-sixweek b{font-size:14px;color:var(--ink);"
-    "font-variant-numeric:tabular-nums;display:block}"
-    # -- the premium slot region (decision 2026-08-24: reserved from day one,
-    #    ships ~GW10+; grayed "coming soon" until then) ----------------------
-    ".player-card .pc-premium{border-top:1px dashed var(--line);"
-    "padding-top:14px;margin-top:4px;opacity:.55}"
-    ".player-card .pc-premium .pc-premium-label{font-size:10.5px;"
-    "font-weight:800;text-transform:uppercase;letter-spacing:1px;"
-    "color:var(--ink3);background:var(--chipbg);border-radius:6px;"
-    "padding:2px 8px}"
-    ".player-card .pc-premium-slots{display:grid;"
-    "grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"
+    ".player-card .fx-d4,.player-card .fx-d5{background:#fdeee9;"
+    "color:#a8331c}"
+    ".player-card .fx-unpriced{background:var(--chipbg);color:var(--ink3);"
+    "border:1px dashed var(--line);font-weight:600}"
+    # verdict line
+    ".player-card .pc-verdict{font-size:12px;font-weight:800;"
+    "letter-spacing:1.2px;text-transform:uppercase;color:var(--green);"
+    "border-top:1px solid var(--line);margin-top:12px;padding-top:10px}"
+    # -- the premium slot (decision 2026-08-24: reserved from day one,
+    #    ships ~GW10+; muted + lock glyph until then) ------------------------
+    ".player-card .pc-premium{font-size:10.5px;font-weight:700;"
+    "letter-spacing:.6px;text-transform:uppercase;color:#b9b2a4;"
     "margin-top:10px}"
-    ".player-card .pc-premium-slot{border:1px dashed var(--line);"
-    "border-radius:10px;padding:14px;font-size:12.5px;color:var(--ink3);"
-    "text-align:center}"
-    ".player-card .pc-premium-slot .pc-dist-chart{height:44px;"
-    "border-radius:6px;background:repeating-linear-gradient(90deg,"
-    "var(--chipbg),var(--chipbg) 6px,var(--surf) 6px,var(--surf) 12px);"
-    "margin-bottom:8px}"
+    ".player-card .pc-premium .pc-lock{margin-right:5px}"
+    ".player-card .pc-premium .pc-dist-chart{height:14px;border-radius:4px;"
+    "background:repeating-linear-gradient(90deg,var(--chipbg),"
+    "var(--chipbg) 5px,var(--surf) 5px,var(--surf) 10px);margin-top:6px}"
     # -- player page below-the-card pieces ----------------------------------
     ".pd-table{width:100%;border-collapse:collapse;margin:8px 0 6px;"
     "font-family:var(--sans)}"
@@ -386,9 +419,10 @@ CARD_CSS = (
     ".tc-card .tc-club{font-size:10.5px;font-weight:700;color:var(--ink3);"
     "text-transform:uppercase;letter-spacing:.8px;display:flex;"
     "justify-content:space-between;align-items:center}"
-    ".tc-card h3{font-size:16px;font-weight:800;letter-spacing:-.3px}"
-    ".tc-card .tc-xp{font-size:19px;font-weight:800;color:var(--green);"
-    "font-variant-numeric:tabular-nums}"
+    ".tc-card h3{font-family:var(--serif),Georgia,serif;font-size:17px;"
+    "font-weight:700;letter-spacing:-.2px}"
+    ".tc-card .tc-xp{font-family:var(--serif),Georgia,serif;font-size:20px;"
+    "font-weight:700;color:var(--greend);font-variant-numeric:tabular-nums}"
     ".tc-card .tc-xp span{font-size:10.5px;color:var(--ink3);font-weight:600;"
     "text-transform:uppercase;letter-spacing:.5px;margin-left:5px}"
     ".tc-all{margin:14px 0 4px;font-size:13.5px;font-weight:600}"
@@ -426,16 +460,128 @@ def _fmt(v, digits: int = 2) -> str:
     return f"{v:.{digits}f}" if isinstance(v, float) else str(v)
 
 
+def _smooth_path(points: list) -> str:
+    """Catmull-Rom-derived cubic Bezier path through `points` [(x, y), ...].
+    Pure geometry, deterministic, no dependencies."""
+    if len(points) < 2:
+        return ""
+    d = [f"M{points[0][0]:.1f},{points[0][1]:.1f}"]
+    n = len(points)
+    for i in range(n - 1):
+        p0 = points[i - 1] if i > 0 else points[i]
+        p1, p2 = points[i], points[i + 1]
+        p3 = points[i + 2] if i + 2 < n else p2
+        c1 = (p1[0] + (p2[0] - p0[0]) / 6.0, p1[1] + (p2[1] - p0[1]) / 6.0)
+        c2 = (p2[0] - (p3[0] - p1[0]) / 6.0, p2[1] - (p3[1] - p1[1]) / 6.0)
+        d.append(f"C{c1[0]:.1f},{c1[1]:.1f} {c2[0]:.1f},{c2[1]:.1f} "
+                 f"{p2[0]:.1f},{p2[1]:.1f}")
+    return "".join(d)
+
+
+# Form-art geometry: 300x60 viewBox, 4 layers. The jitter is a fixed
+# sinusoid per (layer, index) — deterministic, so a rebuild with unchanged
+# inputs emits byte-identical pages (no RNG anywhere in the site layer).
+_FORM_W, _FORM_H, _FORM_TOP = 300.0, 60.0, 8.0
+_FORM_LAYERS = 4
+_FORM_JITTER = 0.10
+
+
+def _form_svg(six_week: dict) -> str:
+    """The card's stat-art element: a layered area chart of the six-week
+    xPts vector — the extra translucent layers suggest the simulation cloud
+    around the central estimate. Returns "" when there is nothing to draw."""
+    import math
+
+    try:
+        series = sorted(((int(k), float(v)) for k, v in six_week.items()),
+                        key=lambda kv: kv[0])
+    except (TypeError, ValueError):
+        return ""
+    if len(series) < 2:
+        return ""
+    gws = [gw for gw, _v in series]
+    values = [v for _gw, v in series]
+
+    layers = [values]
+    for k in range(1, _FORM_LAYERS):
+        layers.append([v * (1 + _FORM_JITTER * math.sin(i * 2.399 + k * 1.913))
+                       for i, v in enumerate(values)])
+    vmax = max(v for layer in layers for v in layer)
+    if vmax <= 0:
+        return ""
+
+    step = _FORM_W / (len(values) - 1)
+    usable = _FORM_H - _FORM_TOP - 4.0
+
+    def pts(layer):
+        return [(i * step,
+                 _FORM_H - 4.0 - (v / vmax) * usable)
+                for i, v in enumerate(layer)]
+
+    shapes = []
+    for k, layer in enumerate(reversed(layers)):        # cloud first, line last
+        is_line = (k == _FORM_LAYERS - 1)               # the true series
+        path = _smooth_path(pts(layer))
+        area = f"{path}L{_FORM_W:.1f},{_FORM_H:.1f}L0,{_FORM_H:.1f}Z"
+        if is_line:
+            shapes.append(f'<path d="{area}" fill="#0f7a45" '
+                          f'fill-opacity=".16" stroke="none"/>')
+            shapes.append(f'<path d="{path}" fill="none" stroke="#0a4f2d" '
+                          f'stroke-width="1.5"/>')
+        else:
+            shapes.append(f'<path d="{area}" fill="#0f7a45" '
+                          f'fill-opacity=".08" stroke="none"/>')
+    ticks = (f'<text x="1" y="{_FORM_H - 1:.0f}" font-size="9" '
+             f'fill="#8a8275">GW{gws[0]}</text>'
+             f'<text x="{_FORM_W - 1:.0f}" y="{_FORM_H - 1:.0f}" '
+             f'font-size="9" text-anchor="end" fill="#8a8275">'
+             f'GW{gws[-1]}</text>')
+    title = " · ".join(f"GW{gw} {v:.2f}" for gw, v in series)
+    return (f'<svg viewBox="0 0 {_FORM_W:.0f} {_FORM_H:.0f}" '
+            f'preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" '
+            f'role="img" aria-label="Six-gameweek expected-points form">'
+            f'<title>{_html.escape(title)}</title>{"".join(shapes)}{ticks}'
+            f'</svg>')
+
+
+def _decomp_html(proj: dict) -> str:
+    """The decomposition strip: thin stacked segments of the projection.
+    cs/defcon/bonus are per-match estimates (games/fpl/model._derive_row's
+    unit warning) — the title attrs say so; the attack segment is the
+    remainder. Skipped entirely when x_points isn't positive."""
+    xp = proj.get("x_points") or 0.0
+    if xp <= 0:
+        return ""
+    parts = {"cs": max(proj.get("cs_points") or 0.0, 0.0),
+             "defcon": max(proj.get("defcon") or 0.0, 0.0),
+             "bonus": max(proj.get("bonus") or 0.0, 0.0)}
+    parts["attack"] = max(xp - sum(parts.values()), 0.0)
+    total = sum(parts.values())
+    if total <= 0:
+        return ""
+    spans = []
+    for key, _color, label in _DECOMP_SEGMENTS:
+        v = parts[key]
+        if v <= 0:
+            continue
+        spans.append(f'<span class="pcd-{key}" '
+                     f'style="width:{v / total * 100:.1f}%" '
+                     f'title="{_html.escape(label)} — {v:.2f} xPts"></span>')
+    return (f'<div class="pc-decomp" role="img" aria-label="Projection '
+            f'decomposition">{"".join(spans)}</div>')
+
+
 def card_html(payload: dict, heading: str = "h1") -> str:
-    """The card face: semantic figure.player-card, stats duplicated as data-*
-    attributes so scripts/design tooling can read them without parsing text.
-    `heading` is the element used for the player name — "h1" on his own page.
-    """
+    """The card face (direction A — Ledger): semantic figure.player-card,
+    stats duplicated as data-* attributes so scripts/design tooling can read
+    them without parsing text. `heading` is the element used for the player
+    name — "h1" on his own page, "h2" when embedded elsewhere."""
     proj = payload["projection"]
     season = payload["season"]
     ranks = payload["ranks"]
     verdict = payload["verdict"]
     name = _html.escape(payload["name"])
+    team = payload["team"] or ""
     gap = ranks["own_vs_xpts_gap"]
 
     news_html = ""
@@ -443,59 +589,74 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         news_html = (f'<p class="pc-news">{_html.escape(payload["news"])}'
                      f' <small>(status: {_html.escape(payload["status"])})</small></p>')
 
-    stats = [
-        (_fmt(proj.get("x_points")), "xPts this GW"),
-        (_fmt(proj.get("captain_ev")), "Captain EV"),
-        (_fmt(proj.get("ceiling")), "Ceiling"),
-        (_fmt(proj.get("value"), 3), "Projected pts/£m"),
-        (f'{_fmt(payload.get("ownership_pct"), 1)}%', "Owned"),
-        (f"{gap:+d}", "Own vs xPts rank"),
-        (str(season["total_points"]), "Season pts"),
-        (_fmt(season["realized_ppm"]), "Realized pts/£m"),
-    ]
-    stats_html = "".join(
-        f'<div class="pc-stat"><b>{v}</b><span>{label}</span></div>'
-        for v, label in stats)
+    club_cls = f" club-{team}" if team in CLUB_COLORS else ""
+    head_html = (
+        f'<figcaption class="pc-head">'
+        f'<div class="pc-toprow">'
+        f'<span class="pc-tier">Tier {verdict["tier"]} · '
+        f'{verdict["price_band"]}</span>'
+        f'<span class="pc-clubcode{club_cls}">{_html.escape(team)}</span>'
+        f'</div>'
+        f'<{heading} class="pc-name">{name}</{heading}>'
+        f'<div class="pc-meta">{_html.escape(payload["position"] or "")} · '
+        f'£{_fmt(payload["price"], 1)}m · Gameweek {payload["gameweek"]}</div>'
+        f'</figcaption>')
+
+    hero_html = (f'<div class="pc-hero"><b>{_fmt(proj.get("x_points"))}</b>'
+                 f'<span>xPts this gameweek</span></div>')
+
+    sw_html = ""
+    if payload.get("six_week_xpts"):
+        svg = _form_svg(payload["six_week_xpts"])
+        if svg:
+            sw_html = f'<div class="pc-sixweek">{svg}</div>'
+
+    statrow = (
+        f'<div class="pc-statrow">'
+        f'<span>ceiling <b>{_fmt(proj.get("ceiling"))}</b></span>'
+        f'<span>captain EV <b>{_fmt(proj.get("captain_ev"))}</b></span>'
+        f'<span>owned <b>{_fmt(payload.get("ownership_pct"), 1)}%</b></span>'
+        f'</div>'
+        f'<div class="pc-statrow pc-statrow2">'
+        f'<span>season <b>{season["total_points"]} pts</b></span>'
+        f'<span>realized <b>{_fmt(season["realized_ppm"])} pts/£m</b></span>'
+        f'<span>own vs xPts rank <b>{gap:+d}</b></span>'
+        f'</div>')
 
     fx_html = ""
     if payload["fixtures"]:
         cells = []
         for f in payload["fixtures"]:
-            diff = (f'<span class="fx-diff'
-                    f'{" hard" if (f["difficulty"] or 0) >= 4 else ""}">'
-                    f'{f["difficulty"] if f["difficulty"] is not None else "·"}'
-                    f'</span>')
+            if f["difficulty"] is None:
+                cls, dattr = "fx-unpriced", ""
+                title = f'GW{f["gw"]} · unpriced'
+            else:
+                cls, dattr = f'fx-d{f["difficulty"]}', f["difficulty"]
+                title = (f'GW{f["gw"]} · difficulty {f["difficulty"]}/5 '
+                         f'({f["source"]})')
             cells.append(
-                f'<div class="fx" data-gw="{f["gw"]}" '
-                f'data-difficulty="{f["difficulty"] if f["difficulty"] is not None else ""}" '
-                f'data-source="{_html.escape(f["source"])}">{diff}'
-                f'<b>{_html.escape(f["opponent"])} ({f["venue"]})</b>'
-                f'<span class="fx-gw">GW{f["gw"]}</span></div>')
+                f'<span class="fx {cls}" data-gw="{f["gw"]}" '
+                f'data-difficulty="{dattr}" '
+                f'data-source="{_html.escape(f["source"])}" '
+                f'title="{_html.escape(title)}">'
+                f'{_html.escape(f["opponent"])} ({f["venue"]})'
+                f'<i>GW{f["gw"]}</i></span>')
         fx_html = f'<div class="pc-fixtures">{"".join(cells)}</div>'
 
-    sw_html = ""
-    if payload.get("six_week_xpts"):
-        cells = "".join(
-            f'<div><b>{_fmt(xp)}</b>GW{gw}</div>'
-            for gw, xp in sorted(payload["six_week_xpts"].items(),
-                                 key=lambda kv: int(kv[0])))
-        sw_html = f'<div class="pc-sixweek">{cells}</div>'
+    verdict_html = (f'<div class="pc-verdict">{verdict["call"]} · '
+                    f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
 
-    # Premium slot region (decision 2026-08-24): visually distinct, grayed
-    # "coming soon" — the layout reserves the space from day one.
+    # Premium slot (decision 2026-08-24): reserved from day one, muted with a
+    # lock glyph until ~GW10+; the striped strip is the distribution chart's
+    # reserved space.
     premium_html = (
-        '<div class="pc-premium">'
-        '<span class="pc-premium-label">Premium · coming soon</span>'
-        '<div class="pc-premium-slots">'
-        '<div class="pc-premium-slot"><div class="pc-dist-chart"></div>'
-        'Full points distribution — coming</div>'
-        '<div class="pc-premium-slot">Your-team transfer &amp; captain tools '
-        '— coming</div>'
-        '</div></div>')
+        '<div class="pc-premium"><span class="pc-lock">🔒</span>'
+        'Premium — coming soon: full distribution · your-team fit'
+        '<div class="pc-dist-chart"></div></div>')
 
     return (
         f'<figure class="player-card" data-id="{payload["id"]}" '
-        f'data-team="{_html.escape(payload["team"] or "")}" '
+        f'data-team="{_html.escape(team)}" '
         f'data-position="{_html.escape(payload["position"] or "")}" '
         f'data-price="{payload["price"]}" '
         f'data-x-points="{proj.get("x_points")}" '
@@ -503,23 +664,19 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'data-captain-ev="{proj.get("captain_ev")}" '
         f'data-ownership="{payload.get("ownership_pct")}" '
         f'data-own-gap="{gap}" '
+        f'data-season-points="{season["total_points"]}" '
         f'data-tier="{verdict["tier"]}" '
         f'data-price-band="{verdict["price_band"]}" '
         f'data-call="{verdict["call"]}" '
         f'data-status="{_html.escape(payload["status"])}">'
-        f'<figcaption class="pc-head">'
-        f'<span class="pc-tier">{verdict["tier"]}</span>'
-        f'<{heading} class="pc-name">{name}</{heading}>'
-        f'<span class="pc-club">{_html.escape(payload["team"] or "")} · '
-        f'{_html.escape(payload["position"] or "")}</span>'
-        f'<span class="pc-call">{verdict["call"]}</span>'
-        f'<span class="pc-price">£{_fmt(payload["price"], 1)}m · '
-        f'{verdict["price_band"]}</span>'
-        f'</figcaption>'
+        f'{head_html}'
         f'{news_html}'
-        f'<div class="pc-stats">{stats_html}</div>'
+        f'{hero_html}'
         f'{sw_html}'
+        f'{_decomp_html(proj)}'
+        f'{statrow}'
         f'{fx_html}'
+        f'{verdict_html}'
         f'{premium_html}'
         f'</figure>')
 

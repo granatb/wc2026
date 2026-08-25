@@ -368,9 +368,13 @@ class TestGameweekBuild(unittest.TestCase):
         # the owner's curated data/articles/fpl-gw1/ cache (gitignored, wins
         # the tier) must never change what this suite asserts about prose.
         cls._prose_tmp = tempfile.TemporaryDirectory()
+        # player_pages_cap: the smoke build writes the top 40 player pages,
+        # not all 563 — the shape is identical, the suite stays fast.
+        cls.PLAYER_CAP = 40
         fpl_build.build(gameweek=1, sims=200, out=cls.out,
                         url="https://example.test", use_llm=False,
-                        cache_dir=cls._prose_tmp.name)
+                        cache_dir=cls._prose_tmp.name,
+                        player_pages_cap=cls.PLAYER_CAP)
 
     @classmethod
     def tearDownClass(cls):
@@ -424,6 +428,73 @@ class TestGameweekBuild(unittest.TestCase):
         for p in feed["players"][:20]:
             self.assertNotIn("price", p)
             self.assertNotIn("ownership_pct", p)
+
+    def test_players_feed_links_each_players_card_page(self):
+        """The instant search (/js/players.js) links results through the
+        feed's `page` field."""
+        feed = json.loads(self._read("/api/fpl/gw1/players.json"))
+        paged = [p for p in feed["players"] if p.get("page")]
+        self.assertEqual(len(paged), self.PLAYER_CAP)
+        self.assertTrue(all(p["page"].startswith("/fpl/players/")
+                            for p in paged))
+
+    def test_player_pages_and_json_twins_capped_by_the_smoke_cap(self):
+        """One page + one JSON per (capped) player; page carries the card and
+        declares its JSON twin; the JSON carries the expanded schema."""
+        import re
+        root = os.path.join(self.out, "fpl", "players")
+        page_dirs = [d for d in os.listdir(root)
+                     if os.path.isdir(os.path.join(root, d))]
+        self.assertEqual(len(page_dirs), self.PLAYER_CAP)
+        slug = sorted(page_dirs)[0]
+        html = self._read(f"/fpl/players/{slug}/index.html")
+        self.assertIn('<figure class="player-card"', html)
+        self.assertIn("pc-premium", html)               # reserved premium slot
+        m = re.search(r'href="(/api/fpl/gw1/players/\d+\.json)"', html)
+        self.assertIsNotNone(m)
+        env = json.loads(self._read(m.group(1)))
+        for key in ("projection", "season", "ranks", "verdict", "verdict_tier",
+                    "fixtures", "six_week_xpts", "squads", "notes", "page"):
+            self.assertIn(key, env)
+        self.assertIsNone(env["distribution"])          # reserved, null
+        self.assertEqual(env["gameweek"], 1)
+        self.assertEqual(env["license"], render.DATA_LICENSE_URL)
+        # GW1 caches exist on this checkout, so the strip prices something
+        self.assertTrue(env["fixtures"])
+
+    def test_players_index_and_tier_boards_render(self):
+        html = self._read("/fpl/players/index.html")
+        self.assertIn("<h1>Check your player</h1>", html)
+        self.assertIn('data-players-url="/api/fpl/gw1/players.json"', html)
+        self.assertIn('<script src="/js/players.js" defer></script>', html)
+        for seg in ("gk", "def", "mid", "fwd"):
+            tier = self._read(f"/fpl/tiers/{seg}/index.html")
+            self.assertIn("tiered S to D", tier)
+        # the copied first-party JS actually shipped
+        self.assertTrue(os.path.exists(os.path.join(self.out, "js",
+                                                    "players.js")))
+
+    def test_landing_carries_the_top_cards_module(self):
+        html = self._read("/index.html")
+        self.assertIn("This week's top cards", html)
+        self.assertEqual(html.count('class="tc-card"'), 6)
+        self.assertIn('href="/fpl/players/"', html)
+        # the module's numbers are the feed's own top six by x_points
+        feed = json.loads(self._read("/api/fpl/gw1/players.json"))
+        top = sorted(feed["players"],
+                     key=lambda p: (-p["x_points"], p["name"]))[0]
+        self.assertIn(f'href="{top["page"]}"', html)
+
+    def test_sitemap_and_llms_txt_carry_the_player_surfaces(self):
+        xml = self._read("/sitemap.xml")
+        self.assertIn("https://example.test/fpl/players/</loc>", xml)
+        self.assertIn("https://example.test/fpl/tiers/gk/</loc>", xml)
+        self.assertEqual(xml.count("https://example.test/fpl/players/"),
+                         self.PLAYER_CAP + 1)          # index + one per player
+        txt = self._read("/llms.txt")
+        self.assertIn("## Player cards", txt)
+        self.assertIn("/fpl/players/", txt)
+        self.assertIn("/api/fpl/gw1/players/{element_id}.json", txt)
 
     def test_projection_snapshot_is_not_written_for_a_non_production_build(self):
         """Snapshots are the track record's ground truth — a test build into a temp
@@ -877,6 +948,19 @@ class TestLandingDuel(unittest.TestCase):
         the strip's class names or stylesheet."""
         html = self._landing(duel=None, section=render.WC)
         self.assertNotIn("duel", html)
+
+    def test_no_top_cards_means_no_card_markup_or_css(self):
+        """Same gate for the player-cards module: a landing built without
+        pre_feed_html/extra_style — every World Cup build — must not grow the
+        module's class names or the CARD_CSS block."""
+        html = self._landing(duel=None, section=render.WC)
+        self.assertNotIn("tc-card", html)
+        self.assertNotIn("top-cards", html)
+        self.assertNotIn(".player-card", html)
+
+    def test_wc_llms_txt_carries_no_player_cards_section(self):
+        txt = render.llms_txt(5, [("captains", "Best captain picks")])
+        self.assertNotIn("Player cards", txt)
 
 
 class TestRatePageSection(unittest.TestCase):

@@ -2001,7 +2001,8 @@ def squad_live_panel_html(grade: dict, fetched_at: str) -> str:
 
 
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
-                 available_rounds=None, live_xi=None, duel=None, section=WC):
+                 available_rounds=None, live_xi=None, duel=None, section=WC,
+                 pre_feed_html="", extra_style=""):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2012,6 +2013,11 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
               sticky sidebar of this round's fixtures/odds renders alongside
               the main content in a two-column grid (single column on mobile,
               with the aside placed after the main content).
+    pre_feed_html / extra_style: an optional module rendered above the feed
+              ("this week's top cards" on the FPL landing) and the style block
+              it needs (fpl_players.CARD_CSS). Both default to "" so every
+              existing call site — the whole World Cup tree — keeps producing
+              byte-identical pages, same contract as `duel`.
     """
     og_block = _og_meta(
         f"{section.label} {section.kicker(round_no)} — simulation-based picks",
@@ -2064,7 +2070,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <div class="viz">{feat_viz}</div>
 </section>"""
 
-    feed_content = f"""<div class="pagelabel">Latest analysis</div>
+    feed_content = f"""{pre_feed_html}<div class="pagelabel">Latest analysis</div>
 <div class="feed">{feed_cards}</div>
 {_newsletter_html()}
 <p class="method"><b>Method.</b> {section.methodology}</p>"""
@@ -2099,7 +2105,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel else ""}</style>
+<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel else ""}{extra_style}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
@@ -2114,7 +2120,10 @@ _AI_BOTS = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-Web"
             "PerplexityBot", "Google-Extended", "CCBot", "Applebot-Extended"]
 
 
-def llms_txt(round_no, nav, section=WC):
+def llms_txt(round_no, nav, section=WC, extra_lines=None):
+    """extra_lines: optional pre-built lines appended after the articles
+    section (the FPL build's player-cards block). None — every World Cup call
+    site — keeps today's output byte-identical."""
     lines = [
         f"# evmax — simulation-based {section.label} picks",
         "",
@@ -2128,6 +2137,8 @@ def llms_txt(round_no, nav, section=WC):
         lines.append(f"- [{title}]({SITE_URL}{section.article_path(round_no, slug)}) — "
                      f"data: {SITE_URL}{section.json_path(round_no, slug)}"
                      f" · markdown: {SITE_URL}{section.md_path(round_no, slug)}")
+    if extra_lines:
+        lines += [""] + list(extra_lines)
     lines += [
         "",
         "## Track record",

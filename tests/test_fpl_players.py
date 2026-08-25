@@ -300,21 +300,58 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn("<figcaption", html)
         self.assertIn('<h1 class="pc-name">Alpha</h1>', html)
 
-    def test_premium_region_is_reserved_and_marked_coming_soon(self):
+    def test_premium_slot_is_reserved_and_marked_coming_soon(self):
         _, html = self._card()
         self.assertIn('class="pc-premium"', html)
-        self.assertIn("Premium · coming soon", html)
-        self.assertIn("Full points distribution — coming", html)
-        self.assertIn("Your-team transfer &amp; captain tools", html)
-        self.assertIn('class="pc-dist-chart"', html)   # the empty chart slot
+        self.assertIn("🔒", html)                       # the lock glyph
+        self.assertIn("Premium — coming soon: full distribution · "
+                      "your-team fit", html)
+        self.assertIn('class="pc-dist-chart"', html)   # the reserved chart slot
 
-    def test_fixture_strip_and_six_week_vector_render(self):
+    def test_fixture_strip_chips_tint_by_difficulty(self):
         _, html = self._card()
         self.assertIn('class="pc-fixtures"', html)
         self.assertIn("LIV (H)", html)
+        self.assertIn('class="fx fx-d1"', html)         # priced: green/easy
+        self.assertIn('class="fx fx-unpriced"', html)   # no lambdas: gray
         self.assertIn('data-source="unpriced"', html)
+
+    def test_six_week_form_art_is_a_layered_svg(self):
+        _, html = self._card()
         self.assertIn('class="pc-sixweek"', html)
-        self.assertIn("GW2", html)
+        self.assertIn('aria-label="Six-gameweek expected-points form"', html)
+        # the sim-cloud layers: 3 translucent areas + the true series' fill
+        self.assertEqual(html.count("fill-opacity"), 4)
+        self.assertIn("GW2 6.50", html)                 # data in the <title>
+        # no player without a horizon vector draws one
+        payloads, _ = _payloads(with_six_week=False)
+        self.assertNotIn("pc-sixweek", fpl_players.card_html(payloads[0]))
+
+    def test_form_art_is_deterministic(self):
+        """No RNG in the site layer: identical inputs, identical bytes."""
+        payloads, _ = _payloads()
+        self.assertEqual(fpl_players.card_html(payloads[0]),
+                         fpl_players.card_html(payloads[0]))
+
+    def test_decomposition_strip_sums_the_projection(self):
+        _, html = self._card()
+        self.assertIn('class="pc-decomp"', html)
+        for cls in ("pcd-attack", "pcd-cs", "pcd-defcon", "pcd-bonus"):
+            self.assertIn(cls, html)
+        self.assertIn("Clean sheets (per-match est.) — 0.30 xPts", html)
+        # attack = 8.0 - (0.3 + 0.2 + 0.6) = 6.9
+        self.assertIn("Goals, assists &amp; appearance — 6.90 xPts", html)
+
+    def test_club_code_gets_the_club_color_class(self):
+        payloads, _ = _payloads()
+        beta_html = fpl_players.card_html(payloads[1])   # LIV
+        self.assertIn('class="pc-clubcode club-LIV"', beta_html)
+        self.assertIn(".club-LIV{color:#c8102e}", fpl_players.CARD_CSS)
+
+    def test_hero_number_and_verdict_line(self):
+        _, html = self._card()
+        self.assertIn('<div class="pc-hero"><b>8.00</b>', html)
+        self.assertIn('class="pc-verdict">buy · tier S · Premium</div>', html)
 
     def test_news_renders_verbatim_when_present_only(self):
         payloads, _ = _payloads()
@@ -330,11 +367,13 @@ class TestCardHtml(unittest.TestCase):
         self.assertNotIn("<h1", html)
 
     def test_all_card_styling_lives_in_the_one_marked_block(self):
-        self.assertIn("PLACEHOLDER", fpl_players.CARD_CSS is not None and
-                      open(fpl_players.__file__, encoding="utf-8").read())
+        with open(fpl_players.__file__, encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn("CARD STYLE — DIRECTION", src)    # the marked block
         self.assertIn(".player-card{", fpl_players.CARD_CSS)
         self.assertIn(".tc-card{", fpl_players.CARD_CSS)
         self.assertIn(".pd-table{", fpl_players.CARD_CSS)
+        self.assertIn(".pc-premium", fpl_players.CARD_CSS)
 
 
 class TestPlayerPage(unittest.TestCase):
