@@ -738,7 +738,7 @@ def _page_shell(title: str, description: str, canonical_path: str,
 {render.GSC_META_TAG}
 {render._HEAD_COMMON}
 {render._FONTS}
-<style>{render._STYLE}{CARD_CSS}</style>
+<style>{render._STYLE}{CARD_CSS}{render._NAV_SCROLL_CSS}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{render._nav_html()}
