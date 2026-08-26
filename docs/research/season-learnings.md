@@ -140,3 +140,20 @@ graded players (noise ceiling ≈2.8; small sample).
   bench order re-tuned. Optimizer confirmed: all GW-W sales horizon-negative.
 - Tests decoupled from weekly state content (GW1 reference truths frozen as
   fixtures) — state files mutate weekly by design.
+
+## Phase 2 (2026-08-26)
+
+- Shipped in a day: distributions, public dataset, MCP server, accuracy page,
+  benchmark exporter. Suite 982 → 1102.
+- Design correction caught before it shipped: "full distribution view" had been
+  filed as premium on 08-24, which contradicts the operative free/paid line
+  (game data free, your-team tools paid) and would have hidden our one
+  uncopyable output behind a wall nobody is paying at yet.
+- Bug the exporter surfaced: the Sangaré alias lived in a squad state, and the
+  consensus wildcard reset wiped it — a season-long fact stored in a weekly
+  file. Fixed with a durable rename ledger. General lesson: durability of the
+  FACT decides where it lives, not which feature first needed it.
+- Both parallel agents flagged every interpretation loudly (the process change
+  from the cards rejection held): the distributions agent caught a simcache
+  int-key stringification the plan never anticipated, and reverted a caption fix
+  that would have changed a WC page.
