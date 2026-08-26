@@ -308,7 +308,13 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               # landing stat labels never print a raw key.
               "p_defcon": "P(DefCon)", "defcon": "DefCon pts", "cs_points": "CS pts",
               "exp_clean_sheets": "Clean sheets", "fixtures": "Fixtures",
-              "basis": "Basis", "bonus": "Bonus"}
+              "basis": "Basis", "bonus": "Bonus",
+              # Distribution columns (spec 2026-08-26, P1). Reader-facing
+              # words, not percentile jargon: "Floor"/"Ceiling" is what the
+              # numbers mean to someone picking a captain.
+              "p10": "Floor", "median": "Median", "mode": "Most likely",
+              "p90": "Ceiling", "p_haul": "Haul %", "p_blank": "Blank %",
+              "beats_top": "Beats #1"}
 
 # Columns whose value is already a display-ready string (not a number to format).
 _STRING_COLS = {"top_def", "top_gk", "basis", "opponents"}
@@ -322,7 +328,7 @@ def _fmt(col, row):
         return str(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col in ("p_clean_sheet", "p_defcon"):
+    if col in ("p_clean_sheet", "p_defcon", "p_haul", "p_blank", "beats_top"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -1111,7 +1117,7 @@ def _md_fmt(col, row):
         return _escape_pipes(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col in ("p_clean_sheet", "p_defcon"):
+    if col in ("p_clean_sheet", "p_defcon", "p_haul", "p_blank", "beats_top"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -1823,10 +1829,23 @@ _CEILING_REACH_ARTICLES = {"captains", "defenders", "risky", "blowout-transfers"
 # live above the Section class, which carries the right one per section.
 
 
-def _article_fig_caption(article: str, columns: list, section=WC):
+def _article_fig_caption(article: str, columns: list, section=WC,
+                         entry_count=None):
     """Caption text for the figure wrapping an article's viz, or None for
     articles (matches) that render without a figure at all -- the cards are
-    self-explanatory."""
+    self-explanatory.
+
+    entry_count: how many entries the article actually has. The caption says
+    "Top N", and N should be the number of bars the reader can COUNT -- an
+    article publishing fewer entries than the chart cap must not caption its
+    eight bars "Top 10".
+
+    Honoured only for _SHORT_LIST_ARTICLES, deliberately. Every other article
+    slices to 20 and draws the cap, so the number is already right for them --
+    and the World Cup pages are this repo's frozen regression gate (spec:
+    "WC pages byte-identical"), so a caption rule that fired on any short list
+    anywhere would rewrite a published page to fix a problem it does not have.
+    """
     if article == "matches":
         return None
     if article in _PITCH_ARTICLES:
@@ -1834,7 +1853,10 @@ def _article_fig_caption(article: str, columns: list, section=WC):
             article, "The model's optimal XI · number = projected points (xPts)")
     metric = columns[0] if columns else ""
     metric_label = _COL_LABEL.get(metric, metric)
-    base = (f"Top {_ARTICLE_VIZ_ROWS_IN_CAPTION} by {metric_label}. Green = top pick · "
+    drawn = _ARTICLE_VIZ_ROWS_IN_CAPTION
+    if entry_count is not None and article in _SHORT_LIST_ARTICLES:
+        drawn = min(drawn, entry_count)
+    base = (f"Top {drawn} by {metric_label}. Green = top pick · "
             "red = under 10% owned. Full list in the table below.")
     if article in _CEILING_REACH_ARTICLES:
         return (f"{base} Solid bar = {metric_label}, faint bar = ceiling. "
@@ -1845,6 +1867,10 @@ def _article_fig_caption(article: str, columns: list, section=WC):
 # Kept in sync with build._ARTICLE_VIZ_MAX_ROWS (the actual cap applied to the
 # chart data) purely for the caption text -- render.py has no import on build.py.
 _ARTICLE_VIZ_ROWS_IN_CAPTION = 10
+
+# Articles that publish FEWER entries than the chart cap, so their caption must
+# count the bars rather than quote the cap. See _article_fig_caption.
+_SHORT_LIST_ARTICLES = {"distributions"}
 
 
 def _split_lede(body_html: str) -> tuple:
@@ -1920,7 +1946,8 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
     # (whole body after the figure) rather than guessing at a split.
     lede_html, rest_html = _split_lede(prose["body_html"])
 
-    caption = _article_fig_caption(article, columns, section=section)
+    caption = _article_fig_caption(article, columns, section=section,
+                                   entry_count=len(entries or ()))
     if caption is None:
         # matches: cards are self-explanatory, no figure/figcaption wrapper.
         viz_section = viz_html

@@ -360,6 +360,41 @@ class SimPointsAccumulator:
             return 0.0
         return sum(self._per_sim.get(name, {}).values()) / self.sims
 
+    def histogram(self, name: str) -> dict:
+        """{integer points: count of sims} over ALL sims — the discrete PMF.
+
+        FPL points ARE integers (every scoring term in this module is an int
+        constant or an integer-divided count), so the per-sim totals need no
+        binning: the histogram is the exact distribution, not an approximation
+        of it. It is stored sparse ({points: count}, only realised values) --
+        ~30 keys x ~610 players is nothing next to the artifact it rides in
+        (spec 2026-08-26, D2).
+
+        Zero-padded on exactly the same convention as mean() and tail_mean():
+        a sim the player did not feature in contributes a 0, so the counts
+        always sum to `sims` and the histogram's own mean reconstructs
+        mean(name). Reconstructability is the point -- every derived statistic
+        downstream (p10/median/mode/p90/p_haul/p_blank) reads this dict rather
+        than the per-sim series, so the dict must be the whole truth about the
+        player's week.
+
+        The accumulated totals are floats only because the bucket sums start
+        at 0.0; round-to-int is exact for the values that can actually land
+        there, and is what keys the dict on the integer scale the reader sees.
+        """
+        if not self.sims:
+            return {}
+        hist: dict = {}
+        appeared = 0
+        for pts in self._per_sim.get(name, {}).values():
+            key = int(round(pts))
+            hist[key] = hist.get(key, 0) + 1
+            appeared += 1
+        missing = self.sims - appeared
+        if missing:
+            hist[0] = hist.get(0, 0) + missing
+        return hist
+
     def tail_mean(self, name: str, q: float = 0.85) -> float:
         """Mean of the top (1 - q) fraction of the zero-padded per-sim totals.
 
@@ -711,9 +746,92 @@ def _match_projection(fx: list) -> dict:
             for f in fx}
 
 
+# --- PMF statistics ---------------------------------------------------------
+# Standalone list/dict-in, number-out functions (mirroring _tail_mean) so each
+# statistic can be unit-tested against a hand-built PMF with a known answer,
+# independent of the simulation that normally produces one.
+
+HAUL_THRESHOLD = 10        # "a haul" in the FPL vernacular: a double-figure week
+BLANK_THRESHOLD = 2        # a blank: a bare appearance or worse
+
+
+def _pmf_percentile(pmf: dict, q: float) -> int:
+    """Smallest integer points value whose cumulative probability is >= q.
+
+    The LOWER-BOUND convention (rather than interpolating between adjacent
+    values) is deliberate: FPL points are integers, and "your floor is 2.4
+    points" is a number no reader can ever score. Interpolation would also
+    smear across the appearance cliff — the huge atom of probability sitting
+    at 0 for a rotation risk is the single most important feature of these
+    distributions, and a floor of "0" states it where a floor of "1.3" hides
+    it.
+
+    Empty PMF -> 0, matching mean()'s zero for a player with no mass at all.
+    """
+    total = sum(pmf.values())
+    if not total:
+        return 0
+    target = q * total
+    cumulative = 0
+    for pts in sorted(pmf):
+        cumulative += pmf[pts]
+        if cumulative >= target:
+            return int(pts)
+    return int(max(pmf))
+
+
+def _pmf_mode(pmf: dict) -> int:
+    """The most likely single score. Ties break to the LOWEST value.
+
+    Ties are common and not a rounding artefact: a rotation risk can carry
+    equal mass on 0 and on a 2-point appearance. Breaking low is the
+    conservative read (and makes the statistic deterministic, which the
+    byte-identical rebuild contract requires — dict iteration order must
+    never decide a published number).
+    """
+    if not pmf:
+        return 0
+    best = max(pmf.values())
+    return int(min(pts for pts, n in pmf.items() if n == best))
+
+
+def _pmf_tail_prob(pmf: dict, threshold: int) -> float:
+    """P(points >= threshold) — INCLUSIVE. A 10-point week IS a haul."""
+    total = sum(pmf.values())
+    if not total:
+        return 0.0
+    return sum(n for pts, n in pmf.items() if pts >= threshold) / float(total)
+
+
+def _pmf_head_prob(pmf: dict, threshold: int) -> float:
+    """P(points <= threshold) — INCLUSIVE. A 2-point week IS a blank."""
+    total = sum(pmf.values())
+    if not total:
+        return 0.0
+    return sum(n for pts, n in pmf.items() if pts <= threshold) / float(total)
+
+
+def distribution_stats(pmf: dict) -> dict:
+    """{p10, median, p90, mode, p_haul, p_blank} for one player's PMF.
+
+    Probabilities round to 4dp (the same "Monte-Carlo noise is not
+    information" rule _derive_row applies to the points columns — at 50k sims
+    the standard error on a probability is ~0.002, so a fifth decimal is
+    noise); percentiles and the mode stay ints because points are ints.
+    """
+    return {
+        "p10": _pmf_percentile(pmf, 0.10),
+        "median": _pmf_percentile(pmf, 0.50),
+        "p90": _pmf_percentile(pmf, 0.90),
+        "mode": _pmf_mode(pmf),
+        "p_haul": round(_pmf_tail_prob(pmf, HAUL_THRESHOLD), 4),
+        "p_blank": round(_pmf_head_prob(pmf, BLANK_THRESHOLD), 4),
+    }
+
+
 def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
                 bonus: float, defcon_pts: float, p_defcon: float,
-                price, ownership, kickoff) -> dict:
+                price, ownership, kickoff, distribution: dict | None = None) -> dict:
     """One order-book row with every column the six articles consume.
 
     Kept as a standalone pure function (rather than an inline dict literal in
@@ -734,12 +852,27 @@ def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
     the per-week denominator (review 2026-08-19, finding 7 — the minimum fix
     is this documentation plus the prose guard).
 
+    The distribution columns land on the RIGHT side of that split.
+    `distribution` and its six derived statistics — p10, median, p90, mode,
+    p_haul, p_blank — all read SimPointsAccumulator.histogram, which (like
+    mean/tail_mean, and unlike bonus/defcon/cs_points) sums a player's matches
+    within each sim. They are per-WEEK quantities, on the same denominator as
+    x_points, captain_ev, value and ceiling: a double-gameweek player's p90 is
+    his best week, not his best match. Any prose framing them alongside the
+    per-match columns must say which is which.
+
+    They are also OPTIONAL — the whole distribution block is present only when
+    a `distribution` is supplied. An artifact written before histograms existed
+    degrades to a row without them rather than to a row that fabricates a floor
+    of zero, and every consumer keys on their absence to decide whether to draw
+    the chart at all.
+
     Rounding happens HERE and only here: these rows are what the cache stores and
     what the public JSON feed serves, and 14 significant figures of Monte-Carlo
     noise is not information.
     """
     pos = means["position"]
-    return {
+    row = {
         "name": name,
         "team": means["team"],
         "position": pos,
@@ -759,6 +892,31 @@ def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
         "cs_points": round(means.get("clean_sheet", 0.0) * CS_PTS.get(pos, 0), 2),
         "kickoff": kickoff,
     }
+    if distribution is not None:
+        row["distribution"] = distribution
+        row.update(distribution_stats(distribution))
+    return row
+
+
+def _int_keyed_distributions(rows: list) -> list:
+    """Restore `distribution`'s INT keys on rows that came back from the cache.
+
+    The simcache is JSON, and JSON object keys are strings — so the histogram
+    `{5: 61}` that build_artifact stored reads back as `{"5": 61}`. Every
+    consumer (the derived percentiles, the card's chart, the article's
+    convolution) does integer arithmetic on those keys, so the cache-hit path
+    and the fresh-simulation path must hand out the SAME type or a cached
+    gameweek would silently take a different code path from a freshly
+    simulated one. Normalising on read (rather than making every consumer
+    tolerate both) keeps that contract in one place.
+    """
+    out = []
+    for r in rows:
+        dist = r.get("distribution")
+        if isinstance(dist, dict):
+            r = dict(r, distribution={int(k): v for k, v in dist.items()})
+        out.append(r)
+    return out
 
 
 def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
@@ -828,7 +986,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
             # source fingerprint covers this file, so the edit that added the
             # layer invalidated all of them — but the .get costs nothing and
             # means a hand-copied artifact degrades rather than crashing.
-            return {"rows": cached["rows"],
+            return {"rows": _int_keyed_distributions(cached["rows"]),
                     "matches": cached.get("matches", [])}, True
 
     baselines = _bps_baselines(players_by_name)
@@ -871,7 +1029,13 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
             bonus=player_bonus, defcon_pts=p_defcon * DEFCON_PTS,
             p_defcon=p_defcon, price=meta.get("price"),
             ownership=meta.get("ownership"),
-            kickoff=kickoffs.get(m["team"])))
+            kickoff=kickoffs.get(m["team"]),
+            # The full PMF rides INSIDE the cached artifact rather than being
+            # recomputed on read: the simcache key fingerprints this file's
+            # source, so adding the column invalidated every artifact written
+            # before it existed — a stale hit cannot serve a row that silently
+            # lacks a distribution.
+            distribution=points.histogram(name)))
     rows.sort(key=lambda r: -r["x_points"])
 
     artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}

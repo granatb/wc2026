@@ -109,6 +109,20 @@ _FPL_GLOSSARY = """\
     ratings; "mixed" means one of each across a double. Say which, plainly, when you
     cite a ticker number — never present model-derived and market-derived numbers as
     if they carried the same confidence.
+  - p10 / median / p90 → the player's WEEK in points at the 10th, 50th and 90th
+    percentile of the simulations. Call p10 the floor and p90 the ceiling. They are
+    whole points because FPL points are whole points — never write "a floor of 2.4".
+  - mode → the single score he records more often than any other. Say "most likely",
+    not "mode". It is frequently LOWER than the mean: a blank is often the single
+    likeliest outcome even for a good pick, and that is worth saying out loud.
+  - p_haul → the share of simulations in which he scores 10 or more. Write it as a
+    percentage. p_blank → the share in which he scores 2 or fewer, same treatment.
+  - beats_top → the probability this player outscores the top-ranked candidate,
+    computed by treating the two players' weeks as INDEPENDENT. They are not
+    independent (two attackers in the same match rise together), so if you cite this
+    number you MUST say it is an approximation in the same breath. The top-ranked
+    candidate's own value is null; do not report a figure for him.
+  - beats_name → the player beats_top is measured against. Name him when you cite it.
   - kickoff_order → the order this player's match kicks off among the candidates
     (1 = earliest; players in the same match share a value — equal values mean
     neither kicks off before the other, so never claim one does). Relevant to
@@ -156,6 +170,21 @@ def build_prompt(slug: str, round_no: int, entries: list, subject=None,
             "simulations', never as an average number of actions. Name the best "
             "defender and the best midfielder separately: their thresholds differ "
             "(10 vs 12), so they are not competing for the same slot.\n"
+        )
+    elif slug == "distributions":
+        subject_instruction = (
+            "Focus      : This article is about the SHAPE of a player's week, not "
+            "its average. Every rival publishes a mean; the point of this page is "
+            "that two players with the same mean can be completely different bets. "
+            "Lead on that. For each candidate use p10 (floor), mode (most likely), "
+            "p90 (ceiling), p_haul and p_blank to describe what his week actually "
+            "looks like, and say plainly who has the higher floor and who has the "
+            "higher ceiling when those are different players. If you cite beats_top, "
+            "you MUST state in the same paragraph that it treats the two players as "
+            "independent of each other and that they are not — that caveat is a "
+            "condition of publishing the number, not a stylistic preference. Do not "
+            "name a bookmaker or reference betting markets anywhere in this "
+            "article.\n"
         )
     elif slug == "ticker":
         subject_instruction = (

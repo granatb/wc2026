@@ -172,7 +172,7 @@ def cache_warnings(gameweek: int, cache_hit: bool) -> list:
 # owner decision 2026-08-19), captains is the #2 surface, the consensus squad
 # sits beside them, then the supporting cast.
 ARTICLES = ["our-squad", "captains", "consensus-squad", "wildcard", "ticker",
-            "defenders", "efficiency", "defcon"]
+            "defenders", "efficiency", "defcon", "distributions"]
 
 # The two slugs whose entries come from a published squad state rather than a
 # ranking over the full player pool.
@@ -198,6 +198,7 @@ ARTICLE_TITLES = {
     "defenders": "Best defenders & keepers",
     "efficiency": "Best value — points per million",
     "defcon": "DefCon leaders",
+    "distributions": "Points distributions",
 }
 
 _COLUMNS = {
@@ -210,6 +211,8 @@ _COLUMNS = {
     "defenders":  ["x_points", "cs_points", "defcon", "bonus", "price"],
     "efficiency": ["value", "x_points", "price", "ownership_pct", "ceiling"],
     "defcon":     ["p_defcon", "defcon", "x_points", "price", "ownership_pct"],
+    "distributions": ["captain_ev", "p10", "median", "p90", "p_haul",
+                      "p_blank"],
 }
 
 # Articles whose chart metric is points-denominated get the floor+ceiling reach
@@ -353,6 +356,10 @@ def _article_entries(rows: list, matches: list, clubs: list,
         "defenders":  fpl_articles.defenders(rows)[:20],
         "efficiency": fpl_articles.efficiency(rows)[:20],
         "defcon":     fpl_articles.defcon_leaders(rows)[:20],
+        # distributions() slices to its own top 8 itself: beats_top is measured
+        # against the leader OF THE PUBLISHED SLICE, so the slice and the
+        # head-to-head must be decided together (same reason as captains).
+        "distributions": fpl_articles.distributions(rows),
     }
     metas = {"wildcard": squad_meta, "our-squad": our_meta,
              "consensus-squad": cons_meta}

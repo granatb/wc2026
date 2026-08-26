@@ -66,6 +66,48 @@ independently checkable, and every reuse of it is a citation.
 Suite 982 → 1052, green at every commit. World Cup pages byte-identical;
 `evmax/assets/projections/` untouched.
 
+## 2026-08-26 — Phase 2A: distributions
+
+Everyone in this market ships a mean. A mean cannot tell a 6.0 that is six
+every week from a 6.0 that is zero four times and twenty-four once, and only a
+real Monte-Carlo engine can tell you which one you are buying. This phase
+surfaces the shape (spec: `docs/superpowers/specs/2026-08-26-phase2-design.md`,
+P1 and decisions D1/D2).
+
+- **`SimPointsAccumulator.histogram(name)`** (`games/fpl/model.py`) — the
+  discrete PMF over integer FPL points, zero-padded for non-appearances on the
+  same convention as `mean()`, so the counts sum to `sims` and the histogram's
+  own mean reconstructs `mean(name)`. Stored per row as `distribution` inside
+  the cached artifact. The simcache is JSON and JSON keys are strings, so
+  `_int_keyed_distributions` restores int keys on a cache hit — in one place,
+  rather than making every consumer tolerate both types.
+- **Six derived columns** (`_derive_row`): `p10` (floor), `median`, `p90`
+  (ceiling), `mode` (most likely, ties breaking low so the published number is
+  deterministic), `p_haul` (P ≥ 10, inclusive) and `p_blank` (P ≤ 2,
+  inclusive). Percentiles use the lower-bound convention — smallest x with
+  cumulative ≥ q — because points are integers and interpolation would smear
+  across the appearance cliff, hiding the atom of probability at 0 that is the
+  most important fact about a rotation risk. These are WEEK-level, on the same
+  denominator as `x_points`, unlike the per-match bonus/defcon/cs columns.
+- **The card's distribution chart** (`evmax/fpl_players._distribution_svg`):
+  bars banded by outcome (muted blank / green return / dark-green haul), rules
+  at floor, most likely and ceiling, drawn range clipped at the 99th percentile
+  so one freak sim cannot flatten it. The SVG carries geometry only — the
+  numbers are HTML above it — because text inside a scaled viewBox is a 27px
+  shout on a player page and unreadable in a landing card.
+- **Decision D1: distributions are FREE.** The premium slot's reserved striped
+  strip is gone and its copy is your-team work only. Per-player JSON's reserved
+  `distribution: null` now carries the histogram, its sim count and the six
+  statistics, and still degrades to null for a pre-histogram artifact.
+- **`/fpl/gw{N}/distributions/`** — the ninth article slug. `beats(a, b)` =
+  P(A > B) + 0.5·P(A = B) over two PMFs; the half-credit on ties is
+  load-bearing, because points are integers, ties are common, and without it
+  the two directions would not sum to 1. Independence is a knowingly wrong
+  approximation (two attackers in one match are not independent), so the
+  template states it as a fixed sentence and the LLM prompt makes stating it a
+  condition of printing the number. The engine holds the joint distribution; a
+  later version should read P(A > B) off the paired per-sim totals instead.
+
 ## 2026-08-24 — FPL phase 5: the credibility engine
 
 Every GW1 credibility dent was a knowledge failure, not an engine failure

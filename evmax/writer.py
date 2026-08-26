@@ -665,6 +665,103 @@ def _pct(v) -> str:
     return f"{(v or 0.0) * 100:.0f}%"
 
 
+# --- distributions prose (spec 2026-08-26, P1) -------------------------------
+# Hand-written rather than assembled from the generic table, because the whole
+# point of the page is that a mean hides something and the prose has to be the
+# thing that says so.
+
+# The independence caveat is a PUBLISHING RULE, not a stylistic choice: the
+# beats_top column is computed by treating two players' distributions as
+# independent (evmax.fpl_articles.beats), and two attackers in the same match
+# plainly are not. Any template rendering that column must carry this sentence
+# — the spec makes stating the approximation a condition of shipping the page.
+_INDEPENDENCE_CAVEAT = (
+    "That comparison treats the two players as independent of each other. "
+    "They are not: two attackers in the same match rise and fall together, "
+    "and our simulation knows it even though this figure does not. Read it as "
+    "the size of the gap, not as a settled number.")
+
+
+def _pts_words(v) -> str:
+    """"1 point" / "6 points" — these are whole simulated scores and a floor
+    of "1 points" reads as a bug to the reader, which on a page whose entire
+    argument is precision about the numbers is exactly the wrong impression."""
+    n = 0 if v is None else v
+    return f"{n} point" if n in (1, -1) else f"{n} points"
+
+
+def _distributions_body(e: list) -> str:
+    """The lead candidate's spread, the head-to-head, then floor vs ceiling."""
+    top = e[0]
+    lead = (
+        f"<p>{html.escape(top['name'])} "
+        f"({html.escape(top.get('team', ''))}) projects "
+        f"{_fmt_pts(top.get('captain_ev'))} with the armband. Behind that one "
+        f"number: his floor is {_pts_words(top.get('p10'))} in the worst tenth of "
+        f"simulations, his single most likely score is {top.get('mode')}, and "
+        f"his ceiling is {top.get('p90')} in the best tenth. He reaches double "
+        f"figures in {_pct(top.get('p_haul'))} of simulations and returns two "
+        f"points or fewer in {_pct(top.get('p_blank'))}.</p>")
+
+    rival = ""
+    if len(e) > 1:
+        second = e[1]
+        beat = second.get("beats_top")
+        rival = (
+            f"<p>{html.escape(second['name'])} is the alternative at "
+            f"{_fmt_pts(second.get('captain_ev'))} captained, on a floor of "
+            f"{second.get('p10')} and a ceiling of {second.get('p90')}.")
+        if beat is not None:
+            rival += (f" He outscores {html.escape(top['name'])} in "
+                      f"{_pct(beat)} of simulated gameweeks. "
+                      + _INDEPENDENCE_CAVEAT)
+        rival += "</p>"
+    else:
+        # One candidate and no head-to-head still needs the caveat on record:
+        # the table's beats column is empty here, so say what it would mean.
+        rival = (f"<p>Only one candidate cleared the bar this week, so there "
+                 f"is no head-to-head to report. Where we do compare two "
+                 f"players, we treat their weeks as independent of each "
+                 f"other, which is an approximation.</p>")
+
+    shape = ""
+    if len(e) > 1:
+        floor_pick = max(e, key=lambda x: (x.get("p10") or 0, x.get("median") or 0))
+        ceil_pick = max(e, key=lambda x: (x.get("p90") or 0, x.get("p_haul") or 0))
+        safe = max(e, key=lambda x: -(x.get("p_blank") or 0.0))
+        if floor_pick["name"] == ceil_pick["name"]:
+            shape = (f"<p>{html.escape(floor_pick['name'])} holds both ends of "
+                     f"the board this week: the highest floor "
+                     f"({floor_pick.get('p10')}) and the highest ceiling "
+                     f"({ceil_pick.get('p90')}). That is unusual, and it is "
+                     f"the case for taking him.</p>")
+        else:
+            shape = (f"<p>The floor and the ceiling belong to different "
+                     f"players. {html.escape(floor_pick['name'])} has the "
+                     f"highest floor at {_pts_words(floor_pick.get('p10'))}, so he "
+                     f"is the pick if a bad week would cost you rank. "
+                     f"{html.escape(ceil_pick['name'])} has the highest "
+                     f"ceiling at {ceil_pick.get('p90')}, so he is the pick if "
+                     f"you need to make ground. "
+                     f"{html.escape(safe['name'])} blanks least often, in "
+                     f"{_pct(safe.get('p_blank'))} of simulations.</p>")
+    return lead + rival + shape
+
+
+def _distributions_bottom_line(e: list) -> str:
+    top = e[0]
+    if len(e) > 1:
+        ceil_pick = max(e, key=lambda x: (x.get("p90") or 0, x.get("p_haul") or 0))
+        if ceil_pick["name"] != top["name"]:
+            return (f"Captain {top['name']} on the average. Captain "
+                    f"{ceil_pick['name']} if you need the ceiling — "
+                    f"{ceil_pick.get('p90')} points in the best tenth of "
+                    f"simulations against {top.get('p90')}.")
+    return (f"Captain {top['name']} — {_pct(top.get('p_haul'))} of simulations "
+            f"reach double figures, against a "
+            f"{_pct(top.get('p_blank'))} chance of two points or fewer.")
+
+
 def _is_double_gameweek(entry) -> bool:
     """True when this player's club has more than one fixture this gameweek.
 
@@ -897,6 +994,18 @@ _FPL_TEMPLATES = {
         "bottom_line": lambda e, r, subj: (
             f"{e[0]['name']} is the most reliable route to the 2-point defensive "
             f"bonus — {_pct(e[0]['p_defcon'])} of simulations."),
+    },
+    "distributions": {
+        "headline": lambda e, r, subj: (
+            f"Gameweek {r} spreads: {e[0]['name']} hauls "
+            f"{_pct(e[0].get('p_haul'))} of the time"),
+        "standfirst": lambda e, r, subj: (
+            f"Every projection on this site is the average of tens of thousands "
+            f"of simulated gameweeks. This is the shape behind the average: "
+            f"{e[0]['name']} blanks in {_pct(e[0].get('p_blank'))} of them and "
+            f"scores double figures in {_pct(e[0].get('p_haul'))}."),
+        "body": lambda e, r, subj: _distributions_body(e),
+        "bottom_line": lambda e, r, subj: _distributions_bottom_line(e),
     },
 }
 

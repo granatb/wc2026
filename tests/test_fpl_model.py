@@ -634,6 +634,27 @@ class TestMatchSummaries(unittest.TestCase):
         self.assertEqual(first["matches"], second["matches"])
         self.assertEqual(first["rows"], second["rows"])
 
+    def test_cached_distribution_keys_come_back_as_ints(self):
+        """JSON object keys are strings, so a cache hit would otherwise serve
+        {"5": 61} where a fresh simulation serves {5: 61} — and every consumer
+        does integer arithmetic on those keys."""
+        import tempfile
+
+        from core import simcache
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(simcache, "CACHE_DIR", tmp):
+                _first, hit_first = _tiny_build_artifact(use_cache=True,
+                                                         gameweek=95)
+                second, hit_second = _tiny_build_artifact(use_cache=True,
+                                                          gameweek=95)
+        self.assertFalse(hit_first)
+        self.assertTrue(hit_second)
+        for r in second["rows"]:
+            self.assertTrue(r["distribution"])
+            for k in r["distribution"]:
+                self.assertIsInstance(k, int)
+
 
 class TestGwStageFilter(unittest.TestCase):
     """The shared SCHEDULE holds World Cup rounds AND FPL gameweeks, and their
@@ -856,6 +877,175 @@ class TestTailMeanStatistic(unittest.TestCase):
         # max(1, round(0.15 * 4)) = max(1, round(0.6)) = 1 -> top value only.
         self.assertAlmostEqual(acc.tail_mean("P", q=0.85), 13.0)
         self.assertAlmostEqual(acc.mean("P"), (5 + 9 + 13 + 0) / 4.0)
+
+
+class TestHistogram(unittest.TestCase):
+    """SimPointsAccumulator.histogram — the discrete PMF the whole of Phase 2A
+    is built on (spec 2026-08-26 D2). Same zero-padded convention as mean():
+    a sim the player did not feature in contributes a 0, not an absence."""
+
+    def _acc_over_ten_sims(self):
+        # One player, alone in his match, FWD, 90 minutes -> 2 appearance pts
+        # + 4/goal + 3 bonus (only ranked player). Featured in sims 0..7 only;
+        # sims 8 and 9 are non-appearances and must zero-pad.
+        acc = model.SimPointsAccumulator(baselines={}, sims=10)
+        goals_by_sim = {0: 0, 1: 0, 2: 1, 3: 1, 4: 1, 5: 2, 6: 2, 7: 3}
+        for sim_index, goals in goals_by_sim.items():
+            acc.observe("m", [("P", "FWD", goals, 0, 90, False, 0, 0, 0, 0, 0)],
+                        sim_index)
+        return acc
+
+    def test_hand_built_accumulator_gives_the_exact_pmf(self):
+        acc = self._acc_over_ten_sims()
+        # 0 goals -> 5, 1 goal -> 9, 2 goals -> 13, 3 goals -> 17.
+        self.assertEqual(acc.histogram("P"),
+                         {0: 2, 5: 2, 9: 3, 13: 2, 17: 1})
+
+    def test_keys_are_plain_ints(self):
+        acc = self._acc_over_ten_sims()
+        for k, v in acc.histogram("P").items():
+            self.assertIsInstance(k, int)
+            self.assertIsInstance(v, int)
+
+    def test_counts_sum_to_the_sim_count(self):
+        acc = self._acc_over_ten_sims()
+        self.assertEqual(sum(acc.histogram("P").values()), acc.sims)
+
+    def test_never_appearing_player_is_all_mass_at_zero(self):
+        acc = self._acc_over_ten_sims()
+        self.assertEqual(acc.histogram("ghost"), {0: 10})
+
+    def test_histogram_mean_reconstructs_mean(self):
+        acc = self._acc_over_ten_sims()
+        hist = acc.histogram("P")
+        reconstructed = (sum(pts * n for pts, n in hist.items())
+                         / float(acc.sims))
+        self.assertAlmostEqual(reconstructed, acc.mean("P"), delta=1e-9)
+
+    def test_zero_sims_gives_an_empty_histogram(self):
+        acc = model.SimPointsAccumulator(baselines={}, sims=0)
+        self.assertEqual(acc.histogram("nobody"), {})
+
+    def test_negative_totals_keep_their_sign(self):
+        # sim 0: a red card (-3) on a sub-60 cameo (+1), alone in the match so
+        # he still takes the 3 bonus -> 1. sim 1: the same cameo clean -> 4.
+        # Column order is (name, pos, goals, assists, minutes, cs, conceded,
+        # saves, yellow, red, defcon).
+        acc = model.SimPointsAccumulator(baselines={}, sims=2)
+        acc.observe("m", [("R", "FWD", 0, 0, 30, False, 0, 0, 0, 1, 0)], 0)
+        acc.observe("m", [("R", "FWD", 0, 0, 30, False, 0, 0, 0, 0, 0)], 1)
+        hist = acc.histogram("R")
+        self.assertEqual(sum(hist.values()), 2)
+        self.assertEqual(hist, {1: 1, 4: 1})
+
+
+class TestDistributionStats(unittest.TestCase):
+    """The six derived columns, over hand-built PMFs with known answers."""
+
+    # 10 sims: 0,0,2,4,4,4,7,10,12,20 -> cumulative
+    #   0:2 (0.2) 2:1 (0.3) 4:3 (0.6) 7:1 (0.7) 10:1 (0.8) 12:1 (0.9) 20:1 (1.0)
+    PMF = {0: 2, 2: 1, 4: 3, 7: 1, 10: 1, 12: 1, 20: 1}
+
+    def test_percentile_lower_bound_convention(self):
+        # smallest x with cumulative >= q
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.10), 0)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.20), 0)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.25), 2)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.50), 4)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.60), 4)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.90), 12)
+        self.assertEqual(model._pmf_percentile(self.PMF, 1.00), 20)
+
+    def test_percentile_of_an_empty_pmf_is_zero(self):
+        self.assertEqual(model._pmf_percentile({}, 0.5), 0)
+
+    def test_mode_is_the_highest_count(self):
+        self.assertEqual(model._pmf_mode(self.PMF), 4)
+
+    def test_mode_ties_break_to_the_lowest_value(self):
+        self.assertEqual(model._pmf_mode({9: 5, 2: 5, 30: 1}), 2)
+
+    def test_mode_of_an_empty_pmf_is_zero(self):
+        self.assertEqual(model._pmf_mode({}), 0)
+
+    def test_p_haul_is_inclusive_of_exactly_ten(self):
+        # mass at 10, 12, 20 -> 3/10
+        self.assertAlmostEqual(model._pmf_tail_prob(self.PMF, 10), 0.3)
+        # a PMF whose ONLY mass sits exactly on the threshold is p_haul 1.0
+        self.assertAlmostEqual(model._pmf_tail_prob({10: 7}, 10), 1.0)
+
+    def test_p_blank_is_inclusive_of_exactly_two(self):
+        # mass at 0 (x2) and 2 -> 3/10
+        self.assertAlmostEqual(model._pmf_head_prob(self.PMF, 2), 0.3)
+        self.assertAlmostEqual(model._pmf_head_prob({2: 4}, 2), 1.0)
+
+    def _row(self, distribution):
+        return model._derive_row(
+            name="Dist", means={"team": "ARS", "position": "MID",
+                                "clean_sheet": 0.0},
+            x_points=6.3, ceiling=14.0, bonus=0.4, defcon_pts=0.0,
+            p_defcon=0.0, price=7.0, ownership=10.0, kickoff=None,
+            distribution=distribution)
+
+    def test_derive_row_carries_all_six_fields(self):
+        row = self._row(dict(self.PMF))
+        self.assertEqual(row["p10"], 0)
+        self.assertEqual(row["median"], 4)
+        self.assertEqual(row["p90"], 12)
+        self.assertEqual(row["mode"], 4)
+        self.assertAlmostEqual(row["p_haul"], 0.3)
+        self.assertAlmostEqual(row["p_blank"], 0.3)
+
+    def test_percentiles_are_ints_and_probabilities_are_4dp(self):
+        row = self._row({0: 1, 3: 1, 7: 1})
+        for key in ("p10", "median", "p90", "mode"):
+            self.assertIsInstance(row[key], int, key)
+        # 1/3 rounded to 4dp
+        self.assertEqual(row["p_blank"], 0.3333)
+
+    def test_a_row_without_a_distribution_has_none_of_the_six(self):
+        """An artifact written before histograms existed degrades — it does
+        not carry a fabricated floor of zero."""
+        row = model._derive_row(
+            name="Old", means={"team": "ARS", "position": "MID",
+                               "clean_sheet": 0.0},
+            x_points=6.3, ceiling=14.0, bonus=0.4, defcon_pts=0.0,
+            p_defcon=0.0, price=7.0, ownership=10.0, kickoff=None)
+        for key in ("distribution", "p10", "median", "p90", "mode",
+                    "p_haul", "p_blank"):
+            self.assertNotIn(key, row)
+
+    def test_real_rows_carry_the_six_fields(self):
+        rows = _tiny_build_rows(sims=200, gameweek=94)
+        self.assertTrue(rows)
+        for r in rows:
+            for key in ("p10", "median", "p90", "mode", "p_haul", "p_blank"):
+                self.assertIn(key, r, f"{key} missing from {r['name']}")
+            self.assertLessEqual(r["p10"], r["median"])
+            self.assertLessEqual(r["median"], r["p90"])
+            self.assertGreaterEqual(r["p_haul"], 0.0)
+            self.assertLessEqual(r["p_haul"], 1.0)
+
+
+class TestBuildRowsCarriesTheDistribution(unittest.TestCase):
+    def test_every_row_has_a_histogram_summing_to_sims(self):
+        rows = _tiny_build_rows(sims=200, gameweek=97)
+        self.assertTrue(rows)
+        for r in rows:
+            self.assertIn("distribution", r)
+            dist = r["distribution"]
+            self.assertIsInstance(dist, dict)
+            self.assertEqual(sum(dist.values()), 200)
+            for k in dist:
+                self.assertIsInstance(k, int)
+
+    def test_distribution_mean_agrees_with_x_points(self):
+        rows = _tiny_build_rows(sims=200, gameweek=96)
+        for r in rows:
+            dist = r["distribution"]
+            mean = sum(p * n for p, n in dist.items()) / 200.0
+            # x_points is the same quantity rounded to 2dp by _derive_row.
+            self.assertAlmostEqual(mean, r["x_points"], delta=0.006)
 
 
 class TestNeverFeaturingPlayerHasZeroMeanAndTailMean(unittest.TestCase):
