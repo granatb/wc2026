@@ -769,6 +769,30 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("/api/fpl/dataset/all.csv", llms)
         self.assertIn("CC BY 4.0", llms)
 
+    # --- Phase 2B / P4: the accuracy page ------------------------------------
+
+    def test_the_build_publishes_the_accuracy_page(self):
+        html = self._read("/fpl/accuracy/index.html")
+        self.assertIn("<!doctype html>", html)
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("2.734", html)
+        self.assertIn("0-1", html)
+        self.assertIn("captured from GW2", html)
+        self.assertIn('href="/api/fpl/accuracy/gw1.json"', html)
+
+    def test_the_track_record_links_the_accuracy_page(self):
+        """No nav pill was added (the nav is shared with the World Cup pages);
+        /track-record/'s FPL block is where the accuracy page is reachable
+        from."""
+        self.assertIn('href="/fpl/accuracy/"',
+                      self._read("/track-record/index.html"))
+
+    def test_sitemap_and_llms_carry_the_accuracy_page(self):
+        self.assertIn("https://example.test/fpl/accuracy/</loc>",
+                      self._read("/sitemap.xml"))
+        self.assertIn("/fpl/accuracy/", self._read("/llms.txt"))
+
+
 class TestWorldCupBuildHasNoDataset(unittest.TestCase):
     """WC builds ship no dataset and no /data/ page (spec: FPL-only surface),
     and their pages stay byte-identical.
@@ -794,6 +818,92 @@ class TestWorldCupBuildHasNoDataset(unittest.TestCase):
         self.assertNotIn("/api/fpl/dataset", xml)
         txt = render.llms_txt(5, nav, section=render.WC)
         self.assertNotIn("/api/fpl/dataset", txt)
+
+
+_LEDGER = [
+    {"gw": 1, "n": 58, "mae_ours": 2.734, "mae_ep_next": None,
+     "model_projected": 65.92, "model_realized": 44,
+     "consensus_projected": 60.74, "consensus_realized": 53,
+     "duel_model": 0, "duel_consensus": 1, "duel_label": "crowd leads",
+     "json_path": "/api/fpl/accuracy/gw1.json"},
+    {"gw": 2, "n": 61, "mae_ours": 2.401, "mae_ep_next": 2.910,
+     "model_projected": 70.10, "model_realized": 66,
+     "consensus_projected": 68.00, "consensus_realized": 61,
+     "duel_model": 1, "duel_consensus": 1, "duel_label": "level",
+     "json_path": "/api/fpl/accuracy/gw2.json"},
+]
+
+
+class TestAccuracyPageRender(unittest.TestCase):
+    """/fpl/accuracy/ (phase 2B, spec P4) — deterministic text only, same bar
+    as /track-record/: every number comes straight from the graded ledger."""
+
+    def test_gw1_row_carries_its_mae_and_the_duel_score(self):
+        html = render.accuracy_page(_LEDGER, date_str="26 August 2026")
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("2.734", html)
+        self.assertIn("0-1", html)
+        self.assertIn("crowd leads", html)
+
+    def test_squad_lines_read_projected_to_realized_official(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("65.92 → 44", html)
+        self.assertIn("60.74 → 53", html)
+
+    def test_a_missing_ep_next_cell_states_captured_from_gw2(self):
+        """Spec D5: ep_next was not captured pre-GW1. The column says so
+        rather than showing a bare dash a reader could take for a zero."""
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("captured from GW2", html)
+
+    def test_a_present_ep_next_renders_as_a_number(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("2.910", html)
+
+    def test_every_grading_json_is_linked(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn('href="/api/fpl/accuracy/gw1.json"', html)
+        self.assertIn('href="/api/fpl/accuracy/gw2.json"', html)
+
+    def test_the_how_to_check_us_paragraph_names_the_whole_chain(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("How to check us", html)
+        for phrase in ("frozen", "before the deadline", "/api/fpl/accuracy/",
+                       "/data/"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, html)
+
+    def test_the_method_is_stated_in_plain_language(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("mean absolute error", html.lower())
+        self.assertIn("ep_next", html)
+
+    def test_an_empty_ledger_says_so_rather_than_rendering_an_empty_table(self):
+        html = render.accuracy_page([])
+        self.assertTrue(html.startswith("<!doctype html>"))
+        self.assertIn("Nothing graded yet", html)
+
+    def test_the_page_has_no_nav_pill_of_its_own(self):
+        """Owner constraint: the track record links it; the nav does not grow
+        a pill (the nav is shared with the World Cup pages)."""
+        html = render.accuracy_page(_LEDGER)
+        self.assertNotIn('href="/fpl/accuracy/">Accuracy', html)
+        self.assertEqual(html.count("<nav>"), 1)
+        self.assertEqual(render._nav_html(), render._nav_html(active="home")
+                         .replace(' class="on"', "", 1))
+
+
+class TestTrackRecordLinksAccuracy(unittest.TestCase):
+    def test_the_fpl_ledger_block_links_the_accuracy_page_and_the_dataset(self):
+        html = render.track_record_page({"rounds": [], "summary": {}},
+                                        fpl=_LEDGER)
+        self.assertIn('href="/fpl/accuracy/"', html)
+        self.assertIn('href="/data/"', html)
+
+    def test_a_world_cup_track_record_gains_neither_link(self):
+        html = render.track_record_page({"rounds": [], "summary": {}})
+        self.assertNotIn("/fpl/accuracy/", html)
+        self.assertNotIn('href="/data/"', html)
 
 
 class TestDataPageRender(unittest.TestCase):

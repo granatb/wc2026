@@ -1506,8 +1506,198 @@ model-vs-crowd duel score.</p>
 </table></div>
 <p class="tr-fpl-note"><b>Method.</b> Projections frozen pre-deadline; grading JSONs public.</p>
 <p class="tr-fpl-links">Grading data: {links}</p>
+<p class="tr-fpl-links">The full working: <a href="/fpl/accuracy/">the accuracy
+page</a> — per-gameweek error, the method in plain language and how to check it
+yourself. The projections themselves: <a href="/data/">the open dataset</a>
+(JSON + CSV, CC BY 4.0).</p>
 </div>
 <h2 class="tr-section-h">World Cup 2026 — the retrospective</h2>"""
+
+
+# =============================================================================
+# /fpl/accuracy/ — the graded ledger in full (phase 2B, spec P4)
+# =============================================================================
+# Deterministic text only, the same bar as /track-record/: every number comes
+# straight from the graded JSONs, no LLM prose. FPL builds only, and reached
+# from /track-record/'s FPL block rather than a nav pill — the nav is shared
+# with the World Cup pages, which must stay byte-identical.
+
+ACCURACY_PATH = "/fpl/accuracy/"
+
+# Spec D5: ep_next was not captured before GW1, so the comparison cell SAYS SO.
+# A bare dash in a column of numbers reads as a zero, and a zero here would
+# claim FPL's own model was perfect that week.
+_EP_NEXT_NOTE = "captured from GW2"
+
+_ACCURACY_CSS = (
+    ".ac{max-width:900px;margin:0 auto 80px}"
+    ".ac h1{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;"
+    "letter-spacing:-1px;margin-bottom:14px}"
+    ".ac .lead{font-family:var(--serif);font-size:19px;color:var(--ink2);"
+    "line-height:1.55;margin-bottom:8px;max-width:70ch}"
+    ".ac h2{font-size:13px;font-weight:700;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--green);margin:36px 0 12px}"
+    ".ac p{font-family:var(--serif);font-size:16.5px;line-height:1.65;"
+    "color:#23201a;margin-bottom:12px;max-width:70ch}"
+    ".ac dl{margin:0 0 8px}"
+    ".ac dt{font-family:var(--sans);font-size:14px;font-weight:800;"
+    "margin-top:14px}"
+    ".ac dd{font-family:var(--serif);font-size:16px;line-height:1.6;"
+    "color:var(--ink2);margin:4px 0 0;max-width:68ch}"
+    ".ac code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:13px;background:var(--chipbg);padding:1px 6px;border-radius:5px}"
+    ".ac-note{font-size:12.5px;color:var(--ink3);font-style:italic;"
+    "white-space:nowrap}"
+    ".ac-empty{background:var(--surf);border:1px solid var(--line);"
+    "border-radius:14px;padding:26px;font-family:var(--serif);font-size:17px;"
+    "color:var(--ink2)}"
+    ".ac-check{background:var(--surf);border:1px solid var(--line);"
+    "border-left:4px solid var(--green);border-radius:12px;padding:18px 22px;"
+    "margin-top:8px}"
+    ".ac-check p:last-child{margin-bottom:0}"
+    ".ac a.lnk{color:var(--greend);font-weight:600}"
+)
+
+
+def _accuracy_summary_html(ledger: list) -> str:
+    """Three stat tiles: gameweeks graded, mean MAE, the running duel."""
+    maes = [r["mae_ours"] for r in ledger if r.get("mae_ours") is not None]
+    mean_mae = sum(maes) / len(maes) if maes else None
+    last = ledger[-1]
+    duel = f'{last["duel_model"]}-{last["duel_consensus"]}'
+    return (
+        '<div class="tr-summary">'
+        f'<div class="tr-stat"><b>{len(ledger)}</b>'
+        f'<span>Gameweeks graded</span></div>'
+        f'<div class="tr-stat"><b>{f"{mean_mae:.3f}" if mean_mae is not None else "—"}</b>'
+        f'<span>Mean absolute error</span></div>'
+        f'<div class="tr-stat"><b>{duel}</b>'
+        f'<span>Model vs crowd — {_html.escape(last["duel_label"])}</span></div>'
+        '</div>')
+
+
+def _accuracy_table_html(ledger: list) -> str:
+    rows = []
+    for r in ledger:
+        ep = (f'{r["mae_ep_next"]:.3f}' if r.get("mae_ep_next") is not None
+              else f'<span class="ac-note">{_EP_NEXT_NOTE}</span>')
+        graded = r.get("n")
+        rows.append(
+            f'<tr><td>GW{r["gw"]}</td>'
+            f'<td>{"—" if graded is None else graded}</td>'
+            f'<td>{r["mae_ours"]:.3f}</td>'
+            f'<td>{ep}</td>'
+            f'<td>{r["model_projected"]:.2f} → {r["model_realized"]}</td>'
+            f'<td>{r["consensus_projected"]:.2f} → {r["consensus_realized"]}</td>'
+            f'<td>{r["duel_model"]}-{r["duel_consensus"]} '
+            f'({_html.escape(r["duel_label"])})</td>'
+            f'<td><a class="lnk" href="{r["json_path"]}">gw{r["gw"]}.json</a>'
+            f'</td></tr>')
+    return (
+        '<div class="tr-card"><div class="tr-table-wrap">'
+        '<table class="tr-metrics"><thead><tr>'
+        '<th>GW</th><th>Players graded</th><th>Our MAE</th>'
+        '<th>FPL ep_next MAE</th><th>Model squad (proj → official)</th>'
+        '<th>Consensus squad (proj → official)</th><th>Duel (model-crowd)</th>'
+        '<th>Data</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div></div>')
+
+
+def accuracy_page(ledger: list, date_str: str = None) -> str:
+    """/fpl/accuracy/ — the graded ledger in full, the method in plain
+    language, links to every grading JSON, and how to check us.
+
+    ledger: evmax.fpl_build.fpl_track_ledger() output (one row per graded
+    gameweek). An empty ledger renders the page with an honest "nothing graded
+    yet" panel rather than an empty table.
+    """
+    stamp = (f'<p style="font-size:13px;color:var(--ink3);margin-bottom:22px">'
+             f'Last updated {_html.escape(date_str)}.</p>' if date_str else "")
+    if ledger:
+        body = _accuracy_summary_html(ledger) + _accuracy_table_html(ledger)
+    else:
+        body = ('<div class="ac-empty"><b>Nothing graded yet.</b> The first '
+                'gameweek appears here the Monday after it finishes — we grade '
+                'the snapshot that was frozen before the deadline, not a '
+                'rebuild.</div>')
+    description = ("Every evmax FPL projection graded against realized official "
+                   "points — per-gameweek error, our squad against the crowd's, "
+                   "and the raw grading data.")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How accurate are we? | {TITLE_BRAND}</title>
+<meta name="description" content="{_html.escape(description)}">
+{_og_meta("How accurate are we?", description, ACCURACY_PATH, og_type="website")}
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_TRACK_RECORD_CSS}{_TR_FPL_CSS}{_ACCURACY_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
+</div></header>
+<div class="wrap">
+<div class="ac">
+<div class="pagelabel" style="margin-top:34px">Accuracy</div>
+<h1>How accurate are we?</h1>
+<p class="lead">Every gameweek we publish a projected score for every player before
+the deadline. Once the gameweek finishes we compare those exact numbers to what
+actually happened. This page is the whole ledger — the good weeks and the bad
+ones, with the raw data behind each row.</p>
+{stamp}
+{body}
+
+<h2>What the columns mean</h2>
+<dl>
+<dt>Our MAE</dt>
+<dd>Mean absolute error: the average gap between what we projected a player would
+score and what he actually scored, across every player we published a number
+about. Lower is better. Around 2.5 is roughly the state of the art for a single
+gameweek — football is mostly noise, and anyone claiming a much lower number is
+usually grading themselves on a handful of easy picks.</dd>
+<dt>FPL ep_next MAE</dt>
+<dd>The same measurement applied to FPL's own projection, <code>ep_next</code>,
+captured from the official API before the same deadline. It is the fairest
+benchmark available: same players, same week, same scoring. We started capturing
+it from Gameweek 2, so GW1 has no comparison and the cell says so instead of
+showing a zero.</dd>
+<dt>Model squad / Consensus squad</dt>
+<dd>Two real teams, both published before the deadline: ours, picked by the
+optimiser, and a consensus XI assembled from what the popular FPL sources were
+recommending that week. The arrow reads projected total → the official FPL score
+that team actually returned, autosubs and captain fallback included.</dd>
+<dt>Duel (model-crowd)</dt>
+<dd>The running score between those two teams. A gameweek goes to whichever side
+returned more official points; a tie moves neither column.</dd>
+</dl>
+
+<h2>How to check us</h2>
+<div class="ac-check">
+<p>You do not have to take any of this on trust. The chain is public end to end:</p>
+<p><b>1. The claim was frozen before the deadline.</b> Every gameweek's projections
+are written to a timestamped snapshot at build time, before kickoff, and committed
+to the public repository. The build refuses to write a snapshot once the gameweek
+has locked, so a number cannot be quietly improved after the fact.</p>
+<p><b>2. The grading is a published file.</b> Each row above links its raw grading
+JSON under <code>/api/fpl/accuracy/</code> — every graded player, our projection,
+the realized points and the error, not just the average.</p>
+<p><b>3. The projections themselves are downloadable.</b> The full board for every
+gameweek is on <a class="lnk" href="/data/">the open dataset page</a> as JSON and
+CSV under CC BY 4.0. Grade us yourself against any scoring you like.</p>
+<p><b>4. The code is open.</b> The simulation, the grading and this page are in
+<a class="lnk" href="https://github.com/granatb/wc2026">the repository</a>.</p>
+</div>
+
+<h2>What we do not do</h2>
+<p>We do not drop bad gameweeks, re-run the model on a finished week and report the
+better number, or quote accuracy over a hand-picked subset of players. The ledger
+above is every gameweek we have graded, in order. The
+<a class="lnk" href="/track-record/">track record</a> carries the same discipline
+for the World Cup work.</p>
+</div>
+</div>
+{_footer_html()}</body></html>"""
 
 
 def track_record_page(record: dict, fpl: list = None) -> str:

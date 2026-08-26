@@ -667,8 +667,14 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # site on every gameweek publish. Imported lazily — evmax.build imports
     # this module at load time, so a module-level import back would be a cycle.
     from evmax.build import write_site_chrome
-    write_site_chrome(w, fpl_ledger=fpl_track_ledger())
+    ledger = fpl_track_ledger()
+    write_site_chrome(w, fpl_ledger=ledger)
     _publish_accuracy(w)
+    # /fpl/accuracy/ (phase 2B, P4) — the ledger in full, the method, and the
+    # "how to check us" chain. FPL builds only; /track-record/'s FPL block is
+    # what links it (no nav pill — that chrome is shared with the WC pages).
+    w(f"{render.ACCURACY_PATH}index.html",
+      render.accuracy_page(ledger, date_str=date_str))
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------
@@ -734,14 +740,18 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         extra_lines=(_llms_player_lines(gameweek, len(payloads), url)
                      + [""] + _llms_dataset_lines(dataset_gameweeks, url))))
     w("/robots.txt", render.robots_txt())
-    # /data/ rides in via extra_urls rather than sitemap_xml's own fixed list:
-    # that list is shared with the World Cup section, whose sitemap must stay
-    # byte-identical.
+    # /data/ and /fpl/accuracy/ ride in via extra_urls rather than
+    # sitemap_xml's own fixed list: that list is shared with the World Cup
+    # section, whose sitemap must stay byte-identical. Deduplicated because
+    # /fpl/accuracy/ lives under out/fpl and _persisted_urls' disk walk finds
+    # it on its own — a URL listed twice is a malformed sitemap.
+    extra_urls = _persisted_urls(out, gameweek)
+    for path in (dataset.DATA_PAGE, render.ACCURACY_PATH):
+        if path not in extra_urls:
+            extra_urls.append(path)
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
                                          section=section,
-                                         extra_urls=_persisted_urls(out,
-                                                                    gameweek)
-                                         + [dataset.DATA_PAGE]))
+                                         extra_urls=extra_urls))
 
     for line in warnings:
         print(f"\n!!! {line}\n")
@@ -950,6 +960,10 @@ def fpl_track_ledger() -> list:
             label = "level"
         rows.append({
             "gw": gw,
+            # `n` is read by /fpl/accuracy/ only (phase 2B) — the number of
+            # players actually graded that week, so a low MAE cannot hide
+            # behind a tiny sample. /track-record/'s block ignores it.
+            "n": acc.get("n"),
             "mae_ours": acc.get("mae_ours"),
             "mae_ep_next": acc.get("mae_ep_next"),
             "model_projected": ours.get("projected"),
@@ -1047,6 +1061,14 @@ def _llms_dataset_lines(gameweeks: list, url: str) -> list:
         lines.append(f"- Latest gameweek: {url}{paths['json']} · "
                      f"{url}{paths['csv']}")
     lines.append(f"- Licence: {dataset.ATTRIBUTION_LINE}")
+    lines += [
+        "",
+        "## Accuracy",
+        f"- [How accurate are we?]({url}{render.ACCURACY_PATH}) — every "
+        "gameweek's projections graded against realized official points, the "
+        "method, and how to check it yourself.",
+        f"- Per-gameweek grading data: {url}/api/fpl/accuracy/gw{{N}}.json",
+    ]
     return lines
 
 
