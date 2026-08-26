@@ -939,6 +939,94 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(hist, {1: 1, 4: 1})
 
 
+class TestDistributionStats(unittest.TestCase):
+    """The six derived columns, over hand-built PMFs with known answers."""
+
+    # 10 sims: 0,0,2,4,4,4,7,10,12,20 -> cumulative
+    #   0:2 (0.2) 2:1 (0.3) 4:3 (0.6) 7:1 (0.7) 10:1 (0.8) 12:1 (0.9) 20:1 (1.0)
+    PMF = {0: 2, 2: 1, 4: 3, 7: 1, 10: 1, 12: 1, 20: 1}
+
+    def test_percentile_lower_bound_convention(self):
+        # smallest x with cumulative >= q
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.10), 0)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.20), 0)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.25), 2)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.50), 4)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.60), 4)
+        self.assertEqual(model._pmf_percentile(self.PMF, 0.90), 12)
+        self.assertEqual(model._pmf_percentile(self.PMF, 1.00), 20)
+
+    def test_percentile_of_an_empty_pmf_is_zero(self):
+        self.assertEqual(model._pmf_percentile({}, 0.5), 0)
+
+    def test_mode_is_the_highest_count(self):
+        self.assertEqual(model._pmf_mode(self.PMF), 4)
+
+    def test_mode_ties_break_to_the_lowest_value(self):
+        self.assertEqual(model._pmf_mode({9: 5, 2: 5, 30: 1}), 2)
+
+    def test_mode_of_an_empty_pmf_is_zero(self):
+        self.assertEqual(model._pmf_mode({}), 0)
+
+    def test_p_haul_is_inclusive_of_exactly_ten(self):
+        # mass at 10, 12, 20 -> 3/10
+        self.assertAlmostEqual(model._pmf_tail_prob(self.PMF, 10), 0.3)
+        # a PMF whose ONLY mass sits exactly on the threshold is p_haul 1.0
+        self.assertAlmostEqual(model._pmf_tail_prob({10: 7}, 10), 1.0)
+
+    def test_p_blank_is_inclusive_of_exactly_two(self):
+        # mass at 0 (x2) and 2 -> 3/10
+        self.assertAlmostEqual(model._pmf_head_prob(self.PMF, 2), 0.3)
+        self.assertAlmostEqual(model._pmf_head_prob({2: 4}, 2), 1.0)
+
+    def _row(self, distribution):
+        return model._derive_row(
+            name="Dist", means={"team": "ARS", "position": "MID",
+                                "clean_sheet": 0.0},
+            x_points=6.3, ceiling=14.0, bonus=0.4, defcon_pts=0.0,
+            p_defcon=0.0, price=7.0, ownership=10.0, kickoff=None,
+            distribution=distribution)
+
+    def test_derive_row_carries_all_six_fields(self):
+        row = self._row(dict(self.PMF))
+        self.assertEqual(row["p10"], 0)
+        self.assertEqual(row["median"], 4)
+        self.assertEqual(row["p90"], 12)
+        self.assertEqual(row["mode"], 4)
+        self.assertAlmostEqual(row["p_haul"], 0.3)
+        self.assertAlmostEqual(row["p_blank"], 0.3)
+
+    def test_percentiles_are_ints_and_probabilities_are_4dp(self):
+        row = self._row({0: 1, 3: 1, 7: 1})
+        for key in ("p10", "median", "p90", "mode"):
+            self.assertIsInstance(row[key], int, key)
+        # 1/3 rounded to 4dp
+        self.assertEqual(row["p_blank"], 0.3333)
+
+    def test_a_row_without_a_distribution_has_none_of_the_six(self):
+        """An artifact written before histograms existed degrades — it does
+        not carry a fabricated floor of zero."""
+        row = model._derive_row(
+            name="Old", means={"team": "ARS", "position": "MID",
+                               "clean_sheet": 0.0},
+            x_points=6.3, ceiling=14.0, bonus=0.4, defcon_pts=0.0,
+            p_defcon=0.0, price=7.0, ownership=10.0, kickoff=None)
+        for key in ("distribution", "p10", "median", "p90", "mode",
+                    "p_haul", "p_blank"):
+            self.assertNotIn(key, row)
+
+    def test_real_rows_carry_the_six_fields(self):
+        rows = _tiny_build_rows(sims=200, gameweek=94)
+        self.assertTrue(rows)
+        for r in rows:
+            for key in ("p10", "median", "p90", "mode", "p_haul", "p_blank"):
+                self.assertIn(key, r, f"{key} missing from {r['name']}")
+            self.assertLessEqual(r["p10"], r["median"])
+            self.assertLessEqual(r["median"], r["p90"])
+            self.assertGreaterEqual(r["p_haul"], 0.0)
+            self.assertLessEqual(r["p_haul"], 1.0)
+
+
 class TestBuildRowsCarriesTheDistribution(unittest.TestCase):
     def test_every_row_has_a_histogram_summing_to_sims(self):
         rows = _tiny_build_rows(sims=200, gameweek=97)
