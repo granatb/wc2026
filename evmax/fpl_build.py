@@ -17,7 +17,7 @@ import shutil
 from datetime import datetime, timezone
 
 from core import fixtures, fpl_api, fpl_live, research, simcache
-from evmax import fpl_articles, fpl_players, render, writer
+from evmax import dataset, fpl_articles, fpl_players, render, writer
 from games.fpl import model as fpl_model
 
 # A gameweek with no availability flags at all. FPL's bootstrap always carries
@@ -527,6 +527,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         ],
     }, ensure_ascii=False, indent=2))
 
+    # --- The public CC BY dataset (phase 2B, spec P2/D3). EVERY simulated
+    # player — `rows`, not the (possibly capped) page payloads — because the
+    # dataset's whole promise is that it is the full board, not the slice we
+    # wrote about. Element ids come from the bootstrap parse so an unmatched
+    # name gets a null id rather than a guess that would poison a join.
+    dataset_gameweeks = _publish_dataset(
+        w, out, gameweek, rows, generated_at,
+        ids={name: p.get("id") for name, p in players_by_name.items()})
+
     # --- Player pages + per-player JSON + index + tier boards. Living
     # surfaces like the landing: regenerated every gameweek, never frozen.
     for p in payloads:
@@ -647,6 +656,11 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # /rate/ serves whichever section built last; a gameweek build gives it FPL
     # copy and points it at this gameweek's players feed (the JS is shared).
     w("/rate/index.html", render.rate_page(gameweek, section=section))
+    # /data/ — the dataset's human page. FPL builds only: the World Cup build
+    # has no dataset and never writes this path, so its pages stay
+    # byte-identical (no nav or footer link was added for the same reason).
+    w("/data/index.html", render.data_page(dataset_gameweeks,
+                                           date_str=date_str))
     # Root-level shared chrome (GSC verification, /_redirects, /track-record/):
     # a deploy replaces the whole tree, and this build's own nav and sitemap
     # point at /track-record/, so omitting these would strip them from the live
@@ -715,14 +729,19 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         {"gameweek": gameweek, "generated_at": generated_at,
          "articles": {s: section.json_path(gameweek, s) for s in ARTICLES}},
         ensure_ascii=False, indent=2))
-    w("/llms.txt", render.llms_txt(gameweek, nav, section=section,
-                                   extra_lines=_llms_player_lines(
-                                       gameweek, len(payloads), url)))
+    w("/llms.txt", render.llms_txt(
+        gameweek, nav, section=section,
+        extra_lines=(_llms_player_lines(gameweek, len(payloads), url)
+                     + [""] + _llms_dataset_lines(dataset_gameweeks, url))))
     w("/robots.txt", render.robots_txt())
+    # /data/ rides in via extra_urls rather than sitemap_xml's own fixed list:
+    # that list is shared with the World Cup section, whose sitemap must stay
+    # byte-identical.
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
                                          section=section,
                                          extra_urls=_persisted_urls(out,
-                                                                    gameweek)))
+                                                                    gameweek)
+                                         + [dataset.DATA_PAGE]))
 
     for line in warnings:
         print(f"\n!!! {line}\n")
@@ -943,6 +962,92 @@ def fpl_track_ledger() -> list:
             "json_path": f"/api/fpl/accuracy/gw{gw}.json",
         })
     return rows
+
+
+def _dataset_dir(out: str) -> str:
+    return os.path.join(out, dataset.DATASET_BASE.lstrip("/").replace("/",
+                                                                     os.sep))
+
+
+def _published_dataset_gameweeks(out: str) -> list:
+    """Every gameweek with a gw{N}.json already on disk in `out`, ascending.
+
+    Read off DISK, not off this build: the dataset accumulates the same way the
+    gameweek pages do. Building GW9 must not deindex GW1's file or drop it out
+    of the cumulative one, and re-simulating eight old gameweeks to rebuild
+    all.json would be both slow and dishonest (the published projections are
+    frozen claims — a rerun would quietly restate them)."""
+    root = _dataset_dir(out)
+    if not os.path.isdir(root):
+        return []
+    gws = []
+    for fname in os.listdir(root):
+        if (fname.startswith("gw") and fname.endswith(".json")
+                and fname[2:-5].isdigit()):
+            gws.append(int(fname[2:-5]))
+    return sorted(gws)
+
+
+def _publish_dataset(w, out: str, gameweek: int, rows: list,
+                     generated_at: str, ids: dict) -> list:
+    """Write this gameweek's dataset pair, refresh index.json, and rebuild the
+    cumulative all.json|.csv from every gw*.json on disk. Returns the published
+    gameweek list (for /data/ and the sitemap).
+
+    Spec D3: emitted BY THE BUILD from artifacts already in memory.
+    """
+    payload = dataset.gameweek_payload(gameweek, rows, generated_at, ids=ids)
+    w(f"{dataset.DATASET_BASE}/{dataset.json_name(gameweek)}",
+      json.dumps(payload, ensure_ascii=False, indent=2))
+    w(f"{dataset.DATASET_BASE}/{dataset.csv_name(gameweek)}",
+      dataset.to_csv(payload))
+
+    gws = _published_dataset_gameweeks(out)
+    root = _dataset_dir(out)
+    payloads = []
+    for gw in gws:
+        if gw == gameweek:
+            payloads.append(payload)
+            continue
+        try:
+            with open(os.path.join(root, dataset.json_name(gw)),
+                      encoding="utf-8") as fh:
+                payloads.append(json.load(fh))
+        except (OSError, ValueError):
+            # A corrupt or half-written old file must not take the whole
+            # cumulative build down — it is dropped from all.json and the
+            # gameweek's own pair is still on disk and still linked.
+            print(f"  [fpl] dataset: skipping unreadable "
+                  f"{dataset.json_name(gw)} in the cumulative rebuild")
+    merged = dataset.merge_all(payloads)
+    w(dataset.ALL_PATHS["json"], json.dumps(merged, ensure_ascii=False,
+                                            indent=2))
+    w(dataset.ALL_PATHS["csv"], dataset.to_csv(merged))
+    w(f"{dataset.DATASET_BASE}/index.json", json.dumps(
+        dataset.index_payload(gws, generated_at=generated_at),
+        ensure_ascii=False, indent=2))
+    return gws
+
+
+def _llms_dataset_lines(gameweeks: list, url: str) -> list:
+    """The llms.txt open-data block. An agent that reads llms.txt and nothing
+    else should still be able to find, fetch and correctly attribute the bulk
+    files — so the licence line is here, not only on the page."""
+    latest = max(gameweeks) if gameweeks else None
+    lines = [
+        "## Open dataset (CC BY 4.0)",
+        f"- [The open FPL dataset]({url}{dataset.DATA_PAGE}) — every player we "
+        "simulate, every gameweek, as bulk JSON and CSV. Free, no key.",
+        f"- Index (read this first): {url}{dataset.DATASET_BASE}/index.json",
+        f"- Every gameweek: {url}{dataset.ALL_PATHS['json']} · "
+        f"{url}{dataset.ALL_PATHS['csv']}",
+    ]
+    if latest is not None:
+        paths = dataset.gameweek_paths(latest)
+        lines.append(f"- Latest gameweek: {url}{paths['json']} · "
+                     f"{url}{paths['csv']}")
+    lines.append(f"- Licence: {dataset.ATTRIBUTION_LINE}")
+    return lines
 
 
 def _publish_accuracy(w) -> None:

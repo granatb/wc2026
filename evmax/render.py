@@ -2386,6 +2386,257 @@ collected and why, before it happens.</p>
 </div>
 {_footer_html()}</body></html>"""
 
+# =============================================================================
+# /data/ — the public CC BY dataset's human page (phase 2B, spec P2)
+# =============================================================================
+# FPL builds only. Nothing here is reachable from the shared nav or footer, so
+# every World Cup page stays byte-identical; /data/ is discovered through the
+# sitemap, llms.txt and the FPL block on /track-record/.
+
+_DATA_CSS = (
+    ".dp{max-width:860px;margin:0 auto 80px}"
+    ".dp h1{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;"
+    "letter-spacing:-1px;margin-bottom:14px}"
+    ".dp .lead{font-family:var(--serif);font-size:19px;color:var(--ink2);"
+    "line-height:1.55;margin-bottom:26px;max-width:70ch}"
+    ".dp h2{font-size:13px;font-weight:700;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--green);margin:36px 0 12px}"
+    ".dp p{font-family:var(--serif);font-size:16.5px;line-height:1.65;"
+    "color:#23201a;margin-bottom:12px;max-width:70ch}"
+    ".dp code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:13px;background:var(--chipbg);padding:1px 6px;border-radius:5px}"
+    ".dp-lic{background:var(--surf);border:1px solid var(--line);"
+    "border-left:4px solid var(--green);border-radius:12px;padding:18px 22px;"
+    "margin:6px 0 8px}"
+    ".dp-lic p{margin-bottom:8px}.dp-lic p:last-child{margin-bottom:0}"
+    ".dp-attr{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,"
+    "monospace;font-size:13px;background:var(--bg);border:1px dashed "
+    "var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;"
+    "color:var(--ink);overflow-x:auto;white-space:pre}"
+    ".dp-files{display:grid;grid-template-columns:repeat(auto-fill,"
+    "minmax(230px,1fr));gap:12px;margin:8px 0 4px}"
+    ".dp-file{background:var(--surf);border:1px solid var(--line);"
+    "border-radius:12px;padding:13px 16px}"
+    ".dp-file b{display:block;font-size:15px;font-weight:800;margin-bottom:6px}"
+    ".dp-file a{font-size:13px;font-weight:700;color:var(--greend);"
+    "margin-right:12px}"
+    ".dp-file a:hover{text-decoration:underline}"
+    ".dp-file span{font-size:12px;color:var(--ink3)}"
+    ".dp-pre{background:#15140f;color:#e9e5da;border-radius:12px;"
+    "padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:12.5px;line-height:1.7;overflow-x:auto;margin:6px 0 14px;"
+    "white-space:pre}"
+    ".dp-pre .c{color:#9a9384}"
+    ".dp-tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;"
+    "background:var(--surf);margin-top:8px}"
+    "table.dp-cols{width:100%;border-collapse:collapse;font-size:13.5px}"
+    "table.dp-cols th{text-align:left;font-size:10.5px;font-weight:700;"
+    "letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);"
+    "padding:10px 14px;border-bottom:2px solid var(--ink);white-space:nowrap}"
+    "table.dp-cols td{padding:10px 14px;border-bottom:1px solid var(--line);"
+    "vertical-align:top;color:var(--ink2);line-height:1.5}"
+    "table.dp-cols tr:last-child td{border-bottom:0}"
+    "table.dp-cols td.t{color:var(--ink3);white-space:nowrap;font-size:12.5px}"
+    "table.dp-cols td:first-child{white-space:nowrap}"
+)
+
+
+def _data_files_html(gameweeks: list) -> str:
+    """One card per published gameweek plus the cumulative pair and the index.
+    Every file the dataset publishes is linked from here — a bulk dataset whose
+    files you have to guess at is not a published dataset."""
+    from evmax import dataset
+
+    cards = []
+    for gw in gameweeks:
+        paths = dataset.gameweek_paths(gw)
+        cards.append(
+            f'<div class="dp-file"><b>Gameweek {gw}</b>'
+            f'<a href="{paths["json"]}">JSON</a>'
+            f'<a href="{paths["csv"]}">CSV</a></div>')
+    cards.append(
+        f'<div class="dp-file"><b>Every gameweek</b>'
+        f'<a href="{dataset.ALL_PATHS["json"]}">JSON</a>'
+        f'<a href="{dataset.ALL_PATHS["csv"]}">CSV</a>'
+        f'<span>Cumulative — every gameweek we have published.</span></div>')
+    cards.append(
+        f'<div class="dp-file"><b>Index</b>'
+        f'<a href="{dataset.DATASET_BASE}/index.json">index.json</a>'
+        f'<span>What exists right now, plus the column schema. Read this '
+        f'first.</span></div>')
+    return f'<div class="dp-files">{"".join(cards)}</div>'
+
+
+def _data_glossary_html() -> str:
+    """The column table, rendered from dataset.COLUMN_GLOSSARY — the same dict
+    docs/DATASET.md mirrors, so the page and the repo doc cannot drift."""
+    from evmax import dataset
+
+    rows = "".join(
+        f'<tr><td><code>{_html.escape(col)}</code></td>'
+        f'<td class="t">{_html.escape(dataset.COLUMN_GLOSSARY[col][0])}</td>'
+        f'<td>{_html.escape(dataset.COLUMN_GLOSSARY[col][1])}</td></tr>'
+        for col in dataset.CSV_COLUMNS)
+    extra = (
+        f'<tr><td><code>{dataset.PMF_FIELD}</code></td><td class="t">object'
+        f'</td><td>JSON only — the sparse point-mass function over integer FPL '
+        f'points, <code>{{"points": count}}</code> across the 50,000 '
+        f'simulations. Omitted for gameweeks published before we stored it.'
+        f'</td></tr>')
+    return ('<div class="dp-tw"><table class="dp-cols"><thead><tr>'
+            '<th>Column</th><th>Type</th><th>What it means</th></tr></thead>'
+            f'<tbody>{rows}{extra}</tbody></table></div>')
+
+
+def _data_curl_html(gameweeks: list) -> str:
+    """Three copy-pasteable examples: the index, one gameweek's CSV, and a
+    filter over the cumulative JSON."""
+    from evmax import dataset
+
+    latest = max(gameweeks) if gameweeks else 1
+    base = SITE_URL
+    return (
+        '<div class="dp-pre">'
+        '<span class="c"># 1. What is published right now</span>\n'
+        f'curl -s {base}{dataset.DATASET_BASE}/index.json | jq \'.gameweeks\''
+        '</div>'
+        '<div class="dp-pre">'
+        f'<span class="c"># 2. One gameweek, flat CSV</span>\n'
+        f'curl -s {base}{dataset.DATASET_BASE}/gw{latest}.csv -o '
+        f'evmax-gw{latest}.csv'
+        '</div>'
+        '<div class="dp-pre">'
+        '<span class="c"># 3. Every gameweek, top 10 midfielders by projected '
+        'points</span>\n'
+        f'curl -s {base}{dataset.ALL_PATHS["json"]} | \\\n'
+        '  jq \'[.players[] | select(.position=="MID")]'
+        ' | sort_by(-.x_points) | .[:10]\''
+        '</div>')
+
+
+def _data_schema_ld(gameweeks: list) -> str:
+    """schema.org Dataset — what makes Google Dataset Search and an agent
+    crawler recognise this as a dataset with a machine-readable licence."""
+    from evmax import dataset
+
+    dists = [{"@type": "DataDownload", "encodingFormat": "application/json",
+              "contentUrl": f"{SITE_URL}{dataset.ALL_PATHS['json']}"},
+             {"@type": "DataDownload", "encodingFormat": "text/csv",
+              "contentUrl": f"{SITE_URL}{dataset.ALL_PATHS['csv']}"}]
+    for gw in gameweeks:
+        paths = dataset.gameweek_paths(gw)
+        dists.append({"@type": "DataDownload",
+                      "encodingFormat": "text/csv",
+                      "contentUrl": f"{SITE_URL}{paths['csv']}"})
+    return _json.dumps({
+        "@context": "https://schema.org", "@type": "Dataset",
+        "name": "evmax FPL projections — the open dataset",
+        "description": (
+            "Per-gameweek Fantasy Premier League point projections for every "
+            "simulated player, from 50,000 Monte-Carlo simulations on "
+            "de-vigged market odds. JSON and CSV, CC BY 4.0."),
+        "url": f"{SITE_URL}{dataset.DATA_PAGE}",
+        "license": dataset.LICENSE_URL,
+        "creator": {"@id": SITE_URL + "/#organization"},
+        "isAccessibleForFree": True,
+        "keywords": ["Fantasy Premier League", "FPL", "expected points",
+                     "football analytics", "Monte-Carlo simulation"],
+        "distribution": dists,
+    }, indent=None).replace("</", "<\\/")
+
+
+def data_page(gameweeks, date_str: str = None) -> str:
+    """/data/ — what the dataset is, the CC BY terms with the exact attribution
+    line, the column glossary, three curl examples, links to every file, and a
+    citation block.
+
+    gameweeks: every gameweek with a dataset file on disk, ascending.
+    Rendered on FPL builds only.
+    """
+    from evmax import dataset
+
+    gws = sorted(set(int(g) for g in (gameweeks or [])))
+    stamp = (f'<p class="dp-updated" style="font-size:13px;color:var(--ink3);'
+             f'margin-bottom:22px">Last updated {_html.escape(date_str)}.</p>'
+             if date_str else "")
+    count_line = (f"{len(gws)} gameweek{'s' if len(gws) != 1 else ''} published "
+                  f"so far." if gws else
+                  "The first gameweek publishes with the next build.")
+    description = ("Every evmax FPL projection as bulk JSON and CSV, free under "
+                   "CC BY 4.0 — one file per gameweek plus a cumulative file, "
+                   "with the full column schema.")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The open FPL dataset | {TITLE_BRAND}</title>
+<meta name="description" content="{_html.escape(description)}">
+<script type="application/ld+json">{_data_schema_ld(gws)}</script>
+{_og_meta("The open FPL dataset", description, dataset.DATA_PAGE, og_type="website")}
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_DATA_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html()}
+</div></header>
+<div class="wrap">
+<div class="dp">
+<div class="pagelabel" style="margin-top:34px">Open data</div>
+<h1>Every projection we make, as a file you can download</h1>
+<p class="lead">Before each Premier League deadline we simulate the gameweek 50,000
+times and score every player on the official FPL points table. This page publishes
+all of it — every player we simulated, not the ones we wrote about — as JSON and
+CSV. Free, no key, no account, no rate limit. {_html.escape(count_line)}</p>
+{stamp}
+
+<h2>The licence</h2>
+<div class="dp-lic">
+<p><b>CC BY 4.0.</b> Use these numbers for anything — a blog post, a spreadsheet, a
+podcast, a model of your own, a commercial product. The single condition is that you
+credit evmax and link back. That is the whole deal, and it is the deal on purpose:
+we would rather be cited than hidden.</p>
+<p>Full terms: <a href="{dataset.LICENSE_URL}" style="color:var(--greend)">creativecommons.org/licenses/by/4.0/</a></p>
+<p style="margin-top:12px"><b>Paste this credit line:</b></p>
+<code class="dp-attr">{_html.escape(dataset.ATTRIBUTION_LINE)}</code>
+</div>
+
+<h2>The files</h2>
+<p>One file per gameweek in both formats, plus a cumulative file covering every
+gameweek we have ever published. Past gameweeks are never rewritten — a projection
+published before a deadline stays exactly as it was published.</p>
+{_data_files_html(gws)}
+
+<h2>Try it</h2>
+{_data_curl_html(gws)}
+
+<h2>What the columns mean</h2>
+<p>The CSV header is stable: columns are only ever added at the end, never
+reordered or removed, so a script that reads it by position keeps working.
+A cell can be empty when we could not compute that number for that player —
+an empty cell is never a zero.</p>
+{_data_glossary_html()}
+
+<h2>How the numbers are made</h2>
+<p>{_html.escape(dataset.METHOD)} We publish the grading too: see
+<a href="/fpl/accuracy/" style="color:var(--greend)">our accuracy page</a> for
+per-gameweek error against realized official points, and
+<a href="/track-record/" style="color:var(--greend)">the track record</a> for the
+full history. Nothing on this site is graded by us in private.</p>
+
+<h2>Cite us</h2>
+<p>For a paper, a README or a footnote:</p>
+<code class="dp-attr">evmax. "FPL projections dataset." {SITE_URL}{dataset.DATA_PAGE}
+Licensed CC BY 4.0.</code>
+<p style="margin-top:14px">Building an agent? There is an MCP server for this data —
+see <a href="https://github.com/granatb/wc2026" style="color:var(--greend)">the
+repository</a>. Questions, corrections or a reuse you want us to know about:
+<a href="/about/" style="color:var(--greend)">about evmax</a>.</p>
+</div>
+</div>
+{_footer_html()}</body></html>"""
+
+
 def _utility_page(title, kicker, heading, body_html, active=None,
                   description="evmax — independent fantasy football simulations."):
     """Small editorial utility page (thanks/confirmed) — noindex, footer, nav."""
