@@ -515,6 +515,15 @@ CARD_CSS = (
     "font-variant-numeric:tabular-nums}"
     ".player-card .pc-hero span{font-size:11px;font-weight:700;"
     "letter-spacing:1px;text-transform:uppercase;color:var(--ink3)}"
+    # floor/ceiling flanking the hero: small, muted, and deliberately NOT
+    # competing with the mean they bracket
+    ".player-card .pc-bound{display:flex;flex-direction:column;"
+    "align-items:center;gap:1px;color:var(--ink3);"
+    "font-variant-numeric:tabular-nums}"
+    ".player-card .pc-bound b{font-family:var(--sans);font-size:15px;"
+    "font-weight:700;color:var(--ink3);line-height:1}"
+    ".player-card .pc-bound i{font-style:normal;font-size:8.5px;"
+    "letter-spacing:.6px;text-transform:uppercase}"
     ".player-card .pc-news{font-size:13px;color:#a8331c;background:#fdeee9;"
     "border-radius:8px;padding:8px 12px;margin:10px 0 2px}"
     # form art: the dot timeline — played gameweeks, then projected ones.
@@ -1011,6 +1020,32 @@ def _decomp_html(proj: dict) -> str:
             f'decomposition">{"".join(spans)}</div>')
 
 
+# Realized pts/£m is season points divided by price. Over two gameweeks that
+# is division by a two-game sample: B.Fernandes reads 0.17 at GW2 (2 points
+# over £12.0m) and it says nothing at all. It had also silently REPLACED the
+# projected figure, which is the one the efficiency article ranks on and the
+# only one that means anything this early (owner 2026-08-26: "but we used to
+# have expected points per million").
+#
+# So: projected value always; realized only once there is enough football
+# behind it — the same bar the dot timeline uses for its realized dots, read
+# off the same played_gameweeks count so the two can never disagree.
+REALIZED_PPM_MIN_PLAYED = DOTS_PLAYED_MAX
+
+
+def value_cell(payload: dict) -> str:
+    """The stat row's pts/£m cell: projected, with realized alongside it only
+    when a player has actually played enough for the division to mean
+    something."""
+    value = (payload.get("projection") or {}).get("value")
+    realized = (payload.get("season") or {}).get("realized_ppm")
+    if (realized is not None
+            and played_gameweeks(payload) >= REALIZED_PPM_MIN_PLAYED):
+        return (f'<span>pts/£m <b>{_fmt(value, 2)}</b> proj · '
+                f'<b>{_fmt(realized, 2)}</b> so far</span>')
+    return f'<span>value <b>{_fmt(value, 2)} pts/£m</b></span>'
+
+
 def fixtures_caption(fixtures: list) -> str:
     """The one-line key under the fixture chips.
 
@@ -1056,8 +1091,24 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'£{_fmt(payload["price"], 1)}m · Gameweek {payload["gameweek"]}</div>'
         f'</figcaption>')
 
-    hero_html = (f'<div class="pc-hero"><b>{_fmt(proj.get("x_points"))}</b>'
-                 f'<span>xPts</span></div>')
+    # The hero mean, flanked by its own distribution: "1 · 8.61 · 17". A mean
+    # cannot tell a 6.0 that is six every week from a 6.0 that blanks four
+    # times and hauls once, and the card already simulates the answer (owner
+    # 2026-08-26: "we have space to show small lower bound expected points in
+    # the middle and small upper bound"). Degrades silently to the bare mean
+    # when a card has no distribution.
+    dist = payload.get("distribution") or {}
+    p10, p90 = dist.get("p10"), dist.get("p90")
+    bounds = p10 is not None and p90 is not None
+    floor_html = ceiling_html = ""
+    if bounds:
+        floor_html = ('<span class="pc-bound" title="10th percentile">'
+                      f'<b>{p10}</b><i>floor</i></span>')
+        ceiling_html = ('<span class="pc-bound" title="90th percentile">'
+                        f'<b>{p90}</b><i>ceiling</i></span>')
+    hero_html = (f'<div class="pc-hero">{floor_html}'
+                 f'<b>{_fmt(proj.get("x_points"))}</b>'
+                 f'<span>xPts</span>{ceiling_html}</div>')
 
     # The form band is fixed-height on EVERY card, present or not: a new
     # signing with no history (M.Sangaré, GW2) used to skip the block and his
@@ -1073,7 +1124,7 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'</div>'
         f'<div class="pc-statrow pc-statrow2">'
         f'<span>season <b>{season["total_points"]} pts</b></span>'
-        f'<span>realized <b>{_fmt(season["realized_ppm"])} pts/£m</b></span>'
+        f'{value_cell(payload)}'
         f'<span>own vs xPts rank <b>{gap:+d}</b></span>'
         f'</div>')
 

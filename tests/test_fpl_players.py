@@ -460,7 +460,8 @@ class TestCardHtml(unittest.TestCase):
 
     def test_hero_number_and_verdict_line(self):
         _, html = self._card()
-        self.assertIn('<div class="pc-hero"><b>8.00</b>', html)
+        # the mean, now flanked by its floor and ceiling
+        self.assertIn('<b>8.00</b><span>xPts</span>', html)
         self.assertIn('class="pc-verdict">in our XI · tier S · Premium</div>',
                       html)
 
@@ -985,3 +986,68 @@ class TestStanceReplacesTheCall(unittest.TestCase):
         html = fpl_players.player_page_html(self._payloads()["ConsBench"], 2)
         self.assertIn("on the consensus bench", html)
         self.assertNotIn("in the consensus XI", html)
+
+
+class TestHeroBounds(unittest.TestCase):
+    """The hero mean, flanked by its own distribution (owner 2026-08-26: "we
+    have space to show small lower bound expected points in the middle and
+    small upper bound")."""
+
+    def test_floor_and_ceiling_flank_the_mean(self):
+        payloads, _ = _payloads()
+        html = fpl_players.card_html(payloads[0])
+        hero = html[html.index('class="pc-hero"'):html.index("pc-form")]
+        # Alpha's PMF: p10 = 2, mean 8.00, p90 = 13 — in that visual order
+        self.assertLess(hero.index(">2<"), hero.index(">8.00<"))
+        self.assertLess(hero.index(">8.00<"), hero.index(">13<"))
+        self.assertIn('title="10th percentile"', hero)
+        self.assertIn('title="90th percentile"', hero)
+        self.assertIn("<i>floor</i>", hero)
+        self.assertIn("<i>ceiling</i>", hero)
+
+    def test_a_card_without_a_distribution_degrades_silently(self):
+        payloads, _ = _payloads(with_distribution=False)
+        html = fpl_players.card_html(payloads[0])
+        self.assertIn('<div class="pc-hero"><b>8.00</b>', html)
+        self.assertNotIn("pc-bound", html)
+        self.assertNotIn("10th percentile", html)
+
+
+class TestValueCell(unittest.TestCase):
+    """Projected pts/£m is back and is the primary figure; realized only
+    appears once the division means something (owner 2026-08-26: "but we used
+    to have expected points per million")."""
+
+    @staticmethod
+    def _payload(played, value=0.72, realized=1.41):
+        return {"projection": {"value": value},
+                "season": {"realized_ppm": realized},
+                "form_history": [{"round": r, "total_points": 5, "minutes": 90}
+                                 for r in range(1, played + 1)]}
+
+    def test_below_the_bar_only_the_projection_shows(self):
+        cell = fpl_players.value_cell(self._payload(played=2))
+        self.assertEqual(cell, "<span>value <b>0.72 pts/£m</b></span>")
+        self.assertNotIn("so far", cell)
+
+    def test_at_the_bar_realized_joins_it(self):
+        cell = fpl_players.value_cell(self._payload(played=3))
+        self.assertEqual(cell, "<span>pts/£m <b>0.72</b> proj · "
+                               "<b>1.41</b> so far</span>")
+
+    def test_the_bar_is_the_dot_timelines_own_played_count(self):
+        self.assertEqual(fpl_players.REALIZED_PPM_MIN_PLAYED,
+                         fpl_players.DOTS_PLAYED_MAX)
+
+    def test_a_missing_realized_figure_never_forces_the_pair(self):
+        payload = self._payload(played=5)
+        payload["season"]["realized_ppm"] = None
+        self.assertNotIn("so far", fpl_players.value_cell(payload))
+
+    def test_the_card_carries_the_projected_value_today(self):
+        """GW2 reality: nobody has three played gameweeks, so every card shows
+        the projection alone."""
+        payloads, _ = _payloads()
+        html = fpl_players.card_html(payloads[0])
+        self.assertIn("<span>value <b>0.80 pts/£m</b></span>", html)
+        self.assertNotIn("so far", html)
