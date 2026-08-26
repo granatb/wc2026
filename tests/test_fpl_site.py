@@ -159,6 +159,18 @@ _TICKER_ENTRY = {"name": "ARS", "rank": 1, "opponents": "LIV (H)", "fixtures": 1
 _DEFCON_ENTRY = {"name": "Gabriel", "rank": 1, "position": "DEF", "team": "ARS",
                  "p_defcon": 0.71, "defcon": 1.42, "defcon_threshold": 10,
                  "x_points": 5.4, "price": 6.0}
+_DIST_ENTRIES = [
+    {"name": "Haaland", "rank": 1, "position": "FWD", "team": "MCI",
+     "x_points": 7.4, "captain_ev": 14.8, "ceiling": 13.0, "price": 14.0,
+     "ownership_pct": 55.0, "p10": 1, "median": 6, "mode": 2, "p90": 15,
+     "p_haul": 0.31, "p_blank": 0.24, "beats_top": None,
+     "beats_name": "Haaland", "sims": 50000},
+    {"name": "Salah", "rank": 2, "position": "MID", "team": "LIV",
+     "x_points": 6.6, "captain_ev": 13.2, "ceiling": 11.4, "price": 14.5,
+     "ownership_pct": 48.0, "p10": 2, "median": 6, "mode": 5, "p90": 13,
+     "p_haul": 0.24, "p_blank": 0.15, "beats_top": 0.46,
+     "beats_name": "Haaland", "sims": 50000},
+]
 
 
 class TestFplTemplates(unittest.TestCase):
@@ -179,6 +191,7 @@ class TestFplTemplates(unittest.TestCase):
             "efficiency": [dict(_ENTRIES[0], value=1.2, tier="Budget", team="ARS",
                                 position="MID", ceiling=9.0)],
             "defcon": [_DEFCON_ENTRY],
+            "distributions": _DIST_ENTRIES,
         }
         for slug, entries in cases.items():
             prose = self._prose(slug, entries)
@@ -237,9 +250,32 @@ class TestFplTemplates(unittest.TestCase):
         self.assertIn("EVE", prose["body_html"])
         self.assertIn("blank", prose["body_html"].lower())
 
+    def test_distributions_prose_states_the_independence_approximation(self):
+        prose = self._prose("distributions", _DIST_ENTRIES)
+        blob = (prose["standfirst"] + prose["body_html"]
+                + prose["bottom_line"]).lower()
+        self.assertIn("independ", blob)
+        # the spread, the haul odds and the head-to-head all get said
+        self.assertIn("31", prose["body_html"])          # p_haul as a %
+        self.assertIn("46", prose["body_html"])          # beats_top as a %
+        self.assertIn("Salah", prose["body_html"])
+
+    def test_distributions_prose_names_no_bookmaker(self):
+        prose = self._prose("distributions", _DIST_ENTRIES)
+        blob = " ".join(prose[k] for k in
+                        ("headline", "standfirst", "body_html", "bottom_line"))
+        for name in ("bet365", "William Hill", "Pinnacle", "Betfair",
+                     "Unibet", "Ladbrokes", "bookmaker"):
+            self.assertNotIn(name.lower(), blob.lower(), name)
+
+    def test_distributions_prose_survives_a_single_entry(self):
+        prose = self._prose("distributions", _DIST_ENTRIES[:1])
+        self.assertIn("<p>", prose["body_html"])
+        self.assertNotIn("analysis:", prose["headline"].lower())
+
     def test_empty_entries_do_not_crash_any_slug(self):
         for slug in ("captains", "wildcard", "ticker", "defenders", "efficiency",
-                     "defcon"):
+                     "defcon", "distributions"):
             with self.subTest(slug=slug):
                 prose = self._prose(slug, [])
                 self.assertTrue(prose["headline"])
@@ -531,6 +567,24 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("/fpl/players/", txt)
         self.assertIn("/api/fpl/gw1/players/{element_id}.json", txt)
 
+    def test_sitemap_and_llms_txt_carry_the_distributions_slug(self):
+        xml = self._read("/sitemap.xml")
+        self.assertIn("https://example.test/fpl/gw1/distributions/</loc>", xml)
+        self.assertIn("/fpl/gw1/distributions/", self._read("/llms.txt"))
+
+    def test_distributions_article_renders_the_eight_candidates(self):
+        html = self._read("/fpl/gw1/distributions/index.html")
+        self.assertIn("Points distributions", html)
+        # eight ranked rows in the article table
+        self.assertEqual(html.count('<td class="l"><span class="nm">'), 8)
+        # the approximation is stated, not buried
+        self.assertIn("independ", html.lower())
+        env = json.loads(self._read("/api/fpl/gw1/distributions.json"))
+        self.assertEqual(len(env["entries"]), 8)
+        for key in ("p10", "median", "mode", "p90", "p_haul", "p_blank",
+                    "beats_top", "beats_name"):
+            self.assertIn(key, env["entries"][1])
+
     def test_projection_snapshot_is_not_written_for_a_non_production_build(self):
         """Snapshots are the track record's ground truth — a test build into a temp
         dir must never touch them. A real pre-lock production build may already
@@ -752,6 +806,22 @@ class TestPromptUnit(unittest.TestCase):
     def test_world_cup_prompt_does_not_carry_the_fpl_glossary(self):
         p = prompts.build_prompt("captains", 5, _ENTRIES)
         self.assertNotIn("p_defcon", p)
+
+    def test_distributions_prompt_glosses_the_shape_fields(self):
+        p = prompts.build_prompt("distributions", 2, _DIST_ENTRIES,
+                                 subject="Haaland", unit="Gameweek")
+        for field in ("p10", "p90", "p_haul", "p_blank", "beats_top", "mode"):
+            self.assertIn(field, p, field)
+
+    def test_distributions_prompt_makes_the_caveat_a_condition(self):
+        """An LLM-written page must not be able to print beats_top without
+        saying it assumes independence — the approximation is knowingly
+        wrong, so stating it is the price of publishing the number."""
+        p = prompts.build_prompt("distributions", 2, _DIST_ENTRIES,
+                                 subject="Haaland", unit="Gameweek")
+        self.assertIn("INDEPENDENT", p)
+        self.assertIn("condition of publishing", p)
+        self.assertIn("bookmaker", p)          # the instruction NOT to name one
 
 
 def _squad_entries(captain="Cap", vice="Vice", with_haaland=False,
@@ -1154,11 +1224,17 @@ class TestSquadBuildGuards(unittest.TestCase):
         with self.assertRaises(SystemExit):
             fpl_build.squad_preflight({"our-squad": dict(self._META)})
 
-    def test_eight_articles_and_the_two_squads_lead(self):
-        self.assertEqual(len(fpl_build.ARTICLES), 8)
+    def test_nine_articles_and_the_two_squads_lead(self):
+        self.assertEqual(len(fpl_build.ARTICLES), 9)
         self.assertEqual(fpl_build.ARTICLES[0], "our-squad")
         self.assertEqual(fpl_build.ARTICLES[1], "captains")
         self.assertIn("consensus-squad", fpl_build.ARTICLES)
+        self.assertIn("distributions", fpl_build.ARTICLES)
+
+    def test_every_article_has_a_title_and_columns(self):
+        for slug in fpl_build.ARTICLES:
+            self.assertIn(slug, fpl_build.ARTICLE_TITLES, slug)
+            self.assertTrue(fpl_build._COLUMNS.get(slug), slug)
 
 
 class TestPublishGate(unittest.TestCase):

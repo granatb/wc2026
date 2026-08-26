@@ -308,7 +308,13 @@ _COL_LABEL = {"x_points": "xPts", "captain_ev": "Captain EV", "ceiling": "Ceilin
               # landing stat labels never print a raw key.
               "p_defcon": "P(DefCon)", "defcon": "DefCon pts", "cs_points": "CS pts",
               "exp_clean_sheets": "Clean sheets", "fixtures": "Fixtures",
-              "basis": "Basis", "bonus": "Bonus"}
+              "basis": "Basis", "bonus": "Bonus",
+              # Distribution columns (spec 2026-08-26, P1). Reader-facing
+              # words, not percentile jargon: "Floor"/"Ceiling" is what the
+              # numbers mean to someone picking a captain.
+              "p10": "Floor", "median": "Median", "mode": "Most likely",
+              "p90": "Ceiling", "p_haul": "Haul %", "p_blank": "Blank %",
+              "beats_top": "Beats #1"}
 
 # Columns whose value is already a display-ready string (not a number to format).
 _STRING_COLS = {"top_def", "top_gk", "basis", "opponents"}
@@ -322,7 +328,7 @@ def _fmt(col, row):
         return str(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col in ("p_clean_sheet", "p_defcon"):
+    if col in ("p_clean_sheet", "p_defcon", "p_haul", "p_blank", "beats_top"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"
@@ -1111,7 +1117,7 @@ def _md_fmt(col, row):
         return _escape_pipes(v)
     if col in ("ownership_pct", "p_advance"):
         return f"{v:.1f}%"
-    if col in ("p_clean_sheet", "p_defcon"):
+    if col in ("p_clean_sheet", "p_defcon", "p_haul", "p_blank", "beats_top"):
         return f"{v * 100:.0f}%"
     if col == "price":
         return f"{v:.1f}"

@@ -547,3 +547,98 @@ class TestSquadArticle(unittest.TestCase):
         entries, meta = fpl_articles.squad_article(_squad_state(), _squad_rows())
         self.assertNotIn("source_count", meta)
         self.assertTrue(all("source_count" not in e for e in entries))
+
+
+# --- Phase 2A: distributions -------------------------------------------------
+
+def _dist_row(name, pos, xp, pmf, **kw):
+    """A row carrying a hand-built PMF plus the statistics the engine derives
+    from it, so the article can be tested without running a simulation."""
+    from games.fpl import model
+    row = _row(name, pos, xp, **kw)
+    row["distribution"] = dict(pmf)
+    row.update(model.distribution_stats(pmf))
+    return row
+
+
+class TestBeats(unittest.TestCase):
+    """P(A > B) + 0.5 * P(A = B) over two independent PMFs."""
+
+    def test_hand_built_pmfs_with_a_known_answer(self):
+        # A: 0 w.p. 1/2, 10 w.p. 1/2.  B: 5 always.
+        # P(A > B) = 1/2, P(A = B) = 0 -> 0.5
+        self.assertAlmostEqual(fpl_articles.beats({0: 1, 10: 1}, {5: 2}), 0.5)
+        # A: 4 or 6 evenly. B: 5 always -> P(A>B) = 1/2, no ties -> 0.5
+        self.assertAlmostEqual(fpl_articles.beats({4: 1, 6: 1}, {5: 1}), 0.5)
+        # A: 2 or 8 evenly. B: 2 or 4 evenly.
+        # (2,2) tie .25 ; (2,4) loss .25 ; (8,2) win .25 ; (8,4) win .25
+        # -> 0.5 + 0.5*0.25 = 0.625
+        self.assertAlmostEqual(fpl_articles.beats({2: 1, 8: 1}, {2: 1, 4: 1}),
+                               0.625)
+
+    def test_ties_take_half_credit(self):
+        self.assertAlmostEqual(fpl_articles.beats({3: 5}, {3: 9}), 0.5)
+
+    def test_a_distribution_against_an_independent_copy_is_exactly_a_half(self):
+        pmf = {0: 3, 2: 5, 9: 1, 14: 2}
+        self.assertAlmostEqual(fpl_articles.beats(pmf, dict(pmf)), 0.5)
+
+    def test_complementary(self):
+        a, b = {0: 4, 7: 6}, {1: 1, 3: 2, 12: 1}
+        self.assertAlmostEqual(fpl_articles.beats(a, b)
+                               + fpl_articles.beats(b, a), 1.0)
+
+    def test_empty_pmf_is_a_coin_flip_not_a_crash(self):
+        self.assertAlmostEqual(fpl_articles.beats({}, {4: 1}), 0.5)
+        self.assertAlmostEqual(fpl_articles.beats({4: 1}, {}), 0.5)
+
+
+class TestDistributionsArticle(unittest.TestCase):
+    def _rows(self, n=12):
+        pmfs = [
+            {0: 5, 4: 30, 6: 30, 9: 20, 13: 10, 20: 5},
+            {0: 20, 2: 30, 5: 20, 11: 20, 18: 10},
+            {2: 40, 5: 40, 8: 20},
+        ]
+        return [_dist_row(f"P{i}", "MID", 9.0 - i * 0.5, pmfs[i % 3],
+                          price=6.0 + i)
+                for i in range(n)]
+
+    def test_top_eight_by_captain_ev_in_order(self):
+        out = fpl_articles.distributions(self._rows())
+        self.assertEqual(len(out), 8)
+        self.assertEqual([e["name"] for e in out],
+                         [f"P{i}" for i in range(8)])
+        self.assertEqual([e["rank"] for e in out], list(range(1, 9)))
+
+    def test_entries_carry_the_pmf_summary(self):
+        out = fpl_articles.distributions(self._rows())
+        for e in out:
+            for key in ("p10", "median", "mode", "p90", "p_haul", "p_blank",
+                        "captain_ev", "x_points"):
+                self.assertIn(key, e, key)
+
+    def test_beats_top_is_relative_to_the_leader_and_null_for_the_leader(self):
+        out = fpl_articles.distributions(self._rows())
+        self.assertIsNone(out[0]["beats_top"])
+        self.assertEqual(out[0]["beats_name"], "P0")
+        for e in out[1:]:
+            self.assertEqual(e["beats_name"], "P0")
+            self.assertGreaterEqual(e["beats_top"], 0.0)
+            self.assertLessEqual(e["beats_top"], 1.0)
+        # P3 shares P0's PMF, so an independent copy is a straight coin flip
+        by_name = {e["name"]: e for e in out}
+        self.assertAlmostEqual(by_name["P3"]["beats_top"], 0.5)
+
+    def test_rows_without_a_distribution_are_dropped_not_guessed(self):
+        rows = self._rows(4) + [_row("NoDist", "FWD", 20.0)]
+        out = fpl_articles.distributions(rows)
+        self.assertNotIn("NoDist", [e["name"] for e in out])
+        self.assertEqual(len(out), 4)
+
+    def test_no_distributions_at_all_yields_no_entries(self):
+        self.assertEqual(fpl_articles.distributions(
+            [_row("A", "MID", 5.0), _row("B", "MID", 4.0)]), [])
+
+    def test_top_is_configurable(self):
+        self.assertEqual(len(fpl_articles.distributions(self._rows(), top=3)), 3)

@@ -485,6 +485,93 @@ def defcon_leaders(rows: list) -> list:
     return ranked
 
 
+# --- Distributions (spec 2026-08-26, P1) -------------------------------------
+
+# The statistics the engine derives from each player's PMF, carried onto the
+# article entries verbatim — this module never recomputes them, so the page,
+# the card and the JSON can never disagree about a player's floor.
+DISTRIBUTION_KEYS = ("p10", "median", "mode", "p90", "p_haul", "p_blank")
+
+
+def beats(a: dict, b: dict) -> float:
+    """P(A > B) + 0.5 * P(A = B) for two independent points distributions.
+
+    The half-credit on ties is not a rounding convenience: FPL points are
+    integers and ties are COMMON (two 2-point blanks, two 6-point returns), so
+    a plain P(A > B) would systematically understate every player and the two
+    directions would not sum to 1. With the half-credit they do, exactly, and
+    a distribution against an independent copy of itself scores 0.5 — the
+    sanity check the tests pin.
+
+    INDEPENDENCE IS AN APPROXIMATION, and a knowingly wrong one. Two players
+    in the same match are strongly dependent (a City rout lifts every City
+    attacker at once and denies the opposing defence its clean sheet), and
+    even in different matches they share nothing but noise. The engine holds
+    the joint distribution — it simulated both players in the same sims — so a
+    later version can and should read P(A > B) straight off the paired per-sim
+    totals instead. Until it does, every surface that prints this number MUST
+    say the two are treated as independent. That is a publishing rule, not a
+    style note: it is the difference between a stated approximation and a
+    quiet lie.
+
+    Implemented as a direct double sum over the two sparse PMFs rather than by
+    building the difference distribution: at ~30 keys each that is ~900
+    multiply-adds per pair, which is nothing, and it keeps the arithmetic
+    readable next to the definition above.
+
+    An empty PMF (a player with no simulated mass at all) returns 0.5 rather
+    than raising — a comparison with nothing is a coin flip, and a missing
+    distribution must not take down a page.
+    """
+    total_a, total_b = sum(a.values()), sum(b.values())
+    if not total_a or not total_b:
+        return 0.5
+    wins = ties = 0
+    for pts_a, count_a in a.items():
+        for pts_b, count_b in b.items():
+            if pts_a > pts_b:
+                wins += count_a * count_b
+            elif pts_a == pts_b:
+                ties += count_a * count_b
+    return (wins + 0.5 * ties) / float(total_a * total_b)
+
+
+def distributions(rows: list, top: int = 8) -> list:
+    """The week's captain candidates with the SHAPE of their weeks, not just
+    the mean (spec 2026-08-26, P1).
+
+    Ranked on captain_ev for the same reason the captains article is: this
+    page answers "who do I trust with the armband", and the armband doubles
+    the whole distribution, so the ordering question is identical. What
+    differs is the answer's content — captains ranks on the expectation alone,
+    this ranks on it and then shows the reader that two players with the same
+    expectation can be completely different bets.
+
+    Every entry carries `beats_top`: P(this player outscores the top-ranked
+    candidate) under the independence approximation documented on `beats`.
+    The leader's own cell is None, not 0.5 — comparing a distribution with an
+    independent copy of itself is 0.5 by construction and tells the reader
+    nothing, so printing it would be noise dressed as a finding. `beats_name`
+    names whoever the column is measured against so the table can never be
+    read against the wrong player.
+
+    Rows without a distribution are DROPPED, not defaulted: this article is
+    the distribution, and a row with no PMF has nothing to say on it.
+    """
+    pool = [r for r in rows if r.get("distribution")]
+    if not pool:
+        return []
+    ranked = _ranked(pool, "captain_ev")[:top]
+    leader = ranked[0]
+    leader_pmf = leader["distribution"]
+    for r in ranked:
+        r["beats_name"] = leader["name"]
+        r["beats_top"] = (None if r is ranked[0]
+                          else round(beats(r["distribution"], leader_pmf), 4))
+        r["sims"] = sum(r["distribution"].values())
+    return ranked
+
+
 # Goal-environment thresholds on a fixture's combined expected goals. Carried
 # over from the World Cup ticker: the question ("is this a game to target
 # attackers in?") and the scale (goals per match) are the same in both games.
