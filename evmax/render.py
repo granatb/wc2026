@@ -543,6 +543,22 @@ _STYLE = (
 )
 
 
+# Mobile nav-overflow fix: _STYLE's header nav (five pills, min-content
+# ~370px after the logo) forces the whole BODY to scroll sideways below
+# ~460px viewports (repro 2026-08-25 at 420px) — the duel strip, hero
+# headline and stand all read as cut off at the right edge. The nav becomes
+# its own scroll container instead. Additive and FPL-only, because _STYLE is
+# embedded byte-for-byte in frozen published pages: injected on the FPL
+# landing (extra_style chain, fpl_build) and the FPL /rate/ page (pitch_css).
+_NAV_SCROLL_CSS = (
+    "@media(max-width:760px){"
+    "nav{overflow-x:auto;min-width:0;scrollbar-width:none}"
+    "nav::-webkit-scrollbar{display:none}"
+    "nav a{white-space:nowrap}"
+    "}"
+)
+
+
 def _nav_html(active=None):
     """Fixed site nav, identical on every page.
     active ∈ {'home','about','track-record','rate',None}."""
@@ -1738,7 +1754,7 @@ def article_page(round_no, article, title, prose, entries, columns, json_url, vi
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_LIVE_PANEL_CSS if live_html else ""}</style>
+<style>{_STYLE}{_LIVE_PANEL_CSS if live_html else ""}{_NAV_SCROLL_CSS if section is not WC else ""}</style>
 <script type="application/ld+json">{dataset_ld}</script>
 <script type="application/ld+json">{article_ld}</script>
 </head><body>
@@ -2655,7 +2671,7 @@ def rate_page(round_no: int, section=WC) -> str:
                        "decision.")
         # Owner correction 2026-08-25: the FPL picker looks like a pitch.
         picker = _rate_pitch_picker_html(bench_hint)
-        pitch_css = _RATE_PITCH_CSS
+        pitch_css = _RATE_PITCH_CSS + _NAV_SCROLL_CSS
     else:
         page_title = "Rate my World Cup fantasy team"
         title = f"{page_title} | {TITLE_BRAND}"

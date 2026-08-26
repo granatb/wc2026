@@ -494,6 +494,25 @@ class TestGameweekBuild(unittest.TestCase):
                      key=lambda p: (-p["x_points"], p["name"]))[0]
         self.assertIn(f'href="{top["page"]}"', html)
 
+    def test_article_and_player_pages_carry_the_mobile_nav_scroll_css(self):
+        """The nav-overflow fix covers every FPL page a phone opens from a
+        shared link — articles and player cards, not just the landing."""
+        for path in ("/fpl/gw1/captains/index.html",):
+            self.assertIn("nav{overflow-x:auto;min-width:0", self._read(path))
+        import glob, os
+        pages = glob.glob(os.path.join(self.out, "fpl", "players", "*", "index.html"))
+        self.assertTrue(pages)
+        with open(pages[0], encoding="utf-8") as fh:
+            self.assertIn("nav{overflow-x:auto;min-width:0", fh.read())
+
+    def test_landing_carries_the_mobile_nav_scroll_css(self):
+        """The built FPL landing ships the nav-overflow fix (nav scrolls in
+        its own box below ~460px instead of widening the body) via the
+        extra_style chain — the frozen WC tree never sees it."""
+        html = self._read("/index.html")
+        self.assertIn("nav{overflow-x:auto;min-width:0", html)
+        self.assertIn("nav a{white-space:nowrap}", html)
+
     def test_sitemap_and_llms_txt_carry_the_player_surfaces(self):
         xml = self._read("/sitemap.xml")
         self.assertIn("https://example.test/fpl/players/</loc>", xml)
@@ -1014,6 +1033,13 @@ class TestLandingDuel(unittest.TestCase):
         txt = render.llms_txt(5, [("captains", "Best captain picks")])
         self.assertNotIn("Player cards", txt)
 
+    def test_wc_landing_carries_no_nav_scroll_css(self):
+        """The mobile nav-overflow fix (nav scrolls in its own box below
+        ~460px) rides the FPL-only extra_style chain; a World Cup landing —
+        _STYLE frozen in published pages — must not grow it."""
+        html = self._landing(duel=None, section=render.WC)
+        self.assertNotIn("nav{overflow-x:auto", html)
+
 
 class TestRatePageSection(unittest.TestCase):
     def test_fpl_rate_page_copy_feed_and_unit(self):
@@ -1067,6 +1093,16 @@ class TestRatePageSection(unittest.TestCase):
         self.assertNotIn("pitch-picker", html)
         self.assertNotIn("pp-pitch", html)
         self.assertNotIn("pp-bench", html)
+
+    def test_fpl_rate_page_nav_scrolls_instead_of_overflowing_the_body(self):
+        """Below ~460px the header nav's five pills exceed the viewport and
+        made the whole body scroll sideways (repro 2026-08-25 at 420px). The
+        FPL page ships additive CSS turning nav into its own scroll container;
+        the WC page — _STYLE frozen in published pages — stays untouched."""
+        fpl = render.rate_page(1, section=render.FPL)
+        self.assertIn("nav{overflow-x:auto;min-width:0", fpl)
+        self.assertIn("nav a{white-space:nowrap}", fpl)
+        self.assertNotIn("nav{overflow-x:auto", render.rate_page(5))
 
     def test_rate_js_defaults_the_unit_to_round(self):
         """The shared rate.js must keep labelling WC results 'Round N' when the
