@@ -324,17 +324,17 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn("<figcaption", html)
         self.assertIn('<h1 class="pc-name">Alpha</h1>', html)
 
-    def test_premium_slot_no_longer_claims_the_distribution(self):
-        """Decision D1 (2026-08-26): distributions are FREE. The premium slot
-        keeps its reserved space but must not promise something the card is
-        already giving away."""
+    def test_no_premium_slot_survives_anywhere_on_the_card(self):
+        """The slot was reserved 2026-08-24 and REMOVED 2026-08-26 (owner): a
+        lock advertising features that do not exist is clutter on a card whose
+        job is to answer a question in five seconds."""
         _, html = self._card()
-        self.assertIn('class="pc-premium"', html)
-        self.assertIn("🔒", html)                       # the lock glyph
-        self.assertIn("Premium — coming soon: your-team fit · dossier alerts",
-                      html)
-        self.assertNotIn("full distribution", html)
-        self.assertNotIn('class="pc-dist-chart"', html)  # no reserved stripe
+        self.assertNotIn("pc-premium", html)
+        # "Premium" survives only as the PRICE BAND (data-price-band), never as
+        # a locked feature slot.
+        self.assertNotIn("Premium — coming soon", html)
+        self.assertNotIn("🔒", html)
+
 
     def test_distribution_chart_renders_under_the_stat_rows(self):
         _, html = self._card()
@@ -345,13 +345,18 @@ class TestCardHtml(unittest.TestCase):
         self.assertLess(html.index("pc-statrow2"), html.index("pc-dist"))
         self.assertLess(html.index("pc-dist"), html.index("pc-fixtures"))
 
-    def test_distribution_chart_caption_names_the_sim_count_and_the_marks(self):
+    def test_distribution_chart_caption_names_the_sim_count(self):
+        """The caption carries the provenance (how many simulations); the
+        floor / most likely / ceiling marks sit above the chart where they
+        label their own rules, so repeating them below wrapped every card to
+        two ragged lines (owner, 2026-08-26)."""
         _, html = self._card()
-        self.assertIn("100 simulations", html)          # sum of the PMF counts
-        self.assertIn("floor P10", html)
-        self.assertIn("most likely", html)
+        self.assertIn("100 simulations", html)   # the fixture PMF's n
+        self.assertNotIn("floor P10 · most likely · ceiling", html)
+        self.assertIn("floor", html)      # the marks themselves remain
         self.assertIn("ceiling", html)
 
+    
     def test_distribution_chart_marks_floor_mode_and_ceiling(self):
         _, html = self._card()
         for label in ("floor <b>2</b>", "most likely <b>4</b>",
@@ -412,7 +417,11 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn("GW2 6.50", html)                 # data in the <title>
         # no player without a horizon vector draws one
         payloads, _ = _payloads(with_six_week=False)
-        self.assertNotIn("pc-sixweek", fpl_players.card_html(payloads[0]))
+        # The band is always present; without history it carries an
+        # honest empty state so the row keeps its rhythm.
+        bare = fpl_players.card_html(payloads[0])
+        self.assertIn("pc-sixweek-empty", bare)
+        self.assertNotIn("<svg", bare.split("pc-dist")[0])
 
     def test_form_art_is_deterministic(self):
         """No RNG in the site layer: identical inputs, identical bytes."""
@@ -459,7 +468,6 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn("CARD STYLE — DIRECTION", src)    # the marked block
         self.assertIn(".player-card{", fpl_players.CARD_CSS)
         self.assertIn(".pd-table{", fpl_players.CARD_CSS)
-        self.assertIn(".pc-premium", fpl_players.CARD_CSS)
         self.assertIn(".pc-dist", fpl_players.CARD_CSS)
         # landing-row layout lives in its own block so player pages (which
         # embed CARD_CSS) never carry landing rules — and vice versa
@@ -578,7 +586,7 @@ class TestTopCards(unittest.TestCase):
         # full-face internals present (not the rejected thumbnail module)
         self.assertIn("pc-statrow", html)
         self.assertIn("pc-verdict", html)
-        self.assertIn("pc-premium", html)
+        self.assertNotIn("pc-premium", html)
         self.assertNotIn("tc-card", html)
 
     def test_kicker_line_and_check_your_player_link(self):
@@ -647,3 +655,39 @@ class TestModeCarriesItsShare(unittest.TestCase):
         payload["distribution"]["histogram"] = {}
         html = fpl_players._distribution_html(payload)
         self.assertEqual(html, "")
+
+
+class TestCardConsistency(unittest.TestCase):
+    """Every card keeps the same vertical rhythm. A player with no six-gameweek
+    history (a new signing) gets an honest empty band, not a missing block that
+    shrinks his card out of line with the row (owner, 2026-08-26). And no card
+    advertises a premium slot: the lock was removed the same day."""
+
+    def _payload(self, six_week=None):
+        return {"id": 1, "name": "P", "team": "MUN", "position": "MID",
+                "price": 6.0, "gameweek": 2, "status": "a", "news": "",
+                "ownership_pct": 5.0, "six_week_xpts": six_week,
+                "projection": {"x_points": 5.0, "ceiling": 12.0,
+                               "captain_ev": 10.0, "value": 0.8},
+                "season": {"total_points": 8, "realized_ppm": 1.3, "minutes": 90},
+                "ranks": {"own_vs_xpts_gap": 3},
+                "verdict": {"tier": "A", "price_band": "Mid", "call": "buy"},
+                "fixtures": [], "distribution": None, "page": "/fpl/players/1-p/"}
+
+    def test_card_without_history_keeps_the_form_band(self):
+        html = fpl_players.card_html(self._payload(None))
+        self.assertIn("pc-sixweek", html)
+        self.assertIn("no six-gameweek history yet", html)
+
+    def test_card_with_history_draws_the_chart_in_the_same_band(self):
+        html = fpl_players.card_html(self._payload({"1": 5.0, "2": 4.0, "3": 6.0, "4": 5.5, "5": 4.5, "6": 5.0}))
+        self.assertIn("pc-sixweek", html)
+        self.assertNotIn("no six-gameweek history yet", html)
+        self.assertIn("<svg", html)
+
+    def test_no_card_advertises_a_premium_slot(self):
+        for six in (None, {"1": 5.0, "2": 4.0, "3": 6.0}):
+            html = fpl_players.card_html(self._payload(six))
+            self.assertNotIn("pc-premium", html)
+            self.assertNotIn("Premium", html)
+            self.assertNotIn("🔒", html)

@@ -505,9 +505,9 @@ class TestGameweekBuild(unittest.TestCase):
         slug = sorted(page_dirs)[0]
         html = self._read(f"/fpl/players/{slug}/index.html")
         self.assertIn('<figure class="player-card"', html)
-        self.assertIn("pc-premium", html)               # reserved premium slot
+        self.assertNotIn("pc-premium", html)            # slot removed 2026-08-26
         self.assertIn('class="pc-dist"', html)          # the distribution chart
-        self.assertIn("simulations · floor P10 · most likely · ceiling", html)
+        self.assertIn("simulations", html)
         m = re.search(r'href="(/api/fpl/gw1/players/\d+\.json)"', html)
         self.assertIsNotNone(m)
         env = json.loads(self._read(m.group(1)))

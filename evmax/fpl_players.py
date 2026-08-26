@@ -376,7 +376,9 @@ CARD_CSS = (
     ".player-card .pc-news{font-size:13px;color:#a8331c;background:#fdeee9;"
     "border-radius:8px;padding:8px 12px;margin:10px 0 2px}"
     # form art: layered area chart of the six-week vector (the sim cloud)
-    ".player-card .pc-sixweek{margin:8px 0 2px}"
+    ".player-card .pc-sixweek{margin:8px 0 2px;height:60px}"
+    ".player-card .pc-sixweek-empty{display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);border-radius:8px;background:rgba(15,122,69,.03)}"
+    ".player-card .pc-sixweek-empty span{font-size:10.5px;color:var(--ink3);letter-spacing:.3px}"
     ".player-card .pc-sixweek svg{display:block;width:100%;height:60px}"
     # decomposition strip: thin stacked segments, rounded
     ".player-card .pc-decomp{display:flex;height:8px;border-radius:4px;"
@@ -409,12 +411,6 @@ CARD_CSS = (
     ".player-card .pc-verdict{font-size:12px;font-weight:800;"
     "letter-spacing:1.2px;text-transform:uppercase;color:var(--green);"
     "border-top:1px solid var(--line);margin-top:12px;padding-top:10px}"
-    # -- the premium slot (decision 2026-08-24: reserved from day one,
-    #    ships ~GW10+; muted + lock glyph until then) ------------------------
-    ".player-card .pc-premium{font-size:10.5px;font-weight:700;"
-    "letter-spacing:.6px;text-transform:uppercase;color:#b9b2a4;"
-    "margin-top:10px}"
-    ".player-card .pc-premium .pc-lock{margin-right:5px}"
     # -- the distribution chart (D1: free, not premium) ---------------------
     ".player-card .pc-dist{margin:12px 0 2px;padding-top:10px;"
     "border-top:1px solid var(--line)}"
@@ -425,7 +421,7 @@ CARD_CSS = (
     ".player-card .pc-dm-mode b{color:var(--greend)}"
     ".player-card .pc-dm-mode i{font-style:normal;color:var(--ink3);font-size:.92em}"
     ".player-card .pc-dist svg{display:block;width:100%;height:64px}"
-    ".player-card .pc-dist-cap{font-size:10px;color:var(--ink3);"
+    ".player-card .pc-dist-cap{font-size:9.5px;line-height:1.35;color:var(--ink3);"
     "letter-spacing:.3px;margin-top:3px}"
     # -- player page below-the-card pieces ----------------------------------
     ".pd-table{width:100%;border-collapse:collapse;margin:8px 0 6px;"
@@ -772,8 +768,7 @@ def _distribution_html(payload: dict) -> str:
              f'<b>{mode}</b>{share}</span>'
              f'<span>ceiling <b>{dist.get("p90")}</b></span></div>')
     return (f'<div class="pc-dist">{marks}{svg}'
-            f'<div class="pc-dist-cap">{sims:,} simulations · '
-            f'floor P10 · most likely · ceiling</div></div>')
+            f'<div class="pc-dist-cap">{sims:,} simulations</div></div>')
 
 
 def _decomp_html(proj: dict) -> str:
@@ -835,13 +830,16 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'</figcaption>')
 
     hero_html = (f'<div class="pc-hero"><b>{_fmt(proj.get("x_points"))}</b>'
-                 f'<span>xPts this gameweek</span></div>')
+                 f'<span>xPts</span></div>')
 
-    sw_html = ""
-    if payload.get("six_week_xpts"):
-        svg = _form_svg(payload["six_week_xpts"])
-        if svg:
-            sw_html = f'<div class="pc-sixweek">{svg}</div>'
+    # The six-week form band is fixed-height on EVERY card, present or not: a
+    # new signing with no history (M.Sangaré, GW2) used to skip the block and
+    # his card visibly shrank out of line with the row (owner caught it
+    # 2026-08-26). An honest empty state keeps the grid true.
+    svg = _form_svg(payload["six_week_xpts"]) if payload.get("six_week_xpts") else ""
+    sw_html = (f'<div class="pc-sixweek">{svg}</div>' if svg else
+               '<div class="pc-sixweek pc-sixweek-empty">'
+               '<span>no six-gameweek history yet</span></div>')
 
     statrow = (
         f'<div class="pc-statrow">'
@@ -878,16 +876,10 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     verdict_html = (f'<div class="pc-verdict">{verdict["call"]} · '
                     f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
 
-    # Premium slot (decision 2026-08-24): reserved from day one, muted with a
-    # lock glyph until ~GW10+. The reserved striped strip is GONE: decision D1
-    # (2026-08-26) makes distributions FREE, so the real chart now occupies
-    # that idea and the slot must not go on promising it. What is left behind
-    # the lock is your-team work only — the public line ("we will never charge
-    # you to see what we predicted") stays true.
-    premium_html = (
-        '<div class="pc-premium"><span class="pc-lock">🔒</span>'
-        'Premium — coming soon: your-team fit · dossier alerts</div>')
-
+    # No premium slot. It was reserved on 2026-08-24 and removed on 2026-08-26
+    # (owner): a lock promising features that do not exist yet is clutter on a
+    # card whose whole job is to answer a question in five seconds. When the
+    # your-team tools are real they can earn their own space.
     return (
         f'<figure class="player-card" data-id="{payload["id"]}" '
         f'data-team="{_html.escape(team)}" '
@@ -912,7 +904,6 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'{_distribution_html(payload)}'
         f'{fx_html}'
         f'{verdict_html}'
-        f'{premium_html}'
         f'</figure>')
 
 
