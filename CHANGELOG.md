@@ -1,7 +1,70 @@
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`
-(914 tests). App: `streamlit run app.py`.
+(1052 tests). App: `streamlit run app.py`.
+
+## 2026-08-26 — Phase 2B: the public dataset, the MCP server, the accuracy page
+
+Three surfaces nobody in the FPL space currently holds, all built on numbers we
+already had (spec: `docs/superpowers/specs/2026-08-26-phase2-design.md`, P2/P3/P4
+and decisions D3–D6). The common thread: everything we compute becomes
+independently checkable, and every reuse of it is a citation.
+
+- **`evmax/dataset.py` — the CC BY 4.0 bulk dataset.** Pure emitters:
+  `gameweek_payload` (licence/attribution/method meta plus every simulated
+  player), `to_csv` (RFC 4180 — stable header, CRLF, minimal quoting, no index
+  column, `None` as an empty cell and never the string "None"), `index_payload`,
+  `merge_all`. `COLUMN_GLOSSARY` defines every column exactly once; `/data/` and
+  `docs/DATASET.md` both render from it and a test fails if a column ever ships
+  undocumented.
+- **The build publishes it** (D3 — from artifacts already in memory, no new
+  pipeline): `/api/fpl/dataset/gw{N}.json|.csv`, a refreshed `index.json`, and
+  `all.json|.csv` rebuilt from **every `gw*.json` already on disk in `out/`**.
+  Old gameweeks survive a rebuild without being re-simulated, which matters
+  because re-simulating would quietly restate a frozen published claim. The
+  dataset covers every simulated player, not the (cappable) page payload set;
+  an unmatched name gets a null element id rather than a guess that would
+  poison a downstream join.
+- **`/data/`** — the human page: the terms with the exact credit line to paste,
+  the column glossary, three curl examples, a card per file, a citation block,
+  and schema.org `Dataset` for Google Dataset Search. Reached via the sitemap,
+  `llms.txt` and `/track-record/`'s FPL block. **No nav or footer link was
+  added** — that chrome is shared, and every World Cup page stays
+  byte-identical; `evmax/build.py` has no reference to the dataset at all,
+  pinned by a test.
+- **`/fpl/accuracy/`** (P4) — the graded ledger in full: per-gameweek MAE over
+  the number of players actually graded (so a good average cannot hide behind a
+  tiny sample), FPL's own `ep_next` where captured, both frozen squad lines
+  against realized official points, the running duel, and a link to every
+  grading JSON. Per D5, GW1's `ep_next` cell reads **"captured from GW2"** — a
+  bare dash in a column of numbers reads as a zero, and a zero there would claim
+  FPL's own model was perfect that week. A "how to check us" block names the
+  whole chain: frozen snapshot → public grading JSON → downloadable dataset →
+  open code.
+- **`scripts/benchmark_export.py --gw N`** — the submission artifact for a
+  third-party expected-points benchmark, written from the **frozen** snapshot
+  (`player_id,player_name,gameweek,predicted_points`). A gameweek with no
+  snapshot exports nothing and says so; re-simulating a finished gameweek would
+  produce a number we never published, which is exactly what a public benchmark
+  exists to catch.
+- **`mcp/` — the evmax MCP server** (D4): Node ESM, one dependency
+  (`@modelcontextprotocol/sdk`), stdio, no build step, no secrets, no state.
+  Tools: `list_gameweeks`, `get_projections`, `get_player`, `get_duel`,
+  `get_accuracy`, `get_distribution`. Every result cites its source URL and the
+  CC BY line. Two things it is careful about: **a 200 is not a success** (Pages
+  serves the HTML 404 fallback with status 200, so the fetch layer checks the
+  content type and treats HTML as "not published"), and the dataset is
+  *preferred, not required* — where a gameweek predates a field the tools fall
+  back to the always-live feeds and **say which source answered** rather than
+  reporting a missing column as a zero. `node mcp/test-smoke.js` hits the live
+  site and is deliberately outside the Python suite. npm publish stays an owner
+  action.
+- **`docs/DATASET.md`** — the schema mirror: files, cadence, JSON shape, every
+  column with type and meaning, the per-week vs per-match units warning, the
+  licence and the citation forms.
+
+Suite 982 → 1052, green at every commit. World Cup pages byte-identical;
+`evmax/assets/projections/` untouched.
 
 ## 2026-08-24 — FPL phase 5: the credibility engine
 

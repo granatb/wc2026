@@ -1506,8 +1506,204 @@ model-vs-crowd duel score.</p>
 </table></div>
 <p class="tr-fpl-note"><b>Method.</b> Projections frozen pre-deadline; grading JSONs public.</p>
 <p class="tr-fpl-links">Grading data: {links}</p>
+<p class="tr-fpl-links">The full working: <a href="/fpl/accuracy/">the accuracy
+page</a> — per-gameweek error, the method in plain language and how to check it
+yourself. The projections themselves: <a href="/data/">the open dataset</a>
+(JSON + CSV, CC BY 4.0).</p>
 </div>
 <h2 class="tr-section-h">World Cup 2026 — the retrospective</h2>"""
+
+
+# =============================================================================
+# /fpl/accuracy/ — the graded ledger in full (phase 2B, spec P4)
+# =============================================================================
+# Deterministic text only, the same bar as /track-record/: every number comes
+# straight from the graded JSONs, no LLM prose. FPL builds only, and reached
+# from /track-record/'s FPL block rather than a nav pill — the nav is shared
+# with the World Cup pages, which must stay byte-identical.
+
+ACCURACY_PATH = "/fpl/accuracy/"
+
+# Spec D5: ep_next was not captured before GW1, so the comparison cell SAYS SO.
+# A bare dash in a column of numbers reads as a zero, and a zero here would
+# claim FPL's own model was perfect that week.
+_EP_NEXT_NOTE = "captured from GW2"
+
+_ACCURACY_CSS = (
+    ".ac{max-width:980px;margin:0 auto 80px}"
+    # The ledger is eight columns of short values. Left to wrap they turn into
+    # ragged two-line cells; the wrapper already scrolls horizontally, which is
+    # the better trade on a narrow screen.
+    ".ac table.tr-metrics td.duel,.ac table.tr-metrics td.data"
+    "{white-space:nowrap}"
+    ".ac h1{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;"
+    "letter-spacing:-1px;margin-bottom:14px}"
+    ".ac .lead{font-family:var(--serif);font-size:19px;color:var(--ink2);"
+    "line-height:1.55;margin-bottom:8px;max-width:70ch}"
+    ".ac h2{font-size:13px;font-weight:700;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--green);margin:36px 0 12px}"
+    ".ac p{font-family:var(--serif);font-size:16.5px;line-height:1.65;"
+    "color:#23201a;margin-bottom:12px;max-width:70ch}"
+    ".ac dl{margin:0 0 8px}"
+    ".ac dt{font-family:var(--sans);font-size:14px;font-weight:800;"
+    "margin-top:14px}"
+    ".ac dd{font-family:var(--serif);font-size:16px;line-height:1.6;"
+    "color:var(--ink2);margin:4px 0 0;max-width:68ch}"
+    ".ac code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:13px;background:var(--chipbg);padding:1px 6px;border-radius:5px}"
+    ".ac-note{font-size:12.5px;color:var(--ink3);font-style:italic;"
+    "white-space:nowrap}"
+    ".ac-empty{background:var(--surf);border:1px solid var(--line);"
+    "border-radius:14px;padding:26px;font-family:var(--serif);font-size:17px;"
+    "color:var(--ink2)}"
+    ".ac-check{background:var(--surf);border:1px solid var(--line);"
+    "border-left:4px solid var(--green);border-radius:12px;padding:18px 22px;"
+    "margin-top:8px}"
+    ".ac-check p:last-child{margin-bottom:0}"
+    ".ac a.lnk{color:var(--greend);font-weight:600}"
+)
+
+
+def _accuracy_summary_html(ledger: list) -> str:
+    """Three stat tiles: gameweeks graded, mean MAE, the running duel."""
+    maes = [r["mae_ours"] for r in ledger if r.get("mae_ours") is not None]
+    mean_mae = sum(maes) / len(maes) if maes else None
+    last = ledger[-1]
+    duel = f'{last["duel_model"]}-{last["duel_consensus"]}'
+    return (
+        '<div class="tr-summary">'
+        f'<div class="tr-stat"><b>{len(ledger)}</b>'
+        f'<span>Gameweeks graded</span></div>'
+        f'<div class="tr-stat"><b>{f"{mean_mae:.3f}" if mean_mae is not None else "—"}</b>'
+        f'<span>Mean absolute error</span></div>'
+        f'<div class="tr-stat"><b>{duel}</b>'
+        f'<span>Model vs crowd — {_html.escape(last["duel_label"])}</span></div>'
+        '</div>')
+
+
+def _accuracy_table_html(ledger: list) -> str:
+    rows = []
+    for r in ledger:
+        ep = (f'{r["mae_ep_next"]:.3f}' if r.get("mae_ep_next") is not None
+              else f'<span class="ac-note">{_EP_NEXT_NOTE}</span>')
+        graded = r.get("n")
+        rows.append(
+            f'<tr><td>GW{r["gw"]}</td>'
+            f'<td>{"—" if graded is None else graded}</td>'
+            f'<td>{r["mae_ours"]:.3f}</td>'
+            f'<td>{ep}</td>'
+            f'<td>{r["model_projected"]:.2f} → {r["model_realized"]}</td>'
+            f'<td>{r["consensus_projected"]:.2f} → {r["consensus_realized"]}</td>'
+            f'<td class="duel">{r["duel_model"]}-{r["duel_consensus"]} '
+            f'({_html.escape(r["duel_label"])})</td>'
+            f'<td class="data">'
+            f'<a class="lnk" href="{r["json_path"]}">gw{r["gw"]}.json</a>'
+            f'</td></tr>')
+    return (
+        '<div class="tr-card"><div class="tr-table-wrap">'
+        '<table class="tr-metrics"><thead><tr>'
+        '<th>GW</th><th>Players graded</th><th>Our MAE</th>'
+        '<th>FPL ep_next MAE</th><th>Model squad (proj → official)</th>'
+        '<th>Consensus squad (proj → official)</th><th>Duel (model-crowd)</th>'
+        '<th>Data</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div></div>')
+
+
+def accuracy_page(ledger: list, date_str: str = None) -> str:
+    """/fpl/accuracy/ — the graded ledger in full, the method in plain
+    language, links to every grading JSON, and how to check us.
+
+    ledger: evmax.fpl_build.fpl_track_ledger() output (one row per graded
+    gameweek). An empty ledger renders the page with an honest "nothing graded
+    yet" panel rather than an empty table.
+    """
+    stamp = (f'<p style="font-size:13px;color:var(--ink3);margin-bottom:22px">'
+             f'Last updated {_html.escape(date_str)}.</p>' if date_str else "")
+    if ledger:
+        body = _accuracy_summary_html(ledger) + _accuracy_table_html(ledger)
+    else:
+        body = ('<div class="ac-empty"><b>Nothing graded yet.</b> The first '
+                'gameweek appears here the Monday after it finishes — we grade '
+                'the snapshot that was frozen before the deadline, not a '
+                'rebuild.</div>')
+    description = ("Every evmax FPL projection graded against realized official "
+                   "points — per-gameweek error, our squad against the crowd's, "
+                   "and the raw grading data.")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How accurate are we? | {TITLE_BRAND}</title>
+<meta name="description" content="{_html.escape(description)}">
+{_og_meta("How accurate are we?", description, ACCURACY_PATH, og_type="website")}
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_TRACK_RECORD_CSS}{_TR_FPL_CSS}{_ACCURACY_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
+</div></header>
+<div class="wrap">
+<div class="ac">
+<div class="pagelabel" style="margin-top:34px">Accuracy</div>
+<h1>How accurate are we?</h1>
+<p class="lead">Every gameweek we publish a projected score for every player before
+the deadline. Once the gameweek finishes we compare those exact numbers to what
+actually happened. This page is the whole ledger — the good weeks and the bad
+ones, with the raw data behind each row.</p>
+{stamp}
+{body}
+
+<h2>What the columns mean</h2>
+<dl>
+<dt>Our MAE</dt>
+<dd>Mean absolute error: the average gap between what we projected a player would
+score and what he actually scored, across every player we published a number
+about. Lower is better. Around 2.5 is roughly the state of the art for a single
+gameweek — football is mostly noise, and anyone claiming a much lower number is
+usually grading themselves on a handful of easy picks.</dd>
+<dt>FPL ep_next MAE</dt>
+<dd>The same measurement applied to FPL's own projection, <code>ep_next</code>,
+captured from the official API before the same deadline. It is the fairest
+benchmark available: same players, same week, same scoring. We started capturing
+it from Gameweek 2, so GW1 has no comparison and the cell says so instead of
+showing a zero.</dd>
+<dt>Model squad / Consensus squad</dt>
+<dd>Two real teams, both published before the deadline: ours, picked by the
+optimiser, and a consensus XI assembled from what the popular FPL sources were
+recommending that week. The arrow reads projected total → the official FPL score
+that team actually returned, autosubs and captain fallback included.</dd>
+<dt>Duel (model-crowd)</dt>
+<dd>The running score between those two teams. A gameweek goes to whichever side
+returned more official points; a tie moves neither column.</dd>
+</dl>
+
+<h2>How to check us</h2>
+<div class="ac-check">
+<p>You do not have to take any of this on trust. The chain is public end to end:</p>
+<p><b>1. The claim was frozen before the deadline.</b> Every gameweek's projections
+are written to a timestamped snapshot at build time, before kickoff, and committed
+to the public repository. The build refuses to write a snapshot once the gameweek
+has locked, so a number cannot be quietly improved after the fact.</p>
+<p><b>2. The grading is a published file.</b> Each row above links its raw grading
+JSON under <code>/api/fpl/accuracy/</code> — every graded player, our projection,
+the realized points and the error, not just the average.</p>
+<p><b>3. The projections themselves are downloadable.</b> The full board for every
+gameweek is on <a class="lnk" href="/data/">the open dataset page</a> as JSON and
+CSV under CC BY 4.0. Grade us yourself against any scoring you like.</p>
+<p><b>4. The code is open.</b> The simulation, the grading and this page are in
+<a class="lnk" href="https://github.com/granatb/wc2026">the repository</a>.</p>
+</div>
+
+<h2>What we do not do</h2>
+<p>We do not drop bad gameweeks, re-run the model on a finished week and report the
+better number, or quote accuracy over a hand-picked subset of players. The ledger
+above is every gameweek we have graded, in order. The
+<a class="lnk" href="/track-record/">track record</a> carries the same discipline
+for the World Cup work.</p>
+</div>
+</div>
+{_footer_html()}</body></html>"""
 
 
 def track_record_page(record: dict, fpl: list = None) -> str:
@@ -2385,6 +2581,258 @@ privacy policy</a>. We do not receive or retain this data.</p>
 collected and why, before it happens.</p>
 </div>
 {_footer_html()}</body></html>"""
+
+# =============================================================================
+# /data/ — the public CC BY dataset's human page (phase 2B, spec P2)
+# =============================================================================
+# FPL builds only. Nothing here is reachable from the shared nav or footer, so
+# every World Cup page stays byte-identical; /data/ is discovered through the
+# sitemap, llms.txt and the FPL block on /track-record/.
+
+_DATA_CSS = (
+    ".dp{max-width:860px;margin:0 auto 80px}"
+    ".dp h1{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;"
+    "letter-spacing:-1px;margin-bottom:14px}"
+    ".dp .lead{font-family:var(--serif);font-size:19px;color:var(--ink2);"
+    "line-height:1.55;margin-bottom:26px;max-width:70ch}"
+    ".dp h2{font-size:13px;font-weight:700;letter-spacing:1.5px;"
+    "text-transform:uppercase;color:var(--green);margin:36px 0 12px}"
+    ".dp p{font-family:var(--serif);font-size:16.5px;line-height:1.65;"
+    "color:#23201a;margin-bottom:12px;max-width:70ch}"
+    ".dp code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:13px;background:var(--chipbg);padding:1px 6px;border-radius:5px}"
+    ".dp-lic{background:var(--surf);border:1px solid var(--line);"
+    "border-left:4px solid var(--green);border-radius:12px;padding:18px 22px;"
+    "margin:6px 0 8px}"
+    ".dp-lic p{margin-bottom:8px}.dp-lic p:last-child{margin-bottom:0}"
+    ".dp-attr{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,"
+    "monospace;font-size:13px;background:var(--bg);border:1px dashed "
+    "var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;"
+    "color:var(--ink);overflow-x:auto;white-space:pre}"
+    ".dp-files{display:grid;grid-template-columns:repeat(auto-fill,"
+    "minmax(230px,1fr));gap:12px;margin:8px 0 4px}"
+    ".dp-file{background:var(--surf);border:1px solid var(--line);"
+    "border-radius:12px;padding:13px 16px}"
+    ".dp-file b{display:block;font-size:15px;font-weight:800;margin-bottom:6px}"
+    ".dp-file a{font-size:13px;font-weight:700;color:var(--greend);"
+    "margin-right:12px}"
+    ".dp-file a:hover{text-decoration:underline}"
+    ".dp-file span{display:block;margin-top:8px;font-size:12px;"
+    "color:var(--ink3);line-height:1.45}"
+    ".dp-pre{background:#15140f;color:#e9e5da;border-radius:12px;"
+    "padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+    "font-size:12.5px;line-height:1.7;overflow-x:auto;margin:6px 0 14px;"
+    "white-space:pre}"
+    ".dp-pre .c{color:#9a9384}"
+    ".dp-tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;"
+    "background:var(--surf);margin-top:8px}"
+    "table.dp-cols{width:100%;border-collapse:collapse;font-size:13.5px}"
+    "table.dp-cols th{text-align:left;font-size:10.5px;font-weight:700;"
+    "letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);"
+    "padding:10px 14px;border-bottom:2px solid var(--ink);white-space:nowrap}"
+    "table.dp-cols td{padding:10px 14px;border-bottom:1px solid var(--line);"
+    "vertical-align:top;color:var(--ink2);line-height:1.5}"
+    "table.dp-cols tr:last-child td{border-bottom:0}"
+    "table.dp-cols td.t{color:var(--ink3);white-space:nowrap;font-size:12.5px}"
+    "table.dp-cols td:first-child{white-space:nowrap}"
+)
+
+
+def _data_files_html(gameweeks: list) -> str:
+    """One card per published gameweek plus the cumulative pair and the index.
+    Every file the dataset publishes is linked from here — a bulk dataset whose
+    files you have to guess at is not a published dataset."""
+    from evmax import dataset
+
+    cards = []
+    for gw in gameweeks:
+        paths = dataset.gameweek_paths(gw)
+        cards.append(
+            f'<div class="dp-file"><b>Gameweek {gw}</b>'
+            f'<a href="{paths["json"]}">JSON</a>'
+            f'<a href="{paths["csv"]}">CSV</a></div>')
+    cards.append(
+        f'<div class="dp-file"><b>Every gameweek</b>'
+        f'<a href="{dataset.ALL_PATHS["json"]}">JSON</a>'
+        f'<a href="{dataset.ALL_PATHS["csv"]}">CSV</a>'
+        f'<span>Cumulative — every gameweek we have published.</span></div>')
+    cards.append(
+        f'<div class="dp-file"><b>Index</b>'
+        f'<a href="{dataset.DATASET_BASE}/index.json">index.json</a>'
+        f'<span>What exists right now, plus the column schema. Read this '
+        f'first.</span></div>')
+    return f'<div class="dp-files">{"".join(cards)}</div>'
+
+
+def _data_glossary_html() -> str:
+    """The column table, rendered from dataset.COLUMN_GLOSSARY — the same dict
+    docs/DATASET.md mirrors, so the page and the repo doc cannot drift."""
+    from evmax import dataset
+
+    rows = "".join(
+        f'<tr><td><code>{_html.escape(col)}</code></td>'
+        f'<td class="t">{_html.escape(dataset.COLUMN_GLOSSARY[col][0])}</td>'
+        f'<td>{_html.escape(dataset.COLUMN_GLOSSARY[col][1])}</td></tr>'
+        for col in dataset.CSV_COLUMNS)
+    extra = (
+        f'<tr><td><code>{dataset.PMF_FIELD}</code></td><td class="t">object'
+        f'</td><td>JSON only — the sparse point-mass function over integer FPL '
+        f'points, <code>{{"points": count}}</code> across the 50,000 '
+        f'simulations. Omitted for gameweeks published before we stored it.'
+        f'</td></tr>')
+    return ('<div class="dp-tw"><table class="dp-cols"><thead><tr>'
+            '<th>Column</th><th>Type</th><th>What it means</th></tr></thead>'
+            f'<tbody>{rows}{extra}</tbody></table></div>')
+
+
+def _data_curl_html(gameweeks: list) -> str:
+    """Three copy-pasteable examples: the index, one gameweek's CSV, and a
+    filter over the cumulative JSON."""
+    from evmax import dataset
+
+    latest = max(gameweeks) if gameweeks else 1
+    base = SITE_URL
+    return (
+        '<div class="dp-pre">'
+        '<span class="c"># 1. What is published right now</span>\n'
+        f'curl -s {base}{dataset.DATASET_BASE}/index.json | jq \'.gameweeks\''
+        '</div>'
+        '<div class="dp-pre">'
+        f'<span class="c"># 2. One gameweek, flat CSV</span>\n'
+        f'curl -s {base}{dataset.DATASET_BASE}/gw{latest}.csv -o '
+        f'evmax-gw{latest}.csv'
+        '</div>'
+        '<div class="dp-pre">'
+        '<span class="c"># 3. Every gameweek, top 10 midfielders by projected '
+        'points</span>\n'
+        f'curl -s {base}{dataset.ALL_PATHS["json"]} | \\\n'
+        '  jq \'[.players[] | select(.position=="MID")]'
+        ' | sort_by(-.x_points) | .[:10]\''
+        '</div>')
+
+
+def _data_schema_ld(gameweeks: list) -> str:
+    """schema.org Dataset — what makes Google Dataset Search and an agent
+    crawler recognise this as a dataset with a machine-readable licence."""
+    from evmax import dataset
+
+    dists = [{"@type": "DataDownload", "encodingFormat": "application/json",
+              "contentUrl": f"{SITE_URL}{dataset.ALL_PATHS['json']}"},
+             {"@type": "DataDownload", "encodingFormat": "text/csv",
+              "contentUrl": f"{SITE_URL}{dataset.ALL_PATHS['csv']}"}]
+    for gw in gameweeks:
+        paths = dataset.gameweek_paths(gw)
+        dists.append({"@type": "DataDownload",
+                      "encodingFormat": "text/csv",
+                      "contentUrl": f"{SITE_URL}{paths['csv']}"})
+    return _json.dumps({
+        "@context": "https://schema.org", "@type": "Dataset",
+        "name": "evmax FPL projections — the open dataset",
+        "description": (
+            "Per-gameweek Fantasy Premier League point projections for every "
+            "simulated player, from 50,000 Monte-Carlo simulations on "
+            "de-vigged market odds. JSON and CSV, CC BY 4.0."),
+        "url": f"{SITE_URL}{dataset.DATA_PAGE}",
+        "license": dataset.LICENSE_URL,
+        "creator": {"@id": SITE_URL + "/#organization"},
+        "isAccessibleForFree": True,
+        "keywords": ["Fantasy Premier League", "FPL", "expected points",
+                     "football analytics", "Monte-Carlo simulation"],
+        "distribution": dists,
+    }, indent=None).replace("</", "<\\/")
+
+
+def data_page(gameweeks, date_str: str = None) -> str:
+    """/data/ — what the dataset is, the CC BY terms with the exact attribution
+    line, the column glossary, three curl examples, links to every file, and a
+    citation block.
+
+    gameweeks: every gameweek with a dataset file on disk, ascending.
+    Rendered on FPL builds only.
+    """
+    from evmax import dataset
+
+    gws = sorted(set(int(g) for g in (gameweeks or [])))
+    stamp = (f'<p class="dp-updated" style="font-size:13px;color:var(--ink3);'
+             f'margin-bottom:22px">Last updated {_html.escape(date_str)}.</p>'
+             if date_str else "")
+    count_line = (f"{len(gws)} gameweek{'s' if len(gws) != 1 else ''} published "
+                  f"so far." if gws else
+                  "The first gameweek publishes with the next build.")
+    description = ("Every evmax FPL projection as bulk JSON and CSV, free under "
+                   "CC BY 4.0 — one file per gameweek plus a cumulative file, "
+                   "with the full column schema.")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The open FPL dataset | {TITLE_BRAND}</title>
+<meta name="description" content="{_html.escape(description)}">
+<script type="application/ld+json">{_data_schema_ld(gws)}</script>
+{_og_meta("The open FPL dataset", description, dataset.DATA_PAGE, og_type="website")}
+{GSC_META_TAG}
+{_HEAD_COMMON}
+{_FONTS}
+<style>{_STYLE}{_DATA_CSS}</style>
+</head><body>
+<header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
+<a class="logo" href="/">ev<b>max</b></a>{_nav_html()}
+</div></header>
+<div class="wrap">
+<div class="dp">
+<div class="pagelabel" style="margin-top:34px">Open data</div>
+<h1>Every projection we make, as a file you can download</h1>
+<p class="lead">Before each Premier League deadline we simulate the gameweek 50,000
+times and score every player on the official FPL points table. This page publishes
+all of it — every player we simulated, not the ones we wrote about — as JSON and
+CSV. Free, no key, no account, no rate limit. {_html.escape(count_line)}</p>
+{stamp}
+
+<h2>The licence</h2>
+<div class="dp-lic">
+<p><b>CC BY 4.0.</b> Use these numbers for anything — a blog post, a spreadsheet, a
+podcast, a model of your own, a commercial product. The single condition is that you
+credit evmax and link back. That is the whole deal, and it is the deal on purpose:
+we would rather be cited than hidden.</p>
+<p>Full terms: <a href="{dataset.LICENSE_URL}" style="color:var(--greend)">creativecommons.org/licenses/by/4.0/</a></p>
+<p style="margin-top:12px"><b>Paste this credit line:</b></p>
+<code class="dp-attr">{_html.escape(dataset.ATTRIBUTION_LINE)}</code>
+</div>
+
+<h2>The files</h2>
+<p>One file per gameweek in both formats, plus a cumulative file covering every
+gameweek we have ever published. Past gameweeks are never rewritten — a projection
+published before a deadline stays exactly as it was published.</p>
+{_data_files_html(gws)}
+
+<h2>Try it</h2>
+{_data_curl_html(gws)}
+
+<h2>What the columns mean</h2>
+<p>The CSV header is stable: columns are only ever added at the end, never
+reordered or removed, so a script that reads it by position keeps working.
+A cell can be empty when we could not compute that number for that player —
+an empty cell is never a zero.</p>
+{_data_glossary_html()}
+
+<h2>How the numbers are made</h2>
+<p>{_html.escape(dataset.METHOD)} We publish the grading too: see
+<a href="/fpl/accuracy/" style="color:var(--greend)">our accuracy page</a> for
+per-gameweek error against realized official points, and
+<a href="/track-record/" style="color:var(--greend)">the track record</a> for the
+full history. Nothing on this site is graded by us in private.</p>
+
+<h2>Cite us</h2>
+<p>For a paper, a README or a footnote:</p>
+<code class="dp-attr">evmax. "FPL projections dataset." {SITE_URL}{dataset.DATA_PAGE}
+Licensed CC BY 4.0.</code>
+<p style="margin-top:14px">Building an agent? There is an MCP server for this data —
+see <a href="https://github.com/granatb/wc2026" style="color:var(--greend)">the
+repository</a>. Questions, corrections or a reuse you want us to know about:
+<a href="/about/" style="color:var(--greend)">about evmax</a>.</p>
+</div>
+</div>
+{_footer_html()}</body></html>"""
+
 
 def _utility_page(title, kicker, heading, body_html, active=None,
                   description="evmax — independent fantasy football simulations."):

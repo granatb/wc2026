@@ -1,0 +1,38 @@
+{
+  "name": "evmax-mcp",
+  "version": "0.1.0",
+  "description": "MCP server over the evmax public FPL API — projections, distributions, the model-vs-crowd duel and the graded accuracy ledger. CC BY 4.0 data.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "evmax-mcp": "index.js"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "smoke": "node test-smoke.js"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "fpl",
+    "fantasy-premier-league",
+    "football",
+    "expected-points"
+  ],
+  "homepage": "https://evmax.ai/data/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/granatb/wc2026.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

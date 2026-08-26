@@ -345,6 +345,12 @@ class TestGameweekBuild(unittest.TestCase):
     _WC_PAGES = ("round/8/index.html", "round/8/captains/index.html")
     _WC_SENTINEL = "<!doctype html><!-- frozen WC page -->"
 
+    # Phase 2B: a dataset file for a gameweek this build is NOT building, sat
+    # on disk exactly as a previously published gameweek would be. all.json
+    # must pick it up — old gameweeks survive without being re-simulated.
+    _PRIOR_GW = 7
+    _PRIOR_PLAYER = "PriorWeekSentinel"
+
     @classmethod
     def setUpClass(cls):
         # Same courtesy as TestLoadStates: on a fresh checkout data/ is empty
@@ -362,6 +368,20 @@ class TestGameweekBuild(unittest.TestCase):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(cls._WC_SENTINEL)
+        from evmax import dataset as _ds
+        prior = _ds.gameweek_payload(
+            cls._PRIOR_GW,
+            [{"name": cls._PRIOR_PLAYER, "team": "ARS", "position": "MID",
+              "x_points": 5.5, "captain_ev": 11.0, "ceiling": 11.5,
+              "price": 7.0, "ownership_pct": 3.0, "value": 0.786,
+              "bonus": 0.4, "defcon": 0.3, "p_defcon": 0.15,
+              "cs_points": 0.2, "kickoff": None, "start_prob": 0.8}],
+            "2026-09-20T09:00:00+00:00", ids={cls._PRIOR_PLAYER: 999999})
+        prior_path = os.path.join(cls.out, "api", "fpl", "dataset",
+                                  f"gw{cls._PRIOR_GW}.json")
+        os.makedirs(os.path.dirname(prior_path), exist_ok=True)
+        with open(prior_path, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(prior, ensure_ascii=False, indent=2))
         cls._saved_site_url = render.SITE_URL
         cls._snap_before = _snapshot_state()
         # An empty prose-cache dir pins this build to the TEMPLATE tier:
@@ -665,6 +685,245 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("/fpl/gw1/", xml)
         self.assertIn("https://example.test/round/8/</loc>", xml)
         self.assertIn("https://example.test/round/8/captains/</loc>", xml)
+
+    # --- Phase 2B / P2: the public CC BY dataset -----------------------------
+
+    def test_the_build_publishes_this_gameweeks_dataset_files(self):
+        payload = json.loads(self._read("/api/fpl/dataset/gw1.json"))
+        self.assertEqual(payload["gameweek"], 1)
+        self.assertEqual(payload["meta"]["license"], "CC BY 4.0")
+        self.assertTrue(payload["players"])
+        self.assertEqual(payload["count"], len(payload["players"]))
+        # every SIMULATED player, not the capped page set
+        self.assertGreater(payload["count"], self.PLAYER_CAP)
+        # newline="" — universal-newline reading would translate the RFC4180
+        # CRLF away and this assertion is exactly about the bytes on disk.
+        with open(os.path.join(self.out, "api/fpl/dataset/gw1.csv"),
+                  encoding="utf-8", newline="") as fh:
+            csv_text = fh.read()
+        lines = [ln for ln in csv_text.split("\r\n") if ln]
+        from evmax import dataset
+        self.assertEqual(lines[0], ",".join(dataset.CSV_COLUMNS))
+        self.assertEqual(len(lines) - 1, payload["count"])
+
+    def test_dataset_records_carry_element_ids_and_verdicts(self):
+        payload = json.loads(self._read("/api/fpl/dataset/gw1.json"))
+        top = payload["players"][0]
+        self.assertIsInstance(top["id"], int)
+        self.assertIn(top["verdict_tier"], ("S", "A", "B", "C", "D"))
+        self.assertIn(top["verdict_call"], ("buy", "hold", "pass"))
+
+    def test_index_json_lists_every_gameweek_on_disk(self):
+        idx = json.loads(self._read("/api/fpl/dataset/index.json"))
+        gws = [g["gameweek"] for g in idx["gameweeks"]]
+        self.assertIn(1, gws)
+        self.assertIn(self._PRIOR_GW, gws)
+        self.assertEqual(idx["all"]["csv"], "/api/fpl/dataset/all.csv")
+        self.assertIn("x_points", idx["columns"])
+
+    def test_all_json_includes_a_pre_seeded_prior_gameweek_from_disk(self):
+        """The cumulative file is rebuilt from every gw*.json ALREADY ON DISK,
+        so a gameweek published months ago survives a rebuild without being
+        re-simulated."""
+        merged = json.loads(self._read("/api/fpl/dataset/all.json"))
+        self.assertEqual(merged["gameweeks"], [1, self._PRIOR_GW])
+        names = {(p["gameweek"], p["name"]) for p in merged["players"]}
+        self.assertIn((self._PRIOR_GW, self._PRIOR_PLAYER), names)
+        gw1 = json.loads(self._read("/api/fpl/dataset/gw1.json"))
+        self.assertEqual(merged["count"], gw1["count"] + 1)
+        # merged rows order by gameweek asc, so GW1 comes first
+        self.assertEqual(merged["players"][0]["gameweek"], 1)
+        self.assertEqual(merged["players"][-1]["gameweek"], self._PRIOR_GW)
+        all_csv = self._read("/api/fpl/dataset/all.csv")
+        self.assertIn(self._PRIOR_PLAYER, all_csv)
+
+    def test_data_page_names_cc_by_and_links_every_file(self):
+        html = self._read("/data/index.html")
+        self.assertIn("CC BY 4.0", html)
+        self.assertIn("creativecommons.org/licenses/by/4.0", html)
+        self.assertIn("Data: evmax (https://evmax.ai), CC BY 4.0", html)
+        self.assertIn('href="/api/fpl/dataset/gw1.csv"', html)
+        self.assertIn('href="/api/fpl/dataset/gw1.json"', html)
+        self.assertIn('href="/api/fpl/dataset/all.csv"', html)
+        self.assertIn('href="/api/fpl/dataset/index.json"', html)
+        self.assertIn(f'href="/api/fpl/dataset/gw{self._PRIOR_GW}.csv"', html)
+
+    def test_data_page_glossary_defines_every_csv_column(self):
+        html = self._read("/data/index.html")
+        from evmax import dataset
+        for col in dataset.CSV_COLUMNS:
+            with self.subTest(col=col):
+                self.assertIn(f"<code>{col}</code>", html)
+
+    def test_data_page_shows_three_curl_examples_and_a_citation(self):
+        html = self._read("/data/index.html")
+        self.assertEqual(html.count("curl -s"), 3)
+        self.assertIn("https://example.test/api/fpl/dataset/", html)
+        self.assertIn("Cite us", html)
+
+    def test_sitemap_and_llms_carry_the_dataset(self):
+        xml = self._read("/sitemap.xml")
+        self.assertIn("https://example.test/data/</loc>", xml)
+        llms = self._read("/llms.txt")
+        self.assertIn("/data/", llms)
+        self.assertIn("/api/fpl/dataset/all.csv", llms)
+        self.assertIn("CC BY 4.0", llms)
+
+    # --- Phase 2B / P4: the accuracy page ------------------------------------
+
+    def test_the_build_publishes_the_accuracy_page(self):
+        html = self._read("/fpl/accuracy/index.html")
+        self.assertIn("<!doctype html>", html)
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("2.734", html)
+        self.assertIn("0-1", html)
+        self.assertIn("captured from GW2", html)
+        self.assertIn('href="/api/fpl/accuracy/gw1.json"', html)
+
+    def test_the_track_record_links_the_accuracy_page(self):
+        """No nav pill was added (the nav is shared with the World Cup pages);
+        /track-record/'s FPL block is where the accuracy page is reachable
+        from."""
+        self.assertIn('href="/fpl/accuracy/"',
+                      self._read("/track-record/index.html"))
+
+    def test_sitemap_and_llms_carry_the_accuracy_page(self):
+        self.assertIn("https://example.test/fpl/accuracy/</loc>",
+                      self._read("/sitemap.xml"))
+        self.assertIn("/fpl/accuracy/", self._read("/llms.txt"))
+
+
+class TestWorldCupBuildHasNoDataset(unittest.TestCase):
+    """WC builds ship no dataset and no /data/ page (spec: FPL-only surface),
+    and their pages stay byte-identical.
+
+    Asserted at the source level rather than by running a second full World Cup
+    build: the dataset is written by exactly one call site (evmax.fpl_build),
+    so a World Cup build can only acquire one by evmax/build.py gaining a
+    reference — which is what this pins.
+    """
+
+    def test_the_world_cup_build_module_never_touches_the_dataset(self):
+        import inspect
+
+        from evmax import build as wc_build
+        src = inspect.getsource(wc_build)
+        self.assertNotIn("dataset", src)
+        self.assertNotIn("/data/", src)
+
+    def test_the_world_cup_sitemap_and_llms_have_no_dataset_urls(self):
+        nav = [("captains", "Captains")]
+        xml = render.sitemap_xml(5, nav, section=render.WC)
+        self.assertNotIn("/data/", xml)
+        self.assertNotIn("/api/fpl/dataset", xml)
+        txt = render.llms_txt(5, nav, section=render.WC)
+        self.assertNotIn("/api/fpl/dataset", txt)
+
+
+_LEDGER = [
+    {"gw": 1, "n": 58, "mae_ours": 2.734, "mae_ep_next": None,
+     "model_projected": 65.92, "model_realized": 44,
+     "consensus_projected": 60.74, "consensus_realized": 53,
+     "duel_model": 0, "duel_consensus": 1, "duel_label": "crowd leads",
+     "json_path": "/api/fpl/accuracy/gw1.json"},
+    {"gw": 2, "n": 61, "mae_ours": 2.401, "mae_ep_next": 2.910,
+     "model_projected": 70.10, "model_realized": 66,
+     "consensus_projected": 68.00, "consensus_realized": 61,
+     "duel_model": 1, "duel_consensus": 1, "duel_label": "level",
+     "json_path": "/api/fpl/accuracy/gw2.json"},
+]
+
+
+class TestAccuracyPageRender(unittest.TestCase):
+    """/fpl/accuracy/ (phase 2B, spec P4) — deterministic text only, same bar
+    as /track-record/: every number comes straight from the graded ledger."""
+
+    def test_gw1_row_carries_its_mae_and_the_duel_score(self):
+        html = render.accuracy_page(_LEDGER, date_str="26 August 2026")
+        self.assertIn("<td>GW1</td>", html)
+        self.assertIn("2.734", html)
+        self.assertIn("0-1", html)
+        self.assertIn("crowd leads", html)
+
+    def test_squad_lines_read_projected_to_realized_official(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("65.92 → 44", html)
+        self.assertIn("60.74 → 53", html)
+
+    def test_a_missing_ep_next_cell_states_captured_from_gw2(self):
+        """Spec D5: ep_next was not captured pre-GW1. The column says so
+        rather than showing a bare dash a reader could take for a zero."""
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("captured from GW2", html)
+
+    def test_a_present_ep_next_renders_as_a_number(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("2.910", html)
+
+    def test_every_grading_json_is_linked(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn('href="/api/fpl/accuracy/gw1.json"', html)
+        self.assertIn('href="/api/fpl/accuracy/gw2.json"', html)
+
+    def test_the_how_to_check_us_paragraph_names_the_whole_chain(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("How to check us", html)
+        for phrase in ("frozen", "before the deadline", "/api/fpl/accuracy/",
+                       "/data/"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, html)
+
+    def test_the_method_is_stated_in_plain_language(self):
+        html = render.accuracy_page(_LEDGER)
+        self.assertIn("mean absolute error", html.lower())
+        self.assertIn("ep_next", html)
+
+    def test_an_empty_ledger_says_so_rather_than_rendering_an_empty_table(self):
+        html = render.accuracy_page([])
+        self.assertTrue(html.startswith("<!doctype html>"))
+        self.assertIn("Nothing graded yet", html)
+
+    def test_the_page_has_no_nav_pill_of_its_own(self):
+        """Owner constraint: the track record links it; the nav does not grow
+        a pill (the nav is shared with the World Cup pages)."""
+        html = render.accuracy_page(_LEDGER)
+        self.assertNotIn('href="/fpl/accuracy/">Accuracy', html)
+        self.assertEqual(html.count("<nav>"), 1)
+        self.assertEqual(render._nav_html(), render._nav_html(active="home")
+                         .replace(' class="on"', "", 1))
+
+
+class TestTrackRecordLinksAccuracy(unittest.TestCase):
+    def test_the_fpl_ledger_block_links_the_accuracy_page_and_the_dataset(self):
+        html = render.track_record_page({"rounds": [], "summary": {}},
+                                        fpl=_LEDGER)
+        self.assertIn('href="/fpl/accuracy/"', html)
+        self.assertIn('href="/data/"', html)
+
+    def test_a_world_cup_track_record_gains_neither_link(self):
+        html = render.track_record_page({"rounds": [], "summary": {}})
+        self.assertNotIn("/fpl/accuracy/", html)
+        self.assertNotIn('href="/data/"', html)
+
+
+class TestDataPageRender(unittest.TestCase):
+    """render.data_page in isolation — no build required."""
+
+    def test_an_empty_dataset_still_renders_the_terms(self):
+        html = render.data_page([], date_str="26 August 2026")
+        self.assertIn("CC BY 4.0", html)
+        self.assertNotIn("<!doctype html><!doctype", html)
+        self.assertTrue(html.startswith("<!doctype html>"))
+
+    def test_the_page_is_indexable(self):
+        html = render.data_page([1], date_str="26 August 2026")
+        self.assertNotIn('name="robots" content="noindex"', html)
+        self.assertIn('<link rel="canonical"', html)
+
+    def test_schema_org_dataset_is_declared(self):
+        html = render.data_page([1, 2], date_str="26 August 2026")
+        self.assertIn('"@type": "Dataset"', html)
+        self.assertIn("creativecommons.org/licenses/by/4.0", html)
 
 
 class TestPersistedUrls(unittest.TestCase):
