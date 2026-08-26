@@ -81,9 +81,52 @@ def tier_path(position: str) -> str:
 # fractions: S = top 5%, A = next 15%, B = next 30%, C = next 30%, D = rest.
 _LETTER_CUTS = ((0.05, "S"), (0.20, "A"), (0.50, "B"), (0.80, "C"))
 
-# Letter -> the one-word call. Placeholder heuristic for the scaffold: rank
-# IS the framing until the transfer optimizer's horizon deltas feed this.
+# Letter -> a one-word call, derived from RANK and nothing else.
+#
+# This used to be printed on the card face, and it was the worst thing on the
+# page: it told a reader to BUY Haaland while our own published squad refused
+# to own him. Owner, 2026-08-26: "We say we don't buy haaland and call him S
+# premium buy". A site cannot recommend against its own team.
+#
+# It survives in the JSON as `rank_call`, documented there as rank-derived and
+# NOT a recommendation, because a consumer keyed on it should keep working —
+# but nothing on any rendered surface reads it any more. What the card shows
+# instead is our actual position (squad_stance, below) plus the model's tier.
 _CALL_BY_LETTER = {"S": "buy", "A": "buy", "B": "hold", "C": "hold", "D": "pass"}
+
+# Our stance on one player, read off the two PUBLISHED squads. First match
+# wins: our own team outranks the reference squad, and a starter outranks a
+# bench slot.
+#
+# The owner named four states. A fifth is unavoidable and is flagged as an
+# interpretation: the consensus squad is a full 15 like ours, so it has a
+# bench, and a player sitting on it is neither "in the consensus XI" nor "not
+# in either squad". Both of those would be false, so he gets his own line.
+STANCE_OUR_XI = "in our XI"
+STANCE_OUR_BENCH = "on our bench"
+STANCE_CONSENSUS_XI = "in the consensus XI"
+STANCE_CONSENSUS_BENCH = "on the consensus bench"
+STANCE_NEITHER = "not in either squad"
+
+
+def squad_stance(model_role=None, consensus_role=None) -> str:
+    """Where this player stands with US — the card's replacement for the call.
+
+    Roles are the "XI"/"Bench" strings both published squads' entries carry
+    (evmax.fpl_articles.squad_article), or None for a player in neither.
+    Nothing here is an instruction to the reader: it is a statement of what
+    the site has already published, which is the only claim the card is
+    entitled to make about buying and selling.
+    """
+    if model_role == "XI":
+        return STANCE_OUR_XI
+    if model_role:
+        return STANCE_OUR_BENCH
+    if consensus_role == "XI":
+        return STANCE_CONSENSUS_XI
+    if consensus_role:
+        return STANCE_CONSENSUS_BENCH
+    return STANCE_NEITHER
 
 
 def verdict_letters(rows: list) -> dict:
@@ -293,7 +336,7 @@ def form_dots(payload: dict, gameweek: int = None) -> list:
 
 
 def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
-                      notes: dict, squad_names: dict, six_week,
+                      notes: dict, squad_roles: dict, six_week,
                       fx_rows: list, odds_by_gw: dict, gameweek: int,
                       generated_at: str, form_history=None) -> tuple:
     """(payloads sorted by x_points desc, [unmatched row names]).
@@ -303,8 +346,10 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
     elements_by_id: {element id: RAW bootstrap element} — season totals
       (total_points/event_points) live only on the raw feed.
     notes: research.load_entries("players", gameweek).
-    squad_names: {"model": set of names, "consensus": set} from the two
-      published squads' article entries (already row-matched by the build).
+    squad_roles: {"model": {name: "XI"|"Bench"}, "consensus": {...}} from the
+      two published squads' article entries (already row-matched by the
+      build). The ROLE, not just membership: the card's stance line
+      distinguishes our XI from our bench, and it cannot invent that later.
     six_week: the horizon matrix (data/fpl/xpts_gw*.json payload) or None —
       absent cache degrades six_week_xpts to null per player.
     form_history: core.fpl_api.fetch_form_history's mapping,
@@ -339,6 +384,8 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
             rec = six_week.get(name)
             if rec and rec.get("gw"):
                 sw = rec["gw"]
+        model_role = (squad_roles.get("model") or {}).get(name)
+        consensus_role = (squad_roles.get("consensus") or {}).get(name)
         payloads.append({
             "gameweek": gameweek,
             "generated_at": generated_at,
@@ -370,15 +417,24 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
             "verdict": {
                 "tier": letter,
                 "price_band": price_tier(price),
-                "call": _CALL_BY_LETTER[letter],
+                # What the card prints: where this player stands with US.
+                "stance": squad_stance(model_role, consensus_role),
+                # Rank-derived, NOT a recommendation. Kept for consumers that
+                # already keyed on the old `call`; no rendered surface reads
+                # it. See _CALL_BY_LETTER.
+                "rank_call": _CALL_BY_LETTER[letter],
             },
             "six_week_xpts": sw,
             "form_history": form_by_id.get(pid, []),
             "fixtures": fixture_strip(r.get("team"), gameweek, fx_rows,
                                       odds_by_gw),
             "squads": {
-                "model": name in squad_names.get("model", ()),
-                "consensus": name in squad_names.get("consensus", ()),
+                "model": model_role is not None,
+                "consensus": consensus_role is not None,
+                # the roles the stance line is computed from, published so a
+                # consumer can re-derive it rather than parse the sentence
+                "model_role": model_role,
+                "consensus_role": consensus_role,
             },
             "notes": [name] if name in notes else [],
             "distribution": distribution_block(r),
@@ -1043,7 +1099,13 @@ def card_html(payload: dict, heading: str = "h1") -> str:
                    f'<div class="pc-fxcap">{fixtures_caption(payload["fixtures"])}'
                    f'</div>')
 
-    verdict_html = (f'<div class="pc-verdict">{verdict["call"]} · '
+    # Our POSITION, not an instruction. The card used to open this line with a
+    # rank-derived "buy" and it contradicted the squad the same site publishes
+    # (owner 2026-08-26: "We say we don't buy haaland and call him S premium
+    # buy"). The model's opinion is the tier; the stance is ours; nothing here
+    # tells anyone to buy anything.
+    verdict_html = (f'<div class="pc-verdict">'
+                    f'{_html.escape(verdict["stance"])} · '
                     f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
 
     # No premium slot. It was reserved on 2026-08-24 and removed on 2026-08-26
@@ -1063,7 +1125,7 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'data-season-points="{season["total_points"]}" '
         f'data-tier="{verdict["tier"]}" '
         f'data-price-band="{verdict["price_band"]}" '
-        f'data-call="{verdict["call"]}" '
+        f'data-stance="{_html.escape(verdict["stance"])}" '
         f'data-status="{_html.escape(payload["status"])}">'
         f'{head_html}'
         f'{news_html}'
@@ -1172,9 +1234,13 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
          f'{payload["season"]["total_points"]} '
          f'({payload["season"]["minutes"]}′)'),
         ("Realized pts/£m", _fmt(payload["season"]["realized_ppm"])),
-        ("Verdict",
-         f'{payload["verdict"]["tier"]} · {payload["verdict"]["price_band"]}'
-         f' · {payload["verdict"]["call"]}'),
+        # The model's opinion and OUR position, kept apart — one is a
+        # projection, the other is a squad we have already published, and
+        # running them together into a single "verdict" is what produced the
+        # buy-a-player-we-refuse-to-own contradiction in the first place.
+        ("Model tier",
+         f'{payload["verdict"]["tier"]} · {payload["verdict"]["price_band"]}'),
+        ("Our position", payload["verdict"]["stance"]),
     ]
     table = ("".join(f'<tr><td>{_html.escape(k)}</td><td>{v}</td></tr>'
                      for k, v in rows))
@@ -1192,11 +1258,19 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
                       'for this player this gameweek — the numbers above are '
                       'pure model output.</p>')
 
+    # Named by ROLE. Saying "in the consensus XI" about a player sitting on
+    # the consensus bench is the same class of untruth the stance line exists
+    # to remove.
+    squads = payload["squads"]
+    memberships = []
+    for key, ours in (("model", "our squad"), ("consensus", "the consensus squad")):
+        role = squads.get(f"{key}_role")
+        if role:
+            memberships.append(f'{"the XI" if role == "XI" else "the bench"} '
+                               f'of {ours}')
+        elif squads.get(key):        # a payload written before roles existed
+            memberships.append(ours)
     squad_line = ""
-    memberships = [label for key, label in
-                   (("model", "our model squad"),
-                    ("consensus", "the consensus XI"))
-                   if payload["squads"].get(key)]
     if memberships:
         squad_line = (f'<p class="pc-provenance">Currently in '
                       f'{" and ".join(memberships)}.</p>')

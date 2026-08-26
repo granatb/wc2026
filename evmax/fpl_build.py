@@ -500,13 +500,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # from the artifact + bootstrap + notes + horizon matrix + odds caches.
     # Assembled BEFORE the bulk feed so the feed can carry each player's page.
     notes = research.load_entries("players", gameweek)
-    squad_names = {key: {e["name"] for e in entries_map[slug]}
+    # Name -> "XI"/"Bench" for both published squads. The card's stance line
+    # says which, so membership alone is not enough.
+    squad_roles = {key: {e["name"]: e.get("role") for e in entries_map[slug]}
                    for slug, key in SQUAD_LIVE_KEYS.items()}
     fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
                                          fpl_api.parse_teams(boot or {}))
     payloads, unmatched = fpl_players.assemble_payloads(
         rows, players_by_name, {e["id"]: e for e in (boot or {}).get("elements", [])},
-        notes, squad_names, _load_horizon_matrix(), fx_rows_all,
+        notes, squad_roles, _load_horizon_matrix(), fx_rows_all,
         _odds_caches(gameweek), gameweek, generated_at,
         # The realized half of every card's dot timeline. Read-only here:
         # fetching it is `python3 manage.py fpl --round N --form-history`, so a

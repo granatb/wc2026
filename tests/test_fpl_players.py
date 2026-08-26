@@ -204,8 +204,10 @@ def _assembly_inputs(with_six_week=True, with_note=False,
         six_week = {"Alpha": {"team": "ARS", "position": "MID", "price": 10.0,
                               "own": 12.0,
                               "gw": {"1": 8.0, "2": 6.5, "3": 7.1}}}
-    squad_names = {"model": {"Alpha"}, "consensus": set()}
-    return rows, players_by_name, elements_by_id, notes, squad_names, six_week
+    # Alpha starts for us; Beta is on the consensus bench — the two ends
+    # of the stance ladder, so the assembly tests exercise both.
+    squad_roles = {"model": {"Alpha": "XI"}, "consensus": {"Beta": "Bench"}}
+    return rows, players_by_name, elements_by_id, notes, squad_roles, six_week
 
 
 def _payloads(**kw):
@@ -256,7 +258,8 @@ class TestAssembly(unittest.TestCase):
         self.assertEqual(alpha["verdict_tier"], alpha["verdict"]["tier"])
         self.assertEqual(alpha["verdict"]["price_band"], "Premium")  # £10.0m
         self.assertEqual(payloads[1]["verdict"]["price_band"], "Budget")  # £5m
-        self.assertIn(alpha["verdict"]["call"], ("buy", "hold", "pass"))
+        self.assertIn(alpha["verdict"]["rank_call"], ("buy", "hold", "pass"))
+        self.assertNotIn("call", alpha["verdict"])
 
     def test_six_week_vector_present_and_gracefully_absent(self):
         payloads, _ = _payloads()
@@ -283,7 +286,12 @@ class TestAssembly(unittest.TestCase):
     def test_squad_membership_and_note_provenance(self):
         payloads, _ = _payloads(with_note=True)
         alpha, beta = payloads
-        self.assertEqual(alpha["squads"], {"model": True, "consensus": False})
+        self.assertEqual(alpha["squads"],
+                         {"model": True, "consensus": False,
+                          "model_role": "XI", "consensus_role": None})
+        self.assertEqual(beta["squads"],
+                         {"model": False, "consensus": True,
+                          "model_role": None, "consensus_role": "Bench"})
         self.assertEqual(alpha["notes"], [])
         self.assertEqual(beta["notes"], ["Beta"])
         self.assertEqual(beta["flag"], "doubtful")
@@ -453,7 +461,8 @@ class TestCardHtml(unittest.TestCase):
     def test_hero_number_and_verdict_line(self):
         _, html = self._card()
         self.assertIn('<div class="pc-hero"><b>8.00</b>', html)
-        self.assertIn('class="pc-verdict">buy · tier S · Premium</div>', html)
+        self.assertIn('class="pc-verdict">in our XI · tier S · Premium</div>',
+                      html)
 
     def test_news_renders_verbatim_when_present_only(self):
         payloads, _ = _payloads()
@@ -505,7 +514,8 @@ class TestPlayerPage(unittest.TestCase):
         payloads, _ = _payloads()
         html = fpl_players.player_page_html(payloads[0], 2)
         self.assertIn("No research notes on file", html)
-        self.assertIn("our model squad", html)            # membership line
+        # the membership line names the ROLE, not just the squad
+        self.assertIn("Currently in the XI of our squad.", html)
 
     def test_canonical_is_the_player_page(self):
         _, html = self._page()
@@ -850,7 +860,9 @@ class TestCardConsistency(unittest.TestCase):
                                "captain_ev": 10.0, "value": 0.8},
                 "season": {"total_points": 8, "realized_ppm": 1.3, "minutes": 90},
                 "ranks": {"own_vs_xpts_gap": 3},
-                "verdict": {"tier": "A", "price_band": "Mid", "call": "buy"},
+                "verdict": {"tier": "A", "price_band": "Mid",
+                            "stance": "not in either squad",
+                            "rank_call": "buy"},
                 "fixtures": [], "distribution": None, "page": "/fpl/players/1-p/"}
 
     def test_card_without_history_keeps_the_form_band(self):
@@ -870,3 +882,106 @@ class TestCardConsistency(unittest.TestCase):
             self.assertNotIn("pc-premium", html)
             self.assertNotIn("Premium", html)
             self.assertNotIn("🔒", html)
+
+
+class TestStanceReplacesTheCall(unittest.TestCase):
+    """The card used to print a rank-derived "buy" for players our own
+    published squad refuses to own. Owner, 2026-08-26: "We say we don't buy
+    haaland and call him S premium buy". The face now states OUR POSITION; the
+    model's opinion is the tier; nothing tells a reader to buy anything."""
+
+    @staticmethod
+    def _rows():
+        return [{"name": n, "team": "MCI", "position": "FWD",
+                 "x_points": 9.0 - i, "captain_ev": 18.0, "ceiling": 15.0,
+                 "value": 0.6, "bonus": 0.5, "defcon": 0.0, "p_defcon": 0.0,
+                 "cs_points": 0.0, "price": 15.0, "ownership_pct": 50.0,
+                 "start_prob": 0.95}
+                for i, n in enumerate(("Haaland", "Starter", "Benched",
+                                       "ConsXI", "ConsBench"))]
+
+    def _payloads(self):
+        rows = self._rows()
+        by_name = {r["name"]: {"id": 100 + i, "name": r["name"]}
+                   for i, r in enumerate(rows)}
+        by_id = {100 + i: {"id": 100 + i, "web_name": r["name"], "status": "a",
+                           "news": "", "total_points": 12, "event_points": 6,
+                           "minutes": 90}
+                 for i, r in enumerate(rows)}
+        squad_roles = {
+            "model": {"Starter": "XI", "Benched": "Bench"},
+            "consensus": {"ConsXI": "XI", "ConsBench": "Bench",
+                          "Starter": "XI"},
+        }
+        payloads, _ = fpl_players.assemble_payloads(
+            rows, by_name, by_id, {}, squad_roles, None, [], {}, 2,
+            "2026-08-26T10:00:00+00:00")
+        return {p["name"]: p for p in payloads}
+
+    def test_stance_ladder(self):
+        self.assertEqual(fpl_players.squad_stance("XI", None), "in our XI")
+        self.assertEqual(fpl_players.squad_stance("Bench", None),
+                         "on our bench")
+        self.assertEqual(fpl_players.squad_stance(None, "XI"),
+                         "in the consensus XI")
+        self.assertEqual(fpl_players.squad_stance(None, "Bench"),
+                         "on the consensus bench")
+        self.assertEqual(fpl_players.squad_stance(None, None),
+                         "not in either squad")
+
+    def test_our_squad_outranks_the_reference_squad(self):
+        """A player in both is described by OUR position — the site's own team
+        is the claim it is entitled to make."""
+        self.assertEqual(fpl_players.squad_stance("XI", "XI"), "in our XI")
+        self.assertEqual(fpl_players.squad_stance("Bench", "XI"),
+                         "on our bench")
+
+    def test_a_player_in_neither_squad_never_renders_the_word_buy(self):
+        """THE acceptance test. Haaland is tier S and Premium and in neither
+        published squad; his card must not tell anyone to buy him."""
+        haaland = self._payloads()["Haaland"]
+        self.assertEqual(haaland["verdict"]["tier"], "S")
+        self.assertEqual(haaland["verdict"]["price_band"], "Premium")
+        self.assertEqual(haaland["verdict"]["rank_call"], "buy")   # the JSON
+        for html in (fpl_players.card_html(haaland),
+                     fpl_players.player_page_html(haaland, 2)):
+            self.assertNotIn("buy", html.lower())
+            self.assertIn("not in either squad", html)
+
+    def test_a_player_in_our_xi_renders_in_our_xi(self):
+        starter = self._payloads()["Starter"]
+        html = fpl_players.card_html(starter)
+        self.assertIn('class="pc-verdict">in our XI · tier', html)
+        self.assertIn('data-stance="in our XI"', html)
+
+    def test_every_stance_reaches_the_card_face(self):
+        want = {"Haaland": "not in either squad", "Starter": "in our XI",
+                "Benched": "on our bench", "ConsXI": "in the consensus XI",
+                "ConsBench": "on the consensus bench"}
+        payloads = self._payloads()
+        for name, stance in want.items():
+            self.assertEqual(payloads[name]["verdict"]["stance"], stance, name)
+            self.assertIn(f'data-stance="{stance}"',
+                          fpl_players.card_html(payloads[name]), name)
+
+    def test_no_rendered_surface_reads_the_rank_call(self):
+        """It survives in the JSON so a consumer keyed on it keeps working,
+        renamed and documented — but nothing silently depends on it."""
+        payloads = self._payloads()
+        for p in payloads.values():
+            self.assertNotIn("call", p["verdict"])
+            self.assertIn("rank_call", p["verdict"])
+            self.assertNotIn("data-call", fpl_players.card_html(p))
+        env = fpl_players.player_json(payloads["Haaland"], "m", "u", "l", "t")
+        self.assertEqual(env["verdict"]["rank_call"], "buy")
+
+    def test_the_page_keeps_the_model_and_our_position_apart(self):
+        html = fpl_players.player_page_html(self._payloads()["Benched"], 2)
+        self.assertIn("<td>Model tier</td>", html)
+        self.assertIn("<td>Our position</td><td>on our bench</td>", html)
+        self.assertIn("Currently in the bench of our squad.", html)
+
+    def test_the_consensus_bench_is_not_described_as_the_consensus_xi(self):
+        html = fpl_players.player_page_html(self._payloads()["ConsBench"], 2)
+        self.assertIn("on the consensus bench", html)
+        self.assertNotIn("in the consensus XI", html)
