@@ -507,7 +507,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     payloads, unmatched = fpl_players.assemble_payloads(
         rows, players_by_name, {e["id"]: e for e in (boot or {}).get("elements", [])},
         notes, squad_names, _load_horizon_matrix(), fx_rows_all,
-        _odds_caches(gameweek), gameweek, generated_at)
+        _odds_caches(gameweek), gameweek, generated_at,
+        # The realized half of every card's dot timeline. Read-only here:
+        # fetching it is `python3 manage.py fpl --round N --form-history`, so a
+        # build never reaches the network. An absent cache degrades to all-
+        # projected dots rather than to a guess.
+        form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME) or {})
     if unmatched:
         names = ", ".join(unmatched[:6]) + (" ..." if len(unmatched) > 6 else "")
         warnings.append(

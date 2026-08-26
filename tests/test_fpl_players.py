@@ -405,22 +405,20 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn('class="fx fx-unpriced"', html)   # no lambdas: gray
         self.assertIn('data-source="unpriced"', html)
 
-    def test_six_week_form_art_is_a_layered_svg(self):
+    def test_form_band_is_the_dot_timeline(self):
         _, html = self._card()
-        self.assertIn('class="pc-sixweek"', html)
-        self.assertIn('aria-label="Six-gameweek expected-points form"', html)
-        # the sim-cloud layers: 3 translucent areas + the true series' fill.
-        # Counted inside the six-week block only — the distribution chart's
-        # bars carry fill-opacity too.
-        form = html[html.index("pc-sixweek"):html.index("pc-decomp")]
-        self.assertEqual(form.count("fill-opacity"), 4)
-        self.assertIn("GW2 6.50", html)                 # data in the <title>
-        # no player without a horizon vector draws one
+        self.assertIn('class="pc-form"', html)
+        self.assertIn('class="pc-dots"', html)
+        self.assertIn('aria-label="Points by gameweek: played, then projected"',
+                      html)
+        # Alpha's six-week vector is GW1-3 and the card is GW2, so the strip is
+        # GW2 and GW3 — both projected, none played (nothing is cached).
+        self.assertIn("GW2 6.5 projected", html)
+        self.assertIn("<span>GW2</span>", html)
+        # no player without a horizon vector and without history draws one
         payloads, _ = _payloads(with_six_week=False)
-        # The band is always present; without history it carries an
-        # honest empty state so the row keeps its rhythm.
         bare = fpl_players.card_html(payloads[0])
-        self.assertIn("pc-sixweek-empty", bare)
+        self.assertIn("pc-dots-empty", bare)
         self.assertNotIn("<svg", bare.split("pc-dist")[0])
 
     def test_form_art_is_deterministic(self):
@@ -657,6 +655,158 @@ class TestModeCarriesItsShare(unittest.TestCase):
         self.assertEqual(html, "")
 
 
+class TestDotTimeline(unittest.TestCase):
+    """The card's stat-art (owner 2026-08-26, replacing the area wave: "but we
+    can have last few realised and next few projected dots right? the wave
+    seems hard to get"). Solid dots are gameweeks he PLAYED, hollow dots are
+    the model's forecast, and the strip degrades honestly to whichever half
+    exists."""
+
+    @staticmethod
+    def _payload(history=None, six_week=None, gameweek=5):
+        return {"id": 1, "name": "P", "gameweek": gameweek,
+                "form_history": history, "six_week_xpts": six_week}
+
+    @staticmethod
+    def _history(pairs):
+        """[(round, points, minutes), ...] -> cache rows."""
+        return [{"round": r, "total_points": p, "minutes": m}
+                for r, p, m in pairs]
+
+    def test_today_every_dot_is_projected(self):
+        """GW2 of a new season: one played gameweek, nowhere near the three
+        the strip would need to lead with a record. Six-week vector GW1-6, so
+        the strip is GW2-6, all projected. This is the CORRECT output today."""
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 2, 90)]),
+            six_week={"1": 7.0, "2": 8.6, "3": 6.1, "4": 5.5, "5": 6.0,
+                      "6": 7.2},
+            gameweek=2))
+        self.assertEqual([d["mode"] for d in dots],
+                         ["played"] + ["projected"] * 5)
+        self.assertEqual([d["gw"] for d in dots], [1, 2, 3, 4, 5, 6])
+
+    def test_played_dots_carry_actual_points_projected_carry_rounded_xpts(self):
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 2, 90), (2, 13, 90), (3, 6, 62)]),
+            six_week={"4": 8.6, "5": 4.2},
+            gameweek=4))
+        played = [d for d in dots if d["mode"] == "played"]
+        projected = [d for d in dots if d["mode"] == "projected"]
+        self.assertEqual([d["value"] for d in played], [2.0, 13.0, 6.0])
+        self.assertEqual([d["display"] for d in played], ["2", "13", "6"])
+        # the DOT sits on the whole-point lattice; the precise figure survives
+        # in the title text, because the rounding is a drawing decision
+        self.assertEqual([d["value"] for d in projected], [9.0, 4.0])
+        self.assertEqual([d["display"] for d in projected], ["8.6", "4.2"])
+
+    def test_at_most_three_played_and_seven_dots_in_total(self):
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(r, r, 90) for r in range(1, 9)]),
+            six_week={str(g): 5.0 for g in range(9, 20)},
+            gameweek=9))
+        self.assertEqual(len(dots), 7)
+        self.assertEqual([d["gw"] for d in dots if d["mode"] == "played"],
+                         [6, 7, 8])                 # the last three he played
+        self.assertEqual([d["gw"] for d in dots if d["mode"] == "projected"],
+                         [9, 10, 11, 12])           # the next four
+
+    def test_an_unused_substitute_is_not_a_played_gameweek(self):
+        """Zero minutes is an absence, not a bad performance — a dot at zero
+        would read as the latter."""
+        history = self._history([(1, 2, 90), (2, 0, 0), (3, 5, 88)])
+        self.assertEqual(fpl_players.played_gameweeks(
+            self._payload(history=history)), 2)
+        dots = fpl_players.form_dots(self._payload(history=history,
+                                                   gameweek=4))
+        self.assertEqual([d["gw"] for d in dots], [1, 3])
+
+    def test_the_horizon_never_re_projects_a_gameweek_already_played(self):
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 4, 90)]),
+            six_week={"1": 6.0, "2": 5.0},
+            gameweek=1))
+        self.assertEqual([(d["gw"], d["mode"]) for d in dots],
+                         [(1, "played"), (2, "projected")])
+
+    def test_degrades_to_realized_only_then_to_nothing(self):
+        only_played = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 3, 90)]), six_week=None, gameweek=2))
+        self.assertEqual([d["mode"] for d in only_played], ["played"])
+        self.assertEqual(fpl_players.form_dots(self._payload()), [])
+
+    def test_svg_marks_are_non_scaling_strokes_not_circles(self):
+        """A <circle> in a stretched viewBox is an egg at one card width and a
+        circle at neither; round-capped non-scaling strokes are discs of exact
+        device pixels on both surfaces."""
+        payload = self._payload(
+            history=self._history([(1, 2, 90)]),
+            six_week={"2": 8.6, "3": 4.0}, gameweek=2)
+        svg = fpl_players._dots_svg(fpl_players.form_dots(payload))
+        self.assertNotIn("<circle", svg)
+        self.assertIn('stroke-linecap="round"', svg)
+        self.assertEqual(svg.count('vector-effect="non-scaling-stroke"'),
+                         svg.count("<line"))
+        self.assertNotIn("<text", svg)           # every label is HTML
+
+    def test_the_now_line_only_appears_between_the_two_halves(self):
+        both = fpl_players._dots_svg(fpl_players.form_dots(self._payload(
+            history=self._history([(1, 2, 90)]), six_week={"2": 6.0},
+            gameweek=2)))
+        self.assertIn("pc-now", both)
+        projected_only = fpl_players._dots_svg(fpl_players.form_dots(
+            self._payload(six_week={"2": 6.0, "3": 5.0}, gameweek=2)))
+        self.assertNotIn("pc-now", projected_only)
+
+    def test_both_halves_share_one_vertical_scale(self):
+        """A projected 8 must sit level with a realized 8, or the strip invites
+        a comparison it then fakes."""
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 8, 90)]), six_week={"2": 8.0},
+            gameweek=2))
+        svg = fpl_players._dots_svg(dots)
+        stem_re = r'x1="([\d.]+)" y1="43\.0" x2="\1" y2="([\d.]+)"'
+        stems = [y for _x, y in re.findall(stem_re, svg)]
+        self.assertEqual(len(stems), 2)          # one stem per dot
+        self.assertEqual(stems[0], stems[1])     # equal points, equal height
+        self.assertEqual(stems[0], "9.00")       # both at the top of the scale
+        # ... and an unequal pair does NOT land at the same height
+        uneven = fpl_players._dots_svg(fpl_players.form_dots(self._payload(
+            history=self._history([(1, 8, 90)]), six_week={"2": 2.0},
+            gameweek=2)))
+        uneven_stems = [y for _x, y in re.findall(stem_re, uneven)]
+        self.assertNotEqual(uneven_stems[0], uneven_stems[1])
+
+    def test_labels_and_legend_are_html_and_the_caption_is_the_key(self):
+        html = fpl_players._dots_html(self._payload(
+            history=self._history([(1, 2, 90)]),
+            six_week={"2": 8.6, "3": 4.0}, gameweek=2))
+        self.assertIn('grid-template-columns:repeat(3,1fr)', html)
+        for label in ("<span>GW1</span>", "<span>GW2</span>",
+                      "<span>GW3</span>"):
+            self.assertIn(label, html)
+        self.assertIn('<span class="pc-dc-played">played</span>', html)
+        self.assertIn('<span class="pc-dc-proj">projected</span>', html)
+        # the legend only claims what the strip actually shows
+        projected_only = fpl_players._dots_html(self._payload(
+            six_week={"2": 8.6}, gameweek=2))
+        self.assertNotIn("pc-dc-played", projected_only)
+        self.assertIn("pc-dc-proj", projected_only)
+
+    def test_title_spells_the_strip_out(self):
+        dots = fpl_players.form_dots(self._payload(
+            history=self._history([(1, 2, 90)]),
+            six_week={"2": 8.6}, gameweek=2))
+        self.assertEqual(fpl_players.dots_title(dots),
+                         "GW1 2 points played · GW2 8.6 projected")
+
+    def test_the_strip_is_deterministic(self):
+        payload = self._payload(history=self._history([(1, 2, 90)]),
+                                six_week={"2": 8.6, "3": 4.0}, gameweek=2)
+        self.assertEqual(fpl_players._dots_html(payload),
+                         fpl_players._dots_html(payload))
+
+
 class TestCardConsistency(unittest.TestCase):
     """Every card keeps the same vertical rhythm. A player with no six-gameweek
     history (a new signing) gets an honest empty band, not a missing block that
@@ -676,13 +826,13 @@ class TestCardConsistency(unittest.TestCase):
 
     def test_card_without_history_keeps_the_form_band(self):
         html = fpl_players.card_html(self._payload(None))
-        self.assertIn("pc-sixweek", html)
-        self.assertIn("no six-gameweek history yet", html)
+        self.assertIn("pc-form", html)
+        self.assertIn("no gameweek history yet", html)
 
     def test_card_with_history_draws_the_chart_in_the_same_band(self):
         html = fpl_players.card_html(self._payload({"1": 5.0, "2": 4.0, "3": 6.0, "4": 5.5, "5": 4.5, "6": 5.0}))
-        self.assertIn("pc-sixweek", html)
-        self.assertNotIn("no six-gameweek history yet", html)
+        self.assertIn("pc-form", html)
+        self.assertNotIn("no gameweek history yet", html)
         self.assertIn("<svg", html)
 
     def test_no_card_advertises_a_premium_slot(self):

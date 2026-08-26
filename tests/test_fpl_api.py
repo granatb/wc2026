@@ -252,3 +252,124 @@ class TestFetchDefconBackfill(unittest.TestCase):
         self.assertNotIn(10, result)
         self.assertIn(11, result)
         self.assertAlmostEqual(result[11]["defcon_per90"], 9.07, places=2)
+
+
+class TestFormRowsFromHistory(unittest.TestCase):
+    """element-summary's `history` -> the per-gameweek rows the card's dot
+    timeline draws its realized half from."""
+
+    def test_rows_are_round_sorted_and_typed(self):
+        rows = fpl_api.form_rows_from_history([
+            {"round": 3, "total_points": 6, "minutes": 88},
+            {"round": 1, "total_points": 2, "minutes": 90},
+        ])
+        self.assertEqual(rows, [
+            {"round": 1, "total_points": 2, "minutes": 90},
+            {"round": 3, "total_points": 6, "minutes": 88},
+        ])
+
+    def test_a_double_gameweek_is_one_summed_row(self):
+        """The card draws one dot per gameweek, and a DGW is one gameweek's
+        return — two dots on one round would be a lie about the calendar."""
+        rows = fpl_api.form_rows_from_history([
+            {"round": 4, "total_points": 5, "minutes": 90},
+            {"round": 4, "total_points": 9, "minutes": 75},
+        ])
+        self.assertEqual(rows, [{"round": 4, "total_points": 14,
+                                 "minutes": 165}])
+
+    def test_unusable_and_empty_input_degrade_quietly(self):
+        self.assertEqual(fpl_api.form_rows_from_history([]), [])
+        self.assertEqual(fpl_api.form_rows_from_history(None), [])
+        self.assertEqual(
+            fpl_api.form_rows_from_history([{"total_points": 3}]), [])
+
+
+class TestFetchFormHistory(unittest.TestCase):
+    """Same contract as the DefCon backfill: incremental per-id cache, no
+    network in tests, one bad id never aborts the rest."""
+
+    CACHE_NAME = "form_history_test"
+
+    def _cache_path(self):
+        return os.path.join(fpl_api.DATA_DIR, f"{self.CACHE_NAME}.json")
+
+    def tearDown(self):
+        path = self._cache_path()
+        if os.path.exists(path):
+            os.remove(path)
+
+    @staticmethod
+    def _players(id_minutes):
+        return [{"id": i, "name": f"P{i}", "minutes": m} for i, m in id_minutes]
+
+    @staticmethod
+    def _summary(rounds):
+        return {"history": [{"round": r, "total_points": r * 2, "minutes": 90}
+                            for r in rounds]}
+
+    def test_fetches_then_a_rerun_in_the_same_gameweek_fetches_nothing(self):
+        players = self._players([(1, 900), (2, 700)])
+        fetch = mock.Mock(return_value=self._summary([1, 2]))
+
+        result = fpl_api.fetch_form_history(
+            players, 2, fetch=fetch, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(result[1][-1], {"round": 2, "total_points": 4,
+                                         "minutes": 90})
+
+        fetch2 = mock.Mock(return_value=self._summary([1, 2]))
+        again = fpl_api.fetch_form_history(
+            players, 2, fetch=fetch2, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+        fetch2.assert_not_called()
+        self.assertEqual(again[2], result[2])
+
+    def test_a_new_gameweek_moves_the_watermark_and_refetches(self):
+        players = self._players([(1, 900)])
+        fpl_api.fetch_form_history(
+            players, 2, fetch=mock.Mock(return_value=self._summary([1, 2])),
+            delay=0, sleep=lambda *_a: None, cache_name=self.CACHE_NAME)
+
+        fetch = mock.Mock(return_value=self._summary([1, 2, 3]))
+        result = fpl_api.fetch_form_history(
+            players, 3, fetch=fetch, delay=0, sleep=lambda *_a: None,
+            cache_name=self.CACHE_NAME)
+
+        fetch.assert_called_once_with(1)
+        self.assertEqual([r["round"] for r in result[1]], [1, 2, 3])
+
+    def test_zero_minute_players_are_never_fetched(self):
+        fetch = mock.Mock()
+        result = fpl_api.fetch_form_history(
+            self._players([(3, 0)]), 2, fetch=fetch, delay=0,
+            sleep=lambda *_a: None, cache_name=self.CACHE_NAME)
+        fetch.assert_not_called()
+        self.assertNotIn(3, result)
+
+    def test_one_failed_id_does_not_abort_the_rest(self):
+        def flaky(pid):
+            if pid == 10:
+                raise RuntimeError("simulated network failure")
+            return self._summary([1, 2])
+
+        fetch = mock.Mock(side_effect=flaky)
+        result = fpl_api.fetch_form_history(
+            self._players([(10, 900), (11, 900)]), 2, fetch=fetch, delay=0,
+            sleep=lambda *_a: None, cache_name=self.CACHE_NAME)
+
+        self.assertEqual(fetch.call_count, 2)
+        self.assertNotIn(10, result)
+        self.assertIn(11, result)
+
+    def test_the_politeness_delay_is_honoured_between_requests(self):
+        slept = []
+        fpl_api.fetch_form_history(
+            self._players([(1, 900), (2, 900), (3, 900)]), 2,
+            fetch=mock.Mock(return_value=self._summary([1, 2])),
+            delay=fpl_api.FORM_REQUEST_DELAY, sleep=slept.append,
+            cache_name=self.CACHE_NAME)
+        # one sleep between each pair of requests, none after the last
+        self.assertEqual(slept, [fpl_api.FORM_REQUEST_DELAY] * 2)

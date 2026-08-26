@@ -285,3 +285,90 @@ def fetch_defcon_backfill(players: list[dict], fetch=fetch_element_summary,
         print(f"  [fpl] defcon backfill done: {total - len(failed)} fetched, "
               f"{len(failed)} failed.")
     return cache
+
+
+# --- Realized form history ----------------------------------------------------
+# The card's form wave draws the six-gameweek PROJECTION, which is a forecast a
+# reader cannot tell apart from a record (owner, 2026-08-26: "could the form
+# wave be just point of their last x appearances?"). Real per-gameweek points
+# live in exactly one place -- element-summary's `history` -- so they are
+# backfilled here, in the same shape as the DefCon backfill above: incremental
+# per-id cache, politeness delay between requests, injectable fetch so the
+# tests never touch the network.
+
+FORM_CACHE_NAME = "form_history"
+FORM_REQUEST_DELAY = DEFCON_REQUEST_DELAY   # same politeness delay
+
+
+def form_rows_from_history(history: list) -> list[dict]:
+    """[{"round", "total_points", "minutes"}, ...] for the CURRENT season,
+    ascending by round.
+
+    `history` is this season only -- `history_past` is the per-season roll-up
+    the DefCon backfill reads -- so nothing here filters by season. A double
+    gameweek puts two rows on one round; they are SUMMED, because the card
+    draws one point per gameweek and a DGW is one gameweek's return.
+    """
+    by_round: dict[int, dict] = {}
+    for h in history or []:
+        try:
+            rnd = int(h["round"])
+        except (KeyError, TypeError, ValueError):
+            continue                       # a row without a round is unusable
+        slot = by_round.setdefault(
+            rnd, {"round": rnd, "total_points": 0, "minutes": 0})
+        slot["total_points"] += int(_f(h.get("total_points")))
+        slot["minutes"] += int(_f(h.get("minutes")))
+    return [by_round[r] for r in sorted(by_round)]
+
+
+def fetch_form_history(players: list[dict], gameweek: int,
+                       fetch=fetch_element_summary,
+                       delay: float = FORM_REQUEST_DELAY, sleep=time.sleep,
+                       cache_name: str = FORM_CACHE_NAME) -> dict[int, list]:
+    """Per-gameweek points/minutes for every player, cached incrementally.
+
+    `gameweek` is the most recent FINISHED gameweek -- the watermark the cache
+    is brought up to. An id whose cached history already reaches it is not
+    re-fetched, so a re-run inside the same gameweek costs no network calls at
+    all; the week a new gameweek finishes, everyone is one round behind and is
+    refreshed once. Players with zero bootstrap minutes are skipped entirely
+    (no minutes means no form to draw), exactly as the DefCon backfill skips
+    them. A failed fetch is reported and skipped, never cached as a permanent
+    failure -- most failures here are transient.
+
+    Returns {element_id: [row, ...]} merging fresh fetches into the cache.
+    """
+    raw_cache = read_cache(cache_name) or {}
+    cache: dict[int, list] = {int(k): v for k, v in raw_cache.items()}
+
+    def up_to_date(pid: int) -> bool:
+        rows = cache.get(pid) or []
+        return max((int(r.get("round") or 0) for r in rows), default=0) >= gameweek
+
+    todo = [p for p in players
+            if (p.get("minutes") or 0) > 0 and not up_to_date(p["id"])]
+
+    total = len(todo)
+    if total:
+        print(f"  [fpl] form history: {total} player(s) behind GW{gameweek} in "
+              f"cache '{cache_name}', fetching...")
+
+    failed = []
+    for i, p in enumerate(todo, start=1):
+        pid = p["id"]
+        print(f"  [fpl] form history {i}/{total}: {p.get('name', pid)} (id {pid})")
+        try:
+            summary = fetch(pid)
+            cache[pid] = form_rows_from_history(summary.get("history", []))
+        except Exception as exc:  # noqa: BLE001 -- one bad id must not abort the rest
+            failed.append(pid)
+            print(f"  [fpl] form history: FAILED id {pid} ({exc}); will retry next run")
+        if delay and i < total:
+            sleep(delay)
+
+    if todo:
+        write_cache(cache_name, {str(k): v for k, v in cache.items()})
+        print(f"  [fpl] form history done: {total - len(failed)} fetched, "
+              f"{len(failed)} failed.")
+    return cache

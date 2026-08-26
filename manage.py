@@ -107,6 +107,30 @@ def refresh(fantasy_round: int, with_props: bool = False) -> None:
     print(f"  cached goal rates for {len(rates)} players.")
 
 
+def fpl_form_history(fantasy_round: int) -> None:
+    """Bring data/fpl/form_history.json up to the last FINISHED gameweek.
+
+    The player card's wave draws realized points once a player has enough of
+    them (evmax.fpl_players.form_band); this is the only place those per-
+    gameweek points are fetched. `--round N` is the gameweek being built, so
+    the watermark is N-1: the newest gameweek whose results actually exist.
+    Incremental and re-runnable — an already-current cache costs no requests.
+    """
+    from core import fpl_api
+
+    boot = fpl_api.read_cache("bootstrap")
+    if boot is None:
+        raise SystemExit(
+            "fpl --form-history: data/fpl/bootstrap.json is missing — refresh "
+            f"with\n    python3 manage.py fpl --round {fantasy_round} --refresh")
+    watermark = max(fantasy_round - 1, 1)
+    cache = fpl_api.fetch_form_history(fpl_api.parse_players(boot), watermark)
+    played = sum(1 for rows in cache.values()
+                 if sum(1 for r in rows if (r.get("minutes") or 0) > 0) >= 3)
+    print(f"form history cached for {len(cache)} player(s) through GW{watermark}; "
+          f"{played} have the 3 played gameweeks the card's form band needs.")
+
+
 def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     """Print the weekly transfer table for both published FPL squads.
 
@@ -242,6 +266,10 @@ def main() -> None:
                          "for both published squads instead of the order book")
     ap.add_argument("--bank", type=float, default=0.0,
                     help="(fpl --transfers) money in the bank, in millions")
+    ap.add_argument("--form-history", action="store_true", dest="form_history",
+                    help="(fpl) backfill data/fpl/form_history.json — the "
+                         "per-gameweek points the card's form band draws once "
+                         "a player has three played gameweeks")
     args = ap.parse_args()
 
     if args.game == "config":
@@ -250,6 +278,12 @@ def main() -> None:
 
     if args.fantasy_round is None:
         ap.error("--round is required when running a game")
+
+    if args.form_history:
+        if args.game != "fpl":
+            ap.error("--form-history is FPL-only")
+        fpl_form_history(args.fantasy_round)
+        return
 
     if args.transfers:
         if args.game != "fpl":

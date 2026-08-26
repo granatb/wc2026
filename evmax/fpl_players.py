@@ -212,11 +212,90 @@ def distribution_block(row: dict):
 _PROJECTION_FIELDS = ("x_points", "captain_ev", "ceiling", "value", "bonus",
                       "defcon", "p_defcon", "cs_points", "start_prob")
 
+# --- The dot timeline ---------------------------------------------------------
+# The card's stat-art was an area wave of the six-gameweek PROJECTION: a
+# forecast a reader could not tell from a record, and a shape nobody could read
+# (owner 2026-08-26, superseding his own earlier note: "but we can have last
+# few realised and next few projected dots right? the wave seems hard to get").
+#
+# It is now one strip of dots — the last few gameweeks he actually PLAYED, then
+# the next few PROJECTED, split by a "now" line. Solid dots are things that
+# happened; hollow dots are things the model thinks will happen. Height is the
+# points, on a scale shared by both halves, so the eye compares a forecast to
+# the record it follows without a single word of explanation.
+
+DOTS_PLAYED_MAX = 3      # the last three he played — enough to show direction
+DOTS_TOTAL_MAX = 7       # legible at card width (~230px in the landing row)
+
+
+def _played_rows(payload: dict) -> list:
+    """His history rows with football in them, ascending by round.
+
+    "Played" is minutes > 0. An unused substitute has a history row and no
+    football in it, and a dot at zero for a week he was never on the pitch
+    would read as a bad performance rather than an absence.
+    """
+    history = payload.get("form_history") or []
+    rows = [h for h in history if (h.get("minutes") or 0) > 0]
+    return sorted(rows, key=lambda h: int(h.get("round") or 0))
+
+
+def played_gameweeks(payload: dict) -> int:
+    """How many gameweeks this player has actually played this season.
+
+    The bar for two separate honesty rules — the timeline's realized dots and
+    whether realized pts/£m is worth printing at all — so it is counted once,
+    here, and both read the same number.
+    """
+    return len(_played_rows(payload))
+
+
+def form_dots(payload: dict, gameweek: int = None) -> list:
+    """The timeline: [{"gw", "value", "display", "mode"}, ...] left to right.
+
+    value:   what the dot's HEIGHT encodes. Realized dots carry the actual
+             points; projected dots carry xPts ROUNDED TO WHOLE POINTS, so a
+             projection sits on the same integer lattice as the record beside
+             it rather than hovering a hair off it for no reason a reader can see.
+    display: the precise figure, for the title text — the rounding is a drawing
+             decision and must not become a published claim.
+    mode:    "played" | "projected".
+
+    Degrades to whichever half exists, and to [] when neither does.
+    """
+    played = _played_rows(payload)[-DOTS_PLAYED_MAX:]
+    dots = [{"gw": int(h["round"]),
+             "value": float(h.get("total_points") or 0.0),
+             "display": f'{int(h.get("total_points") or 0)}',
+             "mode": "played"}
+            for h in played]
+
+    sw = payload.get("six_week_xpts") or {}
+    horizon = []
+    try:
+        cutoff = int(gameweek if gameweek is not None
+                     else payload.get("gameweek") or 0)
+        horizon = sorted((int(k), float(v)) for k, v in sw.items())
+    except (TypeError, ValueError):
+        horizon = []
+    # Everything from this gameweek on. A horizon matrix that still carries
+    # finished gameweeks must not put a "projection" where the record already
+    # sits — the played dots own those rounds.
+    played_rounds = {d["gw"] for d in dots}
+    for gw, value in horizon:
+        if gw < cutoff or gw in played_rounds:
+            continue
+        if len(dots) >= DOTS_TOTAL_MAX:
+            break
+        dots.append({"gw": gw, "value": float(round(value)),
+                     "display": f"{value:.1f}", "mode": "projected"})
+    return dots
+
 
 def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
                       notes: dict, squad_names: dict, six_week,
                       fx_rows: list, odds_by_gw: dict, gameweek: int,
-                      generated_at: str) -> tuple:
+                      generated_at: str, form_history=None) -> tuple:
     """(payloads sorted by x_points desc, [unmatched row names]).
 
     rows: the gameweek artifact rows (disambiguated names).
@@ -228,12 +307,18 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
       published squads' article entries (already row-matched by the build).
     six_week: the horizon matrix (data/fpl/xpts_gw*.json payload) or None —
       absent cache degrades six_week_xpts to null per player.
+    form_history: core.fpl_api.fetch_form_history's mapping,
+      {element id: [{round, total_points, minutes}, ...]}, or None. Absent
+      cache degrades form_history to [] per player, which is honest: the dot
+      timeline then draws projected dots only.
     A row whose name no longer matches the bootstrap (cached artifact vs a
     renamed player) is skipped and reported, never guessed at.
     """
     letters = verdict_letters(rows)
     xp_rank, own_rank = rank_maps(rows)
     from evmax.articles import player_flag, price_tier
+
+    form_by_id = {int(k): v for k, v in (form_history or {}).items()}
 
     payloads, unmatched = [], []
     for r in sorted(rows, key=lambda r: (-(r.get("x_points") or 0.0),
@@ -288,6 +373,7 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
                 "call": _CALL_BY_LETTER[letter],
             },
             "six_week_xpts": sw,
+            "form_history": form_by_id.get(pid, []),
             "fixtures": fixture_strip(r.get("team"), gameweek, fx_rows,
                                       odds_by_gw),
             "squads": {
@@ -375,11 +461,30 @@ CARD_CSS = (
     "letter-spacing:1px;text-transform:uppercase;color:var(--ink3)}"
     ".player-card .pc-news{font-size:13px;color:#a8331c;background:#fdeee9;"
     "border-radius:8px;padding:8px 12px;margin:10px 0 2px}"
-    # form art: layered area chart of the six-week vector (the sim cloud)
-    ".player-card .pc-sixweek{margin:8px 0 2px;height:60px}"
-    ".player-card .pc-sixweek-empty{display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);border-radius:8px;background:rgba(15,122,69,.03)}"
-    ".player-card .pc-sixweek-empty span{font-size:10.5px;color:var(--ink3);letter-spacing:.3px}"
-    ".player-card .pc-sixweek svg{display:block;width:100%;height:60px}"
+    # form art: the dot timeline — played gameweeks, then projected ones.
+    # pc-form is min-height'd so a player with neither (an empty band) keeps
+    # the same card height as one with both, and a row of cards stays level.
+    ".player-card .pc-form{margin:8px 0 2px;min-height:78px}"
+    ".player-card .pc-dots{height:52px}"
+    ".player-card .pc-dots svg{display:block;width:100%;height:52px}"
+    ".player-card .pc-dots-empty{display:flex;align-items:center;"
+    "justify-content:center;border:1px dashed var(--line);border-radius:8px;"
+    "background:rgba(15,122,69,.03)}"
+    ".player-card .pc-dots-empty span{font-size:10.5px;color:var(--ink3);"
+    "letter-spacing:.3px}"
+    ".player-card .pc-dotgws{display:grid;margin-top:1px}"
+    ".player-card .pc-dotgws span{font-size:9px;color:var(--ink3);"
+    "text-align:center;letter-spacing:.2px;font-variant-numeric:tabular-nums}"
+    # the caption IS the legend: each word wears its own dot style
+    ".player-card .pc-dotcap{font-size:9.5px;line-height:1.35;"
+    "color:var(--ink3);letter-spacing:.3px;margin-top:3px}"
+    ".player-card .pc-dotcap span{display:inline-flex;align-items:center;"
+    "gap:4px}"
+    ".player-card .pc-dotcap span::before{content:'';width:7px;height:7px;"
+    "border-radius:50%;display:inline-block}"
+    ".player-card .pc-dc-played::before{background:#0a4f2d}"
+    ".player-card .pc-dc-proj::before{background:var(--surf);"
+    "border:1.5px solid #0f7a45}"
     # decomposition strip: thin stacked segments, rounded
     ".player-card .pc-decomp{display:flex;height:8px;border-radius:4px;"
     "overflow:hidden;margin:10px 0 2px;background:var(--chipbg)}"
@@ -493,88 +598,137 @@ def _fmt(v, digits: int = 2) -> str:
     return f"{v:.{digits}f}" if isinstance(v, float) else str(v)
 
 
-def _smooth_path(points: list) -> str:
-    """Catmull-Rom-derived cubic Bezier path through `points` [(x, y), ...].
-    Pure geometry, deterministic, no dependencies."""
-    if len(points) < 2:
+# Dot-timeline geometry: a 300x52 viewBox stretched to whatever width the card
+# happens to be (preserveAspectRatio="none"), with EVERY mark drawn as a stroke
+# carrying vector-effect="non-scaling-stroke".
+#
+# That combination is the whole trick, and it is the same one _distribution_svg
+# relies on for its rules. This strip renders full-card-width on a player page
+# (~700px) and quarter-width in the landing row (~230px); a <circle> inside a
+# non-uniformly stretched viewBox is an EGG at one of those sizes and a circle
+# at neither. A zero-length <line> with stroke-linecap="round" and a
+# non-scaling stroke is a perfect disc of exactly `stroke-width` DEVICE pixels
+# on every surface, so the dots are identical everywhere and the x/y grid still
+# stretches to fill the card. The hollow (projected) dot is the same disc with
+# a smaller surface-coloured disc punched over it.
+#
+# Text is likewise absent by design: the gameweek labels are HTML underneath,
+# where CSS pins them at one size on both surfaces.
+_DOT_W, _DOT_H = 300.0, 52.0
+_DOT_TOP, _DOT_BASE = 9.0, 43.0
+_DOT_R = 8.0            # device px, outer disc
+_DOT_HOLE = 4.4         # device px, the hollow dot's punched centre
+_DOT_PLAYED = "#0a4f2d"
+_DOT_PROJECTED = "#0f7a45"
+_DOT_SURFACE = "#fff"   # var(--surf); the same literal the dist chart's halo uses
+_NON_SCALING = ' vector-effect="non-scaling-stroke"'
+
+
+def _dots_svg(dots: list) -> str:
+    """The dot strip: one lollipop per gameweek, played then projected, split
+    by the "now" line. Returns "" when there is nothing to draw.
+
+    Heights share ONE scale across both halves — that is the entire point of
+    putting them in the same strip. A projected 8 must sit level with a
+    realized 8, or the card would be inviting a comparison it then fakes.
+    """
+    if not dots:
         return ""
-    d = [f"M{points[0][0]:.1f},{points[0][1]:.1f}"]
-    n = len(points)
-    for i in range(n - 1):
-        p0 = points[i - 1] if i > 0 else points[i]
-        p1, p2 = points[i], points[i + 1]
-        p3 = points[i + 2] if i + 2 < n else p2
-        c1 = (p1[0] + (p2[0] - p0[0]) / 6.0, p1[1] + (p2[1] - p0[1]) / 6.0)
-        c2 = (p2[0] - (p3[0] - p1[0]) / 6.0, p2[1] - (p3[1] - p1[1]) / 6.0)
-        d.append(f"C{c1[0]:.1f},{c1[1]:.1f} {c2[0]:.1f},{c2[1]:.1f} "
-                 f"{p2[0]:.1f},{p2[1]:.1f}")
-    return "".join(d)
+    n = len(dots)
+    cell = _DOT_W / n
+    vmax = max([d["value"] for d in dots] + [1.0])
+    usable = _DOT_BASE - _DOT_TOP
 
+    def x_of(i: int) -> float:
+        return (i + 0.5) * cell
 
-# Form-art geometry: 300x60 viewBox, 4 layers. The jitter is a fixed
-# sinusoid per (layer, index) — deterministic, so a rebuild with unchanged
-# inputs emits byte-identical pages (no RNG anywhere in the site layer).
-_FORM_W, _FORM_H, _FORM_TOP = 300.0, 60.0, 8.0
-_FORM_LAYERS = 4
-_FORM_JITTER = 0.10
+    def y_of(value: float) -> float:
+        return _DOT_BASE - (max(value, 0.0) / vmax) * usable
 
+    baseline = (f'<line x1="0" y1="{_DOT_BASE:.1f}" x2="{_DOT_W:.0f}" '
+                f'y2="{_DOT_BASE:.1f}"{_NON_SCALING} stroke="#e7e2d6" '
+                f'stroke-width="1"/>')
 
-def _form_svg(six_week: dict) -> str:
-    """The card's stat-art element: a layered area chart of the six-week
-    xPts vector — the extra translucent layers suggest the simulation cloud
-    around the central estimate. Returns "" when there is nothing to draw."""
-    import math
+    # The "now" line: everything left of it happened, everything right of it is
+    # a forecast. Drawn only when the strip actually straddles the boundary.
+    divider = ""
+    n_played = sum(1 for d in dots if d["mode"] == "played")
+    if 0 < n_played < n:
+        dx = n_played * cell
+        divider = (f'<line class="pc-now" x1="{dx:.2f}" y1="{_DOT_TOP - 6:.1f}" '
+                   f'x2="{dx:.2f}" y2="{_DOT_BASE + 4:.1f}"{_NON_SCALING} '
+                   f'stroke="#8a8275" stroke-width="1" '
+                   f'stroke-dasharray="2 2"/>')
 
-    try:
-        series = sorted(((int(k), float(v)) for k, v in six_week.items()),
-                        key=lambda kv: kv[0])
-    except (TypeError, ValueError):
-        return ""
-    if len(series) < 2:
-        return ""
-    gws = [gw for gw, _v in series]
-    values = [v for _gw, v in series]
-
-    layers = [values]
-    for k in range(1, _FORM_LAYERS):
-        layers.append([v * (1 + _FORM_JITTER * math.sin(i * 2.399 + k * 1.913))
-                       for i, v in enumerate(values)])
-    vmax = max(v for layer in layers for v in layer)
-    if vmax <= 0:
-        return ""
-
-    step = _FORM_W / (len(values) - 1)
-    usable = _FORM_H - _FORM_TOP - 4.0
-
-    def pts(layer):
-        return [(i * step,
-                 _FORM_H - 4.0 - (v / vmax) * usable)
-                for i, v in enumerate(layer)]
-
-    shapes = []
-    for k, layer in enumerate(reversed(layers)):        # cloud first, line last
-        is_line = (k == _FORM_LAYERS - 1)               # the true series
-        path = _smooth_path(pts(layer))
-        area = f"{path}L{_FORM_W:.1f},{_FORM_H:.1f}L0,{_FORM_H:.1f}Z"
-        if is_line:
-            shapes.append(f'<path d="{area}" fill="#0f7a45" '
-                          f'fill-opacity=".16" stroke="none"/>')
-            shapes.append(f'<path d="{path}" fill="none" stroke="#0a4f2d" '
-                          f'stroke-width="1.5"/>')
+    stems, discs = [], []
+    for i, d in enumerate(dots):
+        x, y = x_of(i), y_of(d["value"])
+        played = d["mode"] == "played"
+        colour = _DOT_PLAYED if played else _DOT_PROJECTED
+        stems.append(f'<line x1="{x:.2f}" y1="{_DOT_BASE:.1f}" x2="{x:.2f}" '
+                     f'y2="{y:.2f}"{_NON_SCALING} stroke="{colour}" '
+                     f'stroke-width="1" stroke-opacity="{".45" if played else ".25"}"/>')
+        disc = (f'<line x1="{x:.2f}" y1="{y:.2f}" x2="{x:.2f}" y2="{y:.2f}"'
+                f'{_NON_SCALING} stroke-linecap="round" ')
+        if played:
+            discs.append(f'{disc}stroke="{colour}" stroke-width="{_DOT_R:.1f}"/>')
         else:
-            shapes.append(f'<path d="{area}" fill="#0f7a45" '
-                          f'fill-opacity=".08" stroke="none"/>')
-    ticks = (f'<text x="1" y="{_FORM_H - 1:.0f}" font-size="9" '
-             f'fill="#8a8275">GW{gws[0]}</text>'
-             f'<text x="{_FORM_W - 1:.0f}" y="{_FORM_H - 1:.0f}" '
-             f'font-size="9" text-anchor="end" fill="#8a8275">'
-             f'GW{gws[-1]}</text>')
-    title = " · ".join(f"GW{gw} {v:.2f}" for gw, v in series)
-    return (f'<svg viewBox="0 0 {_FORM_W:.0f} {_FORM_H:.0f}" '
+            discs.append(
+                f'{disc}stroke="{colour}" stroke-width="{_DOT_R:.1f}" '
+                f'stroke-opacity=".85"/>'
+                f'{disc}stroke="{_DOT_SURFACE}" stroke-width="{_DOT_HOLE:.1f}"/>')
+
+    title = dots_title(dots)
+    return (f'<svg viewBox="0 0 {_DOT_W:.0f} {_DOT_H:.0f}" '
             f'preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" '
-            f'role="img" aria-label="Six-gameweek expected-points form">'
-            f'<title>{_html.escape(title)}</title>{"".join(shapes)}{ticks}'
+            f'role="img" aria-label="Points by gameweek: played, then '
+            f'projected">'
+            f'<title>{_html.escape(title)}</title>'
+            f'{baseline}{"".join(stems)}{divider}{"".join(discs)}'
             f'</svg>')
+
+
+def dots_title(dots: list) -> str:
+    """"GW1 2 points played · GW2 8.6 projected · …" — the strip spelled out
+    for a screen reader and for anyone who hovers it."""
+    return " · ".join(
+        f'GW{d["gw"]} {d["display"]} '
+        f'{"points played" if d["mode"] == "played" else "projected"}'
+        for d in dots)
+
+
+def _dots_html(payload: dict) -> str:
+    """The timeline block: the strip, the gameweek labels, and the caption
+    that doubles as the legend.
+
+    The labels are an equal-column grid over the same n cells the SVG divides
+    itself into, so label i sits under dot i at any card width without a single
+    magic number shared between the two.
+    """
+    dots = form_dots(payload)
+    svg = _dots_svg(dots)
+    if not svg:
+        # Neither a record nor a forecast. The band stays, at its full height,
+        # saying so — a card that silently skipped the block shrank out of line
+        # with the rest of the row (owner caught that on 2026-08-26).
+        return ('<div class="pc-form"><div class="pc-dots pc-dots-empty">'
+                '<span>no gameweek history yet</span></div>'
+                '<div class="pc-dotcap">no played or projected gameweeks '
+                'on file</div></div>')
+
+    n = len(dots)
+    labels = "".join(f'<span>GW{d["gw"]}</span>' for d in dots)
+    legend = []
+    if any(d["mode"] == "played" for d in dots):
+        legend.append('<span class="pc-dc-played">played</span>')
+    if any(d["mode"] == "projected" for d in dots):
+        legend.append('<span class="pc-dc-proj">projected</span>')
+    return (f'<div class="pc-form">'
+            f'<div class="pc-dots">{svg}</div>'
+            f'<div class="pc-dotgws" style="grid-template-columns:'
+            f'repeat({n},1fr)">{labels}</div>'
+            f'<div class="pc-dotcap">{" · ".join(legend)}</div>'
+            f'</div>')
 
 
 # Distribution-chart geometry.
@@ -832,14 +986,11 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     hero_html = (f'<div class="pc-hero"><b>{_fmt(proj.get("x_points"))}</b>'
                  f'<span>xPts</span></div>')
 
-    # The six-week form band is fixed-height on EVERY card, present or not: a
-    # new signing with no history (M.Sangaré, GW2) used to skip the block and
-    # his card visibly shrank out of line with the row (owner caught it
+    # The form band is fixed-height on EVERY card, present or not: a new
+    # signing with no history (M.Sangaré, GW2) used to skip the block and his
+    # card visibly shrank out of line with the row (owner caught it
     # 2026-08-26). An honest empty state keeps the grid true.
-    svg = _form_svg(payload["six_week_xpts"]) if payload.get("six_week_xpts") else ""
-    sw_html = (f'<div class="pc-sixweek">{svg}</div>' if svg else
-               '<div class="pc-sixweek pc-sixweek-empty">'
-               '<span>no six-gameweek history yet</span></div>')
+    sw_html = _dots_html(payload)
 
     statrow = (
         f'<div class="pc-statrow">'
