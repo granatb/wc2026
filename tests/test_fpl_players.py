@@ -622,3 +622,28 @@ class TestPlayersJs(unittest.TestCase):
     def test_normalization_matches_rate_js(self):
         self.assertIn('normalize("NFD")', self.js)
         self.assertIn("\\u0300-\\u036f", self.js)
+
+
+class TestModeCarriesItsShare(unittest.TestCase):
+    """A wide distribution's mode is a weak claim (Bruno GW2 peaks at 10 points
+    in 9.3% of sims, with 13 right behind at 8.5%). "most likely 10" bare
+    overstates it, so the card prints the mode's own share beside it."""
+
+    def _payload(self, histogram, sims):
+        return {"name": "P", "team": "MUN", "position": "MID", "price": 12.0,
+                "x_points": 8.6,
+                "distribution": {"histogram": histogram, "sims": sims,
+                                 "p10": 1, "median": 8, "mode": 10, "p90": 17,
+                                 "p_haul": 0.42, "p_blank": 0.17}}
+
+    def test_share_is_printed_next_to_the_mode(self):
+        html = fpl_players._distribution_html(
+            self._payload({"10": 930, "13": 850, "2": 8220}, 10000))
+        self.assertIn("most likely", html)
+        self.assertIn("<b>10</b> <i>9%</i>", html)
+
+    def test_missing_histogram_degrades_to_the_bare_mode(self):
+        payload = self._payload({}, 0)
+        payload["distribution"]["histogram"] = {}
+        html = fpl_players._distribution_html(payload)
+        self.assertEqual(html, "")

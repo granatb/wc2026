@@ -423,6 +423,7 @@ CARD_CSS = (
     "font-variant-numeric:tabular-nums}"
     ".player-card .pc-dist-marks b{font-weight:800;color:var(--ink2)}"
     ".player-card .pc-dm-mode b{color:var(--greend)}"
+    ".player-card .pc-dm-mode i{font-style:normal;color:var(--ink3);font-size:.92em}"
     ".player-card .pc-dist svg{display:block;width:100%;height:64px}"
     ".player-card .pc-dist-cap{font-size:10px;color:var(--ink3);"
     "letter-spacing:.3px;margin-top:3px}"
@@ -728,8 +729,11 @@ def _distribution_svg(payload: dict) -> str:
     baseline = (f'<line x1="0" y1="{_DIST_BASE:.1f}" x2="{_DIST_W:.0f}" '
                 f'y2="{_DIST_BASE:.1f}"{_NSS} stroke="#e7e2d6" '
                 f'stroke-width="1"/>')
-    title = (f'{sims:,} simulations: floor {p10}, most likely {mode}, '
-             f'ceiling {p90} points')
+    hist_t = dist.get("histogram") or {}
+    mode_n = hist_t.get(str(mode), hist_t.get(mode, 0)) or 0
+    mode_share = f' ({mode_n / sims * 100:.0f}% of simulations)' if sims and mode_n else ''
+    title = (f'{sims:,} simulations: floor {p10}, most likely {mode}'
+             f'{mode_share}, ceiling {p90} points')
     return (f'<svg viewBox="0 0 {_DIST_W:.0f} {_DIST_H:.0f}" '
             f'preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" '
             f'role="img" aria-label="Simulated points distribution">'
@@ -751,10 +755,21 @@ def _distribution_html(payload: dict) -> str:
         return ""
     dist = payload.get("distribution") or {}
     sims = dist.get("sims") or 0
+    # The mode of a wide distribution is a WEAK claim: Bruno's GW2 peak is 10
+    # points at 9.3%, with 13 right behind at 8.5%. Printing "most likely 10"
+    # bare implies a confidence the number does not carry, so the mode ships
+    # with its own share attached (owner caught this 2026-08-26).
+    hist = dist.get("histogram") or {}
+    mode = dist.get("mode")
+    share = ""
+    if sims and hist:
+        count = hist.get(str(mode), hist.get(mode, 0)) or 0
+        if count:
+            share = f' <i>{count / sims * 100:.0f}%</i>'
     marks = (f'<div class="pc-dist-marks">'
              f'<span>floor <b>{dist.get("p10")}</b></span>'
              f'<span class="pc-dm-mode">most likely '
-             f'<b>{dist.get("mode")}</b></span>'
+             f'<b>{mode}</b>{share}</span>'
              f'<span>ceiling <b>{dist.get("p90")}</b></span></div>')
     return (f'<div class="pc-dist">{marks}{svg}'
             f'<div class="pc-dist-cap">{sims:,} simulations · '
