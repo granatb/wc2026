@@ -80,6 +80,19 @@ class TestGameweekPayloadColumns(unittest.TestCase):
         self.assertEqual(rec["x_points"], 6.0)
         self.assertEqual(rec["captain_ev"], 12.0)
 
+    def test_start_prob_is_rounded_not_shipped_at_raw_float_precision(self):
+        """The build threads start_prob straight off the priors, so it arrives
+        as 0.9210526315789473. Publishing that claims a precision the model
+        does not have."""
+        p = dataset.gameweek_payload(
+            2, [_row("A", 6.0, start_prob=0.9210526315789473)], _GEN)
+        self.assertEqual(p["players"][0]["start_prob"], 0.921)
+
+    def test_a_missing_start_prob_stays_none(self):
+        p = dataset.gameweek_payload(2, [_row("A", 6.0, start_prob=None)],
+                                     _GEN)
+        self.assertIsNone(p["players"][0]["start_prob"])
+
     def test_element_ids_are_threaded_in_when_the_build_supplies_them(self):
         p = dataset.gameweek_payload(2, [_row("A", 6.0)], _GEN,
                                      ids={"A": 427})
@@ -244,6 +257,23 @@ class TestColumnGlossary(unittest.TestCase):
         for col, (typ, meaning) in dataset.COLUMN_GLOSSARY.items():
             self.assertTrue(typ)
             self.assertTrue(meaning.strip())
+
+    def test_the_repo_schema_doc_lists_every_column(self):
+        """docs/DATASET.md is the mirror an integrator reads before writing a
+        line of code. A column that ships without a row there is a column
+        somebody will misread."""
+        import os
+
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "docs", "DATASET.md")
+        with open(path, encoding="utf-8") as fh:
+            doc = fh.read()
+        for col in dataset.CSV_COLUMNS:
+            with self.subTest(col=col):
+                self.assertIn(f"| `{col}` |", doc)
+        self.assertIn(f"| `{dataset.PMF_FIELD}` |", doc)
+        self.assertIn(dataset.ATTRIBUTION_LINE, doc)
 
 
 if __name__ == "__main__":

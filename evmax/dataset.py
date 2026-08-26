@@ -146,12 +146,24 @@ def _verdicts(rows: list) -> tuple:
     return fpl_players.verdict_letters(rows), fpl_players._CALL_BY_LETTER
 
 
+# Columns the model rounds at derivation (games/fpl/model._derive_row) arrive
+# already clean. start_prob does not — the build threads it straight off the
+# priors, so it lands as 0.9210526315789473. Fourteen significant figures of a
+# probability is not information, and a published dataset that carries them
+# invites a reader to believe in a precision the model does not have.
+_ROUNDING = {"start_prob": 3}
+
+
 def _record(row: dict, gameweek: int, pid, letter: str, call: str) -> dict:
     """One player's dataset record. Distribution keys appear only if the row
     has them (see the module docstring)."""
     rec = {"gameweek": gameweek, "id": pid}
     for field in _ROW_FIELDS:
-        rec[field] = row.get(field)
+        value = row.get(field)
+        digits = _ROUNDING.get(field)
+        if digits is not None and isinstance(value, float):
+            value = round(value, digits)
+        rec[field] = value
     rec["verdict_tier"] = letter
     rec["verdict_call"] = call
     for field in DISTRIBUTION_FIELDS:
