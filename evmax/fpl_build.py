@@ -686,6 +686,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # what links it (no nav pill — that chrome is shared with the WC pages).
     w(f"{render.ACCURACY_PATH}index.html",
       render.accuracy_page(ledger, date_str=date_str))
+    # The comparison page: checkable properties only, no cross-site accuracy
+    # claims (different samples prove nothing). Sits beside the ledger.
+    from evmax import compare as _compare
+    w(f"{_compare.COMPARE_PATH}index.html", _compare.compare_page())
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------
@@ -757,7 +761,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # /fpl/accuracy/ lives under out/fpl and _persisted_urls' disk walk finds
     # it on its own — a URL listed twice is a malformed sitemap.
     extra_urls = _persisted_urls(out, gameweek)
-    for path in (dataset.DATA_PAGE, render.ACCURACY_PATH):
+    for path in (dataset.DATA_PAGE, render.ACCURACY_PATH,
+                 __import__("evmax.compare", fromlist=["x"]).COMPARE_PATH):
         if path not in extra_urls:
             extra_urls.append(path)
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],

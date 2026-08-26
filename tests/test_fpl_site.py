@@ -1636,3 +1636,33 @@ class TestFplTrackRecord(unittest.TestCase):
         self.assertNotIn("FPL 2026/27", html)
         self.assertNotIn("tr-section-h", html)
         self.assertNotIn("/api/fpl/accuracy/", html)
+
+
+class TestComparePage(unittest.TestCase):
+    """The comparison page states checkable properties with sources and
+    deliberately publishes NO cross-site accuracy numbers (different samples,
+    different weeks — a table that looks authoritative and proves nothing is
+    the exact thing this project exists to be an alternative to)."""
+
+    def test_compares_named_competitors_with_sources(self):
+        from evmax import compare
+        html = compare.compare_page()
+        for name in ("Onside Arena", "Solio Analytics", "FPL Review",
+                     "Fantasy Football Hub", "Fantasy Football Scout"):
+            self.assertIn(name, html)
+        self.assertIn("onsidearena.com", html)
+        self.assertIn("Checked", html)
+
+    def test_states_where_we_are_behind(self):
+        from evmax import compare
+        html = compare.compare_page()
+        self.assertIn("Where we are behind", html)
+        self.assertIn("far more graded history", html)
+
+    def test_publishes_no_cross_site_accuracy_claim(self):
+        """No MAE/accuracy figure may appear for any competitor."""
+        from evmax import compare
+        html = compare.compare_page()
+        self.assertIn("no accuracy numbers", html.lower())
+        for banned in ("0.86", "0.896", "MAE 2.7"):
+            self.assertNotIn(banned, html)
