@@ -682,6 +682,14 @@ _INDEPENDENCE_CAVEAT = (
     "the size of the gap, not as a settled number.")
 
 
+def _pts_words(v) -> str:
+    """"1 point" / "6 points" — these are whole simulated scores and a floor
+    of "1 points" reads as a bug to the reader, which on a page whose entire
+    argument is precision about the numbers is exactly the wrong impression."""
+    n = 0 if v is None else v
+    return f"{n} point" if n in (1, -1) else f"{n} points"
+
+
 def _distributions_body(e: list) -> str:
     """The lead candidate's spread, the head-to-head, then floor vs ceiling."""
     top = e[0]
@@ -689,7 +697,7 @@ def _distributions_body(e: list) -> str:
         f"<p>{html.escape(top['name'])} "
         f"({html.escape(top.get('team', ''))}) projects "
         f"{_fmt_pts(top.get('captain_ev'))} with the armband. Behind that one "
-        f"number: his floor is {top.get('p10')} points in the worst tenth of "
+        f"number: his floor is {_pts_words(top.get('p10'))} in the worst tenth of "
         f"simulations, his single most likely score is {top.get('mode')}, and "
         f"his ceiling is {top.get('p90')} in the best tenth. He reaches double "
         f"figures in {_pct(top.get('p_haul'))} of simulations and returns two "
@@ -730,7 +738,7 @@ def _distributions_body(e: list) -> str:
         else:
             shape = (f"<p>The floor and the ceiling belong to different "
                      f"players. {html.escape(floor_pick['name'])} has the "
-                     f"highest floor at {floor_pick.get('p10')} points, so he "
+                     f"highest floor at {_pts_words(floor_pick.get('p10'))}, so he "
                      f"is the pick if a bad week would cost you rank. "
                      f"{html.escape(ceil_pick['name'])} has the highest "
                      f"ceiling at {ceil_pick.get('p90')}, so he is the pick if "

@@ -572,6 +572,14 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn("https://example.test/fpl/gw1/distributions/</loc>", xml)
         self.assertIn("/fpl/gw1/distributions/", self._read("/llms.txt"))
 
+    def test_figure_caption_counts_the_bars_it_actually_drew(self):
+        """distributions publishes 8 entries, so its chart caption must say
+        "Top 8" — a reader can count the bars."""
+        html = self._read("/fpl/gw1/distributions/index.html")
+        self.assertIn("Top 8 by Captain EV", html)
+        # articles sliced to 20 still cap the caption at the drawn 10
+        self.assertIn("Top 10 by", self._read("/fpl/gw1/defcon/index.html"))
+
     def test_distributions_article_renders_the_eight_candidates(self):
         html = self._read("/fpl/gw1/distributions/index.html")
         self.assertIn("Points distributions", html)

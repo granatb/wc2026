@@ -7,6 +7,7 @@ end-to-end build in tests/test_fpl_site.py covers the real wiring)."""
 from __future__ import annotations
 
 import os
+import re
 import unittest
 
 from evmax import fpl_players
@@ -353,8 +354,16 @@ class TestCardHtml(unittest.TestCase):
 
     def test_distribution_chart_marks_floor_mode_and_ceiling(self):
         _, html = self._card()
-        for label in ("P10 2", "4 pts", "P90 13"):
+        for label in ("floor <b>2</b>", "most likely <b>4</b>",
+                      "ceiling <b>13</b>"):
             self.assertIn(label, html)
+
+    def test_the_marks_are_html_not_svg_text(self):
+        """Text inside the viewBox would scale with it — 7px on a card is a
+        27px shout at full page width. The SVG carries geometry only."""
+        svg = fpl_players._distribution_svg(_payloads()[0][0])
+        self.assertNotIn("<text", svg)
+        self.assertIn('preserveAspectRatio="none"', svg)
 
     def test_distribution_chart_is_absent_when_the_artifact_predates_it(self):
         payloads, _ = _payloads(with_distribution=False)
@@ -372,11 +381,16 @@ class TestCardHtml(unittest.TestCase):
         """One sim in a thousand at 40 points must not flatten every real bar:
         the drawn range stops at the 99th percentile."""
         payloads, _ = _payloads()
-        payloads[0]["distribution"]["histogram"] = {0: 500, 4: 499, 40: 1}
-        payloads[0]["distribution"]["sims"] = 1000
+        payloads[0]["distribution"].update(
+            histogram={0: 500, 4: 499, 40: 1}, sims=1000,
+            p10=0, median=0, mode=0, p90=4)
         svg = fpl_players._distribution_svg(payloads[0])
-        self.assertIn("<svg", svg)
-        self.assertNotIn(">40<", svg)
+        # 0..4 inclusive is five slots; only 0 and 4 carry mass, so two bars.
+        self.assertEqual(svg.count("<rect"), 2)
+        # a bar for the 40-point sim would be a 41st slot, squashing the rest
+        widths = {float(w) for w in re.findall(r'<rect [^>]*width="([\d.]+)"',
+                                               svg)}
+        self.assertTrue(all(w > 20.0 for w in widths), widths)
 
     def test_fixture_strip_chips_tint_by_difficulty(self):
         _, html = self._card()

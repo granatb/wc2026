@@ -418,9 +418,14 @@ CARD_CSS = (
     # -- the distribution chart (D1: free, not premium) ---------------------
     ".player-card .pc-dist{margin:12px 0 2px;padding-top:10px;"
     "border-top:1px solid var(--line)}"
-    ".player-card .pc-dist svg{display:block;width:100%;height:auto}"
+    ".player-card .pc-dist-marks{display:flex;justify-content:space-between;"
+    "gap:8px;font-size:11px;color:var(--ink3);margin-bottom:5px;"
+    "font-variant-numeric:tabular-nums}"
+    ".player-card .pc-dist-marks b{font-weight:800;color:var(--ink2)}"
+    ".player-card .pc-dm-mode b{color:var(--greend)}"
+    ".player-card .pc-dist svg{display:block;width:100%;height:64px}"
     ".player-card .pc-dist-cap{font-size:10px;color:var(--ink3);"
-    "letter-spacing:.3px;margin-top:2px}"
+    "letter-spacing:.3px;margin-top:3px}"
     # -- player page below-the-card pieces ----------------------------------
     ".pd-table{width:100%;border-collapse:collapse;margin:8px 0 6px;"
     "font-family:var(--sans)}"
@@ -575,12 +580,20 @@ def _form_svg(six_week: dict) -> str:
             f'</svg>')
 
 
-# Distribution-chart geometry. 180x54 viewBox, drawn at 100% width with a
-# fixed height, so it reads the same on a full-width player page and in a
-# quarter-width landing card.
-_DIST_W, _DIST_H = 180.0, 54.0
-_DIST_TOP = 12.0            # label band above the plot
-_DIST_BASE = 41.0           # bar baseline
+# Distribution-chart geometry.
+#
+# The SVG carries GEOMETRY ONLY — bars and rules, no text. That is the whole
+# trick to it being legible at two very different sizes: this chart renders
+# full-card-width on a player page (~700px) and quarter-width in the landing
+# card row (~230px), and text inside a scaled viewBox scales with it, so a
+# 7px label becomes a 27px shout on one surface and unreadable on the other.
+# The numbers therefore live in HTML above the chart, where CSS pins them at
+# one size everywhere. Same reason _form_svg draws at preserveAspectRatio
+# "none": with nothing but rectangles inside, non-uniform scaling costs
+# nothing and buys a predictable height on every surface.
+_DIST_W, _DIST_H = 180.0, 40.0
+_DIST_TOP = 3.0             # top of the tallest bar
+_DIST_BASE = 34.0           # bar baseline
 _DIST_CLIP_Q = 0.99         # freak-sim clip: draw up to the 99th percentile
 _DIST_HAUL = 10             # >= this is a haul (games.fpl.model.HAUL_THRESHOLD)
 _DIST_BLANK = 2             # <= this is a blank (model.BLANK_THRESHOLD)
@@ -619,9 +632,10 @@ def _distribution_svg(payload: dict) -> str:
       * the bars are banded by outcome — muted for a blank (<= 2 points),
         green for an ordinary return, dark green for a haul (>= 10). The
         reader sees the shape of his week before he reads a single number.
-      * thin rules mark P10 / mode / P90 with tiny labels above them. P10 and
-        P90 are dashed and quiet; the mode is solid green, because "most
-        likely" is the number a reader actually acts on.
+      * thin rules mark P10 / mode / P90. P10 and P90 are dashed and quiet;
+        the mode is solid green, because "most likely" is the number a reader
+        actually acts on. Their VALUES are printed in HTML by
+        _distribution_html, not here — see the geometry note above.
       * the drawn range stops at the 99th percentile. One sim in a thousand
         returning 40 points is real, but letting it set the x-axis would
         squash every bar a reader cares about into the left eighth of the
@@ -673,60 +687,76 @@ def _distribution_svg(payload: dict) -> str:
         count = pmf.get(pts, 0)
         if not count:
             continue
-        h = (count / peak) * usable
+        h = max((count / peak) * usable, 0.6)
         if pts >= _DIST_HAUL:
-            fill, opacity = "#0a4f2d", ".95"
+            fill, opacity = "#0a4f2d", "1"
         elif pts <= _DIST_BLANK:
-            fill, opacity = "#8a8275", ".32"
+            fill, opacity = "#8a8275", ".38"
         else:
-            fill, opacity = "#0f7a45", ".5"
+            fill, opacity = "#0f7a45", ".62"
         bars.append(
             f'<rect x="{bar_x(pts) + gap:.2f}" y="{_DIST_BASE - h:.2f}" '
             f'width="{max(step - 2 * gap, 0.4):.2f}" height="{h:.2f}" '
             f'fill="{fill}" fill-opacity="{opacity}"/>')
 
+    # preserveAspectRatio="none" stretches the viewBox unevenly, which would
+    # otherwise make a "1 unit" rule 4px wide on a full-width player page and
+    # 1px in a landing card. non-scaling-stroke pins every stroke to device
+    # pixels, so the rules look the same on both surfaces — and it is the only
+    # reason the halo below can be tuned once and be right everywhere.
+    _NSS = ' vector-effect="non-scaling-stroke"'
+
     def rule(pts: int, colour: str, dash: str) -> str:
+        """A marker rule, drawn over a white halo.
+
+        The halo is what makes the mode rule survive: the mode is by
+        definition the tallest bar, and on a haul-coloured (dark green) bar a
+        green line is invisible. Over the card's own surface the halo is the
+        same colour as the background and costs nothing; it only shows where
+        the rule crosses a bar, which is exactly where it is needed.
+        """
         x = centre(pts)
-        return (f'<line x1="{x:.2f}" y1="{_DIST_TOP - 2:.1f}" x2="{x:.2f}" '
-                f'y2="{_DIST_BASE + 2:.1f}" stroke="{colour}" '
-                f'stroke-width=".7"{dash}/>')
+        line = (f'<line x1="{x:.2f}" y1="0" x2="{x:.2f}" '
+                f'y2="{_DIST_BASE + 3:.1f}"{_NSS} ')
+        return (f'{line}stroke="#fff" stroke-width="2.5"/>'
+                f'{line}stroke="{colour}" stroke-width="1"{dash}/>')
 
     rules = [rule(p10, "#8a8275", ' stroke-dasharray="2 2"'),
              rule(p90, "#8a8275", ' stroke-dasharray="2 2"'),
              rule(mode, "#0f7a45", "")]
 
-    # Anchors keep the outer two labels inside the frame without any clamping
-    # arithmetic: the floor label runs rightwards from its rule, the ceiling
-    # label leftwards from its own, the mode centres on its bar.
-    labels = [
-        f'<text x="{min(centre(p10) + 1.5, _DIST_W - 1):.2f}" y="8" '
-        f'font-size="7" fill="#8a8275">P10 {p10}</text>',
-        f'<text x="{max(centre(p90) - 1.5, 1):.2f}" y="8" font-size="7" '
-        f'text-anchor="end" fill="#8a8275">P90 {p90}</text>',
-        f'<text x="{centre(mode):.2f}" y="{_DIST_BASE + 10:.0f}" '
-        f'font-size="7.5" font-weight="700" text-anchor="middle" '
-        f'fill="#0a4f2d">{mode} pts</text>',
-    ]
-
     baseline = (f'<line x1="0" y1="{_DIST_BASE:.1f}" x2="{_DIST_W:.0f}" '
-                f'y2="{_DIST_BASE:.1f}" stroke="#e7e2d6" stroke-width=".8"/>')
+                f'y2="{_DIST_BASE:.1f}"{_NSS} stroke="#e7e2d6" '
+                f'stroke-width="1"/>')
     title = (f'{sims:,} simulations: floor {p10}, most likely {mode}, '
              f'ceiling {p90} points')
     return (f'<svg viewBox="0 0 {_DIST_W:.0f} {_DIST_H:.0f}" '
-            f'xmlns="http://www.w3.org/2000/svg" role="img" '
-            f'aria-label="Simulated points distribution">'
+            f'preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" '
+            f'role="img" aria-label="Simulated points distribution">'
             f'<title>{_html.escape(title)}</title>'
-            f'{"".join(bars)}{baseline}{"".join(rules)}{"".join(labels)}'
+            f'{"".join(bars)}{baseline}{"".join(rules)}'
             f'</svg>')
 
 
 def _distribution_html(payload: dict) -> str:
-    """The chart plus its caption, or "" when there is no distribution."""
+    """The marks, the chart and its caption — or "" when there is no PMF.
+
+    The three marks are printed here in HTML rather than inside the SVG so
+    they stay one size on every surface (see _distribution_svg's geometry
+    note), and they run left-to-right in the same order as the rules they
+    name, so the eye maps the words onto the chart without a legend.
+    """
     svg = _distribution_svg(payload)
     if not svg:
         return ""
-    sims = (payload.get("distribution") or {}).get("sims") or 0
-    return (f'<div class="pc-dist">{svg}'
+    dist = payload.get("distribution") or {}
+    sims = dist.get("sims") or 0
+    marks = (f'<div class="pc-dist-marks">'
+             f'<span>floor <b>{dist.get("p10")}</b></span>'
+             f'<span class="pc-dm-mode">most likely '
+             f'<b>{dist.get("mode")}</b></span>'
+             f'<span>ceiling <b>{dist.get("p90")}</b></span></div>')
+    return (f'<div class="pc-dist">{marks}{svg}'
             f'<div class="pc-dist-cap">{sims:,} simulations · '
             f'floor P10 · most likely · ceiling</div></div>')
 
