@@ -171,8 +171,12 @@ def cache_warnings(gameweek: int, cache_hit: bool) -> list:
 # order AND the landing feed order (minus the hero). our-squad leads (the hero,
 # owner decision 2026-08-19), captains is the #2 surface, the consensus squad
 # sits beside them, then the supporting cast.
-ARTICLES = ["our-squad", "captains", "consensus-squad", "wildcard", "ticker",
-            "defenders", "efficiency", "defcon", "distributions"]
+# Order drives the landing feed. `distributions` sits third by intent: the point
+# histograms are the one output a Monte-Carlo engine can publish and a
+# point-estimate model cannot, so it leads the analysis feed rather than
+# trailing it (owner call, 2026-08-26).
+ARTICLES = ["our-squad", "captains", "distributions", "consensus-squad",
+            "wildcard", "ticker", "defenders", "efficiency", "defcon"]
 
 # The two slugs whose entries come from a published squad state rather than a
 # ranking over the full player pool.
