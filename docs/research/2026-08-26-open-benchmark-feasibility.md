@@ -47,7 +47,17 @@ benchmark, not a scraped one.
    the piece fplbench got right and everyone else lacks.
 4. Never republish anyone's projections — derived metrics only, exactly as with odds.
 
-## Open items for the owner
-- Send the Onside email (submission + reciprocal invitation + the ep_next display flag).
-- Decide whether to buy an FPL Review subscription for the Groos-precedent column.
-- Reddit and X could not be searched by any agent (blocked) — the only coverage gap.
+## Owner decisions (2026-08-26)
+- **Onside: IGNORE.** No submission to their benchmark, no email, no reciprocal
+  invitation, no publishing the ep_next-display observation. We are not entering
+  someone else's four-column benchmark and we are not picking the fight. The
+  comparison page keeps its factual Onside row (sourced, dated) and nothing more.
+- **FPL Review subscription: NOT NOW, noted.** The Groos precedent (subscribe, export
+  manually, publish only derived metrics) stays on the shelf as the lawful route if we
+  ever want them in the benchmark. Revisit when the benchmark has a track record worth
+  adding a paid column to.
+- **Reddit/X coverage gap stands.** Neither the in-app browser (blocked by policy) nor
+  any fetcher can reach Reddit. The lawful routes are (a) the owner pastes threads, which
+  is how every Reddit input has reached the model so far and works fine, or (b) the
+  official Reddit API with the owner's own registered script app (free tier, ~100 QPM) —
+  sanctioned access, not scraping. Not needed yet.
