@@ -405,6 +405,14 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn('class="fx fx-unpriced"', html)   # no lambdas: gray
         self.assertIn('data-source="unpriced"', html)
 
+    def test_the_fixture_strip_carries_its_key(self):
+        """Owner, 2026-08-26: "we don't know what green means in GW below"."""
+        _, html = self._card()
+        self.assertIn('class="pc-fxcap"', html)
+        self.assertIn("greener = easier fixture", html)
+        # the tooltips the chips already carried are untouched
+        self.assertIn("difficulty 1/5", html)
+
     def test_form_band_is_the_dot_timeline(self):
         _, html = self._card()
         self.assertIn('class="pc-form"', html)
@@ -653,6 +661,27 @@ class TestModeCarriesItsShare(unittest.TestCase):
         payload["distribution"]["histogram"] = {}
         html = fpl_players._distribution_html(payload)
         self.assertEqual(html, "")
+
+
+class TestFixturesCaption(unittest.TestCase):
+    """The chips' key (owner 2026-08-26: "we don't know what green means in GW
+    below"). It states the count and the direction of the tint, and mentions
+    grey only when a grey chip is actually there to explain."""
+
+    def test_counts_the_chips_and_names_the_direction(self):
+        priced = [{"gw": g, "difficulty": 2} for g in (2, 3, 4, 5)]
+        self.assertEqual(fpl_players.fixtures_caption(priced),
+                         "next 4 · greener = easier fixture")
+
+    def test_grey_is_explained_only_when_a_grey_chip_exists(self):
+        mixed = [{"gw": 2, "difficulty": 2}, {"gw": 3, "difficulty": None}]
+        self.assertEqual(fpl_players.fixtures_caption(mixed),
+                         "next 2 · greener = easier fixture · "
+                         "grey = not priced yet")
+
+    def test_a_short_strip_says_how_short_it_is(self):
+        self.assertTrue(fpl_players.fixtures_caption(
+            [{"gw": 2, "difficulty": 1}]).startswith("next 1 ·"))
 
 
 class TestDotTimeline(unittest.TestCase):

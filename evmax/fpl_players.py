@@ -512,6 +512,9 @@ CARD_CSS = (
     "color:#a8331c}"
     ".player-card .fx-unpriced{background:var(--chipbg);color:var(--ink3);"
     "border:1px dashed var(--line);font-weight:600}"
+    # the fixture strip's key — the tint meant nothing without it
+    ".player-card .pc-fxcap{font-size:9.5px;line-height:1.35;"
+    "color:var(--ink3);letter-spacing:.3px;margin-top:6px}"
     # verdict line
     ".player-card .pc-verdict{font-size:12px;font-weight:800;"
     "letter-spacing:1.2px;text-transform:uppercase;color:var(--green);"
@@ -952,6 +955,20 @@ def _decomp_html(proj: dict) -> str:
             f'decomposition">{"".join(spans)}</div>')
 
 
+def fixtures_caption(fixtures: list) -> str:
+    """The one-line key under the fixture chips.
+
+    The chips were difficulty-tinted with nothing anywhere saying what the
+    tint meant — owner, 2026-08-26: "we don't know what green means in GW
+    below". The grey clause is added ONLY when a grey chip is actually on the
+    strip, so the caption never explains a colour the reader cannot see.
+    """
+    caption = f"next {len(fixtures)} · greener = easier fixture"
+    if any(f.get("difficulty") is None for f in fixtures):
+        caption += " · grey = not priced yet"
+    return caption
+
+
 def card_html(payload: dict, heading: str = "h1") -> str:
     """The card face (direction A — Ledger): semantic figure.player-card,
     stats duplicated as data-* attributes so scripts/design tooling can read
@@ -1022,7 +1039,9 @@ def card_html(payload: dict, heading: str = "h1") -> str:
                 f'title="{_html.escape(title)}">'
                 f'{_html.escape(f["opponent"])} ({f["venue"]})'
                 f'<i>GW{f["gw"]}</i></span>')
-        fx_html = f'<div class="pc-fixtures">{"".join(cells)}</div>'
+        fx_html = (f'<div class="pc-fixtures">{"".join(cells)}</div>'
+                   f'<div class="pc-fxcap">{fixtures_caption(payload["fixtures"])}'
+                   f'</div>')
 
     verdict_html = (f'<div class="pc-verdict">{verdict["call"]} · '
                     f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
