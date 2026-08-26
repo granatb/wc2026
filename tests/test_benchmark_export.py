@@ -159,3 +159,39 @@ class TestExport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAliasResolution(unittest.TestCase):
+    """Frozen snapshots name players as the feed did that week; the feed renames
+    on transfer collisions ("Sangaré" -> "I.Sangaré" when M.Sangaré joined).
+    The exporter reuses the published states' alias map instead of emitting an
+    empty player_id for a name it could otherwise resolve."""
+
+    def test_aliased_snapshot_name_resolves_to_the_current_element_id(self):
+        import json as _json
+        import tempfile as _tempfile
+        from unittest import mock as _mock
+        boot = {"elements": [
+            {"id": 501, "web_name": "I.Sangaré", "team": 1, "element_type": 3,
+             "first_name": "Ibrahim", "second_name": "Sangaré", "now_cost": 50,
+             "selected_by_percent": "1.0", "status": "a", "news": "",
+             "minutes": 900, "total_points": 40, "bps": 200},
+            {"id": 502, "web_name": "M.Sangaré", "team": 2, "element_type": 3,
+             "first_name": "Mamadou", "second_name": "Sangaré", "now_cost": 55,
+             "selected_by_percent": "4.5", "status": "a", "news": "",
+             "minutes": 900, "total_points": 40, "bps": 200}],
+            "teams": [{"id": 1, "short_name": "NFO"}, {"id": 2, "short_name": "BRE"}],
+            "element_types": [{"id": 3, "singular_name_short": "MID"}]}
+        with _tempfile.TemporaryDirectory() as tmp:
+            state = os.path.join(tmp, "games", "fpl")
+            os.makedirs(state)
+            with open(os.path.join(state, "state.json"), "w") as fh:
+                _json.dump({"aliases": {}}, fh)
+            with open(os.path.join(state, "state_consensus.json"), "w") as fh:
+                _json.dump({"aliases": {"Sangaré": "I.Sangaré"}}, fh)
+            from core import fpl_api as _api
+            with _mock.patch.object(benchmark_export, "_HERE", tmp), \
+                 _mock.patch.object(_api, "read_cache", return_value=boot):
+                ids = benchmark_export.element_ids(1)
+        self.assertEqual(ids["Sangaré"], 501)
+        self.assertEqual(ids["I.Sangaré"], 501)

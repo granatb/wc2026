@@ -103,7 +103,29 @@ def element_ids(gameweek: int) -> dict:
         return {}
     players = fpl_api.parse_players(boot)
     fpl_priors._disambiguate_names(players)
-    return {p["name"]: p["id"] for p in players}
+    ids = {p["name"]: p["id"] for p in players}
+    # Name drift: a frozen snapshot names players as the feed did THAT week, and
+    # the feed renames on namesake arrivals ("Sangaré" became "I.Sangaré" the week
+    # M.Sangaré joined). Resolution order: the season-long rename ledger
+    # (evmax/assets/renames.json — durable, survives wildcard resets), then any
+    # per-squad aliases still present in the state files.
+    ledger = os.path.join(_HERE, "evmax", "assets", "renames.json")
+    if os.path.exists(ledger):
+        with open(ledger, encoding="utf-8") as fh:
+            for old_name, rec in ((json.load(fh) or {}).get("renames") or {}).items():
+                new_name = rec.get("to") if isinstance(rec, dict) else rec
+                if old_name not in ids and new_name in ids:
+                    ids[old_name] = ids[new_name]
+    for state_path in ("games/fpl/state.json", "games/fpl/state_consensus.json"):
+        path = os.path.join(_HERE, state_path)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            aliases = (json.load(fh) or {}).get("aliases") or {}
+        for old_name, new_name in aliases.items():
+            if old_name not in ids and new_name in ids:
+                ids[old_name] = ids[new_name]
+    return ids
 
 
 def to_csv(rows: list, gameweek: int, ids: dict) -> str:
