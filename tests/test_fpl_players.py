@@ -581,43 +581,141 @@ class TestTierPage(unittest.TestCase):
 
 
 class TestTopCards(unittest.TestCase):
-    """Owner correction 2026-08-25: the landing's top-cards row shows the
-    FULL card_html face for the top four — not compact thumbnails."""
+    """The landing's opening module. Owner 2026-08-26: "start by showing most
+    transferred in and their cards, most transferred out, our picks, our
+    takes, and model's tier on each of them" — three labelled rows of the FULL
+    card_html face (2026-08-25: not compact thumbnails), takes on the two
+    crowd rows."""
 
     def _payloads(self, n=8):
         rows = _pool(n)
         by_name = {r["name"]: {"id": i} for i, r in enumerate(rows)}
+        # P00 is dumped hardest, P01 bought hardest; P02/P03 are our squad.
         by_id = {i: {"id": i, "web_name": r["name"], "status": "a", "news": "",
-                     "total_points": 0, "event_points": 0, "minutes": 0}
+                     "total_points": 0, "event_points": 0, "minutes": 0,
+                     "transfers_in_event": (n - i) * 10,
+                     "transfers_out_event": (i + 1) * 10}
                  for i, r in enumerate(rows)}
+        squad_roles = {"model": {"P02": "XI", "P03": "Bench", "P07": "XI"},
+                       "consensus": {}}
         payloads, _ = fpl_players.assemble_payloads(
-            rows, by_name, by_id, {}, {}, None, [], {}, 2, "t")
+            rows, by_name, by_id, {}, squad_roles, None, [], {}, 2, "t")
         return payloads
 
-    def test_top_four_full_faces_linking_to_pages(self):
+    def test_three_labelled_rows_in_the_owners_order(self):
         html = fpl_players.top_cards_html(self._payloads())
-        # four FULL card faces — the same figure card_html emits
-        self.assertEqual(html.count('<figure class="player-card"'), 4)
+        kickers = re.findall(r'class="tcf-kicker">([^<]+)<', html)
+        self.assertEqual(kickers, ["Most transferred in this gameweek",
+                                   "Most transferred out this gameweek",
+                                   "Our picks"])
+        self.assertEqual(html.count('class="tcf-row"'), 3)
+        # every row names what it is
+        self.assertEqual(html.count('class="tcf-intro"'), 3)
+
+    def test_full_faces_linking_to_pages(self):
+        html = fpl_players.top_cards_html(self._payloads())
+        # 4 bought + 4 dumped + the 3 players in this fixture's squad —
+        # all FULL faces, the same figure card_html emits
+        self.assertEqual(html.count('<figure class="player-card"'), 11)
         self.assertIn('href="/fpl/players/0-p00/"', html)
-        self.assertNotIn(">P04<", html)                  # 5th does not render
-        # full-face internals present (not the rejected thumbnail module)
         self.assertIn("pc-statrow", html)
         self.assertIn("pc-verdict", html)
         self.assertNotIn("pc-premium", html)
         self.assertNotIn("tc-card", html)
 
-    def test_kicker_line_and_check_your_player_link(self):
+    def test_the_crowd_rows_carry_a_take_and_our_picks_does_not(self):
         html = fpl_players.top_cards_html(self._payloads())
-        self.assertIn("This week's top cards — from 50,000 simulations", html)
-        self.assertIn('href="/fpl/players/"', html)      # opens the index
-        # the kicker renders before the row, the link right under the kicker
-        self.assertLess(html.find("tcf-kicker"), html.find("tcf-check"))
-        self.assertLess(html.find("tcf-check"), html.find("tcf-row"))
+        self.assertEqual(html.count("Crowd is buying."), 4)
+        self.assertEqual(html.count("Crowd is selling."), 4)
+        # eight takes for eight crowd cards, none under our own picks
+        self.assertEqual(html.count('class="tcf-take"'), 8)
+        picks = html[html.index("Our picks"):]
+        self.assertNotIn("tcf-take", picks)
+
+    def test_check_your_player_sits_under_the_last_row(self):
+        html = fpl_players.top_cards_html(self._payloads())
+        self.assertIn('href="/fpl/players/"', html)
+        self.assertGreater(html.find("tcf-check"), html.find("Our picks"))
 
     def test_embedded_faces_use_h2_not_h1(self):
         html = fpl_players.top_cards_html(self._payloads())
         self.assertIn('<h2 class="pc-name">', html)
         self.assertNotIn("<h1", html)
+
+    def test_a_row_with_nothing_in_it_is_omitted_not_rendered_empty(self):
+        payloads = self._payloads()
+        for p in payloads:                     # nobody in our squad
+            p["squads"]["model"] = False
+        html = fpl_players.top_cards_html(payloads)
+        self.assertNotIn("Our picks", html)
+        self.assertEqual(html.count('class="tcf-row"'), 2)
+
+    def test_no_payloads_at_all_emits_nothing(self):
+        self.assertEqual(fpl_players.top_cards_html([]), "")
+
+
+class TestCrowdVsModel(unittest.TestCase):
+    """The three rows' selection functions and the generated take."""
+
+    @staticmethod
+    def _p(name, tier="B", rank=41, in_event=0, out_event=0, model=False,
+           xpts=5.0):
+        return {"name": name, "slug": f"1-{name}",
+                "verdict": {"tier": tier}, "ranks": {"xpts_rank": rank},
+                "transfers": {"in_event": in_event, "out_event": out_event},
+                "squads": {"model": model},
+                "projection": {"x_points": xpts}}
+
+    def test_the_buying_take_names_the_tier_and_the_rank(self):
+        self.assertEqual(
+            fpl_players.model_take(self._p("A", tier="B", rank=41), "in"),
+            "Crowd is buying. Model has him tier B, 41st by xPts this week.")
+
+    def test_the_selling_take_says_still_only_when_the_model_disagrees(self):
+        self.assertEqual(
+            fpl_players.model_take(self._p("A", tier="A", rank=6), "out"),
+            "Crowd is selling. Model still has him tier A, 6th.")
+        self.assertEqual(
+            fpl_players.model_take(self._p("B", tier="C", rank=180), "out"),
+            "Crowd is selling. Model has him tier C, 180th.")
+
+    def test_ordinals_including_the_teens(self):
+        for n, want in ((1, "1st"), (2, "2nd"), (3, "3rd"), (4, "4th"),
+                        (11, "11th"), (12, "12th"), (13, "13th"),
+                        (21, "21st"), (101, "101st"), (111, "111th")):
+            self.assertEqual(fpl_players._ordinal(n), want, n)
+
+    def test_the_take_never_states_a_fact_absent_from_the_row(self):
+        """Every number in the sentence comes off the payload."""
+        p = self._p("X", tier="S", rank=3)
+        take = fpl_players.model_take(p, "in")
+        for token in re.findall(r"\d+", take):
+            self.assertEqual(token, "3")
+
+    def test_leaders_rank_by_the_right_direction(self):
+        pool = [self._p("Hot", in_event=900, out_event=1),
+                self._p("Cold", in_event=1, out_event=900),
+                self._p("Mid", in_event=50, out_event=50)]
+        self.assertEqual(
+            [p["name"] for p in fpl_players.transfer_leaders(pool, "in")],
+            ["Hot", "Mid", "Cold"])
+        self.assertEqual(
+            [p["name"] for p in fpl_players.transfer_leaders(pool, "out")],
+            ["Cold", "Mid", "Hot"])
+
+    def test_a_player_the_crowd_never_moved_is_not_padded_in(self):
+        pool = [self._p("Hot", in_event=900), self._p("Still", in_event=0)]
+        self.assertEqual(
+            [p["name"] for p in fpl_players.transfer_leaders(pool, "in")],
+            ["Hot"])
+
+    def test_our_picks_are_the_highest_xpts_players_in_our_squad(self):
+        pool = [self._p("BestOverall", xpts=99.0, model=False),
+                self._p("OurBest", xpts=9.0, model=True),
+                self._p("OurWorst", xpts=2.0, model=True)]
+        self.assertEqual(
+            [p["name"] for p in fpl_players.our_picks(pool, count=2)],
+            ["OurBest", "OurWorst"])
 
 
 class TestPlayersJs(unittest.TestCase):

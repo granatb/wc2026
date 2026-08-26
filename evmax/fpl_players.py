@@ -408,6 +408,13 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
                 "realized_ppm": (round(total_points / price, 2)
                                  if price else None),
             },
+            # This gameweek's net crowd movement, straight off the raw
+            # bootstrap. The landing's first two rows are ranked on it, and
+            # the card's model take quotes it back at the reader.
+            "transfers": {
+                "in_event": el.get("transfers_in_event") or 0,
+                "out_event": el.get("transfers_out_event") or 0,
+            },
             "ranks": {
                 "xpts_rank": xp_rank[name],
                 "own_rank": own_rank[name],
@@ -637,24 +644,32 @@ CARD_CSS = (
 # 900px, a horizontal scroller inside its own overflow container on mobile.
 TOP_CARDS_CSS = (
     ".top-cards-full{margin:26px 0 6px}"
+    ".tcf-block{margin-bottom:30px}"
     ".tcf-kicker{font-size:12px;font-weight:800;letter-spacing:2px;"
     "text-transform:uppercase;color:var(--ink3)}"
+    ".tcf-intro{margin:4px 0 0;font-size:13.5px;color:var(--ink2);"
+    "max-width:60ch}"
     ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
     ".tcf-check a{color:var(--green)}"
     ".tcf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;"
     "margin-top:12px}"
-    ".tcf-row>a{display:block;color:inherit;text-decoration:none}"
+    # the cell wraps the linked face AND its take, so the take is a sibling of
+    # the link rather than block content inside it
+    ".tcf-row>.tcf-cell{display:flex;flex-direction:column;min-width:0}"
+    ".tcf-cell>a{display:block;color:inherit;text-decoration:none;flex:1}"
     ".tcf-row .player-card{margin:0;height:100%;"
     "transition:border-color .12s,transform .12s}"
-    ".tcf-row>a:hover .player-card{border-color:var(--green);"
+    ".tcf-cell>a:hover .player-card{border-color:var(--green);"
     "transform:translateY(-2px)}"
+    ".tcf-take{margin:8px 2px 0;font-size:12px;line-height:1.45;"
+    "color:var(--ink2)}"
     # full faces at quarter width: scale the display type down a notch
     ".tcf-row .pc-name{font-size:19px}"
     ".tcf-row .pc-hero b{font-size:34px}"
     "@media(max-width:900px){.tcf-row{grid-template-columns:repeat(2,1fr)}}"
     "@media(max-width:600px){.tcf-row{display:flex;overflow-x:auto;"
     "-webkit-overflow-scrolling:touch;padding-bottom:10px}"
-    ".tcf-row>a{flex:0 0 272px}}"
+    ".tcf-row>.tcf-cell{flex:0 0 272px}}"
 )
 
 
@@ -1190,29 +1205,134 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'</figure>')
 
 
+# --- The landing: crowd vs model ----------------------------------------------
+# The landing opened with "this week's top cards" — the four highest xPts, a
+# leaderboard the reader had no reason to care about at that moment. Owner,
+# 2026-08-26: "start by showing most transferred in and their cards, most
+# transferred out, our picks, our takes, and model's tier on each of them".
+#
+# So the page now opens on the argument instead of the leaderboard: what the
+# crowd is doing this gameweek, what the model thinks of it, and who we
+# actually own. Every card face is card_html verbatim — there is still exactly
+# one card implementation.
+
+# The tiers at which the model is defending a player the crowd is dumping.
+# Only these earn the word "still" in a selling take.
+_TAKE_STRONG_TIERS = ("S", "A")
+
+
+def _ordinal(n: int) -> str:
+    """1st, 2nd, 3rd, 11th, 41st — the teens are the exception."""
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def model_take(payload: dict, direction: str) -> str:
+    """One sentence putting the crowd's move next to the model's opinion.
+
+    GENERATED, never written, and it never states a fact that is not already
+    on the payload: the direction of the crowd's move, the player's tier and
+    his xPts rank. `direction` is "in" (the crowd is buying him) or "out".
+
+    The only editorialising is the word "still", and it is earned: it appears
+    when the crowd is selling a player the model still rates S or A, which is
+    precisely the disagreement worth a reader's attention.
+    """
+    tier = payload["verdict"]["tier"]
+    rank = _ordinal(payload["ranks"]["xpts_rank"])
+    if direction == "out":
+        still = "still " if tier in _TAKE_STRONG_TIERS else ""
+        return f"Crowd is selling. Model {still}has him tier {tier}, {rank}."
+    return (f"Crowd is buying. Model has him tier {tier}, {rank} by xPts "
+            f"this week.")
+
+
+def transfer_leaders(payloads: list, direction: str, count: int = 4) -> list:
+    """The `count` players the crowd moved most this gameweek, in or out.
+
+    Zero-movement players are dropped rather than padded in: a "most
+    transferred in" slot holding a player nobody transferred in would be a
+    made-up row. Ties break by name so the landing is stable between rebuilds.
+    """
+    key = "in_event" if direction == "in" else "out_event"
+
+    def moved(p):
+        return (p.get("transfers") or {}).get(key) or 0
+
+    return sorted((p for p in payloads if moved(p) > 0),
+                  key=lambda p: (-moved(p), p["name"]))[:count]
+
+
+def our_picks(payloads: list, count: int = 4) -> list:
+    """The `count` highest-xPts players in OUR published squad."""
+    return sorted((p for p in payloads if (p.get("squads") or {}).get("model")),
+                  key=lambda p: (-(p["projection"].get("x_points") or 0.0),
+                                 p["name"]))[:count]
+
+
+def _card_cell(payload: dict, take: str = "") -> str:
+    """One grid cell: the full card face linking to its page, and — for the
+    crowd rows — the generated take underneath it."""
+    take_html = (f'<p class="tcf-take">{_html.escape(take)}</p>'
+                 if take else "")
+    return (f'<div class="tcf-cell">'
+            f'<a href="{page_path(payload["slug"])}" '
+            f'aria-label="{_html.escape(payload["name"])} — full player card">'
+            f'{card_html(payload, heading="h2")}</a>'
+            f'{take_html}</div>')
+
+
+def _card_row(kicker: str, intro: str, cells: list) -> str:
+    return (f'<div class="tcf-block">'
+            f'<div class="tcf-kicker">{_html.escape(kicker)}</div>'
+            f'<p class="tcf-intro">{_html.escape(intro)}</p>'
+            f'<div class="tcf-row">{"".join(cells)}</div>'
+            f'</div>')
+
+
 def top_cards_html(payloads: list, count: int = 4) -> str:
-    """The FPL landing's top-cards row: the FULL Ledger card face (card_html —
-    form-wave art, decomposition strip, stat rows, fixture chips, verdict,
-    premium slot) for the top `count` players by x_points, each face linking
-    to its player page. Rendered as the landing's FIRST content section (owner
-    correction 2026-08-25 — the compact thumbnail module was rejected). One
-    kicker line above the row, the "Check your player" link right under it.
-    Reuses card_html verbatim (heading="h2") — no second card implementation;
-    the size difference is TOP_CARDS_CSS only."""
-    cards = []
-    for p in payloads[:count]:
-        cards.append(
-            f'<a href="{page_path(p["slug"])}" '
-            f'aria-label="{_html.escape(p["name"])} — full player card">'
-            f'{card_html(p, heading="h2")}</a>')
-    return (
-        '<section class="top-cards-full">'
-        '<div class="tcf-kicker">This week\'s top cards — from 50,000 '
-        'simulations</div>'
-        f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your player — '
-        'search all cards →</a></p>'
-        f'<div class="tcf-row">{"".join(cards)}</div>'
-        '</section>')
+    """The FPL landing's opening module: three labelled rows of full card
+    faces — what the crowd is buying, what it is dumping, and who we own.
+
+    Rows 1 and 2 carry a generated one-line model take under each card
+    (model_take); row 3 does not, because our own picks need no argument
+    against the crowd. A row with nothing in it is omitted entirely rather
+    than rendered empty. The "Check your player" link sits under the last row.
+    """
+    blocks = []
+
+    buying = transfer_leaders(payloads, "in", count)
+    if buying:
+        blocks.append(_card_row(
+            "Most transferred in this gameweek",
+            "The four players the crowd is piling into — and what the model "
+            "makes of each move.",
+            [_card_cell(p, model_take(p, "in")) for p in buying]))
+
+    selling = transfer_leaders(payloads, "out", count)
+    if selling:
+        blocks.append(_card_row(
+            "Most transferred out this gameweek",
+            "The four being dumped hardest. Where the model disagrees, it "
+            "says so.",
+            [_card_cell(p, model_take(p, "out")) for p in selling]))
+
+    ours = our_picks(payloads, count)
+    if ours:
+        blocks.append(_card_row(
+            "Our picks",
+            "The highest-projected players in the squad we actually publish, "
+            "not a leaderboard.",
+            [_card_cell(p) for p in ours]))
+
+    if not blocks:
+        return ""
+    return (f'<section class="top-cards-full">{"".join(blocks)}'
+            f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your '
+            f'player — search all cards →</a></p></section>')
 
 
 def _tier_nav_html(active: str = None) -> str:

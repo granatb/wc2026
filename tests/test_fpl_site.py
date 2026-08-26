@@ -537,25 +537,35 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.out, "js",
                                                     "players.js")))
 
-    def test_landing_opens_with_the_full_top_cards_row(self):
-        """Owner correction 2026-08-25: FULL card faces at the very top —
-        above the duel strip and the hero article — not thumbnails."""
+    def test_landing_opens_with_the_crowd_vs_model_rows(self):
+        """Owner 2026-08-26: "start by showing most transferred in and their
+        cards, most transferred out, our picks, our takes, and model's tier on
+        each of them". FULL card faces (2026-08-25: not thumbnails), above the
+        duel strip and the hero article."""
         html = self._read("/index.html")
-        self.assertIn("This week's top cards — from 50,000 simulations", html)
-        self.assertEqual(html.count('<figure class="player-card"'), 4)
-        self.assertNotIn("tc-card", html)               # thumbnails are gone
+        for kicker in ("Most transferred in this gameweek",
+                       "Most transferred out this gameweek", "Our picks"):
+            self.assertIn(kicker, html)
+        self.assertNotIn("This week's top cards", html)   # the leaderboard is gone
+        self.assertNotIn("tc-card", html)                 # thumbnails are gone
         self.assertIn('href="/fpl/players/"', html)
-        # the row renders BEFORE the duel strip and the featured article
+        # a generated model take under every card in the two crowd rows
+        self.assertIn("Crowd is buying. Model has him tier", html)
+        self.assertIn("Crowd is selling. Model", html)
+        # the module renders BEFORE the duel strip and the featured article
         row_at = html.find('<section class="top-cards-full">')
         self.assertGreater(row_at, -1)
         self.assertLess(row_at, html.find('<div class="duel">'))
         self.assertLess(row_at, html.find('<section class="feat">'))
-        # the row's cards are the feed's own top four by x_points, each face
-        # linking to its player page
-        feed = json.loads(self._read("/api/fpl/gw1/players.json"))
-        top = sorted(feed["players"],
-                     key=lambda p: (-p["x_points"], p["name"]))[0]
-        self.assertIn(f'href="{top["page"]}"', html)
+        # the rows are in the owner's order, and "Check your player" is last
+        self.assertLess(html.find("Most transferred in this gameweek"),
+                        html.find("Most transferred out this gameweek"))
+        self.assertLess(html.find("Most transferred out this gameweek"),
+                        html.find("Our picks"))
+        # (search the markup, not the stylesheet — extra_style defines
+        # .tcf-check far earlier in the document)
+        self.assertLess(html.find("Our picks"),
+                        html.find('<p class="tcf-check">'))
 
     def test_article_and_player_pages_carry_the_mobile_nav_scroll_css(self):
         """The nav-overflow fix covers every FPL page a phone opens from a
