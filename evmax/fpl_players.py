@@ -183,12 +183,31 @@ def fixture_strip(team: str, gameweek: int, fx_rows: list, odds_by_gw: dict,
 
 # --- Payload assembly ---------------------------------------------------------
 
-# Reserved distribution shape (per-player JSON `distribution`): once the
-# engine captures per-sim histograms into the artifact (follow-up task), the
-# key becomes {"p10", "p25", "median", "p75", "mode", "ceiling",
-# "histogram": []}. Until then it is emitted as null so consumers can key on
-# it today without a schema break later.
+# Per-player JSON `distribution`. The engine now captures per-sim histograms
+# into the artifact (spec 2026-08-26, D2), so the key that was reserved as
+# null now carries the real thing: the sparse PMF under "histogram", the sim
+# count it was built from, and the six statistics games.fpl.model derives from
+# it. Still emitted as null — the reserved shape — for an artifact written
+# before histograms existed, so a consumer that keyed on the null never breaks.
 DISTRIBUTION_RESERVED = None
+
+_DISTRIBUTION_STATS = ("p10", "median", "mode", "p90", "p_haul", "p_blank")
+
+
+def distribution_block(row: dict):
+    """The JSON `distribution` object for one artifact row, or None.
+
+    `sims` is carried explicitly rather than left for the reader to sum: the
+    card's caption states it ("50,000 simulations"), and a consumer comparing
+    two gameweeks needs to know the denominator changed if it ever does.
+    """
+    hist = row.get("distribution")
+    if not hist:
+        return DISTRIBUTION_RESERVED
+    block = {"histogram": {int(k): v for k, v in hist.items()},
+             "sims": sum(hist.values())}
+    block.update({f: row.get(f) for f in _DISTRIBUTION_STATS})
+    return block
 
 _PROJECTION_FIELDS = ("x_points", "captain_ev", "ceiling", "value", "bonus",
                       "defcon", "p_defcon", "cs_points", "start_prob")
@@ -276,7 +295,7 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
                 "consensus": name in squad_names.get("consensus", ()),
             },
             "notes": [name] if name in notes else [],
-            "distribution": DISTRIBUTION_RESERVED,
+            "distribution": distribution_block(r),
             "page": page_path(slug),
             "slug": slug,
         })
@@ -396,9 +415,12 @@ CARD_CSS = (
     "letter-spacing:.6px;text-transform:uppercase;color:#b9b2a4;"
     "margin-top:10px}"
     ".player-card .pc-premium .pc-lock{margin-right:5px}"
-    ".player-card .pc-premium .pc-dist-chart{height:14px;border-radius:4px;"
-    "background:repeating-linear-gradient(90deg,var(--chipbg),"
-    "var(--chipbg) 5px,var(--surf) 5px,var(--surf) 10px);margin-top:6px}"
+    # -- the distribution chart (D1: free, not premium) ---------------------
+    ".player-card .pc-dist{margin:12px 0 2px;padding-top:10px;"
+    "border-top:1px solid var(--line)}"
+    ".player-card .pc-dist svg{display:block;width:100%;height:auto}"
+    ".player-card .pc-dist-cap{font-size:10px;color:var(--ink3);"
+    "letter-spacing:.3px;margin-top:2px}"
     # -- player page below-the-card pieces ----------------------------------
     ".pd-table{width:100%;border-collapse:collapse;margin:8px 0 6px;"
     "font-family:var(--sans)}"
@@ -553,6 +575,162 @@ def _form_svg(six_week: dict) -> str:
             f'</svg>')
 
 
+# Distribution-chart geometry. 180x54 viewBox, drawn at 100% width with a
+# fixed height, so it reads the same on a full-width player page and in a
+# quarter-width landing card.
+_DIST_W, _DIST_H = 180.0, 54.0
+_DIST_TOP = 12.0            # label band above the plot
+_DIST_BASE = 41.0           # bar baseline
+_DIST_CLIP_Q = 0.99         # freak-sim clip: draw up to the 99th percentile
+_DIST_HAUL = 10             # >= this is a haul (games.fpl.model.HAUL_THRESHOLD)
+_DIST_BLANK = 2             # <= this is a blank (model.BLANK_THRESHOLD)
+
+
+def _dist_percentile(pmf: dict, q: float) -> int:
+    """Lower-bound percentile over an int-keyed PMF.
+
+    Deliberately a local four-liner rather than an import of
+    games.fpl.model._pmf_percentile: this module is a pure emitter with no
+    engine dependency (see the module docstring), and it needs the convention
+    only to choose where to STOP DRAWING — the published p10/median/p90 come
+    off the payload, computed once in the engine.
+    """
+    total = sum(pmf.values())
+    if not total:
+        return 0
+    cumulative = 0
+    for pts in sorted(pmf):
+        cumulative += pmf[pts]
+        if cumulative >= q * total:
+            return pts
+    return max(pmf)
+
+
+def _distribution_svg(payload: dict) -> str:
+    """The card's distribution chart: a bar chart of the simulated points PMF
+    with the floor (P10), the most likely score and the ceiling (P90) marked.
+
+    This is the surface nobody else ships (spec 2026-08-26, P1): every rival
+    publishes a mean, and a mean cannot tell a 6.0 that is six every week from
+    a 6.0 that is zero four times and twenty-four once. The bars ARE that
+    difference.
+
+    Three reading aids, in order of how much they carry:
+      * the bars are banded by outcome — muted for a blank (<= 2 points),
+        green for an ordinary return, dark green for a haul (>= 10). The
+        reader sees the shape of his week before he reads a single number.
+      * thin rules mark P10 / mode / P90 with tiny labels above them. P10 and
+        P90 are dashed and quiet; the mode is solid green, because "most
+        likely" is the number a reader actually acts on.
+      * the drawn range stops at the 99th percentile. One sim in a thousand
+        returning 40 points is real, but letting it set the x-axis would
+        squash every bar a reader cares about into the left eighth of the
+        chart.
+
+    Deterministic (no RNG, sorted iteration) — the site layer's byte-identical
+    rebuild contract, same as _form_svg. Returns "" when there is nothing to
+    draw, so a card built off an artifact that predates histograms simply has
+    no chart rather than an empty frame.
+    """
+    dist = payload.get("distribution")
+    if not dist:
+        return ""
+    raw = dist.get("histogram") or {}
+    try:
+        pmf = {int(k): int(v) for k, v in raw.items() if int(v) > 0}
+    except (TypeError, ValueError):
+        return ""
+    sims = sum(pmf.values())
+    if not pmf or sims <= 0:
+        return ""
+
+    p10 = dist.get("p10")
+    p90 = dist.get("p90")
+    mode = dist.get("mode")
+    if p10 is None or p90 is None or mode is None:
+        return ""
+
+    # Always start at 0 (or lower, if a red card put mass below it): the atom
+    # of probability at zero is the most important feature of a rotation
+    # risk's week, and starting the axis at his lowest positive return would
+    # hide it.
+    lo = min(0, min(pmf))
+    hi = max(_dist_percentile(pmf, _DIST_CLIP_Q), p90, mode, lo)
+    n = hi - lo + 1
+    step = _DIST_W / n
+    peak = max(pmf.values())
+    usable = _DIST_BASE - _DIST_TOP
+
+    def bar_x(pts: int) -> float:
+        return (pts - lo) * step
+
+    def centre(pts: int) -> float:
+        return bar_x(pts) + step / 2.0
+
+    gap = min(0.7, step * 0.12)
+    bars = []
+    for pts in range(lo, hi + 1):
+        count = pmf.get(pts, 0)
+        if not count:
+            continue
+        h = (count / peak) * usable
+        if pts >= _DIST_HAUL:
+            fill, opacity = "#0a4f2d", ".95"
+        elif pts <= _DIST_BLANK:
+            fill, opacity = "#8a8275", ".32"
+        else:
+            fill, opacity = "#0f7a45", ".5"
+        bars.append(
+            f'<rect x="{bar_x(pts) + gap:.2f}" y="{_DIST_BASE - h:.2f}" '
+            f'width="{max(step - 2 * gap, 0.4):.2f}" height="{h:.2f}" '
+            f'fill="{fill}" fill-opacity="{opacity}"/>')
+
+    def rule(pts: int, colour: str, dash: str) -> str:
+        x = centre(pts)
+        return (f'<line x1="{x:.2f}" y1="{_DIST_TOP - 2:.1f}" x2="{x:.2f}" '
+                f'y2="{_DIST_BASE + 2:.1f}" stroke="{colour}" '
+                f'stroke-width=".7"{dash}/>')
+
+    rules = [rule(p10, "#8a8275", ' stroke-dasharray="2 2"'),
+             rule(p90, "#8a8275", ' stroke-dasharray="2 2"'),
+             rule(mode, "#0f7a45", "")]
+
+    # Anchors keep the outer two labels inside the frame without any clamping
+    # arithmetic: the floor label runs rightwards from its rule, the ceiling
+    # label leftwards from its own, the mode centres on its bar.
+    labels = [
+        f'<text x="{min(centre(p10) + 1.5, _DIST_W - 1):.2f}" y="8" '
+        f'font-size="7" fill="#8a8275">P10 {p10}</text>',
+        f'<text x="{max(centre(p90) - 1.5, 1):.2f}" y="8" font-size="7" '
+        f'text-anchor="end" fill="#8a8275">P90 {p90}</text>',
+        f'<text x="{centre(mode):.2f}" y="{_DIST_BASE + 10:.0f}" '
+        f'font-size="7.5" font-weight="700" text-anchor="middle" '
+        f'fill="#0a4f2d">{mode} pts</text>',
+    ]
+
+    baseline = (f'<line x1="0" y1="{_DIST_BASE:.1f}" x2="{_DIST_W:.0f}" '
+                f'y2="{_DIST_BASE:.1f}" stroke="#e7e2d6" stroke-width=".8"/>')
+    title = (f'{sims:,} simulations: floor {p10}, most likely {mode}, '
+             f'ceiling {p90} points')
+    return (f'<svg viewBox="0 0 {_DIST_W:.0f} {_DIST_H:.0f}" '
+            f'xmlns="http://www.w3.org/2000/svg" role="img" '
+            f'aria-label="Simulated points distribution">'
+            f'<title>{_html.escape(title)}</title>'
+            f'{"".join(bars)}{baseline}{"".join(rules)}{"".join(labels)}'
+            f'</svg>')
+
+
+def _distribution_html(payload: dict) -> str:
+    """The chart plus its caption, or "" when there is no distribution."""
+    svg = _distribution_svg(payload)
+    if not svg:
+        return ""
+    sims = (payload.get("distribution") or {}).get("sims") or 0
+    return (f'<div class="pc-dist">{svg}'
+            f'<div class="pc-dist-cap">{sims:,} simulations · '
+            f'floor P10 · most likely · ceiling</div></div>')
+
+
 def _decomp_html(proj: dict) -> str:
     """The decomposition strip: thin stacked segments of the projection.
     cs/defcon/bonus are per-match estimates (games/fpl/model._derive_row's
@@ -656,12 +834,14 @@ def card_html(payload: dict, heading: str = "h1") -> str:
                     f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
 
     # Premium slot (decision 2026-08-24): reserved from day one, muted with a
-    # lock glyph until ~GW10+; the striped strip is the distribution chart's
-    # reserved space.
+    # lock glyph until ~GW10+. The reserved striped strip is GONE: decision D1
+    # (2026-08-26) makes distributions FREE, so the real chart now occupies
+    # that idea and the slot must not go on promising it. What is left behind
+    # the lock is your-team work only — the public line ("we will never charge
+    # you to see what we predicted") stays true.
     premium_html = (
         '<div class="pc-premium"><span class="pc-lock">🔒</span>'
-        'Premium — coming soon: full distribution · your-team fit'
-        '<div class="pc-dist-chart"></div></div>')
+        'Premium — coming soon: your-team fit · dossier alerts</div>')
 
     return (
         f'<figure class="player-card" data-id="{payload["id"]}" '
@@ -684,6 +864,7 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'{sw_html}'
         f'{_decomp_html(proj)}'
         f'{statrow}'
+        f'{_distribution_html(payload)}'
         f'{fx_html}'
         f'{verdict_html}'
         f'{premium_html}'

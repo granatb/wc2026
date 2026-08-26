@@ -153,7 +153,17 @@ class TestFixtureStrip(unittest.TestCase):
                              want, (lam_for, lam_against))
 
 
-def _assembly_inputs(with_six_week=True, with_note=False):
+# A hand-built PMF over 100 sims with known statistics, so the assembly and
+# chart tests can assert real numbers rather than "something was drawn".
+# cumulative: 0:8 2:20 3:38 4:58 6:74 7:84 9:91 13:96 17:99 24:100
+_ALPHA_PMF = {0: 8, 2: 12, 3: 18, 4: 20, 6: 16, 7: 10, 9: 7, 13: 5, 17: 3,
+              24: 1}
+_ALPHA_STATS = {"p10": 2, "median": 4, "mode": 4, "p90": 13,
+                "p_haul": 0.09, "p_blank": 0.2}
+
+
+def _assembly_inputs(with_six_week=True, with_note=False,
+                     with_distribution=True):
     rows = [
         {"name": "Alpha", "team": "ARS", "position": "MID", "x_points": 8.0,
          "captain_ev": 16.0, "ceiling": 14.0, "value": 0.8, "bonus": 0.6,
@@ -166,6 +176,11 @@ def _assembly_inputs(with_six_week=True, with_note=False):
          "ownership_pct": 40.0, "kickoff": "2026-08-28T19:00:00+00:00",
          "start_prob": 0.8},
     ]
+    if with_distribution:
+        rows[0].update(dict(_ALPHA_STATS), distribution=dict(_ALPHA_PMF))
+        rows[1].update(distribution={0: 30, 1: 10, 2: 20, 5: 30, 8: 10},
+                       p10=0, median=2, mode=0, p90=5, p_haul=0.0,
+                       p_blank=0.6)
     players_by_name = {
         "Alpha": {"id": 11, "name": "Alpha"},
         "Beta": {"id": 22, "name": "Beta"},
@@ -250,8 +265,16 @@ class TestAssembly(unittest.TestCase):
         payloads_no_cache, _ = _payloads(with_six_week=False)
         self.assertIsNone(payloads_no_cache[0]["six_week_xpts"])
 
-    def test_distribution_is_reserved_as_null(self):
+    def test_distribution_carries_the_pmf_and_the_six_statistics(self):
         payloads, _ = _payloads()
+        dist = payloads[0]["distribution"]
+        self.assertEqual(dist["histogram"], _ALPHA_PMF)
+        self.assertEqual(dist["sims"], 100)
+        for key, want in _ALPHA_STATS.items():
+            self.assertEqual(dist[key], want, key)
+
+    def test_distribution_is_null_when_the_artifact_predates_histograms(self):
+        payloads, _ = _payloads(with_distribution=False)
         for p in payloads:
             self.assertIn("distribution", p)
             self.assertIsNone(p["distribution"])
@@ -300,13 +323,60 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn("<figcaption", html)
         self.assertIn('<h1 class="pc-name">Alpha</h1>', html)
 
-    def test_premium_slot_is_reserved_and_marked_coming_soon(self):
+    def test_premium_slot_no_longer_claims_the_distribution(self):
+        """Decision D1 (2026-08-26): distributions are FREE. The premium slot
+        keeps its reserved space but must not promise something the card is
+        already giving away."""
         _, html = self._card()
         self.assertIn('class="pc-premium"', html)
         self.assertIn("🔒", html)                       # the lock glyph
-        self.assertIn("Premium — coming soon: full distribution · "
-                      "your-team fit", html)
-        self.assertIn('class="pc-dist-chart"', html)   # the reserved chart slot
+        self.assertIn("Premium — coming soon: your-team fit · dossier alerts",
+                      html)
+        self.assertNotIn("full distribution", html)
+        self.assertNotIn('class="pc-dist-chart"', html)  # no reserved stripe
+
+    def test_distribution_chart_renders_under_the_stat_rows(self):
+        _, html = self._card()
+        self.assertIn('class="pc-dist"', html)
+        self.assertIn('aria-label="Simulated points distribution"', html)
+        self.assertIn("<svg", html)
+        # placed between the stat rows and the fixture strip
+        self.assertLess(html.index("pc-statrow2"), html.index("pc-dist"))
+        self.assertLess(html.index("pc-dist"), html.index("pc-fixtures"))
+
+    def test_distribution_chart_caption_names_the_sim_count_and_the_marks(self):
+        _, html = self._card()
+        self.assertIn("100 simulations", html)          # sum of the PMF counts
+        self.assertIn("floor P10", html)
+        self.assertIn("most likely", html)
+        self.assertIn("ceiling", html)
+
+    def test_distribution_chart_marks_floor_mode_and_ceiling(self):
+        _, html = self._card()
+        for label in ("P10 2", "4 pts", "P90 13"):
+            self.assertIn(label, html)
+
+    def test_distribution_chart_is_absent_when_the_artifact_predates_it(self):
+        payloads, _ = _payloads(with_distribution=False)
+        html = fpl_players.card_html(payloads[0])
+        self.assertNotIn("pc-dist", html)
+        # and the card still renders everything else
+        self.assertIn('class="pc-verdict"', html)
+
+    def test_distribution_chart_is_deterministic(self):
+        payloads, _ = _payloads()
+        self.assertEqual(fpl_players._distribution_svg(payloads[0]),
+                         fpl_players._distribution_svg(payloads[0]))
+
+    def test_distribution_chart_clips_the_freak_tail(self):
+        """One sim in a thousand at 40 points must not flatten every real bar:
+        the drawn range stops at the 99th percentile."""
+        payloads, _ = _payloads()
+        payloads[0]["distribution"]["histogram"] = {0: 500, 4: 499, 40: 1}
+        payloads[0]["distribution"]["sims"] = 1000
+        svg = fpl_players._distribution_svg(payloads[0])
+        self.assertIn("<svg", svg)
+        self.assertNotIn(">40<", svg)
 
     def test_fixture_strip_chips_tint_by_difficulty(self):
         _, html = self._card()
@@ -320,8 +390,11 @@ class TestCardHtml(unittest.TestCase):
         _, html = self._card()
         self.assertIn('class="pc-sixweek"', html)
         self.assertIn('aria-label="Six-gameweek expected-points form"', html)
-        # the sim-cloud layers: 3 translucent areas + the true series' fill
-        self.assertEqual(html.count("fill-opacity"), 4)
+        # the sim-cloud layers: 3 translucent areas + the true series' fill.
+        # Counted inside the six-week block only — the distribution chart's
+        # bars carry fill-opacity too.
+        form = html[html.index("pc-sixweek"):html.index("pc-decomp")]
+        self.assertEqual(form.count("fill-opacity"), 4)
         self.assertIn("GW2 6.50", html)                 # data in the <title>
         # no player without a horizon vector draws one
         payloads, _ = _payloads(with_six_week=False)
@@ -373,6 +446,7 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn(".player-card{", fpl_players.CARD_CSS)
         self.assertIn(".pd-table{", fpl_players.CARD_CSS)
         self.assertIn(".pc-premium", fpl_players.CARD_CSS)
+        self.assertIn(".pc-dist", fpl_players.CARD_CSS)
         # landing-row layout lives in its own block so player pages (which
         # embed CARD_CSS) never carry landing rules — and vice versa
         self.assertIn(".tcf-row{", fpl_players.TOP_CARDS_CSS)

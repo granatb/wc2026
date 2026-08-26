@@ -450,13 +450,20 @@ class TestGameweekBuild(unittest.TestCase):
         html = self._read(f"/fpl/players/{slug}/index.html")
         self.assertIn('<figure class="player-card"', html)
         self.assertIn("pc-premium", html)               # reserved premium slot
+        self.assertIn('class="pc-dist"', html)          # the distribution chart
+        self.assertIn("simulations · floor P10 · most likely · ceiling", html)
         m = re.search(r'href="(/api/fpl/gw1/players/\d+\.json)"', html)
         self.assertIsNotNone(m)
         env = json.loads(self._read(m.group(1)))
         for key in ("projection", "season", "ranks", "verdict", "verdict_tier",
                     "fixtures", "six_week_xpts", "squads", "notes", "page"):
             self.assertIn(key, env)
-        self.assertIsNone(env["distribution"])          # reserved, null
+        dist = env["distribution"]
+        # JSON object keys are strings on the wire; the counts still sum to
+        # the sim count and the six statistics ride alongside the histogram.
+        self.assertEqual(sum(dist["histogram"].values()), dist["sims"])
+        for key in ("p10", "median", "mode", "p90", "p_haul", "p_blank"):
+            self.assertIn(key, dist)
         self.assertEqual(env["gameweek"], 1)
         self.assertEqual(env["license"], render.DATA_LICENSE_URL)
         # GW1 caches exist on this checkout, so the strip prices something
