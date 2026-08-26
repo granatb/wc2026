@@ -35,7 +35,14 @@ wc2026/
     holdet_common.py   # shared kr scoring + trade rule (no per-script copies)
   research/{teams,players,matches}/   # research notes (frontmatter + prose)
   data/                # cache: odds/, schedule.json (gitignored)
+  evmax/
+    dataset.py         # the public CC BY dataset emitters (pure, no I/O)
+    render.py          # every page emitter, incl. /data/ and /fpl/accuracy/
+  mcp/                 # Node MCP server over the public API (outside the Python suite)
+  scripts/
+    benchmark_export.py  # frozen snapshot -> third-party benchmark submission CSV
   manage.py            # CLI dispatcher + --refresh
+  docs/DATASET.md      # the dataset schema mirror
   docs/superpowers/    # design spec + implementation plan
 ```
 
@@ -189,6 +196,61 @@ updated: 2026-06-18
 reasoning + citations
 ```
 
+## The open dataset (CC BY 4.0)
+
+Every FPL build publishes the full simulated board as bulk JSON and CSV under
+`/api/fpl/dataset/`, plus `/data/` as the human page. Emitted by the build from
+artifacts already in memory — no separate pipeline, no database.
+
+| File | What it is |
+|---|---|
+| `/api/fpl/dataset/index.json` | The manifest: what exists, plus the column schema. |
+| `/api/fpl/dataset/gw{N}.json` \| `.csv` | One gameweek, every simulated player. |
+| `/api/fpl/dataset/all.json` \| `.csv` | Every gameweek published so far. |
+
+`all.*` is rebuilt from the `gw*.json` files **already on disk in `out/`**, so a
+gameweek published months ago survives a rebuild without being re-simulated —
+re-simulating would quietly restate a frozen published claim.
+
+Schema: [`docs/DATASET.md`](docs/DATASET.md), mirrored from
+`evmax.dataset.COLUMN_GLOSSARY` (one source of truth; a test fails if a column
+ships undocumented). Licence: CC BY 4.0 — reuse with attribution to evmax.
+
+## Accuracy + the benchmark artifact
+
+`/fpl/accuracy/` publishes the graded ledger in full — per-gameweek MAE against
+realized official points, FPL's own `ep_next` where captured, both frozen squad
+lines, the running model-vs-crowd duel, and a link to every grading JSON. It is
+reached from `/track-record/`'s FPL block (no nav pill — that chrome is shared
+with the World Cup pages).
+
+```bash
+python3 scripts/benchmark_export.py --gw 2
+# -> evmax/assets/benchmark/gw2-evmax.csv
+#    player_id,player_name,gameweek,predicted_points
+```
+
+The submission file for a third-party expected-points benchmark. It reads the
+**frozen** pre-deadline snapshot under `evmax/assets/projections/fpl-gw{N}/`; a
+gameweek with no snapshot exports nothing and says so, rather than re-simulating
+a number we never published.
+
+## MCP server
+
+[`mcp/`](mcp/README.md) — a thin Node client over the public API, so an agent can
+ask for projections, a player, the duel, the accuracy ledger or a distribution
+without knowing the URL scheme.
+
+```bash
+claude mcp add evmax -- npx -y evmax-mcp
+
+cd mcp && npm install && node test-smoke.js   # hits the LIVE site
+```
+
+Outside the Python suite on purpose: the smoke test makes real network requests,
+so it belongs to the pre-publish checklist rather than to a run that must work
+offline. Publishing to npm is an owner action, never a build step.
+
 ## Interface
 
 Chat-first: you ask, Claude refreshes odds, updates research notes, runs the models, and
@@ -202,4 +264,5 @@ python -m unittest discover -s tests -t .
 ```
 
 Pure-math + loader logic is unit-tested offline; API clients are tested against fixture
-JSON (no live network).
+JSON (no live network). The MCP server's smoke test is deliberately NOT in this
+suite (see above).

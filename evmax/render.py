@@ -1530,7 +1530,12 @@ ACCURACY_PATH = "/fpl/accuracy/"
 _EP_NEXT_NOTE = "captured from GW2"
 
 _ACCURACY_CSS = (
-    ".ac{max-width:900px;margin:0 auto 80px}"
+    ".ac{max-width:980px;margin:0 auto 80px}"
+    # The ledger is eight columns of short values. Left to wrap they turn into
+    # ragged two-line cells; the wrapper already scrolls horizontally, which is
+    # the better trade on a narrow screen.
+    ".ac table.tr-metrics td.duel,.ac table.tr-metrics td.data"
+    "{white-space:nowrap}"
     ".ac h1{font-size:clamp(28px,4vw,40px);font-weight:800;line-height:1.05;"
     "letter-spacing:-1px;margin-bottom:14px}"
     ".ac .lead{font-family:var(--serif);font-size:19px;color:var(--ink2);"
@@ -1589,9 +1594,10 @@ def _accuracy_table_html(ledger: list) -> str:
             f'<td>{ep}</td>'
             f'<td>{r["model_projected"]:.2f} → {r["model_realized"]}</td>'
             f'<td>{r["consensus_projected"]:.2f} → {r["consensus_realized"]}</td>'
-            f'<td>{r["duel_model"]}-{r["duel_consensus"]} '
+            f'<td class="duel">{r["duel_model"]}-{r["duel_consensus"]} '
             f'({_html.escape(r["duel_label"])})</td>'
-            f'<td><a class="lnk" href="{r["json_path"]}">gw{r["gw"]}.json</a>'
+            f'<td class="data">'
+            f'<a class="lnk" href="{r["json_path"]}">gw{r["gw"]}.json</a>'
             f'</td></tr>')
     return (
         '<div class="tr-card"><div class="tr-table-wrap">'
@@ -2611,7 +2617,8 @@ _DATA_CSS = (
     ".dp-file a{font-size:13px;font-weight:700;color:var(--greend);"
     "margin-right:12px}"
     ".dp-file a:hover{text-decoration:underline}"
-    ".dp-file span{font-size:12px;color:var(--ink3)}"
+    ".dp-file span{display:block;margin-top:8px;font-size:12px;"
+    "color:var(--ink3);line-height:1.45}"
     ".dp-pre{background:#15140f;color:#e9e5da;border-radius:12px;"
     "padding:16px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
     "font-size:12.5px;line-height:1.7;overflow-x:auto;margin:6px 0 14px;"
