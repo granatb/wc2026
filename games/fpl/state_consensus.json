@@ -31,7 +31,8 @@
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 6.5
     },
     {
       "name": "Shaw",
@@ -66,7 +67,8 @@
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 6.5
     },
     {
       "name": "Rogers",
@@ -74,7 +76,8 @@
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 7.5
     },
     {
       "name": "Haaland",
@@ -118,7 +121,8 @@
       "is_starter": false,
       "bench_order": 2,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 6.0
     },
     {
       "name": "Diop",
@@ -135,7 +139,8 @@
       "is_starter": false,
       "bench_order": 4,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 4.5
     }
   ],
   "aliases": {}

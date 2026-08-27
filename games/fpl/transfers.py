@@ -31,6 +31,7 @@ from __future__ import annotations
 DISCOUNT = 0.95
 HIT_COST = 4.0
 TOP_N = 5
+PER_PLAYER_CAP = 2   # rows any single outgoing player may occupy
 MAX_PER_CLUB = 3
 START_FLOOR = 0.75
 
@@ -41,7 +42,7 @@ def _xp(rows_by_gw: dict, gws: list, name: str) -> list:
 
 
 def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
-              bank: float, flagged=None, notes=None,
+              bank: float, flagged=None, notes=None, cleared=None,
               top: int = TOP_N) -> list:
     """Top `top` legal single swaps for one squad state.
 
@@ -50,14 +51,24 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
                  prices for v1; the sell-on-fee ledger is future work).
     rows_by_gw:  {gameweek: {name: {"team", "position", "price", "x_points",
                  optional "start_prob"}}} — the horizon matrix.
-    flagged:     names whose dossier is red — forced to the head of the table.
+    flagged:     names whose dossier is red — a red dossier means "we owe this
+                 player a look", NOT "sell him". Mbeumo was red every week of
+                 August purely for a post-blank outflow spike, and the table
+                 called him a "forced sale candidate" on the same line as a
+                 research note that said hold. Red-and-cleared players are
+                 labelled as investigated and are NOT pushed to the head of the
+                 table; only red-and-unresolved ones are.
     notes:       names with a sourced research note — may override the floor.
+    cleared:     names whose note investigated the flag and found nothing —
+                 red, but not for sale.
 
     Returns [{"out", "in", "position", "delta", "hit_adjusted_delta",
     "reasons"}], flagged sales first, then by delta descending.
     """
     flagged = set(flagged or ())
     notes = set(notes or ())
+    cleared = set(cleared or ())
+    for_sale = flagged - cleared
     gws = sorted(rows_by_gw)
     if not gws:
         return []
@@ -94,9 +105,13 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
                 if free_transfers == 0 else delta
 
             reasons = []
-            if out_e["name"] in flagged:
+            if out_e["name"] in for_sale:
                 reasons.append(f"{out_e['name']} is flagged red by the "
-                               f"dossier — forced sale candidate")
+                               f"dossier and unresolved — sale candidate")
+            elif out_e["name"] in flagged:
+                reasons.append(f"{out_e['name']} was flagged red and "
+                               f"investigated — the note holds him; this row "
+                               f"is an option, not a recommendation")
             reasons.append(f"{'+' if delta >= 0 else ''}{delta:.2f} xPts over "
                            f"the {len(gws)}-GW horizon (discounted "
                            f"{DISCOUNT}/week)")
@@ -111,8 +126,19 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
                           "hit_adjusted_delta": hit_adjusted,
                           "reasons": reasons})
 
-    swaps.sort(key=lambda s: (s["out"] not in flagged, -s["delta"]))
-    return swaps[:top]
+    swaps.sort(key=lambda s: (s["out"] not in for_sale, -s["delta"]))
+    # One outgoing player with many affordable replacements would otherwise eat
+    # the whole table: on GW2 Thursday five Gibbs-White rows hid the fact that
+    # Watkins, who was leaving the league, needed selling at all.
+    seen: dict = {}
+    spread = []
+    for swap in swaps:
+        n = seen.get(swap["out"], 0)
+        if n >= PER_PLAYER_CAP:
+            continue
+        seen[swap["out"]] = n + 1
+        spread.append(swap)
+    return spread[:top]
 
 
 def format_table(recs: list, team_name: str, free_transfers: int,

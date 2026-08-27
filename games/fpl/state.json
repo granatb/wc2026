@@ -1,7 +1,7 @@
 {
   "team_name": "The Model XI",
   "strategy": "model",
-  "free_transfers": 2,
+  "free_transfers": 1,
   "chips_used": [],
   "aliases": {},
   "squad": [
@@ -35,8 +35,8 @@
     {
       "name": "Tarkowski",
       "position": "DEF",
-      "is_starter": true,
-      "bench_order": null,
+      "is_starter": false,
+      "bench_order": 3,
       "is_captain": false,
       "is_vice": false,
       "bought_at": 6.0
@@ -60,19 +60,19 @@
       "bought_at": 6.0
     },
     {
-      "name": "Gibbs-White",
+      "name": "Gakpo",
       "position": "MID",
-      "is_starter": false,
-      "bench_order": 3,
+      "is_starter": true,
+      "bench_order": null,
       "is_captain": false,
-      "is_vice": false,
-      "bought_at": 8.0
+      "is_vice": true,
+      "bought_at": 7.0
     },
     {
       "name": "E.Le Fée",
       "position": "MID",
-      "is_starter": true,
-      "bench_order": null,
+      "is_starter": false,
+      "bench_order": 2,
       "is_captain": false,
       "is_vice": false,
       "bought_at": 6.0
@@ -83,7 +83,7 @@
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
-      "is_vice": true,
+      "is_vice": false,
       "bought_at": 7.0
     },
     {
@@ -96,13 +96,13 @@
       "bought_at": 8.0
     },
     {
-      "name": "Watkins",
+      "name": "Evanilson",
       "position": "FWD",
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
       "is_vice": false,
-      "bought_at": 8.0
+      "bought_at": 6.0
     },
     {
       "name": "Sánchez",
@@ -110,15 +110,17 @@
       "is_starter": false,
       "bench_order": 1,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 5.0
     },
     {
       "name": "N.Williams",
       "position": "DEF",
       "is_starter": false,
-      "bench_order": 2,
+      "bench_order": 4,
       "is_captain": false,
-      "is_vice": false
+      "is_vice": false,
+      "bought_at": 5.0
     },
     {
       "name": "Calvert-Lewin",
@@ -132,11 +134,12 @@
     {
       "name": "Shaw",
       "position": "DEF",
-      "is_starter": false,
-      "bench_order": 4,
+      "is_starter": true,
+      "bench_order": null,
       "is_captain": false,
       "is_vice": false,
       "bought_at": 4.5
     }
-  ]
+  ],
+  "bank": 2.9
 }

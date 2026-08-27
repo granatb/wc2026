@@ -97,3 +97,47 @@ class FindDuplicateNamesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestForwardScopedNotes(unittest.TestCase):
+    """`from_round` — facts that do not expire at the end of the gameweek.
+
+    Watkins (2026-08-27): his GW2 note correctly zeroed a player whose transfer
+    to Al-Hilal was agreed, but `round: 2` meant the note stopped applying on
+    Sunday, so the five-gameweek horizon projected him at 4-5 points a week from
+    GW3 as though he were still a Villa striker. That understated selling him by
+    roughly 19 points and pointed the optimizer at the wrong replacement.
+    """
+
+    def test_from_round_opens_an_interval_that_never_closes(self):
+        e = research.ResearchEntry(name="Watkins", from_round=2)
+        self.assertFalse(e.applies_to(1))
+        for r in (2, 3, 6, 38):
+            self.assertTrue(e.applies_to(r))
+
+    def test_round_alone_still_pins_to_exactly_one_round(self):
+        e = research.ResearchEntry(name="Knock", round=2)
+        self.assertTrue(e.applies_to(2))
+        self.assertFalse(e.applies_to(1))
+        self.assertFalse(e.applies_to(3))
+
+    def test_neither_field_applies_everywhere(self):
+        e = research.ResearchEntry(name="Standing", round=None)
+        self.assertTrue(e.applies_to(1))
+        self.assertTrue(e.applies_to(9))
+
+    def test_from_round_wins_when_both_are_present(self):
+        # A note is written FOR a round and may extend past it.
+        e = research.ResearchEntry(name="Watkins", round=2, from_round=2)
+        self.assertTrue(e.applies_to(4))
+
+    def test_from_round_survives_the_frontmatter_round_trip(self):
+        e = research.ResearchEntry.from_meta(
+            {"name": "Watkins", "round": 2, "from_round": 2})
+        self.assertEqual(e.from_round, 2)
+        self.assertTrue(e.applies_to(5))
+
+    def test_a_past_round_is_not_retroactively_rewritten(self):
+        """GW1's graded projections must not move when we learn something new."""
+        e = research.ResearchEntry(name="Watkins", from_round=2)
+        self.assertFalse(e.applies_to(1))

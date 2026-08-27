@@ -78,6 +78,14 @@ class ResearchEntry:
     sources: list = field(default_factory=list)
     updated: str | None = None
     round: int | None = None      # None = applies to every round; else only that round
+    # `from_round` is for facts that do not expire. A knock is true for one
+    # gameweek and `round:` is right for it; a completed transfer out of the
+    # league is true for every gameweek from now on. Watkins (2026-08-27) was
+    # the case that forced the distinction: his GW2 note correctly zeroed him,
+    # and the horizon then projected him at 4-5 points a week from GW3 as a
+    # normal Villa striker, which understated the sale by roughly 19 points and
+    # sent the optimizer after the wrong replacement.
+    from_round: int | None = None
 
     @classmethod
     def from_meta(cls, meta: dict) -> "ResearchEntry":
@@ -91,7 +99,23 @@ class ResearchEntry:
             sources=meta.get("sources", []) or [],
             updated=meta.get("updated"),
             round=int(rnd) if rnd is not None else None,
+            from_round=(int(meta["from_round"])
+                        if meta.get("from_round") is not None else None),
         )
+
+    def applies_to(self, fantasy_round: int) -> bool:
+        """Is this note live for `fantasy_round`?
+
+        `round` pins to exactly one round, `from_round` opens an interval that
+        never closes, and a note with neither applies everywhere. A note may
+        carry both: `round` then names the round it was written for and
+        `from_round` extends it forward.
+        """
+        if self.from_round is not None:
+            return fantasy_round >= self.from_round
+        if self.round is not None:
+            return fantasy_round == self.round
+        return True
 
     def adjust(self, base_rate: float, base_start: float, w: float) -> tuple[float, float]:
         """Apply this entry to a player's base (goal rate, start prob) under weight w."""
@@ -112,7 +136,9 @@ def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dic
 
     If `fantasy_round` is given, notes pinned to a *different* round are dropped, so
     an R3-specific rotation flag never leaks into an R2 (or knockout) simulation.
-    Notes with no `round:` field apply to every round.
+    Notes with no `round:` field apply to every round, and a note carrying
+    `from_round: N` applies to round N and every round after it — for facts
+    that do not expire, like a player who has left the league.
 
     Sorted glob so the winner of a same-name collision (see find_duplicate_names)
     is at least stable across machines/runs -- filesystem enumeration order is
@@ -129,8 +155,7 @@ def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dic
         if not meta.get("name"):
             continue
         entry = ResearchEntry.from_meta(meta)
-        if fantasy_round is not None and entry.round is not None \
-                and entry.round != fantasy_round:
+        if fantasy_round is not None and not entry.applies_to(fantasy_round):
             continue
         out[meta["name"]] = entry
     return out

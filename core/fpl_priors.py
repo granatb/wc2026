@@ -86,11 +86,14 @@ def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
     if (team_matches <= 0 or (live_starts == 0 and live_minutes == 0)) and not hist_minutes:
         return _DEFAULT_START_PROB * gate, _DEFAULT_EXP_MINUTES
 
-    live_rate = (min(1.0, live_starts / float(team_matches))
-                 if team_matches > 0 else 0.0)
-    hist_rate = (min(1.0, hist_starts / float(hist_matches))
-                 if hist_matches > 0 else 0.0)
-    start_rate = blend_rate(hist_rate, hist_minutes, live_rate, live_minutes)
+    # Starts over matches, with the prior as pseudo-matches. Without it a player
+    # who started the season's only fixture reads as a 100% nailed starter --
+    # which is how a 5.5m promoted forward outranked the entire league.
+    live_matches = max(0, team_matches)
+    start_rate = shrink(PRIOR_START_RATE, PRIOR_MATCHES, [
+        (hist_rate_of(hist_starts, hist_matches), hist_matches),
+        (live_rate_of(live_starts, live_matches), live_matches),
+    ])
 
     total_starts = hist_starts + live_starts
     total_minutes = hist_minutes + live_minutes
@@ -191,21 +194,61 @@ def blend_rate(hist_value, hist_minutes, live_value, live_minutes) -> float:
     return (hv * hm + lv * lm) / (hm + lm)
 
 
-def _rates(player: dict) -> tuple[float, float]:
-    """(xg_per90, xa_per90) — history blended with the live season by minutes.
+# How much evidence the price-based prior is worth. A player's price is the
+# market's own estimate of him and it is never worthless, so it is carried as a
+# pseudo-sample that real minutes progressively outvote rather than as a
+# fallback that switches off the moment a single match exists.
+#
+# THE BUG THIS EXISTS TO PREVENT (2026-08-27): Emersonn, promoted with Ipswich
+# and therefore carrying no Premier League history at all, played 65 minutes of
+# gameweek 1 and posted 1.14 xG/90 in them — a higher rate than Haaland has ever
+# sustained. Read literally, that one substitute appearance made him the best
+# forward in the game and the transfer optimizer wanted him over every
+# alternative. Five matches of prior is enough that a single hot cameo cannot do
+# that, and little enough that a genuinely good player escapes it within a month.
+PRIOR_MINUTES = 450.0        # five matches
+PRIOR_MATCHES = 3.0          # for the start rate, whose denominator is matches
+PRIOR_START_RATE = 0.35      # a squad player, before we know anything else
 
-    Falls back to the price prior only when there is no history ANYWHERE (a
-    genuine cold start), not merely when this season's sample is empty.
+
+def hist_rate_of(starts, matches) -> float:
+    return min(1.0, (starts or 0) / float(matches)) if matches else 0.0
+
+
+def live_rate_of(starts, matches) -> float:
+    return min(1.0, (starts or 0) / float(matches)) if matches else 0.0
+
+
+def shrink(prior: float, prior_weight: float, observations: list) -> float:
+    """Weighted mean of `prior` and (value, weight) observations."""
+    num = prior * prior_weight
+    den = prior_weight
+    for value, weight in observations:
+        w = max(0.0, float(weight or 0.0))
+        num += float(value or 0.0) * w
+        den += w
+    return num / den if den > 0 else prior
+
+
+def _rates(player: dict) -> tuple[float, float]:
+    """(xg_per90, xa_per90) — the price prior, history and the live season,
+    weighted by the minutes behind each.
+
+    The price prior is always in the mix (see PRIOR_MINUTES) rather than being a
+    fallback that switches off as soon as one match exists, because one match is
+    not evidence of a rate.
     """
     hist = preseason_rates().get(str(player.get("id"))) or {}
     hist_minutes = hist.get("minutes") or 0
     live_minutes = player.get("minutes") or 0
-    if hist_minutes <= 0 and needs_cold_start(player):
-        return price_prior_xg(player), price_prior_xa(player)
-    xg = blend_rate(hist.get("expected_goals_per_90"), hist_minutes,
-                    player.get("xg_per90"), live_minutes)
-    xa = blend_rate(hist.get("expected_assists_per_90"), hist_minutes,
-                    player.get("xa_per90"), live_minutes)
+    xg = shrink(price_prior_xg(player), PRIOR_MINUTES, [
+        (hist.get("expected_goals_per_90"), hist_minutes),
+        (player.get("xg_per90"), live_minutes),
+    ])
+    xa = shrink(price_prior_xa(player), PRIOR_MINUTES, [
+        (hist.get("expected_assists_per_90"), hist_minutes),
+        (player.get("xa_per90"), live_minutes),
+    ])
     return xg, xa
 
 

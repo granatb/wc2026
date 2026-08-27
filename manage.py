@@ -118,7 +118,7 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     """
     import glob
 
-    from core import fpl_api, fpl_diff, fpl_priors, research
+    from core import blend, fpl_api, fpl_diff, fpl_priors, research
     from games.fpl import dossier, transfers
     from games.fpl import state as fpl_state
 
@@ -158,8 +158,14 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     # web_names IN PLACE (priors keys), while state resolution needs the raw
     # web_names — same split evmax/fpl_build.build runs on.
     players = fpl_api.parse_players(boot)
+    # Finished gameweeks, not 38. The same hardcoded season-length divisor in
+    # games/fpl/model.load_gameweek crushed every start probability to a few
+    # percent at the rollover; this copy would have done it to the transfer
+    # optimizer's candidate filter.
+    finished = sum(1 for e in fpl_api.parse_events(boot).values()
+                   if e.get("finished"))
     priors_by_team, _flags = fpl_priors.build_with_flags(
-        fpl_api.parse_players(boot), 38)
+        fpl_api.parse_players(boot), finished)
     start_probs = {p.name: p.start_prob
                    for squad in priors_by_team.values() for p in squad}
     for gw_rows in rows_by_gw.values():
@@ -181,9 +187,24 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
                                     captured_teams=captured_teams,
                                     outflow_ids=outflow_ids)
         flagged = {d["name"] for d in dossiers if d["red"]}
+        # A red dossier that a sourced note investigated and cleared is not a
+        # sale candidate. Only a note that actually rules the player out (or an
+        # override below the minutes floor) makes the flag a sell signal.
+        cleared = set()
+        for name in flagged:
+            entry = notes.get(name)
+            if entry is None or not entry.sources:
+                continue
+            if entry.status in blend.HARD_OUT_STATUSES:
+                continue
+            override = entry.start_prob_override
+            if override is not None and override < transfers.START_FLOOR:
+                continue
+            cleared.add(name)
         recs = transfers.recommend(state, rows_by_gw,
                                    state.get("free_transfers", 1), bank,
-                                   flagged=flagged, notes=note_names)
+                                   flagged=flagged, notes=note_names,
+                                   cleared=cleared)
         print(transfers.format_table(recs, state["team_name"],
                                      state.get("free_transfers", 1), bank))
 

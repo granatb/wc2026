@@ -442,7 +442,31 @@ class TestHistoryBlend(unittest.TestCase):
             xg, xa = fpl_priors._rates(player)
         self.assertLess(xg, 0.4)        # the one-game spike is damped, not obeyed
         self.assertGreater(xg, 0.29)
-        self.assertGreater(xa, 0.38)    # and history is not thrown away
+        # History still dominates: 3000 minutes of 0.40 xA against 90 minutes of
+        # 0.0 lands near 0.36, not near zero. It is not exactly 0.40 because the
+        # price prior is a permanent pseudo-sample (PRIOR_MINUTES) rather than a
+        # fallback, which is what stops a 65-minute cameo from defining a rate.
+        self.assertGreater(xa, 0.34)
+        self.assertLess(xa, 0.40)
+
+    def test_one_hot_cameo_cannot_define_a_rate(self):
+        """Emersonn, 2026-08-27: promoted with Ipswich, so no history at all.
+
+        65 minutes of gameweek 1 at 1.14 xG/90 -- a higher rate than Haaland has
+        ever sustained -- made him the top forward in the order book and the
+        transfer optimizer's first choice over every alternative. One substitute
+        appearance is not evidence of a rate.
+        """
+        from unittest import mock
+        player = {"id": 77777, "minutes": 65, "xg_per90": 1.14, "xa_per90": 0.08,
+                  "now_cost": 55, "element_type": 4, "starts": 1}
+        with mock.patch.object(fpl_priors, "_preseason_cache", {"_missing": True}):
+            xg, _ = fpl_priors._rates(player)
+            sp, _mins = fpl_priors.minutes_model(player, team_matches=1)
+        self.assertLess(xg, 0.6)        # nowhere near the raw 1.14
+        self.assertGreater(xg, 0.2)     # but the cameo is not ignored either
+        self.assertLess(sp, 0.75)       # one start out of one is not "nailed"
+        self.assertGreater(sp, 0.35)
 
     def test_genuine_cold_start_still_uses_the_price_prior(self):
         from unittest import mock
