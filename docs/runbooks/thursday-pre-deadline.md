@@ -57,6 +57,22 @@ For each squad member of BOTH states (`games/fpl/state.json`,
 - **Where notes go:** `research/players/<player>-gw{N}.md` — pinned to the
   round so it cannot leak into other weeks' sims, re-pinned forward each week
   the fact still holds.
+- **The fast way to write them** is Bartek's own shorthand, which never fetches
+  anything and refuses the whole batch on an unmatched name:
+
+  ```bash
+  python3 scripts/fpl_notes.py --gw N --check   # parse and match, write nothing
+  ```
+  ```
+  Virgil nailed 0.95     # feed clean
+  Gibbs-White rotation   # MCL, FFS 2026-08-25
+  Watkins out standing   # Al-Hilal, fee agreed
+  ```
+
+  `standing` writes `from_round: N` instead of `round: N`, for a fact that does
+  not expire. Use it for a departure or a long-term injury; leave it off for a
+  knock. Getting this wrong is expensive — see the Watkins note below. Drop the
+  `--check` to actually write the files, then flesh out the prose by hand.
 - **Format** (core/research.py frontmatter; the gate needs non-empty
   `sources:` and today's `updated:`):
 
