@@ -729,7 +729,7 @@ def _dots_svg(dots: list) -> str:
         return _DOT_BASE - (max(value, 0.0) / vmax) * usable
 
     baseline = (f'<line x1="0" y1="{_DOT_BASE:.1f}" x2="{_DOT_W:.0f}" '
-                f'y2="{_DOT_BASE:.1f}"{_NON_SCALING} stroke="#e7e2d6" '
+                f'y2="{_DOT_BASE:.1f}"{_NON_SCALING} stroke="#d9d3c5" '
                 f'stroke-width="1"/>')
 
     # The "now" line: everything left of it happened, everything right of it is
@@ -748,9 +748,12 @@ def _dots_svg(dots: list) -> str:
         x, y = x_of(i), y_of(d["value"])
         played = d["mode"] == "played"
         colour = _DOT_PLAYED if played else _DOT_PROJECTED
+        # The stem is what makes a dot's HEIGHT readable — without it the
+        # discs float and the reader has nothing to measure them against.
         stems.append(f'<line x1="{x:.2f}" y1="{_DOT_BASE:.1f}" x2="{x:.2f}" '
                      f'y2="{y:.2f}"{_NON_SCALING} stroke="{colour}" '
-                     f'stroke-width="1" stroke-opacity="{".45" if played else ".25"}"/>')
+                     f'stroke-width="1.25" '
+                     f'stroke-opacity="{".6" if played else ".4"}"/>')
         disc = (f'<line x1="{x:.2f}" y1="{y:.2f}" x2="{x:.2f}" y2="{y:.2f}"'
                 f'{_NON_SCALING} stroke-linecap="round" ')
         if played:
