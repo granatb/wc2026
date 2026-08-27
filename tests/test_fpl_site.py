@@ -541,11 +541,18 @@ class TestGameweekBuild(unittest.TestCase):
         """Owner 2026-08-26: "start by showing most transferred in and their
         cards, most transferred out, our picks, our takes, and model's tier on
         each of them". FULL card faces (2026-08-25: not thumbnails), above the
-        duel strip and the hero article."""
+        duel strip and the hero article.
+
+        Reordered 2026-08-27 — "our picks should be first and it should be more
+        visible" — so the page opens on the squad we are accountable for rather
+        than on the crowd's opinion."""
         html = self._read("/index.html")
-        for kicker in ("Most transferred in this gameweek",
-                       "Most transferred out this gameweek", "Our picks"):
+        for kicker in ("Our picks this gameweek",
+                       "Most transferred in this gameweek",
+                       "Most transferred out this gameweek"):
             self.assertIn(kicker, html)
+        self.assertLess(html.index("Our picks this gameweek"),
+                        html.index("Most transferred in this gameweek"))
         self.assertNotIn("This week's top cards", html)   # the leaderboard is gone
         self.assertNotIn("tc-card", html)                 # thumbnails are gone
         self.assertIn('href="/fpl/players/"', html)
@@ -558,13 +565,13 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertLess(row_at, html.find('<div class="duel">'))
         self.assertLess(row_at, html.find('<section class="feat">'))
         # the rows are in the owner's order, and "Check your player" is last
+        self.assertLess(html.find("Our picks this gameweek"),
+                        html.find("Most transferred in this gameweek"))
         self.assertLess(html.find("Most transferred in this gameweek"),
                         html.find("Most transferred out this gameweek"))
-        self.assertLess(html.find("Most transferred out this gameweek"),
-                        html.find("Our picks"))
         # (search the markup, not the stylesheet — extra_style defines
         # .tcf-check far earlier in the document)
-        self.assertLess(html.find("Our picks"),
+        self.assertLess(html.find("Most transferred out this gameweek"),
                         html.find('<p class="tcf-check">'))
 
     def test_article_and_player_pages_carry_the_mobile_nav_scroll_css(self):

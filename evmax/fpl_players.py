@@ -102,11 +102,18 @@ _CALL_BY_LETTER = {"S": "buy", "A": "buy", "B": "hold", "C": "hold", "D": "pass"
 # interpretation: the consensus squad is a full 15 like ours, so it has a
 # bench, and a player sitting on it is neither "in the consensus XI" nor "not
 # in either squad". Both of those would be false, so he gets his own line.
-STANCE_OUR_XI = "in our XI"
-STANCE_OUR_BENCH = "on our bench"
-STANCE_CONSENSUS_XI = "in the consensus XI"
-STANCE_CONSENSUS_BENCH = "on the consensus bench"
-STANCE_NEITHER = "not in either squad"
+# Phrased as OUR call, not as a filing status. "in our XI" / "not in either
+# squad" described a database row and left the reader asking the obvious
+# question anyway ("also we don't say whether we buy or not", owner
+# 2026-08-27). These say what we did with our own money. They are still
+# statements about a squad we have already published, never instructions to
+# the reader — that distinction is the whole reason the old "buy" call was
+# removed on 2026-08-26.
+STANCE_OUR_XI = "we own him, in our XI"
+STANCE_OUR_BENCH = "we own him, on our bench"
+STANCE_CONSENSUS_XI = "the consensus squad owns him, we do not"
+STANCE_CONSENSUS_BENCH = "on the consensus bench, we do not own him"
+STANCE_NEITHER = "we do not own him"
 
 
 def squad_stance(model_role=None, consensus_role=None) -> str:
@@ -489,6 +496,11 @@ CLUB_COLORS = {
 }
 
 # Decomposition strip segment colors (spec: #0f7a45/#3E8E8C/#A8925A/#C9A227).
+# The words that fit under a card at 11px. The long forms stay in the title
+# attributes and on the player page's data table.
+_DECOMP_SHORT = {"attack": "attack", "cs": "clean sheet",
+                 "defcon": "defence", "bonus": "bonus"}
+
 _DECOMP_SEGMENTS = (
     ("attack", "#0f7a45", "Goals, assists & appearance"),
     ("cs", "#3e8e8c", "Clean sheets (per-match est.)"),
@@ -544,6 +556,8 @@ CARD_CSS = (
     "background:rgba(15,122,69,.03)}"
     ".player-card .pc-dots-empty span{font-size:10.5px;color:var(--ink3);"
     "letter-spacing:.3px}"
+    ".player-card .pc-dotvals{display:grid;font-size:10px;font-weight:700;color:var(--ink3);text-align:center;margin-bottom:1px;font-variant-numeric:tabular-nums}"
+    ".player-card .pc-dotvals .pc-dv-played{color:var(--green)}"
     ".player-card .pc-dotgws{display:grid;margin-top:1px}"
     ".player-card .pc-dotgws span{font-size:9px;color:var(--ink3);"
     "text-align:center;letter-spacing:.2px;font-variant-numeric:tabular-nums}"
@@ -561,6 +575,13 @@ CARD_CSS = (
     ".player-card .pc-decomp{display:flex;height:8px;border-radius:4px;"
     "overflow:hidden;margin:10px 0 2px;background:var(--chipbg)}"
     ".player-card .pc-decomp span{display:block;height:100%}"
+    # The written-out split under the bar.
+    ".player-card .pc-decompkey{display:flex;flex-wrap:wrap;gap:4px 10px;"
+    "align-items:center;font-size:10.5px;color:var(--ink3);margin:0 0 8px}"
+    ".player-card .pck-item{display:inline-flex;align-items:center;gap:4px}"
+    ".player-card .pck-sw{width:7px;height:7px;border-radius:2px;"
+    "display:inline-block;flex:0 0 auto}"
+    ".player-card .pck-tot{margin-left:auto;font-weight:700;color:var(--ink2)}"
     + "".join(f".player-card .pcd-{key}{{background:{color}}}"
               for key, color, _label in _DECOMP_SEGMENTS) +
     # stat rows: ceiling · captain · own / season pts · realized · gap
@@ -588,6 +609,15 @@ CARD_CSS = (
     ".player-card .pc-fxcap{font-size:9.5px;line-height:1.35;"
     "color:var(--ink3);letter-spacing:.3px;margin-top:6px}"
     # verdict line
+    ".player-card .pc-fold{margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}"
+    ".player-card .pc-fold>summary{font-size:11px;font-weight:700;letter-spacing:.4px;color:var(--ink3);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}"
+    ".player-card .pc-fold>summary::-webkit-details-marker{display:none}"
+    ".player-card .pc-fold>summary::after{content:'\\25be';font-size:11px;transition:transform .15s}"
+    ".player-card .pc-fold[open]>summary::after{transform:rotate(180deg)}"
+    ".player-card .pc-fold>summary:hover{color:var(--green)}"
+    ".player-card .pc-fold .pc-decomp{margin-top:10px}"
+    ".player-card .pc-fold .pc-dist{border-top:0;padding-top:2px}"
+    ".player-card .pc-fold .pc-fixtures{border-top:0;padding-top:6px}"
     ".player-card .pc-verdict{font-size:12px;font-weight:800;"
     "letter-spacing:1.2px;text-transform:uppercase;color:var(--green);"
     "border-top:1px solid var(--line);margin-top:12px;padding-top:10px}"
@@ -628,6 +658,13 @@ CARD_CSS = (
     ".tier-nav a:hover{border-color:var(--green);color:var(--greend)}"
     ".tier-nav a.active{background:var(--green);border-color:var(--green);"
     "color:#fff}"
+    ".pi-tablenote{font-size:13px;color:var(--ink3);margin:10px 0 0}"
+    ".pi-rank{color:var(--ink3);font-variant-numeric:tabular-nums;width:3.5em}"
+    ".pi-sortable th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}"
+    ".pi-sortable th[data-sort]:hover{color:var(--green)}"
+    ".pi-sortable th.pi-sorted{color:var(--green)}"
+    ".pi-sortable th.pi-sorted::after{content:' \\25be';font-size:10px}"
+    ".pi-sortable th.pi-sorted.pi-asc::after{content:' \\25b4'}"
     ".pi-letter{display:inline-flex;align-items:center;justify-content:center;"
     "min-width:22px;height:22px;border-radius:6px;background:var(--chipbg);"
     "color:var(--ink2);font-weight:800;font-size:12px}"
@@ -644,10 +681,19 @@ CARD_CSS = (
 # 900px, a horizontal scroller inside its own overflow container on mobile.
 TOP_CARDS_CSS = (
     ".top-cards-full{margin:26px 0 6px}"
-    ".tcf-block{margin-bottom:30px}"
-    ".tcf-kicker{font-size:12px;font-weight:800;letter-spacing:2px;"
-    "text-transform:uppercase;color:var(--ink3)}"
-    ".tcf-intro{margin:4px 0 0;font-size:13.5px;color:var(--ink2);"
+    ".tcf-block{margin-bottom:38px}"
+    # A real heading, not another grey kicker. Above four loud cards the old
+    # 12px tracked-out grey label vanished and the reader could not tell which
+    # row he was looking at (owner, 2026-08-27).
+    ".tcf-kicker{font-size:21px;font-weight:800;letter-spacing:-.4px;"
+    "color:var(--ink);text-transform:none;display:flex;align-items:center;"
+    "gap:12px;margin:0}"
+    ".tcf-kicker::after{content:'';flex:1;border-top:1px solid var(--line)}"
+    # The row we want read first gets the accent rule and a touch more air.
+    ".tcf-lead{margin-bottom:44px}"
+    ".tcf-lead .tcf-kicker{color:var(--greend)}"
+    ".tcf-lead .tcf-kicker::after{border-top:2px solid var(--green)}"
+    ".tcf-intro{margin:6px 0 0;font-size:14px;color:var(--ink2);"
     "max-width:60ch}"
     ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
     ".tcf-check a{color:var(--green)}"
@@ -809,10 +855,23 @@ def _dots_html(payload: dict) -> str:
         legend.append('<span class="pc-dc-played">played</span>')
     if any(d["mode"] == "projected" for d in dots):
         legend.append('<span class="pc-dc-proj">projected</span>')
+    # The value above each dot. The strip alone shows SHAPE -- this one is
+    # higher than that one -- and the reader could not get a number out of it
+    # without hovering, which a phone cannot do ("maybe put some yaxis on the
+    # chart too or numbers next to dots", owner 2026-08-27). Numbers on the
+    # same equal-column grid as the gameweek labels beat an axis here: there
+    # are only five or six columns, and an axis would cost vertical space on a
+    # card that already has too little.
+    values = "".join(
+        f'<span class="{"pc-dv-played" if d["mode"] == "played" else ""}">'
+        f'{_html.escape(d["display"])}</span>' for d in dots)
+    cols = f'repeat({n},1fr)'
     return (f'<div class="pc-form">'
+            f'<div class="pc-dotvals" style="grid-template-columns:{cols}">'
+            f'{values}</div>'
             f'<div class="pc-dots">{svg}</div>'
-            f'<div class="pc-dotgws" style="grid-template-columns:'
-            f'repeat({n},1fr)">{labels}</div>'
+            f'<div class="pc-dotgws" style="grid-template-columns:{cols}">'
+            f'{labels}</div>'
             f'<div class="pc-dotcap">{" · ".join(legend)}</div>'
             f'</div>')
 
@@ -1008,7 +1067,15 @@ def _distribution_html(payload: dict) -> str:
              f'<b>{mode}</b>{share}</span>'
              f'<span>ceiling <b>{dist.get("p90")}</b></span></div>')
     return (f'<div class="pc-dist">{marks}{svg}'
-            f'<div class="pc-dist-cap">{sims:,} simulations</div></div>')
+            # Floor and ceiling appear twice on the card (either side of the
+            # hero, and again over this chart) and nowhere said what they were.
+            # "floor seems to be always 0 instead of 10 perc and 90 perc or
+            # something" (owner, 2026-08-27) -- it IS the 10th percentile, and
+            # for most players it genuinely is 0, which is the useful fact that
+            # a blank is the common case. Saying so costs one line already on
+            # the card rather than a new one.
+            f'<div class="pc-dist-cap">{sims:,} simulations · floor and '
+            f'ceiling are the 10th and 90th percentile</div></div>')
 
 
 def _decomp_html(proj: dict) -> str:
@@ -1026,7 +1093,7 @@ def _decomp_html(proj: dict) -> str:
     total = sum(parts.values())
     if total <= 0:
         return ""
-    spans = []
+    spans, keys = [], []
     for key, _color, label in _DECOMP_SEGMENTS:
         v = parts[key]
         if v <= 0:
@@ -1034,8 +1101,17 @@ def _decomp_html(proj: dict) -> str:
         spans.append(f'<span class="pcd-{key}" '
                      f'style="width:{v / total * 100:.1f}%" '
                      f'title="{_html.escape(label)} — {v:.2f} xPts"></span>')
+        keys.append(f'<span class="pck-item"><i class="pck-sw pcd-{key}"></i>'
+                    f'{_DECOMP_SHORT[key]} {v:.1f}</span>')
+    # A stack of four colours with the meaning hidden in title attributes told
+    # the reader nothing -- "the horizontal bar with colors i have no clue what
+    # it means" (owner, 2026-08-27). Tooltips do not exist on a phone and are
+    # not discoverable anywhere else, so the split is now written out in the
+    # numbers it represents.
     return (f'<div class="pc-decomp" role="img" aria-label="Projection '
-            f'decomposition">{"".join(spans)}</div>')
+            f'decomposition">{"".join(spans)}</div>'
+            f'<div class="pc-decompkey">{"".join(keys)}'
+            f'<span class="pck-tot">= {xp:.1f} xPts</span></div>')
 
 
 # Realized pts/£m is season points divided by price. Over two gameweeks that
@@ -1134,16 +1210,30 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # 2026-08-26). An honest empty state keeps the grid true.
     sw_html = _dots_html(payload)
 
+    # ONE card must not use one word for two numbers. The hero's "ceiling" is
+    # the 90th percentile (an integer score he beats one week in ten); this one
+    # is the MEAN of the best 15% of simulations, a different quantity that read
+    # as a contradiction three lines apart -- "ceiling 9" above "ceiling 11.44"
+    # (owner, 2026-08-27). The percentile keeps the word; this gets its own.
+    #
+    # "own vs xPts rank" replaced by the two numbers it was derived from. A bare
+    # "-81" told the reader nothing he could act on or check ("for pedro porro
+    # we have -81 own vs xpts i have no clue what it is"); ownership beside the
+    # model's rank lets him make the comparison himself. The gap survives on
+    # data-own-gap for tooling.
+    xpts_rank = ranks.get("xpts_rank")
+    rank_cell = (f'<span>model rank <b>{_ordinal(int(xpts_rank))}</b></span>'
+                 if xpts_rank else f'<span>vs crowd <b>{gap:+d}</b></span>')
     statrow = (
         f'<div class="pc-statrow">'
-        f'<span>ceiling <b>{_fmt(proj.get("ceiling"))}</b></span>'
+        f'<span>top 15% avg <b>{_fmt(proj.get("ceiling"))}</b></span>'
         f'<span>captain EV <b>{_fmt(proj.get("captain_ev"))}</b></span>'
         f'<span>owned <b>{_fmt(payload.get("ownership_pct"), 1)}%</b></span>'
         f'</div>'
         f'<div class="pc-statrow pc-statrow2">'
         f'<span>season <b>{season["total_points"]} pts</b></span>'
         f'{value_cell(payload)}'
-        f'<span>own vs xPts rank <b>{gap:+d}</b></span>'
+        f'{rank_cell}'
         f'</div>')
 
     fx_html = ""
@@ -1173,9 +1263,35 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # (owner 2026-08-26: "We say we don't buy haaland and call him S premium
     # buy"). The model's opinion is the tier; the stance is ours; nothing here
     # tells anyone to buy anything.
+    # The tier badge is already at the top of the card; repeating "tier S ·
+    # Budget" at the bottom was the same fact twice on one face (owner,
+    # 2026-08-27). This line now carries only the thing the badge cannot say:
+    # whether we actually own him.
     verdict_html = (f'<div class="pc-verdict">'
-                    f'{_html.escape(verdict["stance"])} · '
-                    f'tier {verdict["tier"]} · {verdict["price_band"]}</div>')
+                    f'{_html.escape(verdict["stance"])}</div>')
+
+    # THE FOLD. Four of these at full height pushed every article below the
+    # first screen — "the cards are big so noone sees the articles" (owner,
+    # 2026-08-27). The face keeps what answers the question in five seconds:
+    # who, how much, what we project with its bounds, the six-gameweek shape,
+    # and whether we own him. The breakdown, the histogram and the fixture run
+    # move behind a fold, which is exactly where he suggested putting them
+    # ("make them foldable somewhere maybe below the chart").
+    #
+    # Open by default on the player's OWN page: someone who navigated to one
+    # player came for the detail, and a fold there would hide the thing he
+    # asked for. `heading == "h1"` is that page and nothing else.
+    detail_inner = (f'{_decomp_html(proj)}'
+                    f'{_distribution_html(payload)}'
+                    f'{fx_html}')
+    if not detail_inner.strip():
+        detail_html = ""
+    elif heading == "h1":
+        detail_html = f'<div class="pc-detail">{detail_inner}</div>'
+    else:
+        detail_html = (f'<details class="pc-detail pc-fold">'
+                       f'<summary>points breakdown, spread and fixtures'
+                       f'</summary>{detail_inner}</details>')
 
     # No premium slot. It was reserved on 2026-08-24 and removed on 2026-08-26
     # (owner): a lock promising features that do not exist yet is clutter on a
@@ -1200,10 +1316,8 @@ def card_html(payload: dict, heading: str = "h1") -> str:
         f'{news_html}'
         f'{hero_html}'
         f'{sw_html}'
-        f'{_decomp_html(proj)}'
         f'{statrow}'
-        f'{_distribution_html(payload)}'
-        f'{fx_html}'
+        f'{detail_html}'
         f'{verdict_html}'
         f'</figure>')
 
@@ -1288,48 +1402,63 @@ def _card_cell(payload: dict, take: str = "") -> str:
             f'{take_html}</div>')
 
 
-def _card_row(kicker: str, intro: str, cells: list) -> str:
-    return (f'<div class="tcf-block">'
-            f'<div class="tcf-kicker">{_html.escape(kicker)}</div>'
+def _card_row(kicker: str, intro: str, cells: list, lead: bool = False) -> str:
+    """One labelled row of cards.
+
+    The heading used to be 12px tracked-out grey, the same treatment as every
+    other kicker on the site, and sitting above four loud cards it disappeared
+    entirely — "it's hard to see that it's most transferred" (owner,
+    2026-08-27). It is now a real heading with a rule, and `lead` marks the
+    row we want read first.
+    """
+    cls = "tcf-block tcf-lead" if lead else "tcf-block"
+    return (f'<section class="{cls}">'
+            f'<h2 class="tcf-kicker">{_html.escape(kicker)}</h2>'
             f'<p class="tcf-intro">{_html.escape(intro)}</p>'
             f'<div class="tcf-row">{"".join(cells)}</div>'
-            f'</div>')
+            f'</section>')
 
 
 def top_cards_html(payloads: list, count: int = 4) -> str:
     """The FPL landing's opening module: three labelled rows of full card
     faces — what the crowd is buying, what it is dumping, and who we own.
 
-    Rows 1 and 2 carry a generated one-line model take under each card
-    (model_take); row 3 does not, because our own picks need no argument
-    against the crowd. A row with nothing in it is omitted entirely rather
+    Our picks lead, then the two crowd rows, which carry a generated one-line
+    model take under each card (model_take) — our own picks need no argument
+    against the crowd, and putting them first stops the page opening on
+    somebody else's opinion. A row with nothing in it is omitted entirely rather
     than rendered empty. The "Check your player" link sits under the last row.
     """
+    # OUR picks lead. They ran third, behind two rows about what everyone else
+    # is doing, so the page opened on the crowd's opinion and buried the squad
+    # we are publicly accountable for ("our picks should be first and it should
+    # be more visible", owner 2026-08-27). The duel is the product; the crowd
+    # rows are the argument around it.
     blocks = []
+
+    ours = our_picks(payloads, count)
+    if ours:
+        blocks.append(_card_row(
+            "Our picks this gameweek",
+            "The players we actually field, from the squad we publish and "
+            "grade in public every week.",
+            [_card_cell(p) for p in ours], lead=True))
 
     buying = transfer_leaders(payloads, "in", count)
     if buying:
         blocks.append(_card_row(
             "Most transferred in this gameweek",
-            "The four players the crowd is piling into — and what the model "
-            "makes of each move.",
+            "Who the crowd is piling into, and what our model makes of each "
+            "move.",
             [_card_cell(p, model_take(p, "in")) for p in buying]))
 
     selling = transfer_leaders(payloads, "out", count)
     if selling:
         blocks.append(_card_row(
             "Most transferred out this gameweek",
-            "The four being dumped hardest. Where the model disagrees, it "
-            "says so.",
+            "Who is being dumped hardest. Where the model disagrees, it says "
+            "so.",
             [_card_cell(p, model_take(p, "out")) for p in selling]))
-
-    ours = our_picks(payloads, count)
-    if ours:
-        blocks.append(_card_row(
-            "Our picks",
-            "The highest-projected players in the squad we actually publish, "
-            "not a leaderboard.",
-            [_card_cell(p) for p in ours]))
 
     if not blocks:
         return ""
@@ -1393,7 +1522,7 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
     rows = [
         ("Expected points (xPts)", _fmt(proj.get("x_points"))),
         ("Captain EV", _fmt(proj.get("captain_ev"))),
-        ("Ceiling (best 15% of sims)", _fmt(proj.get("ceiling"))),
+        ("Top 15% of sims, average", _fmt(proj.get("ceiling"))),
         ("Projected pts/£m", _fmt(proj.get("value"), 3)),
         ("Expected bonus (per match)", _fmt(proj.get("bonus"))),
         ("DefCon points (per match)", _fmt(proj.get("defcon"))),
@@ -1467,29 +1596,79 @@ Machine-readable at <a href="{jpath}" style="color:var(--greend)">{jpath}</a>.</
                        head_extra=head_extra) + "</body></html>"
 
 
+# Column sorting for the ranked table. Progressive enhancement only: the table
+# ships in model-rank order, which is the order the cards cite, so a reader
+# without JavaScript already has the thing that was missing. Inline because it
+# is nine lines and belongs to exactly one page.
+_INDEX_SORT_JS = """
+<script>
+(function(){
+  var t=document.getElementById('player-index-table'); if(!t) return;
+  var body=t.tBodies[0], rows=[].slice.call(body.rows), state={};
+  t.tHead.addEventListener('click', function(e){
+    var th=e.target.closest('th[data-sort]'); if(!th) return;
+    var key=th.dataset.sort, asc=!state[key];
+    for(var k in state) state[k]=false; state[key]=asc;
+    var num=key!=='name';
+    rows.sort(function(a,b){
+      var x=num?parseFloat(a.dataset[key]):a.dataset.name.toLowerCase();
+      var y=num?parseFloat(b.dataset[key]):b.dataset.name.toLowerCase();
+      return (x<y?-1:x>y?1:0)*(asc?1:-1);
+    });
+    rows.forEach(function(r){ body.appendChild(r); });
+    [].forEach.call(t.tHead.querySelectorAll('th'), function(h){
+      h.classList.remove('pi-sorted','pi-asc'); });
+    th.classList.add('pi-sorted'); if(asc) th.classList.add('pi-asc');
+  });
+})();
+</script>"""
+
+
 def index_page_html(payloads: list, gameweek: int, players_json_url: str,
                     date_str: str = None) -> str:
     """/fpl/players/ — "Check your player": instant client-side search
     (first-party /js/players.js over the bulk players feed) over a no-JS
-    alphabetical table fallback that always renders."""
+    ranked table fallback that always renders — every player in model-rank
+    order, carrying the rank and the points-per-million the cards cite."""
     title = "Check your player — FPL player cards"
     description = ("Search every Premier League player's card: expected "
                    f"points, ceiling, value and verdict tier for Gameweek "
                    f"{gameweek}, from 50,000 Monte-Carlo simulations.")
-    rows = sorted(payloads, key=lambda p: p["slug"].split("-", 1)[-1])
-    trs = "".join(
-        f'<tr><td><a href="{page_path(p["slug"])}" class="nm" '
-        f'style="color:var(--greend)">{_html.escape(p["name"])}</a></td>'
-        f'<td>{_html.escape(p["team"] or "")}</td>'
-        f'<td>{_html.escape(p["position"] or "")}</td>'
-        f'<td><span class="pi-letter">{p["verdict"]["tier"]}</span></td>'
-        f'<td>{_fmt(p["projection"].get("x_points"))}</td>'
-        f'<td>£{_fmt(p["price"], 1)}m</td></tr>'
-        for p in rows)
-    table = (f'<table class="pd-table" id="player-index-table"><thead><tr>'
-             f'<th>Player</th><th>Team</th><th>Pos</th><th>Tier</th>'
-             f'<th>xPts</th><th>Price</th></tr></thead>'
-             f'<tbody>{trs}</tbody></table>')
+    # Ordered by MODEL RANK, not alphabetically. Cards cite "model rank 11th"
+    # and there was nowhere on the site to see the ranking they refer to, and
+    # points per million lived only inside one article's top-N (owner,
+    # 2026-08-27: "can we have top xpts per million ... and a full model rank
+    # somewhere"). Both are columns here now, over every player, and the header
+    # cells sort. Finding one player by name is what the search box is for.
+    rows = sorted(payloads,
+                  key=lambda p: (-(p["projection"].get("x_points") or 0.0),
+                                 p["name"]))
+    trs = []
+    for rank, p in enumerate(rows, start=1):
+        xp = p["projection"].get("x_points") or 0.0
+        price = p["price"] or 0.0
+        per_m = (xp / price) if price else 0.0
+        trs.append(
+            f'<tr data-name="{_html.escape(p["name"])}" data-rank="{rank}" '
+            f'data-xpts="{xp:.4f}" data-perm="{per_m:.4f}">'
+            f'<td class="pi-rank">{rank}</td>'
+            f'<td><a href="{page_path(p["slug"])}" class="nm" '
+            f'style="color:var(--greend)">{_html.escape(p["name"])}</a></td>'
+            f'<td>{_html.escape(p["team"] or "")}</td>'
+            f'<td>{_html.escape(p["position"] or "")}</td>'
+            f'<td><span class="pi-letter">{p["verdict"]["tier"]}</span></td>'
+            f'<td>{_fmt(xp)}</td>'
+            f'<td>{per_m:.2f}</td>'
+            f'<td>£{_fmt(p["price"], 1)}m</td></tr>')
+    table = (f'<table class="pd-table pi-sortable" id="player-index-table">'
+             f'<thead><tr>'
+             f'<th data-sort="rank" class="pi-sorted">#</th>'
+             f'<th data-sort="name">Player</th><th>Team</th><th>Pos</th>'
+             f'<th>Tier</th>'
+             f'<th data-sort="xpts">xPts</th>'
+             f'<th data-sort="perm">pts/£m</th>'
+             f'<th>Price</th></tr></thead>'
+             f'<tbody>{"".join(trs)}</tbody></table>')
 
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     body = f"""<div class="rate-wrap" style="max-width:860px">
@@ -1497,6 +1676,8 @@ def index_page_html(payloads: list, gameweek: int, players_json_url: str,
 <h1>Check your player</h1>
 <p class="stand">Every player's card: this week's projection, ceiling, value
 and a verdict tier — regenerated each gameweek from 50,000 simulations.{byline_date}</p>
+<p class="pi-tablenote">The table below is every player in model-rank order, with
+points per million. Tap a column heading to sort by it.</p>
 {_tier_nav_html(active="index")}
 <form class="pi-search" id="player-search-form" data-players-url="{players_json_url}">
 <input type="search" id="player-search" placeholder="Type a player's name…"
@@ -1507,11 +1688,12 @@ and a verdict tier — regenerated each gameweek from 50,000 simulations.{byline
 </form>
 <div id="player-search-results" aria-live="polite"></div>
 <noscript><div class="rate-noscript" style="background:var(--chipbg);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font-size:13.5px;color:var(--ink2)">Search needs JavaScript
-(self-hosted, no tracking). The full alphabetical table below works without it.</div></noscript>
+(self-hosted, no tracking). The full ranked table below works without it.</div></noscript>
 {table}
 </div>"""
     return (_page_shell(title, description, f"{PLAYERS_BASE}/", body)
             + '\n<script src="/js/players.js" defer></script>'
+            + _INDEX_SORT_JS
             + "</body></html>")
 
 

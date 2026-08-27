@@ -462,7 +462,7 @@ class TestCardHtml(unittest.TestCase):
         _, html = self._card()
         # the mean, now flanked by its floor and ceiling
         self.assertIn('<b>8.00</b><span>xPts</span>', html)
-        self.assertIn('class="pc-verdict">in our XI · tier S · Premium</div>',
+        self.assertIn('class="pc-verdict">we own him, in our XI</div>',
                       html)
 
     def test_news_renders_verbatim_when_present_only(self):
@@ -602,12 +602,18 @@ class TestTopCards(unittest.TestCase):
             rows, by_name, by_id, {}, squad_roles, None, [], {}, 2, "t")
         return payloads
 
-    def test_three_labelled_rows_in_the_owners_order(self):
+    def test_three_labelled_rows_with_our_picks_leading(self):
+        """Our squad first. It ran third, so the page opened on what everyone
+        else was doing and buried the thing we are accountable for (owner,
+        2026-08-27)."""
         html = fpl_players.top_cards_html(self._payloads())
         kickers = re.findall(r'class="tcf-kicker">([^<]+)<', html)
-        self.assertEqual(kickers, ["Most transferred in this gameweek",
-                                   "Most transferred out this gameweek",
-                                   "Our picks"])
+        self.assertEqual(kickers, ["Our picks this gameweek",
+                                   "Most transferred in this gameweek",
+                                   "Most transferred out this gameweek"])
+        self.assertIn("tcf-lead", html)
+        # and the heading is a real heading, not another grey kicker
+        self.assertIn('<h2 class="tcf-kicker">', html)
         self.assertEqual(html.count('class="tcf-row"'), 3)
         # every row names what it is
         self.assertEqual(html.count('class="tcf-intro"'), 3)
@@ -627,15 +633,18 @@ class TestTopCards(unittest.TestCase):
         html = fpl_players.top_cards_html(self._payloads())
         self.assertEqual(html.count("Crowd is buying."), 4)
         self.assertEqual(html.count("Crowd is selling."), 4)
-        # eight takes for eight crowd cards, none under our own picks
+        # eight takes for eight crowd cards, none under our own picks —
+        # our picks now LEAD, so the slice runs to the next row, not to the end
         self.assertEqual(html.count('class="tcf-take"'), 8)
-        picks = html[html.index("Our picks"):]
+        picks = html[html.index("Our picks this gameweek"):
+                     html.index("Most transferred in this gameweek")]
         self.assertNotIn("tcf-take", picks)
 
     def test_check_your_player_sits_under_the_last_row(self):
         html = fpl_players.top_cards_html(self._payloads())
         self.assertIn('href="/fpl/players/"', html)
-        self.assertGreater(html.find("tcf-check"), html.find("Our picks"))
+        self.assertGreater(html.find("tcf-check"),
+                           html.find("Most transferred out this gameweek"))
 
     def test_embedded_faces_use_h2_not_h1(self):
         html = fpl_players.top_cards_html(self._payloads())
@@ -960,7 +969,7 @@ class TestCardConsistency(unittest.TestCase):
                 "season": {"total_points": 8, "realized_ppm": 1.3, "minutes": 90},
                 "ranks": {"own_vs_xpts_gap": 3},
                 "verdict": {"tier": "A", "price_band": "Mid",
-                            "stance": "not in either squad",
+                            "stance": "we do not own him",
                             "rank_call": "buy"},
                 "fixtures": [], "distribution": None, "page": "/fpl/players/1-p/"}
 
@@ -1018,22 +1027,22 @@ class TestStanceReplacesTheCall(unittest.TestCase):
         return {p["name"]: p for p in payloads}
 
     def test_stance_ladder(self):
-        self.assertEqual(fpl_players.squad_stance("XI", None), "in our XI")
+        self.assertEqual(fpl_players.squad_stance("XI", None), "we own him, in our XI")
         self.assertEqual(fpl_players.squad_stance("Bench", None),
-                         "on our bench")
+                         "we own him, on our bench")
         self.assertEqual(fpl_players.squad_stance(None, "XI"),
-                         "in the consensus XI")
+                         "the consensus squad owns him, we do not")
         self.assertEqual(fpl_players.squad_stance(None, "Bench"),
-                         "on the consensus bench")
+                         "on the consensus bench, we do not own him")
         self.assertEqual(fpl_players.squad_stance(None, None),
-                         "not in either squad")
+                         "we do not own him")
 
     def test_our_squad_outranks_the_reference_squad(self):
         """A player in both is described by OUR position — the site's own team
         is the claim it is entitled to make."""
-        self.assertEqual(fpl_players.squad_stance("XI", "XI"), "in our XI")
+        self.assertEqual(fpl_players.squad_stance("XI", "XI"), "we own him, in our XI")
         self.assertEqual(fpl_players.squad_stance("Bench", "XI"),
-                         "on our bench")
+                         "we own him, on our bench")
 
     def test_a_player_in_neither_squad_never_renders_the_word_buy(self):
         """THE acceptance test. Haaland is tier S and Premium and in neither
@@ -1045,18 +1054,20 @@ class TestStanceReplacesTheCall(unittest.TestCase):
         for html in (fpl_players.card_html(haaland),
                      fpl_players.player_page_html(haaland, 2)):
             self.assertNotIn("buy", html.lower())
-            self.assertIn("not in either squad", html)
+            self.assertIn("we do not own him", html)
 
     def test_a_player_in_our_xi_renders_in_our_xi(self):
         starter = self._payloads()["Starter"]
         html = fpl_players.card_html(starter)
-        self.assertIn('class="pc-verdict">in our XI · tier', html)
-        self.assertIn('data-stance="in our XI"', html)
+        self.assertIn('class="pc-verdict">we own him, in our XI', html)
+        self.assertIn('data-stance="we own him, in our XI"', html)
 
     def test_every_stance_reaches_the_card_face(self):
-        want = {"Haaland": "not in either squad", "Starter": "in our XI",
-                "Benched": "on our bench", "ConsXI": "in the consensus XI",
-                "ConsBench": "on the consensus bench"}
+        want = {"Haaland": "we do not own him",
+                "Starter": "we own him, in our XI",
+                "Benched": "we own him, on our bench",
+                "ConsXI": "the consensus squad owns him, we do not",
+                "ConsBench": "on the consensus bench, we do not own him"}
         payloads = self._payloads()
         for name, stance in want.items():
             self.assertEqual(payloads[name]["verdict"]["stance"], stance, name)
@@ -1077,13 +1088,13 @@ class TestStanceReplacesTheCall(unittest.TestCase):
     def test_the_page_keeps_the_model_and_our_position_apart(self):
         html = fpl_players.player_page_html(self._payloads()["Benched"], 2)
         self.assertIn("<td>Model tier</td>", html)
-        self.assertIn("<td>Our position</td><td>on our bench</td>", html)
+        self.assertIn("<td>Our position</td><td>we own him, on our bench</td>", html)
         self.assertIn("Currently in the bench of our squad.", html)
 
     def test_the_consensus_bench_is_not_described_as_the_consensus_xi(self):
         html = fpl_players.player_page_html(self._payloads()["ConsBench"], 2)
-        self.assertIn("on the consensus bench", html)
-        self.assertNotIn("in the consensus XI", html)
+        self.assertIn("on the consensus bench, we do not own him", html)
+        self.assertNotIn("the consensus squad owns him, we do not", html)
 
 
 class TestHeroBounds(unittest.TestCase):
@@ -1149,3 +1160,72 @@ class TestValueCell(unittest.TestCase):
         html = fpl_players.card_html(payloads[0])
         self.assertIn("<span>value <b>0.80 pts/£m</b></span>", html)
         self.assertNotIn("so far", html)
+
+
+class TestRankedIndex(unittest.TestCase):
+    """/fpl/players/ answers two questions the cards raised and never answered.
+
+    A card says "model rank 11th" and points per million lived only inside the
+    efficiency article's top-N, so neither the full ranking nor the value
+    column existed anywhere a reader could reach (owner, 2026-08-27: "can we
+    have top xpts per million ... and a full model rank somewhere").
+    """
+
+    def _payloads(self):
+        out = []
+        for i, (name, xp, price) in enumerate(
+                [("Cheap", 6.0, 4.0), ("Best", 9.0, 12.0), ("Mid", 7.0, 7.0)]):
+            out.append({
+                "id": i, "slug": f"{i}-{name.lower()}", "name": name,
+                "team": "LIV", "position": "MID", "price": price,
+                "gameweek": 2, "status": "a",
+                "projection": {"x_points": xp, "ceiling": xp * 2,
+                               "captain_ev": xp * 2},
+                "season": {"total_points": 0, "minutes": 0},
+                "ranks": {"own_vs_xpts_gap": 0, "xpts_rank": i + 1},
+                "verdict": {"tier": "A", "price_band": "Mid",
+                            "stance": "we do not own him"},
+                "ownership_pct": 1.0, "fixtures": [], "distribution": {},
+            })
+        return out
+
+    def _html(self):
+        return fpl_players.index_page_html(
+            self._payloads(), 2, "/api/fpl/gw2/players.json")
+
+    def test_the_table_is_in_model_rank_order(self):
+        html = self._html()
+        order = re.findall(r'data-name="([^"]+)"', html)
+        self.assertEqual(order, ["Best", "Mid", "Cheap"])
+
+    def test_every_row_carries_its_rank(self):
+        html = self._html()
+        self.assertIn('data-rank="1"', html)
+        self.assertIn('data-rank="3"', html)
+        self.assertIn('<td class="pi-rank">1</td>', html)
+
+    def test_points_per_million_is_a_column(self):
+        html = self._html()
+        self.assertIn("pts/£m", html)
+        # Cheap: 6.0 over £4.0m
+        self.assertIn('data-perm="1.5000"', html)
+        self.assertIn("<td>1.50</td>", html)
+
+    def test_a_free_player_does_not_divide_by_zero(self):
+        payloads = self._payloads()
+        payloads[0]["price"] = 0
+        html = fpl_players.index_page_html(payloads, 2, "/x.json")
+        self.assertIn('data-perm="0.0000"', html)
+
+    def test_the_columns_that_sort_say_so(self):
+        html = self._html()
+        for key in ("rank", "name", "xpts", "perm"):
+            self.assertIn(f'data-sort="{key}"', html)
+
+    def test_sorting_is_enhancement_not_a_requirement(self):
+        """No-JS readers still get the ranking — it is the default order."""
+        html = self._html()
+        head = html.index("<tbody>")
+        self.assertLess(html.index('data-name="Best"'),
+                        html.index('data-name="Cheap"'))
+        self.assertGreater(head, 0)
