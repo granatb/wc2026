@@ -134,6 +134,31 @@ Principle: **the engine is the product; everything else is distribution.**
 | Distributions-over-rankings philosophy | 🟡 partial — ceiling_ratio/"Safe floor" chips; validated by R3 grades (aggregates calibrated, rankings noisy) |
 | Bayesian in-tournament updating / hierarchical player priors / DR minute-sim | ⬜ backlog (L-sized) |
 
+### Known model gap: a transfer changes role, not skill (found 2026-08-27)
+
+The minutes model weights last season's sample by its match count. That is right
+for a player who stayed put and wrong for one who moved: M.Sangaré's record was
+1 start in 38 at his old club, so 38 matches of "fringe" outvoted one match of
+"started for Brentford" by 38 to 1 and the model called him a 7% starter — a
+card reading 5.0 xPts for GW2 and 0.4 for every week after.
+
+The fix worth building: SKILL persists across a transfer, ROLE does not. Scoring
+and defensive rates should carry over; the start rate should be discounted hard
+when the club changed, falling back toward the price prior and letting the new
+club's matches speak. Promotion and a new manager are the same problem in
+weaker form.
+
+Blocked on data we do not keep: `history_past` carries no club, so we cannot
+currently tell a mover from a stayer in the historical sample. The cheap way in
+is to start recording each player's club alongside the preseason snapshot and
+let `core/fpl_diff`'s existing club-move detection mark them, which costs one
+field a season and makes the discount computable from next rollover onward.
+
+Until then a `from_round:` research note is the manual override, and every
+mid-window signing needs one. That is a knowledge-layer patch over a model gap,
+which is exactly the arrangement the credibility engine says to make visible
+rather than quiet.
+
 ## 10. Build backlog (priority order)
 
 1. Backtesting harness + `/track-record/` page (§7)
