@@ -17,6 +17,10 @@ the engine's existing `prior_share` blend slot. If props ever appear, the engine
 
 from __future__ import annotations
 
+import contextlib
+import json
+import os
+
 import collections
 
 import config
@@ -46,37 +50,61 @@ def availability_factor(player: dict) -> float:
 
 # Fallback expected minutes when a player has no history to measure.
 _DEFAULT_EXP_MINUTES = 70.0
+PRESEASON_MATCHES = 38       # the snapshot's sample size
 _DEFAULT_START_PROB = 0.25   # unknown player: assume a squad role, not a starter
 
 
 def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
-    """(start_prob, exp_minutes) for one player.
+    """(start_prob, exp_minutes) for one player, blending history with this season.
 
-    start_prob is the observed start rate over `team_matches`, then multiplied by
-    FPL's availability signal. exp_minutes is minutes-per-start, which separates a
-    90-minute nailed starter from a player who starts but is routinely withdrawn,
-    and drops toward a cameo figure for players who mostly come off the bench.
+    start_rate is the observed start rate, then multiplied by FPL's availability
+    signal. exp_minutes is minutes-per-start, which separates a 90-minute nailed
+    starter from one who is routinely withdrawn, and drops toward a cameo figure
+    for players who mostly come off the bench.
 
-    `team_matches` is how many matches the sample covers — 38 for a full prior
-    season, or matches played so far once the new season is under way.
+    `team_matches` is how many matches THIS SEASON's sample covers — 1 after
+    gameweek 1, not 38.
+
+    THE BUG THIS EXISTS TO PREVENT (2026-08-27): the live feed's `starts` and
+    `minutes` reset at the season rollover. Dividing this season's 1 start by a
+    hardcoded 38 collapsed every player to a ~2.6% start probability, so the only
+    players left standing in the order book were the ones carrying a research
+    note — the model was silently ranking by "who did Claude write about", not by
+    football. The preseason snapshot (38 games) is blended in by minutes exactly
+    as the scoring rates are, so August leans on last season and the live sample
+    takes over as it grows.
     """
-    starts = player.get("starts") or 0
-    minutes = player.get("minutes") or 0
+    live_starts = player.get("starts") or 0
+    live_minutes = player.get("minutes") or 0
     gate = availability_factor(player)
 
-    if team_matches <= 0 or (starts == 0 and minutes == 0):
+    hist = preseason_rates().get(str(player.get("id"))) or {}
+    hist_starts = hist.get("starts") or 0
+    hist_minutes = hist.get("minutes") or 0
+    hist_matches = PRESEASON_MATCHES if hist_minutes else 0
+
+    if (team_matches <= 0 or (live_starts == 0 and live_minutes == 0)) and not hist_minutes:
         return _DEFAULT_START_PROB * gate, _DEFAULT_EXP_MINUTES
 
-    start_rate = min(1.0, starts / float(team_matches))
+    live_rate = (min(1.0, live_starts / float(team_matches))
+                 if team_matches > 0 else 0.0)
+    hist_rate = (min(1.0, hist_starts / float(hist_matches))
+                 if hist_matches > 0 else 0.0)
+    start_rate = blend_rate(hist_rate, hist_minutes, live_rate, live_minutes)
 
-    if starts > 0:
-        exp_minutes = min(90.0, minutes / float(starts))
+    total_starts = hist_starts + live_starts
+    total_minutes = hist_minutes + live_minutes
+    total_matches = hist_matches + max(0, team_matches)
+    if total_starts > 0:
+        exp_minutes = min(90.0, total_minutes / float(total_starts))
+    elif total_matches > 0:
+        # Never started in either sample: a substitute. Spread the minutes over
+        # the appearances we can infer, floored so the sim still gives him time.
+        exp_minutes = max(15.0, min(59.0, total_minutes / float(total_matches)))
     else:
-        # Never started in the sample: a substitute. Spread the minutes over the
-        # appearances we can infer, floored so the sim still gives him some time.
-        exp_minutes = max(15.0, min(59.0, minutes / float(team_matches)))
+        exp_minutes = _DEFAULT_EXP_MINUTES
 
-    return start_rate * gate, exp_minutes
+    return min(1.0, start_rate) * gate, exp_minutes
 
 
 def needs_cold_start(player: dict) -> bool:
@@ -104,11 +132,81 @@ def price_prior_xa(player: dict) -> float:
     return _price_scaled(player, config.FPL_COLD_START_XA90)
 
 
+_PRESEASON_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "evmax", "assets", "preseason_rates.json")
+_preseason_cache: dict = {}
+
+
+def preseason_rates() -> dict:
+    """{element_id: {rate fields, minutes}} as the feed carried them pre-GW1.
+
+    Once the season starts, bootstrap-static's per-90 fields describe the CURRENT
+    season only — a one- or two-game sample. Read literally that is noise: after
+    gameweek 1 it projected De Cuyper at 11.97 xPts off a single goal while
+    B.Fernandes, on 3,065 minutes of elite history, fell to 5.83. This snapshot is
+    the season's only surviving record of the 38-game sample, so it is committed
+    and never regenerated.
+    """
+    if not _preseason_cache:
+        try:
+            with open(_PRESEASON_PATH, encoding="utf-8") as fh:
+                _preseason_cache.update(json.load(fh).get("rates") or {})
+        except (OSError, ValueError):
+            _preseason_cache["_missing"] = True
+    return _preseason_cache
+
+
+@contextlib.contextmanager
+def preseason_rates_override(rates: dict):
+    """Swap the preseason snapshot for the duration of a block.
+
+    Tests build synthetic players, and a synthetic id collides with a real one:
+    a fixture player carrying `id: 1` silently inherited a real footballer's
+    38-game career and every minutes assertion moved. Anything asserting on
+    history must state the history it wants.
+    """
+    global _preseason_cache
+    saved = _preseason_cache
+    _preseason_cache = dict(rates) or {"_missing": True}
+    try:
+        yield
+    finally:
+        _preseason_cache = saved
+
+
+def blend_rate(hist_value, hist_minutes, live_value, live_minutes) -> float:
+    """Minutes-weighted blend of last season's rate and this season's.
+
+    Early in a season the live sample is tiny and the history should dominate;
+    by the run-in the live sample is the truth. Weighting by minutes does that
+    automatically with no schedule to tune: at GW2 a 90-minute sample carries
+    90/3155 of the weight, and it crosses over naturally as the season runs.
+    """
+    hm = max(0.0, float(hist_minutes or 0))
+    lm = max(0.0, float(live_minutes or 0))
+    hv, lv = float(hist_value or 0.0), float(live_value or 0.0)
+    if hm + lm <= 0:
+        return lv
+    return (hv * hm + lv * lm) / (hm + lm)
+
+
 def _rates(player: dict) -> tuple[float, float]:
-    """(xg_per90, xa_per90), falling back to the price prior with no history."""
-    if needs_cold_start(player):
+    """(xg_per90, xa_per90) — history blended with the live season by minutes.
+
+    Falls back to the price prior only when there is no history ANYWHERE (a
+    genuine cold start), not merely when this season's sample is empty.
+    """
+    hist = preseason_rates().get(str(player.get("id"))) or {}
+    hist_minutes = hist.get("minutes") or 0
+    live_minutes = player.get("minutes") or 0
+    if hist_minutes <= 0 and needs_cold_start(player):
         return price_prior_xg(player), price_prior_xa(player)
-    return player.get("xg_per90") or 0.0, player.get("xa_per90") or 0.0
+    xg = blend_rate(hist.get("expected_goals_per_90"), hist_minutes,
+                    player.get("xg_per90"), live_minutes)
+    xa = blend_rate(hist.get("expected_assists_per_90"), hist_minutes,
+                    player.get("xa_per90"), live_minutes)
+    return xg, xa
 
 
 def _disambiguate_names(players: list[dict]) -> None:
@@ -236,7 +334,12 @@ def build_with_flags(players: list[dict], team_matches: int,
         for p in squad:
             start_prob, exp_minutes = minutes_model(p, team_matches)
             xg90, xa90 = _rates(p)
-            if needs_cold_start(p):
+            # A genuine cold start now means no history ANYWHERE — a player
+            # with a preseason sample blends (see _rates) and must not be
+            # reported as priced off his cost alone, or the operator warning
+            # cries wolf about 300 players who are fine.
+            if (not (preseason_rates().get(str(p.get("id"))) or {}).get("minutes")
+                    and needs_cold_start(p)):
                 flags.append({"name": p["name"], "team": team,
                               "reason": "no_pl_history"})
             weighted.append((p, start_prob, exp_minutes, xg90, xa90))

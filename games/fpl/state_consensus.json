@@ -1,131 +1,142 @@
 {
- "team_name": "The Consensus XI",
- "strategy": "consensus",
- "free_transfers": 1,
- "chips_used": [
-  "wildcard"
- ],
- "method_note": "Rebuilt for gameweek 2 as the most-owned legal template: top selected_by_percent per position from the official bootstrap, greedily legalised under budget, quota and club cap; captain = highest-owned premium (>= 10.0m), vice next. This rebuild is the squad's declared Wildcard; the GW1 expert mention-tally method is retired. GW1 is graded as published.",
- "squad": [
-  {
-   "name": "Raya",
-   "position": "GK",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Calafiori",
-   "position": "DEF",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "O'Reilly",
-   "position": "DEF",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Shaw",
-   "position": "DEF",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Szoboszlai",
-   "position": "MID",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Mbeumo",
-   "position": "MID",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Tzolis",
-   "position": "MID",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Rogers",
-   "position": "MID",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Haaland",
-   "position": "FWD",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": true,
-   "is_vice": false
-  },
-  {
-   "name": "Jo\u00e3o Pedro",
-   "position": "FWD",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": true
-  },
-  {
-   "name": "Calvert-Lewin",
-   "position": "FWD",
-   "is_starter": true,
-   "bench_order": null,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Kinsky",
-   "position": "GK",
-   "is_starter": false,
-   "bench_order": 1,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Gu\u00e9hi",
-   "position": "DEF",
-   "is_starter": false,
-   "bench_order": 2,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Diop",
-   "position": "DEF",
-   "is_starter": false,
-   "bench_order": 3,
-   "is_captain": false,
-   "is_vice": false
-  },
-  {
-   "name": "Slater",
-   "position": "MID",
-   "is_starter": false,
-   "bench_order": 4,
-   "is_captain": false,
-   "is_vice": false
-  }
- ]
+  "team_name": "The Consensus XI",
+  "strategy": "consensus",
+  "free_transfers": 1,
+  "chips_used": [
+    "wildcard"
+  ],
+  "method_note": "Rebuilt for gameweek 2 as the most-owned legal template: top selected_by_percent per position from the official bootstrap, greedily legalised under budget, quota and club cap; captain = highest-owned premium (>= 10.0m), vice next. This rebuild is the squad's declared Wildcard; the GW1 expert mention-tally method is retired. GW1 is graded as published.",
+  "squad": [
+    {
+      "name": "Raya",
+      "position": "GK",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 6.0
+    },
+    {
+      "name": "Calafiori",
+      "position": "DEF",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 5.5
+    },
+    {
+      "name": "O'Reilly",
+      "position": "DEF",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false
+    },
+    {
+      "name": "Shaw",
+      "position": "DEF",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 4.5
+    },
+    {
+      "name": "Szoboszlai",
+      "position": "MID",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 7.0
+    },
+    {
+      "name": "Mbeumo",
+      "position": "MID",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 8.0
+    },
+    {
+      "name": "Tzolis",
+      "position": "MID",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false
+    },
+    {
+      "name": "Rogers",
+      "position": "MID",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false
+    },
+    {
+      "name": "Haaland",
+      "position": "FWD",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": true,
+      "is_vice": false,
+      "bought_at": 15.5
+    },
+    {
+      "name": "João Pedro",
+      "position": "FWD",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": true,
+      "bought_at": 7.5
+    },
+    {
+      "name": "Calvert-Lewin",
+      "position": "FWD",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 6.0
+    },
+    {
+      "name": "Kinsky",
+      "position": "GK",
+      "is_starter": false,
+      "bench_order": 1,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 4.5
+    },
+    {
+      "name": "Guéhi",
+      "position": "DEF",
+      "is_starter": false,
+      "bench_order": 2,
+      "is_captain": false,
+      "is_vice": false
+    },
+    {
+      "name": "Diop",
+      "position": "DEF",
+      "is_starter": false,
+      "bench_order": 3,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 4.0
+    },
+    {
+      "name": "Slater",
+      "position": "MID",
+      "is_starter": false,
+      "bench_order": 4,
+      "is_captain": false,
+      "is_vice": false
+    }
+  ],
+  "aliases": {}
 }

@@ -602,10 +602,15 @@ def load_gameweek(gameweek: int, refresh: bool = False):
         print(f"  [fpl] market lambdas applied to {priced} fixture(s) "
               f"(odds captured {odds.get('captured_at', 'unknown')})")
 
-    # team_matches: how many matches the per-90 sample covers. Preseason the feed
-    # carries last season's totals, so a full 38. Once the season starts this should
-    # become matches played so far -- tracked by the caller as history accumulates.
-    team_matches = 38
+    # team_matches: how many matches THIS SEASON's live sample covers. Preseason
+    # the feed carried last season's totals and 38 was right; the moment the
+    # season rolled over, `starts` and `minutes` reset and 38 became a divisor
+    # that crushed every start probability to a few percent (2026-08-27: zero
+    # forwards cleared the 0.75 minutes floor, and the order book silently
+    # ranked players by whether they had a research note). It is now the count
+    # of FINISHED gameweeks, and fpl_priors blends the preseason snapshot in by
+    # minutes so August still leans on last season.
+    team_matches = sum(1 for e in events.values() if e.get("finished")) or 0
     priors_by_team, flags = fpl_priors.build_with_flags(
         players, team_matches, defcon_backfill=defcon_backfill)
     return priors_by_team, {p["name"]: p for p in players}, flags

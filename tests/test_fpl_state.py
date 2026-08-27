@@ -366,7 +366,11 @@ class TestRealStateFiles(unittest.TestCase):
             os.path.join(self._root(), "games", "fpl", "state.json"),
             self.players)
         self.assertEqual(out["strategy"], "model")
+        # What we paid is a fact about GW1 and must not move when prices do.
+        # Watkins fell 0.1 after GW1, which briefly made this squad "cost" 99.9
+        # and failed a test for no footballing reason.
         self.assertEqual(out["total_cost"], 100.0)
+        self.assertNotEqual(out["squad_value"], out["total_cost"])
         cap = next(e for e in out["squad"] if e["is_captain"])
         vice = next(e for e in out["squad"] if e["is_vice"])
         self.assertEqual(cap["name"], "B.Fernandes")

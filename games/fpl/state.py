@@ -106,7 +106,10 @@ def validate_state(state: dict, players: list) -> dict:
 
     players: core.fpl_api.parse_players output (dicts with name/team/position/
     price at minimum). Returns a new state dict whose squad entries additionally
-    carry `team` and `price` from the bootstrap, plus a top-level `total_cost`.
+    carry `team` and `price` from the bootstrap plus `bought_at` (what we paid,
+    defaulting to today's price for a squad picked today), and the top level
+    carries `total_cost` (purchase basis, the figure the budget is checked
+    against) and `squad_value` (today's prices, reported only).
 
     Raises ValueError naming the first problem found. Checks, in order:
     schema shape, name resolution (exact web_names), position quota, club cap,
@@ -169,6 +172,13 @@ def validate_state(state: dict, players: list) -> dict:
         e = dict(entry)
         e["team"] = player["team"]
         e["price"] = player["price"]
+        # `bought_at` is what we actually paid. FPL charges you the price on the
+        # day you bought, and prices move every night, so a squad's legality is
+        # a fact about the past that today's feed cannot re-litigate. Without it
+        # the GW1 squad "cost" 99.9m one week and something else the next, and a
+        # test pinning 100.0 failed for no footballing reason. Squads picked
+        # fresh at today's prices default to those prices.
+        e.setdefault("bought_at", player["price"])
         enriched.append(e)
 
     # --- Squad-level legality ------------------------------------------------
@@ -183,10 +193,13 @@ def validate_state(state: dict, players: list) -> dict:
     over = {t: c for t, c in clubs.items() if c > MAX_PER_CLUB}
     if over:
         raise ValueError(f"club cap of {MAX_PER_CLUB} violated: {over}")
-    total_cost = round(sum(e["price"] for e in enriched), 1)
+    total_cost = round(sum(e["bought_at"] for e in enriched), 1)
     if total_cost > SQUAD_BUDGET:
         raise ValueError(f"squad costs {total_cost}m — over the "
                          f"{SQUAD_BUDGET}m budget")
+    # What the squad would fetch today, which is a different number and only
+    # ever reported, never used for legality.
+    squad_value = round(sum(e["price"] for e in enriched), 1)
 
     # --- XI legality -----------------------------------------------------------
     xi = [e for e in enriched if e["is_starter"]]
@@ -233,6 +246,7 @@ def validate_state(state: dict, players: list) -> dict:
     out = dict(state)
     out["squad"] = enriched
     out["total_cost"] = total_cost
+    out["squad_value"] = squad_value
     out["free_transfers"] = state.get("free_transfers", 1)
     out["chips_used"] = list(state.get("chips_used", []))
     return out

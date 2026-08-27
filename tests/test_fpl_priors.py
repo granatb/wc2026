@@ -4,6 +4,26 @@ import config
 from core import fpl_priors, ratings
 
 
+def setUpModule():
+    """Synthetic fixtures must not inherit real players' careers.
+
+    `_player` hands out `id: 1`, which is a real footballer in the preseason
+    snapshot. Once minutes_model started blending that snapshot in, three tests
+    began asserting against a stranger's 38-game season instead of the numbers
+    written into the fixture. Tests that want history install it explicitly.
+    """
+    global _no_history
+    _no_history = fpl_priors.preseason_rates_override({})
+    _no_history.__enter__()
+
+
+def tearDownModule():
+    _no_history.__exit__(None, None, None)
+
+
+_no_history = None
+
+
 def _player(**kw):
     base = {
         "id": 1, "name": "Test", "full_name": "Test Player", "team": "LIV",
@@ -92,6 +112,32 @@ class TestMinutesModel(unittest.TestCase):
         p = _player(minutes=3000, starts=34, status="i")
         sp, _mins = fpl_priors.minutes_model(p, team_matches=38)
         self.assertEqual(sp, 0.0)
+
+    def test_nailed_starter_survives_the_season_rollover(self):
+        """The GW2 bug: one start out of a 38-match divisor read as 2.6%.
+
+        At the rollover the feed's `starts`/`minutes` reset to this season, so a
+        nailed starter looked like a fringe player and no forward cleared the
+        0.75 minutes floor -- the squad builder could not fill an XI, and the
+        order book quietly ranked by "has a research note" instead of football.
+        """
+        p = _player(minutes=90, starts=1, id=4242)
+        history = {"4242": {"starts": 34, "minutes": 3000}}
+        with fpl_priors.preseason_rates_override(history):
+            sp, mins = fpl_priors.minutes_model(p, team_matches=1)
+        self.assertGreater(sp, 0.75)
+        self.assertGreater(mins, 80)
+
+    def test_live_sample_outweighs_history_as_it_accumulates(self):
+        """A dropped starter must not hide behind last season forever."""
+        history = {"4242": {"starts": 34, "minutes": 3000}}
+        benched = _player(minutes=0, starts=0, id=4242)
+        with fpl_priors.preseason_rates_override(history):
+            early, _ = fpl_priors.minutes_model(benched, team_matches=2)
+            late, _ = fpl_priors.minutes_model(
+                _player(minutes=200, starts=1, id=4242), team_matches=20)
+        self.assertGreater(early, 0.8)      # two blanks barely move a full season
+        self.assertLess(late, early)        # 20 matches of evidence does
 
     def test_no_history_falls_back_without_dividing_by_zero(self):
         p = _player(minutes=0, starts=0)
@@ -362,3 +408,46 @@ class TestDefconShrinkage(unittest.TestCase):
             gap = abs(observed - rate)
             self.assertLessEqual(gap, prev_gap + 1e-9)
             prev_gap = gap
+
+
+class TestHistoryBlend(unittest.TestCase):
+    """Once the season starts, bootstrap's per-90 fields describe the CURRENT
+    season only. After gameweek 1 that is a one-game sample: read literally it
+    projected De Cuyper at 11.97 xPts off a single goal while B.Fernandes, on
+    3,065 minutes of elite history, fell to 5.83. Rates are therefore blended
+    with the committed preseason snapshot, weighted by minutes."""
+
+    def test_blend_is_minutes_weighted(self):
+        # 3000 historical minutes at 0.50, 90 live minutes at 2.00
+        out = fpl_priors.blend_rate(0.50, 3000, 2.00, 90)
+        self.assertAlmostEqual(out, (0.50 * 3000 + 2.00 * 90) / 3090, places=9)
+        self.assertLess(out, 0.60)      # history dominates in August
+
+    def test_live_sample_takes_over_as_it_grows(self):
+        early = fpl_priors.blend_rate(0.50, 3000, 2.00, 90)
+        late = fpl_priors.blend_rate(0.50, 3000, 2.00, 3000)
+        self.assertGreater(late, early)
+        self.assertAlmostEqual(late, 1.25, places=9)
+
+    def test_no_history_and_no_live_returns_the_live_value(self):
+        self.assertEqual(fpl_priors.blend_rate(None, 0, 0.4, 0), 0.4)
+
+    def test_rates_blend_when_the_snapshot_has_the_player(self):
+        from unittest import mock
+        snapshot = {"426": {"expected_goals_per_90": 0.30,
+                            "expected_assists_per_90": 0.40, "minutes": 3000}}
+        player = {"id": 426, "minutes": 90, "xg_per90": 3.0, "xa_per90": 0.0,
+                  "now_cost": 120, "element_type": 3, "starts": 1}
+        with mock.patch.object(fpl_priors, "_preseason_cache", snapshot):
+            xg, xa = fpl_priors._rates(player)
+        self.assertLess(xg, 0.4)        # the one-game spike is damped, not obeyed
+        self.assertGreater(xg, 0.29)
+        self.assertGreater(xa, 0.38)    # and history is not thrown away
+
+    def test_genuine_cold_start_still_uses_the_price_prior(self):
+        from unittest import mock
+        player = {"id": 99999, "minutes": 0, "xg_per90": 0.0, "xa_per90": 0.0,
+                  "now_cost": 100, "element_type": 4, "starts": 0}
+        with mock.patch.object(fpl_priors, "_preseason_cache", {"_missing": True}):
+            xg, _ = fpl_priors._rates(player)
+        self.assertGreater(xg, 0.0)     # priced prior, not a zero
