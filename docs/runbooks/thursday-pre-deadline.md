@@ -14,7 +14,14 @@ clears or confirms each flag actually happens.
 
 ```bash
 python3 -c "from games.fpl import model as m; m.load_gameweek(N, refresh=True)"
+python3 manage.py fpl --round N --form-history
 ```
+
+`--form-history` fills `data/fpl/form_history.json`, the per-gameweek points
+behind every card's played dots. It had a reader and no writer until
+2026-08-27, so for two gameweeks every card on the site showed projections
+only and no realized results at all. Incremental — an already-current cache
+costs no requests.
 
 Re-captures `data/fpl/bootstrap.json`, `fixtures.json` and `odds_gw{N}.json`
 (current market lines — these beat every estimate). First run of a season also
