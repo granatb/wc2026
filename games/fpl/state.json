@@ -36,7 +36,7 @@
       "name": "Tarkowski",
       "position": "DEF",
       "is_starter": false,
-      "bench_order": 3,
+      "bench_order": 2,
       "is_captain": false,
       "is_vice": false,
       "bought_at": 6.0
@@ -60,19 +60,19 @@
       "bought_at": 6.0
     },
     {
-      "name": "Gakpo",
+      "name": "Gibbs-White",
       "position": "MID",
-      "is_starter": true,
-      "bench_order": null,
+      "is_starter": false,
+      "bench_order": 3,
       "is_captain": false,
-      "is_vice": true,
-      "bought_at": 7.0
+      "is_vice": false,
+      "bought_at": 8.0
     },
     {
       "name": "E.Le Fée",
       "position": "MID",
-      "is_starter": false,
-      "bench_order": 2,
+      "is_starter": true,
+      "bench_order": null,
       "is_captain": false,
       "is_vice": false,
       "bought_at": 6.0
@@ -83,7 +83,7 @@
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
-      "is_vice": false,
+      "is_vice": true,
       "bought_at": 7.0
     },
     {
@@ -141,5 +141,5 @@
       "bought_at": 4.5
     }
   ],
-  "bank": 2.9
+  "bank": 1.9
 }
