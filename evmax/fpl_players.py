@@ -440,8 +440,11 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
             },
             "six_week_xpts": sw,
             "form_history": form_by_id.get(pid, []),
+            # limit=5: the timeline projects up to five gameweeks and every
+            # projected dot should carry its opponent on the axis — at 4 the
+            # last dot sat over a blank.
             "fixtures": fixture_strip(r.get("team"), gameweek, fx_rows,
-                                      odds_by_gw),
+                                      odds_by_gw, limit=5),
             "squads": {
                 "model": model_role is not None,
                 "consensus": consensus_role is not None,
@@ -548,7 +551,7 @@ CARD_CSS = (
     # form art: the dot timeline — played gameweeks, then projected ones.
     # pc-form is min-height'd so a player with neither (an empty band) keeps
     # the same card height as one with both, and a row of cards stays level.
-    ".player-card .pc-form{margin:0;min-height:78px;min-width:0}"
+    ".player-card .pc-form{margin:8px 0 0;min-height:90px;min-width:0}"
     ".player-card .pc-dots{height:52px}"
     ".player-card .pc-dots svg{display:block;width:100%;height:52px}"
     ".player-card .pc-dots-empty{display:flex;align-items:center;"
@@ -594,16 +597,16 @@ CARD_CSS = (
     ".player-card .pcl-row:first-child{border-top:0}"
     ".player-card .pcl-k{color:var(--ink3)}"
     ".player-card .pcl-row b{font-weight:800;color:var(--ink)}"
-    # The middle band: dot timeline left, next-4 fixtures stacked right.
-    ".player-card .pc-mid{display:grid;grid-template-columns:1fr 96px;"
-    "gap:12px;align-items:start;margin:8px 0 0}"
-    ".player-card .pc-fxcol{display:flex;flex-direction:column;gap:4px}"
-    ".player-card .pc-midcap{grid-column:1/-1;margin-top:0}"
-    ".player-card .pc-fxcol-empty{align-items:center;justify-content:center;"
-    "min-height:60px;border:1px dashed var(--line);border-radius:8px}"
-    ".player-card .pc-fxcol-empty span{font-size:10px;color:var(--ink3)}"
-    # fixture chips, difficulty tinted (green = easy per lambda, warm = hard,
-    # gray + dashed = unpriced)
+    # The opponent row on the timeline's axis: CAPS home / lowercase away,
+    # tinted by the same difficulty scale the chips carried.
+    ".player-card .pc-dotopps{display:grid;margin-top:1px}"
+    ".player-card .pc-dotopps span{font-size:9.5px;font-weight:800;"
+    "letter-spacing:.4px;color:var(--ink2);text-align:center;"
+    "overflow:hidden;text-overflow:clip;white-space:nowrap}"
+    ".player-card .fxa-d1,.player-card .fxa-d2{color:var(--greend)}"
+    ".player-card .fxa-d4,.player-card .fxa-d5{color:#a8331c}"
+    ".player-card .fxa-unpriced{color:var(--ink3);font-weight:600}"
+    # legacy fixture chips (still used by article pages that embed strips)
     ".player-card .fx{display:flex;align-items:baseline;"
     "justify-content:space-between;gap:6px;"
     "font-size:10.5px;font-weight:700;border-radius:7px;padding:3px 8px;"
@@ -878,6 +881,31 @@ def _dots_html(payload: dict) -> str:
     labels = "".join(
         f'<span>{"GW" if i == 0 else ""}{d["gw"]}</span>'
         for i, d in enumerate(dots))
+
+    # The opponent under each dot ("team names could be under the dots on X
+    # axis", owner 2026-08-27). Each projected dot IS a fixture, so the axis
+    # names it right where it acts, in the FPL convention the audience already
+    # reads — CAPS home, lowercase away — tinted by the same difficulty scale
+    # the chips used. Played dots stay blank: the strip only knows fixtures
+    # from this gameweek on, and a blank under a result is honest.
+    fx_by_gw = {f["gw"]: f for f in (payload.get("fixtures") or [])}
+    opp_cells = []
+    for d in dots:
+        f = fx_by_gw.get(d["gw"])
+        if not f:
+            opp_cells.append("<span></span>")
+            continue
+        name = f["opponent"] or ""
+        name = name.upper() if f["venue"] == "H" else name.lower()
+        cls = (f'fxa-d{f["difficulty"]}' if f["difficulty"] is not None
+               else "fxa-unpriced")
+        opp_cells.append(f'<span class="{cls}" title="GW{f["gw"]} · '
+                         f'{_html.escape(f["opponent"])} '
+                         f'({f["venue"]})">{_html.escape(name)}</span>')
+    opps = ""
+    if any(fx_by_gw.get(d["gw"]) for d in dots):
+        opps = (f'<div class="pc-dotopps" style="grid-template-columns:'
+                f'repeat({n},1fr)">{"".join(opp_cells)}</div>')
     legend = []
     if any(d["mode"] == "played" for d in dots):
         legend.append('<span class="pc-dc-played">played</span>')
@@ -894,12 +922,20 @@ def _dots_html(payload: dict) -> str:
         f'<span class="{"pc-dv-played" if d["mode"] == "played" else ""}">'
         f'{_html.escape(d["display"])}</span>' for d in dots)
     cols = f'repeat({n},1fr)'
+    if opps:
+        shown = [fx_by_gw[d["gw"]] for d in dots if fx_by_gw.get(d["gw"])]
+        legend.append("CAPS = home")
+        if any(f["difficulty"] is not None for f in shown):
+            legend.append("greener opponent = easier")
+        if any(f["difficulty"] is None for f in shown):
+            legend.append("grey = not priced yet")
     return (f'<div class="pc-form">'
             f'<div class="pc-dotvals" style="grid-template-columns:{cols}">'
             f'{values}</div>'
             f'<div class="pc-dots">{svg}</div>'
             f'<div class="pc-dotgws" style="grid-template-columns:{cols}">'
             f'{labels}</div>'
+            f'{opps}'
             f'<div class="pc-dotcap">{" · ".join(legend)}</div>'
             f'</div>')
 
@@ -1168,40 +1204,6 @@ def value_cell(payload: dict) -> str:
     return f'<span>value <b>{_fmt(value, 2)} pts/£m</b></span>'
 
 
-def _fx_column(payload: dict) -> str:
-    """The next-four fixtures as a vertical column beside the dot timeline.
-
-    Chips ran as a wrapping row under the histogram, wherever the wrap put
-    them; a column beside the timeline uses height the card already spends
-    and keeps every chip in the same place on every card. The caption is the
-    same fixtures_caption the row used — the tint still needs its key.
-    """
-    fixtures = payload.get("fixtures") or []
-    if not fixtures:
-        return '<div class="pc-fxcol pc-fxcol-empty"><span>no fixtures</span></div>'
-    cells = []
-    for f in fixtures:
-        if f["difficulty"] is None:
-            cls, dattr = "fx-unpriced", ""
-            title = f'GW{f["gw"]} · unpriced'
-        else:
-            cls, dattr = f'fx-d{f["difficulty"]}', f["difficulty"]
-            title = (f'GW{f["gw"]} · difficulty {f["difficulty"]}/5 '
-                     f'({f["source"]})')
-        cells.append(
-            f'<span class="fx {cls}" data-gw="{f["gw"]}" '
-            f'data-difficulty="{dattr}" '
-            f'data-source="{_html.escape(f["source"])}" '
-            f'title="{_html.escape(title)}">'
-            f'{_html.escape(f["opponent"])} ({f["venue"]})'
-            f'<i>GW{f["gw"]}</i></span>')
-    # The caption spans the whole band below (grid-column:1/-1) — inside this
-    # 96px column it wrapped into three cramped lines on every card.
-    return (f'<div class="pc-fxcol">{"".join(cells)}</div>'
-            f'<div class="pc-fxcap pc-midcap">{fixtures_caption(fixtures)}'
-            f'</div>')
-
-
 def fixtures_caption(fixtures: list) -> str:
     """The one-line key under the fixture chips.
 
@@ -1279,12 +1281,11 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # card visibly shrank out of line with the row (owner caught it
     # 2026-08-26). An honest empty state keeps the grid true.
     #
-    # The fixture chips sit in a column to its RIGHT ("still games to the
-    # right", owner 2026-08-27): the timeline is the only tall block on the
-    # face, and stacking four chips beside it uses height the card already
-    # paid for instead of adding a row of their own.
-    sw_html = (f'<div class="pc-mid">{_dots_html(payload)}'
-               f'{_fx_column(payload)}</div>')
+    # Fixtures live ON the timeline's own axis — opponent under each projected
+    # dot ("team names could be under the dots on X axis", owner 2026-08-27).
+    # This retired the separate chip column the same review had asked for a
+    # day earlier: one aligned chart beats two blocks saying the same thing.
+    sw_html = _dots_html(payload)
 
     # ONE card must not use one word for two numbers. The hero's "ceiling" is
     # the 90th percentile (an integer score he beats one week in ten); this one

@@ -203,7 +203,9 @@ def _assembly_inputs(with_six_week=True, with_note=False,
     if with_six_week:
         six_week = {"Alpha": {"team": "ARS", "position": "MID", "price": 10.0,
                               "own": 12.0,
-                              "gw": {"1": 8.0, "2": 6.5, "3": 7.1}}}
+                              # gw4 included so the axis carries an UNPRICED
+                              # opponent (BUR) — the grey leg of the key
+                              "gw": {"1": 8.0, "2": 6.5, "3": 7.1, "4": 6.0}}}
     # Alpha starts for us; Beta is on the consensus bench — the two ends
     # of the stance ladder, so the assembly tests exercise both.
     squad_roles = {"model": {"Alpha": "XI"}, "consensus": {"Beta": "Bench"}}
@@ -264,7 +266,7 @@ class TestAssembly(unittest.TestCase):
     def test_six_week_vector_present_and_gracefully_absent(self):
         payloads, _ = _payloads()
         self.assertEqual(payloads[0]["six_week_xpts"],
-                         {"1": 8.0, "2": 6.5, "3": 7.1})
+                         {"1": 8.0, "2": 6.5, "3": 7.1, "4": 6.0})
         self.assertIsNone(payloads[1]["six_week_xpts"])   # not in the matrix
         payloads_no_cache, _ = _payloads(with_six_week=False)
         self.assertIsNone(payloads_no_cache[0]["six_week_xpts"])
@@ -349,9 +351,9 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn('class="pc-dist"', html)
         self.assertIn('aria-label="Simulated points distribution"', html)
         self.assertIn("<svg", html)
-        # inside the fold, after the ledger; fixtures sit UP in the mid band
+        # inside the fold, after the ledger; fixtures sit UP on the timeline
         self.assertLess(html.index("pc-ledger"), html.index("pc-dist"))
-        self.assertLess(html.index("pc-fxcol"), html.index("pc-dist"))
+        self.assertLess(html.index("pc-dotopps"), html.index("pc-dist"))
 
     def test_distribution_chart_caption_names_the_sim_count(self):
         """The caption carries the provenance (how many simulations); the
@@ -405,24 +407,25 @@ class TestCardHtml(unittest.TestCase):
                                                svg)}
         self.assertTrue(all(w > 20.0 for w in widths), widths)
 
-    def test_fixture_strip_chips_tint_by_difficulty(self):
-        # The chips live in a column beside the timeline now ("still games to
-        # the right", owner 2026-08-27), inside the pc-mid band.
+    def test_fixtures_sit_on_the_timeline_axis(self):
+        # Opponents under the dots ("team names could be under the dots on X
+        # axis", owner 2026-08-27): CAPS = home, lowercase = away, tinted by
+        # the same difficulty scale the chips carried.
         _, html = self._card()
-        self.assertIn('class="pc-fxcol"', html)
-        self.assertIn('class="pc-mid"', html)
-        self.assertIn("LIV (H)", html)
-        self.assertIn('class="fx fx-d1"', html)         # priced: green/easy
-        self.assertIn('class="fx fx-unpriced"', html)   # no lambdas: gray
-        self.assertIn('data-source="unpriced"', html)
+        self.assertIn('class="pc-dotopps"', html)
+        self.assertIn('class="fxa-d1"', html)           # priced: green/easy
+        self.assertIn('class="fxa-unpriced"', html)     # no lambdas: gray
+        self.assertIn(">LIV</span>", html)              # home: caps
+        self.assertIn(">mci</span>", html)              # away: lowercase
+        self.assertNotIn("pc-fxcol", html)              # the column is gone
 
-    def test_the_fixture_strip_carries_its_key(self):
-        """Owner, 2026-08-26: "we don't know what green means in GW below"."""
+    def test_the_axis_carries_its_key(self):
+        """Owner, 2026-08-26: "we don't know what green means in GW below".
+        The key moved into the timeline caption with the opponents."""
         _, html = self._card()
-        self.assertIn('class="pc-fxcap pc-midcap"', html)
-        self.assertIn("greener = easier fixture", html)
-        # the tooltips the chips already carried are untouched
-        self.assertIn("difficulty 1/5", html)
+        self.assertIn("CAPS = home", html)
+        self.assertIn("greener opponent = easier", html)
+        self.assertIn("grey = not priced yet", html)
 
     def test_form_band_is_the_dot_timeline(self):
         _, html = self._card()
@@ -1114,7 +1117,7 @@ class TestHeroBounds(unittest.TestCase):
         2026-08-27). One muted line under the hero pair now."""
         payloads, _ = _payloads()
         html = fpl_players.card_html(payloads[0])
-        hero = html[html.index('class="pc-hero"'):html.index("pc-mid")]
+        hero = html[html.index('class="pc-hero"'):html.index("pc-form")]
         self.assertIn('class="pc-heroline"', hero)
         self.assertIn("floor 2 · ceiling 13", hero)
         self.assertNotIn("pc-bound", hero)
