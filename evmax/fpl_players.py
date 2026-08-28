@@ -527,28 +527,28 @@ CARD_CSS = (
     "font-size:25px;font-weight:700;line-height:1.1;margin:0;"
     "letter-spacing:-.3px}"
     ".player-card .pc-meta{font-size:12.5px;color:var(--ink3);margin-top:2px}"
-    ".player-card .pc-hero{display:flex;align-items:baseline;gap:7px;"
-    "margin:10px 0 4px}"
-    ".player-card .pc-hero b{font-family:var(--serif),Georgia,serif;"
-    "font-size:44px;font-weight:700;color:var(--greend);line-height:1;"
+    # The two hero numbers: the projection and its price efficiency, on one
+    # shared baseline. xPts keeps the display size; pts/£m runs a step down in
+    # the same serif so the pair reads as one statement, not a number and a
+    # footnote. Floor/ceiling are one muted caption line below.
+    ".player-card .pc-hero{display:flex;align-items:baseline;gap:22px;"
+    "margin:12px 0 0}"
+    ".player-card .pc-hn{display:inline-flex;align-items:baseline;gap:6px}"
+    ".player-card .pc-hn b{font-family:var(--serif),Georgia,serif;"
+    "font-size:42px;font-weight:700;color:var(--greend);line-height:1;"
     "font-variant-numeric:tabular-nums}"
-    ".player-card .pc-hero span{font-size:11px;font-weight:700;"
-    "letter-spacing:1px;text-transform:uppercase;color:var(--ink3)}"
-    # floor/ceiling flanking the hero: small, muted, and deliberately NOT
-    # competing with the mean they bracket
-    ".player-card .pc-bound{display:flex;flex-direction:column;"
-    "align-items:center;gap:1px;color:var(--ink3);"
-    "font-variant-numeric:tabular-nums}"
-    ".player-card .pc-bound b{font-family:var(--sans);font-size:15px;"
-    "font-weight:700;color:var(--ink3);line-height:1}"
-    ".player-card .pc-bound i{font-style:normal;font-size:8.5px;"
-    "letter-spacing:.6px;text-transform:uppercase}"
+    ".player-card .pc-hn i{font-style:normal;font-size:10.5px;"
+    "font-weight:700;letter-spacing:1px;text-transform:uppercase;"
+    "color:var(--ink3)}"
+    ".player-card .pc-hn2 b{font-size:27px;color:var(--ink2)}"
+    ".player-card .pc-heroline{font-size:10.5px;color:var(--ink3);"
+    "margin:2px 0 4px;font-variant-numeric:tabular-nums}"
     ".player-card .pc-news{font-size:13px;color:#a8331c;background:#fdeee9;"
     "border-radius:8px;padding:8px 12px;margin:10px 0 2px}"
     # form art: the dot timeline — played gameweeks, then projected ones.
     # pc-form is min-height'd so a player with neither (an empty band) keeps
     # the same card height as one with both, and a row of cards stays level.
-    ".player-card .pc-form{margin:8px 0 2px;min-height:78px}"
+    ".player-card .pc-form{margin:0;min-height:78px;min-width:0}"
     ".player-card .pc-dots{height:52px}"
     ".player-card .pc-dots svg{display:block;width:100%;height:52px}"
     ".player-card .pc-dots-empty{display:flex;align-items:center;"
@@ -585,18 +585,29 @@ CARD_CSS = (
     + "".join(f".player-card .pcd-{key}{{background:{color}}}"
               for key, color, _label in _DECOMP_SEGMENTS) +
     # stat rows: ceiling · captain · own / season pts · realized · gap
-    ".player-card .pc-statrow{display:flex;justify-content:space-between;"
-    "gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);"
-    "margin-top:8px;font-variant-numeric:tabular-nums}"
-    ".player-card .pc-statrow b{font-weight:800;color:var(--ink)}"
-    ".player-card .pc-statrow.pc-statrow2{color:var(--ink3);margin-top:4px}"
-    # fixture strip: next-4 chips, difficulty tinted (green = easy per
-    # lambda, warm = hard, gray + dashed = unpriced)
-    ".player-card .pc-fixtures{display:flex;gap:6px;flex-wrap:wrap;"
-    "margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}"
-    ".player-card .fx{display:inline-flex;align-items:baseline;gap:6px;"
-    "font-size:11px;font-weight:700;border-radius:8px;padding:4px 9px;"
-    "background:var(--chipbg);color:var(--ink2)}"
+    # The ledger: one fact per rule, labels flush left, values flush right,
+    # tabular figures so every digit column lines up card to card.
+    ".player-card .pc-ledger{margin-top:10px;font-variant-numeric:tabular-nums}"
+    ".player-card .pcl-row{display:flex;justify-content:space-between;"
+    "align-items:baseline;gap:12px;font-size:11.5px;padding:4.5px 0;"
+    "border-top:1px solid var(--line)}"
+    ".player-card .pcl-row:first-child{border-top:0}"
+    ".player-card .pcl-k{color:var(--ink3)}"
+    ".player-card .pcl-row b{font-weight:800;color:var(--ink)}"
+    # The middle band: dot timeline left, next-4 fixtures stacked right.
+    ".player-card .pc-mid{display:grid;grid-template-columns:1fr 96px;"
+    "gap:12px;align-items:start;margin:8px 0 0}"
+    ".player-card .pc-fxcol{display:flex;flex-direction:column;gap:4px}"
+    ".player-card .pc-midcap{grid-column:1/-1;margin-top:0}"
+    ".player-card .pc-fxcol-empty{align-items:center;justify-content:center;"
+    "min-height:60px;border:1px dashed var(--line);border-radius:8px}"
+    ".player-card .pc-fxcol-empty span{font-size:10px;color:var(--ink3)}"
+    # fixture chips, difficulty tinted (green = easy per lambda, warm = hard,
+    # gray + dashed = unpriced)
+    ".player-card .fx{display:flex;align-items:baseline;"
+    "justify-content:space-between;gap:6px;"
+    "font-size:10.5px;font-weight:700;border-radius:7px;padding:3px 8px;"
+    "background:var(--chipbg);color:var(--ink2);white-space:nowrap}"
     ".player-card .fx i{font-style:normal;font-weight:600;font-size:10px;"
     "color:var(--ink3)}"
     ".player-card .fx-d1,.player-card .fx-d2{background:#eaf3ec;"
@@ -697,21 +708,33 @@ TOP_CARDS_CSS = (
     "max-width:60ch}"
     ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
     ".tcf-check a{color:var(--green)}"
-    ".tcf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;"
+    # THREE per row, not four. At four across each card got ~250px and every
+    # internal column squeezed out of line ("maybe we could have 3 cards",
+    # owner 2026-08-27); at three each face gets ~350px and the ledger and
+    # fixture column hold their grid.
+    ".tcf-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;"
     "margin-top:12px}"
     # the cell wraps the linked face AND its take, so the take is a sibling of
     # the link rather than block content inside it
-    ".tcf-row>.tcf-cell{display:flex;flex-direction:column;min-width:0}"
-    ".tcf-cell>a{display:block;color:inherit;text-decoration:none;flex:1}"
-    ".tcf-row .player-card{margin:0;height:100%;"
+    ".tcf-row>.tcf-cell{display:flex;flex-direction:column;min-width:0;"
+    "position:relative}"
+    ".tcf-row .player-card{margin:0;flex:1;"
     "transition:border-color .12s,transform .12s}"
-    ".tcf-cell>a:hover .player-card{border-color:var(--green);"
-    "transform:translateY(-2px)}"
+    # The page link: a small visible line under the card, plus an invisible
+    # hit area stretched over the card's top half (name + hero) — below that
+    # the fold and its contents stay clickable in their own right.
+    ".tcf-cardlink{display:block;margin:6px 2px 0;font-size:11.5px;"
+    "font-weight:700;color:var(--green)}"
+    ".tcf-cardlink::before{content:'';position:absolute;top:0;left:0;"
+    "right:0;height:170px}"
+    ".tcf-cell:has(.tcf-cardlink:hover) .player-card{"
+    "border-color:var(--green);transform:translateY(-2px)}"
     ".tcf-take{margin:8px 2px 0;font-size:12px;line-height:1.45;"
     "color:var(--ink2)}"
     # full faces at quarter width: scale the display type down a notch
     ".tcf-row .pc-name{font-size:19px}"
-    ".tcf-row .pc-hero b{font-size:34px}"
+    ".tcf-row .pc-hn b{font-size:34px}"
+    ".tcf-row .pc-hn2 b{font-size:22px}"
     "@media(max-width:900px){.tcf-row{grid-template-columns:repeat(2,1fr)}}"
     "@media(max-width:600px){.tcf-row{display:flex;overflow-x:auto;"
     "-webkit-overflow-scrolling:touch;padding-bottom:10px}"
@@ -849,7 +872,12 @@ def _dots_html(payload: dict) -> str:
                 'on file</div></div>')
 
     n = len(dots)
-    labels = "".join(f'<span>GW{d["gw"]}</span>' for d in dots)
+    # "GW1 2 3 4 5 6", not "GW1GW2GW3..." — six three-character labels touch
+    # at mobile card width, and repeating the prefix six times says nothing
+    # the first occurrence didn't.
+    labels = "".join(
+        f'<span>{"GW" if i == 0 else ""}{d["gw"]}</span>'
+        for i, d in enumerate(dots))
     legend = []
     if any(d["mode"] == "played" for d in dots):
         legend.append('<span class="pc-dc-played">played</span>')
@@ -1140,6 +1168,40 @@ def value_cell(payload: dict) -> str:
     return f'<span>value <b>{_fmt(value, 2)} pts/£m</b></span>'
 
 
+def _fx_column(payload: dict) -> str:
+    """The next-four fixtures as a vertical column beside the dot timeline.
+
+    Chips ran as a wrapping row under the histogram, wherever the wrap put
+    them; a column beside the timeline uses height the card already spends
+    and keeps every chip in the same place on every card. The caption is the
+    same fixtures_caption the row used — the tint still needs its key.
+    """
+    fixtures = payload.get("fixtures") or []
+    if not fixtures:
+        return '<div class="pc-fxcol pc-fxcol-empty"><span>no fixtures</span></div>'
+    cells = []
+    for f in fixtures:
+        if f["difficulty"] is None:
+            cls, dattr = "fx-unpriced", ""
+            title = f'GW{f["gw"]} · unpriced'
+        else:
+            cls, dattr = f'fx-d{f["difficulty"]}', f["difficulty"]
+            title = (f'GW{f["gw"]} · difficulty {f["difficulty"]}/5 '
+                     f'({f["source"]})')
+        cells.append(
+            f'<span class="fx {cls}" data-gw="{f["gw"]}" '
+            f'data-difficulty="{dattr}" '
+            f'data-source="{_html.escape(f["source"])}" '
+            f'title="{_html.escape(title)}">'
+            f'{_html.escape(f["opponent"])} ({f["venue"]})'
+            f'<i>GW{f["gw"]}</i></span>')
+    # The caption spans the whole band below (grid-column:1/-1) — inside this
+    # 96px column it wrapped into three cramped lines on every card.
+    return (f'<div class="pc-fxcol">{"".join(cells)}</div>'
+            f'<div class="pc-fxcap pc-midcap">{fixtures_caption(fixtures)}'
+            f'</div>')
+
+
 def fixtures_caption(fixtures: list) -> str:
     """The one-line key under the fixture chips.
 
@@ -1191,24 +1253,38 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # 2026-08-26: "we have space to show small lower bound expected points in
     # the middle and small upper bound"). Degrades silently to the bare mean
     # when a card has no distribution.
+    # TWO hero numbers: what he projects, and what that costs. The owner asked
+    # for points-per-million as a first-class figure repeatedly ("maybe just
+    # xpts and xpts per 1m i asked for it many times", 2026-08-27) and it kept
+    # landing in a stat row. It is the second hero now. Floor/ceiling flanked
+    # the hero at near-hero size and dominated a face they were only meant to
+    # qualify — they drop to one muted line underneath, and stay OUT of the
+    # ledger (they re-appear over the histogram in the fold, labelled there).
     dist = payload.get("distribution") or {}
     p10, p90 = dist.get("p10"), dist.get("p90")
-    bounds = p10 is not None and p90 is not None
-    floor_html = ceiling_html = ""
-    if bounds:
-        floor_html = ('<span class="pc-bound" title="10th percentile">'
-                      f'<b>{p10}</b><i>floor</i></span>')
-        ceiling_html = ('<span class="pc-bound" title="90th percentile">'
-                        f'<b>{p90}</b><i>ceiling</i></span>')
-    hero_html = (f'<div class="pc-hero">{floor_html}'
-                 f'<b>{_fmt(proj.get("x_points"))}</b>'
-                 f'<span>xPts</span>{ceiling_html}</div>')
+    heroline = ""
+    if p10 is not None and p90 is not None:
+        heroline = (f'<div class="pc-heroline" title="10th and 90th '
+                    f'percentile of 50,000 simulations">floor {p10} · '
+                    f'ceiling {p90}</div>')
+    value = proj.get("value")
+    value_html = (f'<span class="pc-hn pc-hn2"><b>{_fmt(value, 2)}</b>'
+                  f'<i>pts/£m</i></span>' if value is not None else "")
+    hero_html = (f'<div class="pc-hero">'
+                 f'<span class="pc-hn"><b>{_fmt(proj.get("x_points"))}</b>'
+                 f'<i>xPts</i></span>{value_html}</div>{heroline}')
 
     # The form band is fixed-height on EVERY card, present or not: a new
     # signing with no history (M.Sangaré, GW2) used to skip the block and his
     # card visibly shrank out of line with the row (owner caught it
     # 2026-08-26). An honest empty state keeps the grid true.
-    sw_html = _dots_html(payload)
+    #
+    # The fixture chips sit in a column to its RIGHT ("still games to the
+    # right", owner 2026-08-27): the timeline is the only tall block on the
+    # face, and stacking four chips beside it uses height the card already
+    # paid for instead of adding a row of their own.
+    sw_html = (f'<div class="pc-mid">{_dots_html(payload)}'
+               f'{_fx_column(payload)}</div>')
 
     # ONE card must not use one word for two numbers. The hero's "ceiling" is
     # the 90th percentile (an integer score he beats one week in ten); this one
@@ -1221,42 +1297,29 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # we have -81 own vs xpts i have no clue what it is"); ownership beside the
     # model's rank lets him make the comparison himself. The gap survives on
     # data-own-gap for tooling.
+    # A RULED LEDGER, one fact per line, every label flush left and every
+    # value flush right in tabular figures. The old two flex rows wrapped
+    # each cell wherever it fit, so no number sat above another and the face
+    # read as scatter ("nothing seems aligned on this cards", owner
+    # 2026-08-27). Alignment here is the design.
     xpts_rank = ranks.get("xpts_rank")
-    rank_cell = (f'<span>model rank <b>{_ordinal(int(xpts_rank))}</b></span>'
-                 if xpts_rank else f'<span>vs crowd <b>{gap:+d}</b></span>')
+    rank_val = (_ordinal(int(xpts_rank)) if xpts_rank else f"{gap:+d} vs crowd")
+    rows = [
+        ("model rank", rank_val),
+        ("captain EV", _fmt(proj.get("captain_ev"))),
+        ("owned", f'{_fmt(payload.get("ownership_pct"), 1)}%'),
+        ("season", f'{season["total_points"]} pts'),
+    ]
+    realized = season.get("realized_ppm")
+    if (realized is not None
+            and played_gameweeks(payload) >= REALIZED_PPM_MIN_PLAYED):
+        rows.append(("pts/£m so far", _fmt(realized, 2)))
     statrow = (
-        f'<div class="pc-statrow">'
-        f'<span>top 15% avg <b>{_fmt(proj.get("ceiling"))}</b></span>'
-        f'<span>captain EV <b>{_fmt(proj.get("captain_ev"))}</b></span>'
-        f'<span>owned <b>{_fmt(payload.get("ownership_pct"), 1)}%</b></span>'
-        f'</div>'
-        f'<div class="pc-statrow pc-statrow2">'
-        f'<span>season <b>{season["total_points"]} pts</b></span>'
-        f'{value_cell(payload)}'
-        f'{rank_cell}'
-        f'</div>')
-
-    fx_html = ""
-    if payload["fixtures"]:
-        cells = []
-        for f in payload["fixtures"]:
-            if f["difficulty"] is None:
-                cls, dattr = "fx-unpriced", ""
-                title = f'GW{f["gw"]} · unpriced'
-            else:
-                cls, dattr = f'fx-d{f["difficulty"]}', f["difficulty"]
-                title = (f'GW{f["gw"]} · difficulty {f["difficulty"]}/5 '
-                         f'({f["source"]})')
-            cells.append(
-                f'<span class="fx {cls}" data-gw="{f["gw"]}" '
-                f'data-difficulty="{dattr}" '
-                f'data-source="{_html.escape(f["source"])}" '
-                f'title="{_html.escape(title)}">'
-                f'{_html.escape(f["opponent"])} ({f["venue"]})'
-                f'<i>GW{f["gw"]}</i></span>')
-        fx_html = (f'<div class="pc-fixtures">{"".join(cells)}</div>'
-                   f'<div class="pc-fxcap">{fixtures_caption(payload["fixtures"])}'
-                   f'</div>')
+        '<div class="pc-ledger">'
+        + "".join(f'<span class="pcl-row"><span class="pcl-k">'
+                  f'{_html.escape(k)}</span><b>{v}</b></span>'
+                  for k, v in rows)
+        + "</div>")
 
     # Our POSITION, not an instruction. The card used to open this line with a
     # rank-derived "buy" and it contradicted the squad the same site publishes
@@ -1282,15 +1345,14 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # player came for the detail, and a fold there would hide the thing he
     # asked for. `heading == "h1"` is that page and nothing else.
     detail_inner = (f'{_decomp_html(proj)}'
-                    f'{_distribution_html(payload)}'
-                    f'{fx_html}')
+                    f'{_distribution_html(payload)}')
     if not detail_inner.strip():
         detail_html = ""
     elif heading == "h1":
         detail_html = f'<div class="pc-detail">{detail_inner}</div>'
     else:
         detail_html = (f'<details class="pc-detail pc-fold">'
-                       f'<summary>points breakdown, spread and fixtures'
+                       f'<summary>points breakdown and spread'
                        f'</summary>{detail_inner}</details>')
 
     # No premium slot. It was reserved on 2026-08-24 and removed on 2026-08-26
@@ -1391,14 +1453,26 @@ def our_picks(payloads: list, count: int = 4) -> list:
 
 
 def _card_cell(payload: dict, take: str = "") -> str:
-    """One grid cell: the full card face linking to its page, and — for the
-    crowd rows — the generated take underneath it."""
+    """One grid cell: the card face, its page link, and — for the crowd rows —
+    the generated take underneath.
+
+    The link no longer wraps the figure. It used to, and the moment the face
+    grew a <details> fold, clicking the fold FOLLOWED THE LINK instead of
+    opening it (caught in the browser, 2026-08-27) — a <summary> inside an
+    anchor never gets its toggle. The face is plain markup with the fold
+    working natively; the link is a stretched overlay over the card's HEAD
+    only (position:absolute over .pc-head via .tcf-cardlink), so the name and
+    hero stay one big click target and the interactive lower half is its own.
+    An explicit "full card →" line closes the cell for anyone hunting for a
+    link, and is the accessible name for the page.
+    """
     take_html = (f'<p class="tcf-take">{_html.escape(take)}</p>'
                  if take else "")
     return (f'<div class="tcf-cell">'
-            f'<a href="{page_path(payload["slug"])}" '
+            f'{card_html(payload, heading="h2")}'
+            f'<a class="tcf-cardlink" href="{page_path(payload["slug"])}" '
             f'aria-label="{_html.escape(payload["name"])} — full player card">'
-            f'{card_html(payload, heading="h2")}</a>'
+            f'full card →</a>'
             f'{take_html}</div>')
 
 
@@ -1419,7 +1493,7 @@ def _card_row(kicker: str, intro: str, cells: list, lead: bool = False) -> str:
             f'</section>')
 
 
-def top_cards_html(payloads: list, count: int = 4) -> str:
+def top_cards_html(payloads: list, count: int = 3) -> str:
     """The FPL landing's opening module: three labelled rows of full card
     faces — what the crowd is buying, what it is dumping, and who we own.
 

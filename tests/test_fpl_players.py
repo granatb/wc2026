@@ -349,9 +349,9 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn('class="pc-dist"', html)
         self.assertIn('aria-label="Simulated points distribution"', html)
         self.assertIn("<svg", html)
-        # placed between the stat rows and the fixture strip
-        self.assertLess(html.index("pc-statrow2"), html.index("pc-dist"))
-        self.assertLess(html.index("pc-dist"), html.index("pc-fixtures"))
+        # inside the fold, after the ledger; fixtures sit UP in the mid band
+        self.assertLess(html.index("pc-ledger"), html.index("pc-dist"))
+        self.assertLess(html.index("pc-fxcol"), html.index("pc-dist"))
 
     def test_distribution_chart_caption_names_the_sim_count(self):
         """The caption carries the provenance (how many simulations); the
@@ -406,8 +406,11 @@ class TestCardHtml(unittest.TestCase):
         self.assertTrue(all(w > 20.0 for w in widths), widths)
 
     def test_fixture_strip_chips_tint_by_difficulty(self):
+        # The chips live in a column beside the timeline now ("still games to
+        # the right", owner 2026-08-27), inside the pc-mid band.
         _, html = self._card()
-        self.assertIn('class="pc-fixtures"', html)
+        self.assertIn('class="pc-fxcol"', html)
+        self.assertIn('class="pc-mid"', html)
         self.assertIn("LIV (H)", html)
         self.assertIn('class="fx fx-d1"', html)         # priced: green/easy
         self.assertIn('class="fx fx-unpriced"', html)   # no lambdas: gray
@@ -416,7 +419,7 @@ class TestCardHtml(unittest.TestCase):
     def test_the_fixture_strip_carries_its_key(self):
         """Owner, 2026-08-26: "we don't know what green means in GW below"."""
         _, html = self._card()
-        self.assertIn('class="pc-fxcap"', html)
+        self.assertIn('class="pc-fxcap pc-midcap"', html)
         self.assertIn("greener = easier fixture", html)
         # the tooltips the chips already carried are untouched
         self.assertIn("difficulty 1/5", html)
@@ -460,8 +463,9 @@ class TestCardHtml(unittest.TestCase):
 
     def test_hero_number_and_verdict_line(self):
         _, html = self._card()
-        # the mean, now flanked by its floor and ceiling
-        self.assertIn('<b>8.00</b><span>xPts</span>', html)
+        # the two hero numbers: the projection and its price efficiency
+        self.assertIn('<b>8.00</b><i>xPts</i>', html)
+        self.assertIn("<i>pts/£m</i>", html)
         self.assertIn('class="pc-verdict">we own him, in our XI</div>',
                       html)
 
@@ -620,22 +624,23 @@ class TestTopCards(unittest.TestCase):
 
     def test_full_faces_linking_to_pages(self):
         html = fpl_players.top_cards_html(self._payloads())
-        # 4 bought + 4 dumped + the 3 players in this fixture's squad —
-        # all FULL faces, the same figure card_html emits
-        self.assertEqual(html.count('<figure class="player-card"'), 11)
+        # 3 bought + 3 dumped + the 3 players in this fixture's squad —
+        # all FULL faces, the same figure card_html emits (three per row,
+        # owner 2026-08-27)
+        self.assertEqual(html.count('<figure class="player-card"'), 9)
         self.assertIn('href="/fpl/players/0-p00/"', html)
-        self.assertIn("pc-statrow", html)
+        self.assertIn("pc-ledger", html)
         self.assertIn("pc-verdict", html)
         self.assertNotIn("pc-premium", html)
         self.assertNotIn("tc-card", html)
 
     def test_the_crowd_rows_carry_a_take_and_our_picks_does_not(self):
         html = fpl_players.top_cards_html(self._payloads())
-        self.assertEqual(html.count("Crowd is buying."), 4)
-        self.assertEqual(html.count("Crowd is selling."), 4)
-        # eight takes for eight crowd cards, none under our own picks —
-        # our picks now LEAD, so the slice runs to the next row, not to the end
-        self.assertEqual(html.count('class="tcf-take"'), 8)
+        self.assertEqual(html.count("Crowd is buying."), 3)
+        self.assertEqual(html.count("Crowd is selling."), 3)
+        # six takes for six crowd cards, none under our own picks —
+        # our picks LEAD, so the slice runs to the next row, not to the end
+        self.assertEqual(html.count('class="tcf-take"'), 6)
         picks = html[html.index("Our picks this gameweek"):
                      html.index("Most transferred in this gameweek")]
         self.assertNotIn("tcf-take", picks)
@@ -929,8 +934,9 @@ class TestDotTimeline(unittest.TestCase):
             history=self._history([(1, 2, 90)]),
             six_week={"2": 8.6, "3": 4.0}, gameweek=2))
         self.assertIn('grid-template-columns:repeat(3,1fr)', html)
-        for label in ("<span>GW1</span>", "<span>GW2</span>",
-                      "<span>GW3</span>"):
+        # "GW" once, then bare round numbers — six GW-prefixed labels touch
+        # at mobile card width
+        for label in ("<span>GW1</span>", "<span>2</span>", "<span>3</span>"):
             self.assertIn(label, html)
         self.assertIn('<span class="pc-dc-played">played</span>', html)
         self.assertIn('<span class="pc-dc-proj">projected</span>', html)
@@ -1102,24 +1108,25 @@ class TestHeroBounds(unittest.TestCase):
     have space to show small lower bound expected points in the middle and
     small upper bound")."""
 
-    def test_floor_and_ceiling_flank_the_mean(self):
+    def test_floor_and_ceiling_are_one_demoted_caption_line(self):
+        """They flanked the hero at near-hero size and dominated the face they
+        were only meant to qualify ("Floor and ceiling can be lower", owner
+        2026-08-27). One muted line under the hero pair now."""
         payloads, _ = _payloads()
         html = fpl_players.card_html(payloads[0])
-        hero = html[html.index('class="pc-hero"'):html.index("pc-form")]
-        # Alpha's PMF: p10 = 2, mean 8.00, p90 = 13 — in that visual order
-        self.assertLess(hero.index(">2<"), hero.index(">8.00<"))
-        self.assertLess(hero.index(">8.00<"), hero.index(">13<"))
-        self.assertIn('title="10th percentile"', hero)
-        self.assertIn('title="90th percentile"', hero)
-        self.assertIn("<i>floor</i>", hero)
-        self.assertIn("<i>ceiling</i>", hero)
+        hero = html[html.index('class="pc-hero"'):html.index("pc-mid")]
+        self.assertIn('class="pc-heroline"', hero)
+        self.assertIn("floor 2 · ceiling 13", hero)
+        self.assertNotIn("pc-bound", hero)
+        # and the hero pair itself is xPts then pts/£m
+        self.assertLess(hero.index("<i>xPts</i>"), hero.index("<i>pts/£m</i>"))
 
     def test_a_card_without_a_distribution_degrades_silently(self):
         payloads, _ = _payloads(with_distribution=False)
         html = fpl_players.card_html(payloads[0])
-        self.assertIn('<div class="pc-hero"><b>8.00</b>', html)
-        self.assertNotIn("pc-bound", html)
-        self.assertNotIn("10th percentile", html)
+        self.assertIn("<b>8.00</b><i>xPts</i>", html)
+        self.assertNotIn("pc-heroline", html)
+        self.assertNotIn("10th and 90th percentile", html)
 
 
 class TestValueCell(unittest.TestCase):
@@ -1158,7 +1165,8 @@ class TestValueCell(unittest.TestCase):
         the projection alone."""
         payloads, _ = _payloads()
         html = fpl_players.card_html(payloads[0])
-        self.assertIn("<span>value <b>0.80 pts/£m</b></span>", html)
+        # the projection is the SECOND HERO now, not a stat row
+        self.assertIn('<span class="pc-hn pc-hn2"><b>0.80</b><i>pts/£m</i></span>', html)
         self.assertNotIn("so far", html)
 
 
