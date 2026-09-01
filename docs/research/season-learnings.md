@@ -106,9 +106,28 @@ graded players (noise ceiling ≈2.8; small sample).
   banked alongside, with the autosub trail (shipped 2026-08-25).
 - Bug found: `scripts/grade_gw.py --refresh` refreshes the BOOTSTRAP, which
   invalidates the frozen GW's sim cache — the Monday rebuild then drifts from the
-  frozen snapshots. Fix needed: grading refresh must touch only the live cache, or
-  the Monday runbook must restore the frozen bootstrap before rebuilding (done
-  manually this week; make structural before GW3).
+  frozen snapshots. RESOLVED before GW3: the grading refresh path now calls only
+  `fpl_live.refresh_live`, which writes live_gw{N}.json and nothing else — the
+  GW2 Monday grade ran with the bootstrap untouched, and the field average was
+  read in-memory rather than through the cache.
+
+## GW2 (graded 2026-09-01)
+
+- Model 93 official (81 as-published + Tarkowski autosub for Senesi),
+  Consensus 84, provisional field average 81. Duel level 1-1. Player MAE 2.848
+  over 64 graded, beating ep_next (2.909) for the second week.
+- What worked: captaincy FROM the model rank. Bruno was rank 1 while the crowd
+  sold him in six figures; 23 raw, 46 doubled. The credibility engine's
+  panic-sell verdicts (Bruno, Mbeumo, Calvert-Lewin holds) all returned.
+- What worked: the forced-sale rule. Watkins sold on verified reporting two
+  days before FPL flagged anything; Evanilson returned 5 against a certain 0.
+- What cost: benching a 75% doubt (Gibbs-White) in the blind Saturday-lunch
+  slot; he played 90 and scored 13, and only one autosub slot opened. Process
+  stands — a rushed-back MCL at Anfield was the right thing to bench on the
+  information held Thursday — but the ledger records the 13.
+- Worth keeping: declining the -4 for Gakpo saved 12 points (Gibbs-White 13
+  vs Gakpo 5 plus the hit). One-transfer discipline beat the optimizer's
+  second row; the horizon delta was real but free next week.
 
 - Mistake (owner-caught): our own "best value in the game" call (Calafiori, 0.931
   pts/£m) was never in the Model squad — the squad was optimized BEFORE the
