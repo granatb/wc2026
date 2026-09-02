@@ -92,6 +92,7 @@ _COLS = [("method", "Method published"), ("data", "Data reusable"),
          ("machine", "Machine-readable")]
 
 _CSS = (
+    ".cmp-wait{color:var(--ink3);font-style:italic}"
     ".cmp-table .cmp-n{color:var(--ink3);font-size:11px;margin-left:6px}"
     ".cmp-table tr.cmp-best td{font-weight:800;color:var(--greend)}"
     ".cmp-table tr.cmp-best td:first-child::after{content:' \\2190 best';"
@@ -173,6 +174,40 @@ def _bench_data():
     return graded, pending
 
 
+def _ep_next_history() -> str:
+    """Same-sample history that already exists: our MAE against FPL's own
+    ep_next, per graded gameweek, from the banked accuracy files."""
+    import glob
+    import json as _json
+    import os as _os
+    here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    rows = []
+    for path in sorted(glob.glob(_os.path.join(
+            here, "evmax", "assets", "accuracy", "gw*.json"))):
+        with open(path, encoding="utf-8") as fh:
+            acc = _json.load(fh)
+        ours, ep = acc.get("mae_ours"), acc.get("mae_ep_next")
+        if ours is None:
+            continue
+        if ep is None:
+            verdict = '<span class="cmp-wait">ep_next not captured</span>'
+        else:
+            verdict = ("<b>evmax</b>" if ours < ep else "ep_next") + " ahead"
+        rows.append(f'<tr><td>GW{acc["gameweek"]}</td><td>{ours}</td>'
+                    f'<td>{ep if ep is not None else "—"}</td>'
+                    f'<td>{acc.get("n", "—")}</td><td>{verdict}</td></tr>')
+    if not rows:
+        return ""
+    return (
+        '<h3>Graded so far — evmax against FPL\'s own projection</h3>'
+        '<p class="cmp-note">The two columns captured since gameweek 1, on '
+        'identical players. The full benchmark joins this table from '
+        'gameweek 3.</p>'
+        '<table class="cmp-table"><thead><tr><th>GW</th><th>evmax MAE</th>'
+        '<th>ep_next MAE</th><th>players</th><th>ahead</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def benchmark_section() -> str:
     """The same-sample benchmark: graded tables per gameweek, pending
     snapshots named with their freeze time. Derived metrics only — nobody's
@@ -210,18 +245,40 @@ def benchmark_section() -> str:
             f'<th>MAE, 60+ min</th><th>RMSE, 60+ min</th>'
             f'<th>MAE, everyone</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
+    # A pending snapshot renders as a TABLE, not a paragraph: the owner opened
+    # this page the week it shipped and found a heading with prose under it
+    # ("i can't see table or anything", 2026-09-02) — the structure must be
+    # visible before the first grades exist, with the scores column honestly
+    # waiting.
     for snap in pending:
         taken = _html.escape((snap.get("taken_at") or "")[:16].replace("T", " "))
+        inputs = snap.get("baseline_inputs") or {}
+        counts = {
+            "evmax": len(snap.get("evmax") or {}),
+            "ffiq": len(snap.get("ffiq") or {}),
+            "ep_next": len(inputs),
+            "baseline_ppg": sum(1 for v in inputs.values()
+                                if v.get("appearances")),
+            "baseline_form4": sum(1 for v in inputs.values()
+                                  if v.get("last4")),
+        }
+        rows = "".join(
+            f'<tr><td>{_BENCH_SOURCE_LABEL.get(k, k)}</td>'
+            f'<td>{counts[k]}</td>'
+            f'<td class="cmp-wait">graded after the gameweek</td></tr>'
+            for k in _BENCH_ORDER)
         blocks.append(
-            f'<p class="cmp-note"><b>Gameweek {snap["gameweek"]}: frozen, '
-            f'not yet graded.</b> Every column snapshotted {taken} UTC, '
-            f'before the deadline, in a public commit. Grades land once the '
-            f'gameweek finishes.</p>')
-    if not graded:
-        blocks.append(
-            '<p class="cmp-note">Until the first frozen gameweek is graded, '
-            'the only cross-source history is ours against FPL\'s own '
-            'ep_next, in <a href="/fpl/accuracy/">the ledger</a>.</p>')
+            f'<h3>Gameweek {snap["gameweek"]} — frozen, waiting for kickoff'
+            f'</h3>'
+            f'<table class="cmp-table"><thead><tr><th>Source</th>'
+            f'<th>Players frozen</th><th>MAE / RMSE</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>'
+            f'<p class="cmp-note">All columns snapshotted {taken} UTC — '
+            f'before the deadline — in a public git commit. That timestamp '
+            f'is the no-lookahead proof.</p>')
+    history = _ep_next_history()
+    if history:
+        blocks.append(history)
     blocks.append(
         '<p class="cmp-note">Fantasy Football IQ projections are used under '
         'their published licence (free to use with attribution — '
@@ -293,7 +350,7 @@ JSON API and the MCP server.</p>
 <style>{render._STYLE}{_CSS}{render._NAV_SCROLL_CSS}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
-<a class="logo" href="/">ev<b>max</b></a>{render._nav_html(active="track-record")}
+<a class="logo" href="/">ev<b>max</b></a>{render._nav_html(active="compare")}
 </div></header>
 <div class="wrap">
 {body}

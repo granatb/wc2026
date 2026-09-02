@@ -567,16 +567,25 @@ _NAV_SCROLL_CSS = (
 
 def _nav_html(active=None):
     """Fixed site nav, identical on every page.
-    active ∈ {'home','about','track-record','rate',None}."""
+    active ∈ {'home','about','track-record','compare','rate',None}.
+
+    Compare earned its pill on 2026-09-02: the page had been reachable only
+    through in-page links and the owner — who asked for it five times — still
+    could not find it ("don't know how to navigate to this page"). A page
+    nobody can navigate to does not exist. It replaced the "Analyse a sub"
+    placeholder, which promised a feature that does not exist yet; a live
+    page beats a greyed-out promise for the one nav slot.
+    """
     home_cls = ' class="on"' if active == "home" else ""
     track_cls = ' class="on"' if active == "track-record" else ""
+    compare_cls = ' class="on"' if active == "compare" else ""
     rate_cls = ' class="on"' if active == "rate" else ""
     about_cls = ' class="on"' if active == "about" else ""
     items = [
         f'<a href="/"{home_cls}>Home</a>',
         f'<a href="/track-record/"{track_cls}>Track record</a>',
+        f'<a href="/fpl/compare/"{compare_cls}>Compare</a>',
         f'<a href="/rate/"{rate_cls}>Rate my team</a>',
-        '<a class="soon">Analyse a sub</a>',
         f'<a href="/about/"{about_cls}>About</a>',
     ]
     return "<nav>" + "".join(items) + "</nav>"

@@ -163,11 +163,22 @@ class TestBenchmarkSurfacing(unittest.TestCase):
                       html.lower().replace("—", "-").replace("  ", " ")
                       if False else html)
 
-    def test_pending_snapshot_is_named_with_its_freeze_time(self):
+    def test_pending_snapshot_renders_as_a_table_not_prose(self):
+        """Owner opened the page pre-grading and found a heading over
+        paragraphs ("i can't see table or anything"). The structure must be
+        a table from day one, scores column honestly waiting."""
         from evmax import compare
         html = compare.benchmark_section()
-        self.assertIn("frozen, not yet graded", html)
+        self.assertIn("frozen, waiting for kickoff", html)
+        self.assertIn("Players frozen", html)
+        self.assertIn("graded after the gameweek", html)
         self.assertIn("before the deadline", html)
+
+    def test_the_ep_next_history_table_shows_immediately(self):
+        from evmax import compare
+        html = compare.benchmark_section()
+        self.assertIn("Graded so far", html)
+        self.assertIn("ep_next MAE", html)
 
     def test_ffiq_attribution_is_always_present(self):
         # their licence requires it, and the benchmark quotes it
