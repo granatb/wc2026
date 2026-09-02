@@ -136,6 +136,40 @@ def main(argv=None) -> int:
                     payload["squads"][slug]["autosubs"] = g["autosubs_applied"]
     except Exception as exc:  # official line is additive; grading must still bank
         print(f"  (official-scoring line unavailable: {exc})")
+    # The open benchmark: same-sample scores for every column frozen before
+    # the deadline (core/fpl_bench.py). Additive like the official line —
+    # a missing snapshot means the benchmark simply has no row this week.
+    try:
+        from core import fpl_bench, fpl_live
+        snap = fpl_bench.load_snapshot(args.gw)
+        if snap:
+            lp = fpl_live.read_live_cache(args.gw)
+            boot = fpl_api.read_cache("bootstrap")
+            teams = fpl_api.parse_teams(boot)
+            el_team = {e["id"]: teams.get(e["team"], "???")
+                       for e in boot.get("elements", [])}
+            el_name = {e["id"]: e["web_name"]
+                       for e in boot.get("elements", [])}
+            realized_k, minutes_k = {}, {}
+            for e in (lp.get("live") or {}).get("elements", []):
+                key = f'{el_name.get(e["id"])}|{el_team.get(e["id"])}'
+                st = e.get("stats") or {}
+                realized_k[key] = st.get("total_points", 0)
+                minutes_k[key] = st.get("minutes", 0)
+            payload["benchmark"] = {
+                "taken_at": snap.get("taken_at"),
+                "scores": fpl_bench.grade_snapshot(snap, realized_k,
+                                                   minutes_k),
+                "attribution": fpl_bench.FFIQ_ATTRIBUTION,
+            }
+            print("  benchmark graded: "
+                  + ", ".join(payload["benchmark"]["scores"]))
+        else:
+            print(f"  (no benchmark snapshot for gw{args.gw} — take one "
+                  f"pre-deadline with: python3 -m core.fpl_bench --snapshot "
+                  f"--gw {args.gw})")
+    except Exception as exc:
+        print(f"  (benchmark grading unavailable: {exc})")
     path = grading.write_accuracy(args.gw, payload, out_dir=args.out)
     print(grading.format_report(payload))
     print(f"\nbanked → {os.path.relpath(path, _HERE)} (commit it with the "
