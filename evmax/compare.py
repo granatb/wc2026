@@ -92,6 +92,11 @@ _COLS = [("method", "Method published"), ("data", "Data reusable"),
          ("machine", "Machine-readable")]
 
 _CSS = (
+    ".cmp-table .cmp-n{color:var(--ink3);font-size:11px;margin-left:6px}"
+    ".cmp-table tr.cmp-best td{font-weight:800;color:var(--greend)}"
+    ".cmp-table tr.cmp-best td:first-child::after{content:' \\2190 best';"
+    "font-size:10.5px;color:var(--green);font-weight:700;margin-left:6px}"
+
     ".cmp-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;"
     "background:var(--surf);margin:18px 0}"
     ".cmp{border-collapse:collapse;width:100%;min-width:840px;font-size:14px}"
@@ -134,6 +139,99 @@ def _table() -> str:
             f'<tr><th>Site</th>{head}</tr>{body}</table></div>')
 
 
+_BENCH_SOURCE_LABEL = {
+    "evmax": "evmax",
+    "ffiq": '<a href="https://fantasyfootballiq.app">Fantasy Football IQ</a>',
+    "ep_next": "FPL ep_next (official)",
+    "baseline_ppg": "baseline: season pts/appearance",
+    "baseline_form4": "baseline: last-4 mean",
+}
+# The table's row order: models first, the reference, then the bar the models
+# must clear to be worth anything.
+_BENCH_ORDER = ("evmax", "ffiq", "ep_next", "baseline_ppg", "baseline_form4")
+
+
+def _bench_data():
+    """Graded benchmark rows + pending snapshots, from the banked assets."""
+    import glob
+    import json as _json
+    import os as _os
+    here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    graded, pending = [], []
+    for path in sorted(glob.glob(_os.path.join(
+            here, "evmax", "assets", "accuracy", "gw*.json"))):
+        with open(path, encoding="utf-8") as fh:
+            acc = _json.load(fh)
+        if acc.get("benchmark"):
+            graded.append(acc)
+    for path in sorted(glob.glob(_os.path.join(
+            here, "evmax", "assets", "bench", "gw*.json"))):
+        with open(path, encoding="utf-8") as fh:
+            snap = _json.load(fh)
+        if not any(a["gameweek"] == snap["gameweek"] for a in graded):
+            pending.append(snap)
+    return graded, pending
+
+
+def benchmark_section() -> str:
+    """The same-sample benchmark: graded tables per gameweek, pending
+    snapshots named with their freeze time. Derived metrics only — nobody's
+    projections appear here."""
+    graded, pending = _bench_data()
+    blocks = ['<h2 id="benchmark">The benchmark — same sample, same yardstick'
+              '</h2>',
+              "<p>Self-reported accuracy numbers are not comparable, so we "
+              "grade every column ourselves: each source's projections are "
+              "frozen in a public git commit <b>before the deadline</b> and "
+              "scored after the gameweek on the same players with the same "
+              "error definition. Mean absolute error, lower is better; "
+              "<i>n</i> is each source's own coverage. A model earns its keep "
+              "only by beating the naive baselines at the bottom.</p>"]
+    for acc in graded:
+        rows = []
+        scores = acc["benchmark"]["scores"]
+        best = min((v["mae_60plus"] for v in scores.values()
+                    if v.get("mae_60plus") is not None), default=None)
+        for key in _BENCH_ORDER:
+            v = scores.get(key)
+            if not v:
+                continue
+            mark = " class=\"cmp-best\"" if v.get("mae_60plus") == best else ""
+            rows.append(
+                f'<tr{mark}><td>{_BENCH_SOURCE_LABEL.get(key, key)}</td>'
+                f'<td>{v.get("mae_60plus") if v.get("mae_60plus") is not None else "—"}'
+                f'<span class="cmp-n">n={v.get("n_60plus")}</span></td>'
+                f'<td>{v.get("rmse_60plus") if v.get("rmse_60plus") is not None else "—"}</td>'
+                f'<td>{v.get("mae_all") if v.get("mae_all") is not None else "—"}'
+                f'<span class="cmp-n">n={v.get("n_all")}</span></td></tr>')
+        blocks.append(
+            f'<h3>Gameweek {acc["gameweek"]}</h3>'
+            f'<table class="cmp-table"><thead><tr><th>Source</th>'
+            f'<th>MAE, 60+ min</th><th>RMSE, 60+ min</th>'
+            f'<th>MAE, everyone</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+    for snap in pending:
+        taken = _html.escape((snap.get("taken_at") or "")[:16].replace("T", " "))
+        blocks.append(
+            f'<p class="cmp-note"><b>Gameweek {snap["gameweek"]}: frozen, '
+            f'not yet graded.</b> Every column snapshotted {taken} UTC, '
+            f'before the deadline, in a public commit. Grades land once the '
+            f'gameweek finishes.</p>')
+    if not graded:
+        blocks.append(
+            '<p class="cmp-note">Until the first frozen gameweek is graded, '
+            'the only cross-source history is ours against FPL\'s own '
+            'ep_next, in <a href="/fpl/accuracy/">the ledger</a>.</p>')
+    blocks.append(
+        '<p class="cmp-note">Fantasy Football IQ projections are used under '
+        'their published licence (free to use with attribution — '
+        '<a href="https://fantasyfootballiq.app">fantasyfootballiq.app</a>). '
+        'Only derived metrics appear here; nobody\'s projections are '
+        'republished. Sources with restrictive terms are invited in writing '
+        'instead — the invitation and the answer both get published.</p>')
+    return "".join(blocks)
+
+
 def compare_page() -> str:
     """`/fpl/compare/` — the checkable differences, including ours."""
     title = "How evmax compares"
@@ -146,14 +244,14 @@ def compare_page() -> str:
 <h1>How we compare</h1>
 <p class="stand">{_html.escape(description)}</p>
 
-<h2>Why there are no accuracy numbers on this page</h2>
+{benchmark_section()}
+
+<h2>Why the table above never quotes anyone's self-reported number</h2>
 <p>Every model grades itself over a different sample: different gameweeks, a
-different set of players, sometimes a different definition of error. Putting
-those numbers side by side would produce a table that looks authoritative and
-proves nothing, which is the kind of claim this project exists to be an
-alternative to. The one accuracy comparison we do publish is against Fantasy
-Premier League's own projection, on exactly the same players, in
-<a href="/fpl/accuracy/">our ledger</a>.</p>
+different set of players, sometimes a different definition of error. Side by
+side, those numbers would look authoritative and prove nothing. The benchmark
+above exists precisely so the comparison can be made honestly: one sample,
+one yardstick, frozen in public before kickoff.</p>
 
 <h2>What can actually be checked</h2>
 <p class="cmp-note">Every cell links to its source. Checked {CHECKED}. If a row

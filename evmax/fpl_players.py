@@ -1539,7 +1539,9 @@ def top_cards_html(payloads: list, count: int = 3) -> str:
         return ""
     return (f'<section class="top-cards-full">{"".join(blocks)}'
             f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your '
-            f'player — search all cards →</a></p></section>')
+            f'player — search all cards →</a> · '
+            f'<a href="/fpl/compare/#benchmark">How we compare to the other '
+            f'models →</a></p></section>')
 
 
 def _tier_nav_html(active: str = None) -> str:

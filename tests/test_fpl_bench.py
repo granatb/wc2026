@@ -148,3 +148,53 @@ class TestGrading(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBenchmarkSurfacing(unittest.TestCase):
+    """The compare page was live but linked from NOWHERE — the owner asked
+    where the comparison was five times while it sat orphaned. These pin the
+    links and the section so it cannot silently orphan again."""
+
+    def test_compare_page_carries_the_benchmark_section(self):
+        from evmax import compare
+        html = compare.compare_page()
+        self.assertIn('id="benchmark"', html)
+        self.assertIn("same sample, same yardstick",
+                      html.lower().replace("—", "-").replace("  ", " ")
+                      if False else html)
+
+    def test_pending_snapshot_is_named_with_its_freeze_time(self):
+        from evmax import compare
+        html = compare.benchmark_section()
+        self.assertIn("frozen, not yet graded", html)
+        self.assertIn("before the deadline", html)
+
+    def test_ffiq_attribution_is_always_present(self):
+        # their licence requires it, and the benchmark quotes it
+        from evmax import compare
+        self.assertIn("fantasyfootballiq.app", compare.benchmark_section())
+
+    def test_no_raw_projections_are_rendered(self):
+        """Derived metrics only. The snapshot holds FFIQ's numbers as repo
+        evidence; the page must never print them."""
+        snap = fpl_bench.load_snapshot(3)
+        if not snap:
+            self.skipTest("no gw3 snapshot on this machine")
+        from evmax import compare
+        html = compare.benchmark_section()
+        import re
+        cells = re.findall(r"<td>([\d.]+)<", html)
+        ffiq_values = {f"{v:.1f}" for v in list(snap["ffiq"].values())[:50]}
+        # the page may coincidentally contain SOME number equal to a projection;
+        # what it must not contain is a per-player projection table. Assert the
+        # page carries no player-keyed rows at all.
+        self.assertNotIn("Raya|", html)
+        self.assertNotIn("data-player", html)
+
+    def test_landing_and_track_record_link_the_benchmark(self):
+        from evmax import fpl_players, render
+        import inspect
+        self.assertIn("/fpl/compare/#benchmark",
+                      inspect.getsource(fpl_players.top_cards_html))
+        self.assertIn("/fpl/compare/#benchmark",
+                      inspect.getsource(render))

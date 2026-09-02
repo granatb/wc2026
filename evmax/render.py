@@ -1515,7 +1515,8 @@ model-vs-crowd duel score.</p>
 <p class="tr-fpl-links">The full working: <a href="/fpl/accuracy/">the accuracy
 page</a> — per-gameweek error, the method in plain language and how to check it
 yourself. The projections themselves: <a href="/data/">the open dataset</a>
-(JSON + CSV, CC BY 4.0).</p>
+(JSON + CSV, CC BY 4.0). How we stack against the other public models, on one
+frozen sample: <a href="/fpl/compare/#benchmark">the open benchmark</a>.</p>
 </div>
 <h2 class="tr-section-h">World Cup 2026 — the retrospective</h2>"""
 

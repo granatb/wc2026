@@ -1676,10 +1676,19 @@ class TestComparePage(unittest.TestCase):
         self.assertIn("Where we are behind", html)
         self.assertIn("far more graded history", html)
 
-    def test_publishes_no_cross_site_accuracy_claim(self):
-        """No MAE/accuracy figure may appear for any competitor."""
+    def test_publishes_no_self_reported_accuracy_claim(self):
+        """The line the page must hold moved when the benchmark shipped
+        (2026-09-02), and got SHARPER, not looser: cross-site numbers appear
+        ONLY from our own same-sample grading of pre-deadline frozen columns.
+        Nobody's self-reported figure and nobody's raw projections may appear.
+        """
         from evmax import compare
         html = compare.compare_page()
-        self.assertIn("no accuracy numbers", html.lower())
+        # the benchmark is present and explains its own yardstick
+        self.assertIn('id="benchmark"', html)
+        self.assertIn("before the deadline", html)
+        # competitors' self-reported figures stay banned
         for banned in ("0.86", "0.896", "MAE 2.7"):
             self.assertNotIn(banned, html)
+        # and no player-keyed projection rows leak out of the snapshot
+        self.assertNotIn("Raya|", html)
