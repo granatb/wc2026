@@ -145,6 +145,20 @@ Two things to sanity-check before accepting a swap, both learned on 2026-08-27:
   transfer out of the league does not. A departure written as `round: N` leaves
   the player projected as a normal starter from N+1 and understates the sale.
 
+## 4b. Freeze the benchmark snapshot (before the deadline, non-negotiable)
+
+```bash
+python3 -m core.fpl_bench --snapshot --gw N
+git add evmax/assets/bench/gwN.json && git commit -m "bench: freeze gwN pre-deadline"
+```
+
+The open benchmark (`/fpl/compare/#benchmark`) grades every column — evmax,
+Fantasy Football IQ, ep_next, two naive baselines — on the same players after
+the gameweek. Its entire credibility is that the columns were frozen in a
+public commit BEFORE the deadline; a snapshot taken late is worse than none.
+The file refuses to overwrite (frozen means frozen), and Monday's grade_gw
+picks it up automatically.
+
 ## 5. The gate check — a dry build
 
 ```bash
