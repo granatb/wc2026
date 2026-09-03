@@ -159,6 +159,29 @@ public commit BEFORE the deadline; a snapshot taken late is worse than none.
 The file refuses to overwrite (frozen means frozen), and Monday's grade_gw
 picks it up automatically.
 
+## 4c. Freeze the other sites' published teams (and re-freeze on Friday)
+
+The comparison readers actually want is squads, not per-player error: whose
+recommended XI scored what. Capture each source's published team as soon as it
+is out, verify every name+club resolves against the feed, and freeze it:
+
+```python
+from core import fpl_bench
+fpl_bench.freeze_squads(N, {"ffs_scout_picks": {...}, "ffiq_ai_squad": {...}})
+```
+
+Sources for v1: Fantasy Football Scout's Scout Picks (an "early" version lands
+Monday, the "final" on Thursday/Friday — freeze both; grading uses the newest
+version frozen BEFORE the deadline, never one after) and Fantasy Football IQ's
+"IQ AI's squad" article (~48h before the deadline). The Premier League's own
+Scout Selection is the next candidate once its GW article is reliably out
+pre-deadline. Commit the file each time; the timestamps are the audit trail.
+
+**Friday morning, before the deadline: re-check FFS for the final Scout Picks
+and re-freeze if published.** An "early" XI graded as if it were their final
+call would be unfair to them, and unfairness in our favour is the one kind
+the benchmark cannot survive.
+
 ## 5. The gate check — a dry build
 
 ```bash
