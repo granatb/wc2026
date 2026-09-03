@@ -784,6 +784,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                   duel=duel, section=section,
                                   cards_html=fpl_players.top_cards_html(payloads),
                                   deadline_iso=deadline_iso,
+                                  # every graded gameweek as a duel row, from
+                                  # the same accuracy files /track-record/ reads
+                                  duel_history=fpl_track_ledger(),
                                   extra_style=(fpl_players.CARD_CSS +
                                                fpl_players.TOP_CARDS_CSS +
                                                render._NAV_SCROLL_CSS))

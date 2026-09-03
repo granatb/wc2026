@@ -426,8 +426,14 @@ class TestCardHtml(unittest.TestCase):
         The key moved into the timeline caption with the opponents."""
         _, html = self._card()
         self.assertNotIn("CAPS = home", html)
+        # _card() renders the h1 (standalone) face, which keeps the key...
         self.assertIn("box colour = fixture difficulty", html)
         self.assertIn("grey = not priced yet", html)
+        # ...while an embedded (h2) face drops it — the row carries it once
+        payloads, _ = _payloads()
+        embedded = fpl_players.card_html(payloads[0], heading="h2")
+        self.assertNotIn("box colour", embedded)
+        self.assertIn("played", embedded)   # the dot legend itself stays
 
     def test_form_band_is_the_dot_timeline(self):
         _, html = self._card()
@@ -1242,3 +1248,11 @@ class TestRankedIndex(unittest.TestCase):
         self.assertLess(html.index('data-name="Best"'),
                         html.index('data-name="Cheap"'))
         self.assertGreater(head, 0)
+
+
+class TestRowKeyOnce(unittest.TestCase):
+    def test_the_colour_key_renders_once_under_the_rows(self):
+        from tests.test_fpl_players import TestTopCards
+        html = fpl_players.top_cards_html(TestTopCards()._payloads())
+        self.assertEqual(html.count("Fixture boxes under the dots"), 1)
+        self.assertEqual(html.count("box colour = fixture difficulty"), 0)

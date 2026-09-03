@@ -654,10 +654,11 @@ class TestGameweekBuild(unittest.TestCase):
         cons_at = html.find('href="/fpl/gw1/consensus-squad/"', feed_at)
         self.assertGreater(cap_at, -1)
         self.assertGreater(cons_at, cap_at)
-        # duel strip: both labels present with two projected totals
-        self.assertIn('class="duel"', html)
-        self.assertIn(">Model<", html)
-        self.assertIn(">Consensus<", html)
+        # the duel ledger: both squads as columns, the live row for this week
+        self.assertIn('class="duel-ledger"', html)
+        self.assertIn(">Model XI<", html)
+        self.assertIn(">Consensus XI<", html)
+        self.assertIn('class="dl-live"', html)
 
     def test_duel_totals_match_the_squad_articles_own_meta(self):
         """The strip's numbers are the two articles' projected_total — the
@@ -1697,3 +1698,59 @@ class TestComparePage(unittest.TestCase):
             self.assertNotIn(banned, html)
         # and no player-keyed projection rows leak out of the snapshot
         self.assertNotIn("Raya|", html)
+
+
+class TestDuelLedger(unittest.TestCase):
+    """The duel as a per-gameweek table on the landing (owner, 2026-09-03):
+    every graded week's official points, the live week highlighted."""
+
+    def _history(self):
+        return [{"gw": 1, "model_projected": 65.9, "model_realized": 44,
+                 "consensus_projected": 60.7, "consensus_realized": 53,
+                 "duel_model": 0, "duel_consensus": 1, "duel_label": "crowd leads"},
+                {"gw": 2, "model_projected": 55.96, "model_realized": 93,
+                 "consensus_projected": 52.97, "consensus_realized": 84,
+                 "duel_model": 1, "duel_consensus": 1, "duel_label": "level"}]
+
+    def _duel(self):
+        meta = lambda t, c: {"projected_total": t, "formation": "4-3-3", "captain": c}
+        return {"model": meta(59.7, "B.Fernandes"), "consensus": meta(53.7, "Haaland"),
+                "live": {"model": {"total_so_far": 0, "players_pending": 11},
+                         "consensus": {"total_so_far": 0, "players_pending": 11}}}
+
+    def test_one_row_per_graded_gameweek_plus_the_live_one(self):
+        html = render._duel_table_html(self._duel(), self._history(), 3,
+                                       section=render.FPL)
+        self.assertEqual(html.count('class="dl-past"'), 2)
+        self.assertEqual(html.count('class="dl-live"'), 1)
+        self.assertIn(">GW1</a>", html); self.assertIn(">GW2</a>", html)
+        self.assertIn("GW3<span class=\"dl-now\">live</span>", html)
+
+    def test_official_points_and_winner_marked_per_row(self):
+        html = render._duel_table_html(self._duel(), self._history(), 3,
+                                       section=render.FPL)
+        self.assertIn('class="dl-num dl-win">93', html)     # GW2: model won
+        self.assertIn('class="dl-num dl-win">53', html)     # GW1: crowd won
+        self.assertIn("1–1", html)                          # running score
+
+    def test_live_row_carries_projection_and_so_far(self):
+        html = render._duel_table_html(self._duel(), self._history(), 3,
+                                       section=render.FPL)
+        self.assertIn("59.7", html); self.assertIn("53.7", html)
+        self.assertIn("11 to play", html)
+        self.assertIn("B.Fernandes (c)", html)
+
+    def test_landing_puts_the_header_inside_the_grid(self):
+        """The ties rail spans from the top: the header strip is a grid area."""
+        featured = {"slug": "captains", "prose": _PROSE, "viz_html": ""}
+        html = render.landing_page(
+            3, featured, [], date_str="3 September 2026",
+            fixtures=[{"home": "A", "away": "B", "kickoff_utc": "2026-09-05T11:30:00Z",
+                       "p_home": .4, "p_draw": .3, "p_away": .3,
+                       "lam_home": 1.4, "lam_away": 1.1, "pred": "1-1"}],
+            duel=self._duel(), section=render.FPL, duel_history=self._history())
+        self.assertIn('class="landing-grid landing-grid-head"', html)
+        self.assertIn('class="head-area"', html)
+        self.assertLess(html.index('class="head-area"'), html.index('class="rail"'))
+        self.assertIn('class="duel-ledger"', html)
+        self.assertNotIn('class="duel">', html)             # the old strip is gone

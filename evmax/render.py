@@ -504,7 +504,11 @@ _STYLE = (
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
     "@media(max-width:760px){.sitefoot .wrap{grid-template-columns:1fr}}"
     ".pitch-mini{width:200px}"
+    ".landing-grid.landing-grid-head{grid-template-areas:\"head rail\" \"feat rail\" \"feed rail\"}"
+    ".landing-grid .head-area{grid-area:head}"
+    ".landing-grid.landing-grid-head .rail{margin-top:26px}"
     ".header-strip{margin:26px 0 10px;padding-bottom:18px;border-bottom:1px solid var(--line)}"
+    "@media(max-width:900px){.landing-grid.landing-grid-head{grid-template-areas:\"head\" \"feat\" \"rail\" \"feed\"}}"
     ".hs-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}"
     ".hs-deadline{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--acc)}"
     ".hs-what{font-family:var(--serif);font-size:17px;line-height:1.5;color:var(--ink2);max-width:70ch;margin:10px 0 14px}"
@@ -2184,6 +2188,33 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
 # _STYLE is embedded byte-for-byte in every World Cup page, and those pages are
 # frozen published claims — appending to _STYLE itself would change them all.
 _DUEL_CSS = (
+    # the duel as a ledger
+    ".duel-ledger{width:100%;border-collapse:collapse;background:var(--surf);"
+    "border:1px solid var(--line);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}"
+    ".duel-ledger th{font-size:10.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;"
+    "color:var(--ink3);text-align:left;padding:9px 14px 6px;border-bottom:1px solid var(--line)}"
+    ".duel-ledger td{padding:7px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}"
+    ".duel-ledger tr:last-child td{border-bottom:0}"
+    ".duel-ledger .dl-gw{font-weight:800;color:var(--ink2);white-space:nowrap;width:76px}"
+    ".duel-ledger .dl-gw a{color:inherit}"
+    ".duel-ledger .dl-num{font-weight:700;color:var(--ink)}"
+    ".duel-ledger .dl-win{color:var(--greend)}"
+    ".duel-ledger .dl-win::after{content:' \\2713';font-size:12px}"
+    ".duel-ledger .dl-proj{display:block;font-size:11px;font-weight:500;color:var(--ink3)}"
+    ".duel-ledger .dl-score{font-weight:800;color:var(--ink2);white-space:nowrap;text-align:right}"
+    ".duel-ledger tr.dl-live td{background:#eef6f0}"
+    ".duel-ledger .dl-now{display:inline-block;margin-left:8px;font-size:9.5px;font-weight:800;"
+    "letter-spacing:1px;text-transform:uppercase;color:#fff;background:var(--acc);"
+    "border-radius:5px;padding:2px 6px;vertical-align:2px}"
+    ".duel-ledger .dl-live-cell a{display:flex;flex-direction:column;gap:1px;color:inherit}"
+    ".duel-ledger .dl-projnow{font-size:20px;font-weight:800;color:var(--ink);line-height:1.15}"
+    ".duel-ledger .dl-projnow .du{font-size:11px;font-weight:600;color:var(--ink3);margin-left:4px}"
+    ".duel-ledger .dl-sofar{font-size:12.5px;color:var(--ink2)}"
+    ".duel-ledger .dl-sofar b{color:var(--greend)}"
+    ".duel-ledger .dl-meta{font-size:11.5px;color:var(--ink3)}"
+    ".duel-ledger .dl-score-now{font-size:18px;color:var(--ink)}"
+    ".dl-note{font-size:12px;color:var(--ink3);margin:8px 2px 0}"
+    ".dl-note a{color:var(--greend);font-weight:600}"
     ".duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;"
     "gap:14px;background:var(--surf);border:1px solid var(--line);"
     "border-radius:12px;padding:14px 18px;margin-bottom:22px}"
@@ -2215,6 +2246,66 @@ def _duel_side_live_html(side_live: dict) -> str:
     return (f'<span class="duel-so-far"><b>{side_live["total_so_far"]}</b>'
             f' so far · {suffix}</span>')
 
+
+
+def _duel_table_html(duel: dict, history: list, round_no: int, section=WC) -> str:
+    """The duel as a compact ledger: one row per gameweek that has happened
+    (official points, from the graded accuracy files) and the current one
+    highlighted (frozen projection, realized so far). Owner, 2026-09-03: "row
+    per each week that already happened and the live one. builds nice
+    credibility. You enter and see the comparison and what it is about."
+
+    history: fpl_build.fpl_track_ledger() rows. duel: as _duel_strip_html.
+    """
+    if not duel:
+        return ""
+    live = duel.get("live") or {}
+    rows = []
+    for r in history or []:
+        if r["gw"] >= round_no:
+            continue
+        m, c = r.get("model_realized"), r.get("consensus_realized")
+        if m is None or c is None:
+            continue
+        win = "model" if m > c else ("consensus" if c > m else "")
+        rows.append(
+            f'<tr class="dl-past"><td class="dl-gw">'
+            f'<a href="{section.landing_path(r["gw"])}">'
+            f'GW{r["gw"]}</a></td>'
+            f'<td class="dl-num{" dl-win" if win == "model" else ""}">{m}'
+            f'<span class="dl-proj">proj {r["model_projected"]:.1f}</span></td>'
+            f'<td class="dl-num{" dl-win" if win == "consensus" else ""}">{c}'
+            f'<span class="dl-proj">proj {r["consensus_projected"]:.1f}</span></td>'
+            f'<td class="dl-score">{r["duel_model"]}–{r["duel_consensus"]}</td></tr>')
+    # the live row
+    def _cell(key, slug):
+        meta = duel[key]
+        side = live.get(key) or {}
+        so_far = ""
+        if side:
+            pending = side["players_pending"]
+            so_far = (f'<b>{side["total_so_far"]}</b> so far · '
+                      f'{f"{pending} to play" if pending else "all played"}')
+        return (f'<td class="dl-num dl-live-cell">'
+                f'<a href="{section.article_path(round_no, slug)}">'
+                f'<span class="dl-projnow">{meta["projected_total"]:.1f}'
+                f'<span class="du">proj</span></span>'
+                f'<span class="dl-sofar">{so_far}</span>'
+                f'<span class="dl-meta">{_html.escape(meta["formation"])} · '
+                f'{_html.escape(meta["captain"])} (c)</span></a></td>')
+    last = (history or [{}])[-1] if history else {}
+    score = (f'{last.get("duel_model", 0)}–{last.get("duel_consensus", 0)}'
+             if history else "0–0")
+    rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
+                f'<span class="dl-now">live</span></td>'
+                f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
+                f'<td class="dl-score dl-score-now">{score}</td></tr>')
+    return (f'<table class="duel-ledger"><thead><tr><th></th>'
+            f'<th>Model XI</th><th>Consensus XI</th><th>Duel</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>'
+            f'<p class="dl-note">Official points once a gameweek is graded; '
+            f'the live row shows the frozen projection and points so far. '
+            f'<a href="/track-record/">Full ledger →</a></p>')
 
 def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
     """The landing's compact model-vs-consensus strip: both published squads'
@@ -2335,7 +2426,7 @@ def _format_deadline(iso: str) -> str:
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
                  available_rounds=None, live_xi=None, duel=None, section=WC,
                  pre_feed_html="", extra_style="", pre_content_html="",
-                 cards_html="", deadline_iso=None):
+                 cards_html="", deadline_iso=None, duel_history=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2408,7 +2499,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 <div class="hs-top"><div class="pagelabel" style="margin:0">{section.label} · {section.kicker(round_no)}</div>{deadline_html}</div>
 <p class="hs-what">Two squads, picked before every deadline and graded after: one by a 50,000-run simulation, one by the crowd's template. Every number on this page is a projection you can check next week.</p>
 {hero_actions}
-{_live_xi_html(live_xi, round_no, section=section)}{_duel_strip_html(duel, round_no, section=section)}
+{_live_xi_html(live_xi, round_no, section=section)}{_duel_table_html(duel, duel_history, round_no, section=section) if duel_history is not None else _duel_strip_html(duel, round_no, section=section)}
 </div>"""
     feat_content = f"""{cards_html}
 <section class="feat">
@@ -2436,9 +2527,13 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         # actually find the rail without scrolling to the very bottom.
         rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks,
                                         section=section)
+        # The rail spans from the very top: the header strip is a grid area
+        # too, so everything that is not the ties list sits in the left column
+        # ("pull this round's ties all the way up and keep everything else to
+        # the left of it", owner 2026-09-03).
         body_content = (
-            header_strip
-            + '<div class="landing-grid">'
+            '<div class="landing-grid landing-grid-head">'
+            f'<div class="head-area">{header_strip}</div>'
             f'<div class="feat-area">{feat_content}</div>'
             f'{rail_html}'
             f'<div class="feed-area">{feed_content}</div>'

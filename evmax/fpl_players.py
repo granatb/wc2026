@@ -715,6 +715,7 @@ TOP_CARDS_CSS = (
     ".tcf-lead .tcf-kicker::after{border-top:2px solid var(--green)}"
     ".tcf-intro{margin:6px 0 0;font-size:14px;color:var(--ink2);"
     "max-width:60ch}"
+    ".tcf-key{margin:2px 0 6px;font-size:11.5px;color:var(--ink3)}"
     ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
     ".tcf-check a{color:var(--green)}"
     # THREE per row, not four. At four across each card got ~250px and every
@@ -868,7 +869,7 @@ def dots_title(dots: list) -> str:
         for d in dots)
 
 
-def _dots_html(payload: dict) -> str:
+def _dots_html(payload: dict, key: bool = True) -> str:
     """The timeline block: the strip, the gameweek labels, and the caption
     that doubles as the legend.
 
@@ -939,7 +940,11 @@ def _dots_html(payload: dict) -> str:
         f'<span class="{"pc-dv-played" if d["mode"] == "played" else ""}">'
         f'{_html.escape(d["display"])}</span>' for d in dots)
     cols = f'repeat({n},1fr)'
-    if opps:
+    # The colour key repeated under all nine landing cards and ate three
+    # lines each ("the legend about box colour takes a lot of space", owner
+    # 2026-09-03). It renders here only for a card standing alone on its own
+    # page; rows of cards carry it once, underneath (top_cards_html).
+    if opps and key:
         shown = [fx_by_gw[d["gw"]] for d in dots if fx_by_gw.get(d["gw"])]
         if any(f["difficulty"] is not None for f in shown):
             legend.append("box colour = fixture difficulty, green easy to red hard")
@@ -1301,7 +1306,7 @@ def card_html(payload: dict, heading: str = "h1") -> str:
     # dot ("team names could be under the dots on X axis", owner 2026-08-27).
     # This retired the separate chip column the same review had asked for a
     # day earlier: one aligned chart beats two blocks saying the same thing.
-    sw_html = _dots_html(payload)
+    sw_html = _dots_html(payload, key=(heading == "h1"))
 
     # ONE card must not use one word for two numbers. The hero's "ceiling" is
     # the 90th percentile (an integer score he beats one week in ten); this one
@@ -1554,6 +1559,7 @@ def top_cards_html(payloads: list, count: int = 3) -> str:
     if not blocks:
         return ""
     return (f'<section class="top-cards-full">{"".join(blocks)}'
+            f'<p class="tcf-key">Fixture boxes under the dots: the next opponent, coloured by difficulty — green easy, red hard, dashed grey not priced yet.</p>'
             f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your '
             f'player — search all cards →</a> · '
             f'<a href="/fpl/compare/#benchmark">How we compare to the other '
