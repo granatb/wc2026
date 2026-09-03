@@ -12,6 +12,9 @@ sources:
 updated: 2026-09-03
 ---
 
-Gone from the league, not merely displaced: loaned to Como for the season, feed
-status 'u'. He cannot score a point for us and must be sold this week — a bench
-keeper who does not exist is not a dead slot but a hole.
+Gone from the league: loaned to Como for the season, feed status 'u'. He cannot
+score a point for us. Held deliberately for now all the same: with one free
+transfer a week, a bench keeper who never plays is worth exactly what a fit
+bench keeper who never plays is worth — nothing, unless Raya misses a game —
+and the free move went to a starter (Ndiaye → Gakpo, +2.55 this week). The
+keeper gets fixed the first week a free transfer has nothing better to do.
