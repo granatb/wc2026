@@ -1,0 +1,154 @@
+{
+ "gameweek": 3,
+ "versions": [
+  {
+   "taken_at": "2026-09-03T09:32:35.351711+00:00",
+   "squads": {
+    "ffs_scout_picks": {
+     "label": "Fantasy Football Scout — Scout Picks (early)",
+     "url": "https://www.fantasyfootballscout.co.uk/2026/08/31/fpl-gameweek-3-early-scout-picks-piling-up-on-man-city",
+     "published_at": "2026-08-31",
+     "status": "early",
+     "xi": [
+      [
+       "Kelleher",
+       "BRE"
+      ],
+      [
+       "Konsa",
+       "ARS"
+      ],
+      [
+       "Gvardiol",
+       "MCI"
+      ],
+      [
+       "De Cuyper",
+       "BHA"
+      ],
+      [
+       "Schade",
+       "BRE"
+      ],
+      [
+       "Szoboszlai",
+       "LIV"
+      ],
+      [
+       "Cherki",
+       "MCI"
+      ],
+      [
+       "B.Fernandes",
+       "MUN"
+      ],
+      [
+       "Gibbs-White",
+       "NFO"
+      ],
+      [
+       "Haaland",
+       "MCI"
+      ],
+      [
+       "Wissa",
+       "NEW"
+      ]
+     ],
+     "captain": null,
+     "vice": null,
+     "bench": [
+      [
+       "Leno",
+       "FUL"
+      ],
+      [
+       "Egan",
+       "BUR"
+      ],
+      [
+       "Cash",
+       "AVL"
+      ],
+      [
+       "Akpom",
+       "IPS"
+      ]
+     ]
+    },
+    "ffiq_ai_squad": {
+     "label": "Fantasy Football IQ — IQ AI's squad",
+     "url": "https://fantasyfootballiq.app/articles/fpl-gameweek-3-iq-ais-squad-270",
+     "published_at": "2026-09-02T19:01:00+00:00",
+     "status": "final",
+     "xi": [
+      [
+       "Kelleher",
+       "BRE"
+      ],
+      [
+       "Gabriel",
+       "ARS"
+      ],
+      [
+       "Guéhi",
+       "MCI"
+      ],
+      [
+       "Mukiele",
+       "SUN"
+      ],
+      [
+       "Gvardiol",
+       "MCI"
+      ],
+      [
+       "B.Fernandes",
+       "MUN"
+      ],
+      [
+       "Saka",
+       "ARS"
+      ],
+      [
+       "Cherki",
+       "MCI"
+      ],
+      [
+       "Gibbs-White",
+       "NFO"
+      ],
+      [
+       "Mbeumo",
+       "MUN"
+      ],
+      [
+       "João Pedro",
+       "CHE"
+      ]
+     ],
+     "captain": "B.Fernandes",
+     "vice": "Saka",
+     "bench": [
+      [
+       "A.Palmer",
+       "IPS"
+      ],
+      [
+       "Mendy",
+       "HUL"
+      ],
+      [
+       "Mheuka",
+       "CHE"
+      ],
+      [
+       "Scarlett",
+       "TOT"
+      ]
+     ]
+    }
+   }
+  }
+ ]
+}

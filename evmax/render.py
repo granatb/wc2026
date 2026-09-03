@@ -504,6 +504,12 @@ _STYLE = (
     ".sitefoot a{color:var(--greend);text-decoration:underline}"
     "@media(max-width:760px){.sitefoot .wrap{grid-template-columns:1fr}}"
     ".pitch-mini{width:200px}"
+    ".header-strip{margin:26px 0 10px;padding-bottom:18px;border-bottom:1px solid var(--line)}"
+    ".hs-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}"
+    ".hs-deadline{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--acc)}"
+    ".hs-what{font-family:var(--serif);font-size:17px;line-height:1.5;color:var(--ink2);max-width:70ch;margin:10px 0 14px}"
+    ".header-strip .hero-actions{margin-bottom:14px}"
+    ".header-strip>div:last-child{margin-bottom:0}"
     ".landing-grid{display:grid;grid-template-columns:1fr 320px;gap:48px;"
     "grid-template-areas:\"feat rail\" \"feed rail\";align-items:start}"
     ".landing-grid .feat-area{grid-area:feat}"
@@ -2312,9 +2318,24 @@ def squad_live_panel_html(grade: dict, fetched_at: str) -> str:
         '</div>')
 
 
+
+def _format_deadline(iso: str) -> str:
+    """'Fri 4 Sep, 18:30 UK' from an ISO deadline. Always UK time: that is the
+    clock FPL runs on and the one every reader of this page has in mind."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    try:
+        t = _dt.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return iso
+    # UK = UTC+1 during BST (Mar-Oct); the FPL season's deadlines that fall in
+    # GMT are handled the same way by month.
+    uk = t.astimezone(_tz.utc) + _td(hours=1 if 3 < t.month < 11 else 0)
+    return uk.strftime("%a %-d %b, %H:%M") + " UK"
+
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
                  available_rounds=None, live_xi=None, duel=None, section=WC,
-                 pre_feed_html="", extra_style="", pre_content_html=""):
+                 pre_feed_html="", extra_style="", pre_content_html="",
+                 cards_html="", deadline_iso=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2372,9 +2393,24 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     )
     # duel shares live_xi's template line so a duel-less landing (every World
     # Cup build) keeps today's whitespace byte-for-byte.
-    feat_content = f"""<div class="pagelabel">{section.label} · {section.kicker(round_no)}</div>
+    # THE HEADER STRIP. The page used to open straight onto nine player cards
+    # with the gameweek label, the duel and the switcher buried underneath
+    # them — "it's not clear what the users are looking at and don't have some
+    # more high level stuff" (owner, 2026-09-03). What a reader needs first:
+    # which gameweek, when it locks, the duel score, and one line on what this
+    # site is. Then the cards, in the main column with the ties rail beside
+    # them, which is where "games to the right" always meant.
+    deadline_html = ""
+    if deadline_iso:
+        deadline_html = (f'<span class="hs-deadline">deadline '
+                         f'{_html.escape(_format_deadline(deadline_iso))}</span>')
+    header_strip = f"""<div class="header-strip">
+<div class="hs-top"><div class="pagelabel" style="margin:0">{section.label} · {section.kicker(round_no)}</div>{deadline_html}</div>
+<p class="hs-what">Two squads, picked before every deadline and graded after: one by a 50,000-run simulation, one by the crowd's template. Every number on this page is a projection you can check next week.</p>
 {hero_actions}
 {_live_xi_html(live_xi, round_no, section=section)}{_duel_strip_html(duel, round_no, section=section)}
+</div>"""
+    feat_content = f"""{cards_html}
 <section class="feat">
 <div>
   <div class="kick">{feat_kicker}</div>
@@ -2401,14 +2437,15 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks,
                                         section=section)
         body_content = (
-            '<div class="landing-grid">'
+            header_strip
+            + '<div class="landing-grid">'
             f'<div class="feat-area">{feat_content}</div>'
             f'{rail_html}'
             f'<div class="feed-area">{feed_content}</div>'
             '</div>'
         )
     else:
-        body_content = feat_content + feed_content
+        body_content = header_strip + feat_content + feed_content
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">

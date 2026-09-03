@@ -162,6 +162,17 @@ def main(argv=None) -> int:
                                                    minutes_k),
                 "attribution": fpl_bench.FFIQ_ATTRIBUTION,
             }
+            # Other sites' published XIs, graded the way FPL grades a team —
+            # the comparison the owner actually asked for. Deadline-filtered:
+            # only versions frozen before lock count.
+            frozen_sq = fpl_bench.load_squads(args.gw)
+            if frozen_sq:
+                deadline = next((e.get("deadline_time") for e in
+                                 boot.get("events", []) if e.get("id") == args.gw),
+                                None)
+                latest = fpl_bench.latest_squads(frozen_sq, deadline)
+                payload["benchmark"]["squads"] = fpl_bench.grade_squads(
+                    latest, realized_k)
             print("  benchmark graded: "
                   + ", ".join(payload["benchmark"]["scores"]))
         else:

@@ -407,24 +407,26 @@ class TestCardHtml(unittest.TestCase):
                                                svg)}
         self.assertTrue(all(w > 20.0 for w in widths), widths)
 
-    def test_fixtures_sit_on_the_timeline_axis(self):
+    def test_fixtures_sit_on_the_timeline_axis_as_coloured_boxes(self):
         # Opponents under the dots ("team names could be under the dots on X
-        # axis", owner 2026-08-27): CAPS = home, lowercase = away, tinted by
-        # the same difficulty scale the chips carried.
+        # axis", owner 2026-08-27) as small boxes: 3-letter code, colour =
+        # difficulty, NO venue and no CAPS/lowercase convention — that mix was
+        # "all mixed up" (owner, 2026-09-03); venue lives in the ties rail.
         _, html = self._card()
         self.assertIn('class="pc-dotopps"', html)
-        self.assertIn('class="fxa-d1"', html)           # priced: green/easy
-        self.assertIn('class="fxa-unpriced"', html)     # no lambdas: gray
-        self.assertIn(">LIV</span>", html)              # home: caps
-        self.assertIn(">mci</span>", html)              # away: lowercase
-        self.assertNotIn("pc-fxcol", html)              # the column is gone
+        self.assertIn('class="fxb fxb-d1"', html)         # priced: green/easy
+        self.assertIn('class="fxb fxb-unpriced"', html)   # no lambdas: dashed
+        self.assertIn(">LIV</span>", html)
+        self.assertIn(">MCI</span>", html)                # away is caps too
+        self.assertNotIn(">mci</span>", html)
+        self.assertNotIn("pc-fxcol", html)
 
     def test_the_axis_carries_its_key(self):
         """Owner, 2026-08-26: "we don't know what green means in GW below".
         The key moved into the timeline caption with the opponents."""
         _, html = self._card()
-        self.assertIn("CAPS = home", html)
-        self.assertIn("greener opponent = easier", html)
+        self.assertNotIn("CAPS = home", html)
+        self.assertIn("box colour = fixture difficulty", html)
         self.assertIn("grey = not priced yet", html)
 
     def test_form_band_is_the_dot_timeline(self):

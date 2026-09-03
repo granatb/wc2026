@@ -158,10 +158,11 @@ class TestBenchmarkSurfacing(unittest.TestCase):
     def test_compare_page_carries_the_benchmark_section(self):
         from evmax import compare
         html = compare.compare_page()
+        # squads first (the reader's view), the per-player table after
+        self.assertIn('id="squads"', html)
         self.assertIn('id="benchmark"', html)
-        self.assertIn("same sample, same yardstick",
-                      html.lower().replace("—", "-").replace("  ", " ")
-                      if False else html)
+        self.assertLess(html.index('id="squads"'), html.index('id="benchmark"'))
+        self.assertIn("Whose team scored what", html)
 
     def test_pending_snapshot_renders_as_a_table_not_prose(self):
         """Owner opened the page pre-grading and found a heading over
@@ -170,9 +171,20 @@ class TestBenchmarkSurfacing(unittest.TestCase):
         from evmax import compare
         html = compare.benchmark_section()
         self.assertIn("frozen, waiting for kickoff", html)
-        self.assertIn("Players frozen", html)
         self.assertIn("graded after the gameweek", html)
         self.assertIn("before the deadline", html)
+        # the "players frozen" column confused the owner ("why do we care for
+        # the number of players?") — coverage lives in the footnote now
+        self.assertNotIn("Players frozen", html)
+
+    def test_squads_section_names_every_frozen_xi_with_its_captain(self):
+        from evmax import compare
+        html = compare.squads_section()
+        self.assertIn("Fantasy Football IQ", html)
+        self.assertIn("Fantasy Football Scout", html)
+        self.assertIn("B.Fernandes", html)          # FFIQ's captain
+        self.assertIn("not named", html)             # FFS early picks: none
+        self.assertIn("evmax — Model XI", html)
 
     def test_the_ep_next_history_table_shows_immediately(self):
         from evmax import compare
@@ -209,3 +221,48 @@ class TestBenchmarkSurfacing(unittest.TestCase):
                       inspect.getsource(fpl_players.top_cards_html))
         self.assertIn("/fpl/compare/#benchmark",
                       inspect.getsource(render))
+
+
+class TestSquadBenchmark(unittest.TestCase):
+    """Other sites' published XIs graded like FPL grades a team — the
+    comparison the owner actually meant ("some sides will have their teams and
+    models and recommend stuff and we could compare to them", 2026-09-03)."""
+
+    def _squads(self):
+        return {"src": {"xi": [["A", "X"], ["B", "X"], ["C", "Y"]],
+                        "captain": "A", "status": "final", "url": "u"}}
+
+    def test_xi_points_with_the_captain_doubled(self):
+        out = fpl_bench.grade_squads(self._squads(),
+                                     {"A|X": 10, "B|X": 2, "C|Y": 5})
+        self.assertEqual(out["src"]["points"], 27)      # 10*2 + 2 + 5
+        self.assertEqual(out["src"]["captain_points"], 10)
+        self.assertEqual(out["src"]["missing"], [])
+
+    def test_an_unresolved_name_scores_zero_and_is_listed(self):
+        out = fpl_bench.grade_squads(self._squads(), {"A|X": 10, "B|X": 2})
+        self.assertEqual(out["src"]["points"], 22)
+        self.assertEqual(out["src"]["missing"], ["C|Y"])
+
+    def test_no_captain_means_nobody_doubled(self):
+        sq = self._squads(); sq["src"]["captain"] = None
+        out = fpl_bench.grade_squads(sq, {"A|X": 10, "B|X": 2, "C|Y": 5})
+        self.assertEqual(out["src"]["points"], 17)
+        self.assertIsNone(out["src"]["captain_points"])
+
+    def test_freeze_appends_versions_and_latest_respects_the_deadline(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(fpl_bench, "BENCH_DIR", tmp):
+            from datetime import datetime, timezone
+            fpl_bench.freeze_squads(9, {"src": {"xi": [["A", "X"]], "status": "early"}},
+                                    now=datetime(2026, 9, 1, tzinfo=timezone.utc))
+            fpl_bench.freeze_squads(9, {"src": {"xi": [["B", "X"]], "status": "final"}},
+                                    now=datetime(2026, 9, 3, tzinfo=timezone.utc))
+            fpl_bench.freeze_squads(9, {"src": {"xi": [["Z", "X"]], "status": "late"}},
+                                    now=datetime(2026, 9, 6, tzinfo=timezone.utc))
+            frozen = fpl_bench.load_squads(9)
+        self.assertEqual(len(frozen["versions"]), 3)
+        # a version frozen AFTER the deadline can never count
+        latest = fpl_bench.latest_squads(frozen, "2026-09-04T17:30:00+00:00")
+        self.assertEqual(latest["src"]["status"], "final")
+        self.assertEqual(fpl_bench.latest_squads(frozen)["src"]["status"], "late")

@@ -92,6 +92,7 @@ _COLS = [("method", "Method published"), ("data", "Data reusable"),
          ("machine", "Machine-readable")]
 
 _CSS = (
+    ".cmp-note-cell{color:var(--ink3);font-size:12px}"
     ".cmp-wait{color:var(--ink3);font-style:italic}"
     ".cmp-table .cmp-n{color:var(--ink3);font-size:11px;margin-left:6px}"
     ".cmp-table tr.cmp-best td{font-weight:800;color:var(--greend)}"
@@ -208,20 +209,108 @@ def _ep_next_history() -> str:
         f'<tbody>{"".join(rows)}</tbody></table>')
 
 
+def _squad_rows_graded(acc: dict) -> list:
+    """[(label, points, captain, note)] for one graded gameweek, ours first."""
+    rows = []
+    sq = acc.get("squads") or {}
+    ours = sq.get("our-squad") or {}
+    cons = sq.get("consensus-squad") or {}
+    if ours:
+        rows.append(("evmax — Model XI", ours.get("realized_official",
+                                                  ours.get("realized")),
+                     None, "official points, autosubs applied"))
+    if cons:
+        rows.append(("evmax — Consensus XI", cons.get("realized_official",
+                                                      cons.get("realized")),
+                     None, "the crowd's template, same grading"))
+    ext = (acc.get("benchmark") or {}).get("squads") or {}
+    from core import fpl_bench as _fb
+    for key, g in ext.items():
+        label = _fb.SQUADS_SOURCES.get(key, {}).get("label", key)
+        note = f'XI as published{" (" + g["status"] + ")" if g.get("status") else ""}'
+        if g.get("missing"):
+            note += f' · {len(g["missing"])} name(s) unresolved, scored 0'
+        rows.append((label, g.get("points"), g.get("captain"), note))
+    return rows
+
+
+def squads_section() -> str:
+    """Whose recommended team scored what — the comparison a reader can hold
+    in one hand. Ours (both squads) and every external XI frozen before the
+    deadline, on official points."""
+    import json as _json
+    import os as _os
+    from core import fpl_bench as _fb
+    here = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    graded, pending = _bench_data()
+    blocks = ['<h2 id="squads">Whose team scored what</h2>',
+              "<p>Every site here publishes a recommended XI before the "
+              "deadline. We freeze each one in a public git commit as it is "
+              "published, then score them all on official Fantasy Premier "
+              "League points after the gameweek — captain doubled, nothing "
+              "else. Ours are the two squads we actually field.</p>"]
+    for acc in graded:
+        rows = _squad_rows_graded(acc)
+        if not rows:
+            continue
+        best = max((r[1] for r in rows if r[1] is not None), default=None)
+        trs = ""
+        for r in rows:
+            cls = ' class="cmp-best"' if r[1] == best else ""
+            pts = r[1] if r[1] is not None else "—"
+            cap = _html.escape(r[2]) if r[2] else "—"
+            trs += (f'<tr{cls}><td>{r[0]}</td><td>{pts}</td><td>{cap}</td>'
+                    f'<td class="cmp-note-cell">{_html.escape(r[3])}</td></tr>')
+        blocks.append(
+            f'<h3>Gameweek {acc["gameweek"]}</h3>'
+            f'<table class="cmp-table"><thead><tr><th>Team</th>'
+            f'<th>Points</th><th>Captain</th><th></th></tr></thead>'
+            f'<tbody>{trs}</tbody></table>')
+    # pending: the frozen XIs, named, with their captains
+    for snap in pending:
+        gw = snap["gameweek"]
+        frozen_sq = _fb.load_squads(gw)
+        if not frozen_sq:
+            continue
+        latest = _fb.latest_squads(frozen_sq)
+        taken = frozen_sq["versions"][-1]["taken_at"][:16].replace("T", " ")
+        trs = ('<tr><td>evmax — Model XI</td><td class="cmp-wait">plays this '
+               'gameweek</td><td>see the squad page</td><td></td></tr>'
+               '<tr><td>evmax — Consensus XI</td><td class="cmp-wait">plays this '
+               'gameweek</td><td>see the squad page</td><td></td></tr>')
+        for key, sq in latest.items():
+            label = _fb.SQUADS_SOURCES.get(key, {}).get("label", key)
+            url = sq.get("url")
+            lab = f'<a href="{_html.escape(url)}">{label}</a>' if url else label
+            trs += (f'<tr><td>{lab}</td><td class="cmp-wait">frozen '
+                    f'{_html.escape(str(sq.get("status") or ""))}</td>'
+                    f'<td>{_html.escape(sq.get("captain") or "not named")}</td>'
+                    f'<td class="cmp-note-cell">published '
+                    f'{_html.escape(str(sq.get("published_at") or "")[:10])}'
+                    f'</td></tr>')
+        blocks.append(
+            f'<h3>Gameweek {gw} — frozen, waiting for kickoff</h3>'
+            f'<table class="cmp-table"><thead><tr><th>Team</th><th>Points</th>'
+            f'<th>Captain</th><th></th></tr></thead><tbody>{trs}</tbody></table>'
+            f'<p class="cmp-note">External XIs frozen {taken} UTC as published; '
+            f'a later "final" version published before the deadline replaces '
+            f'an "early" one, and nothing frozen after the deadline ever '
+            f'counts.</p>')
+    return "".join(blocks)
+
+
 def benchmark_section() -> str:
     """The same-sample benchmark: graded tables per gameweek, pending
     snapshots named with their freeze time. Derived metrics only — nobody's
     projections appear here."""
     graded, pending = _bench_data()
-    blocks = ['<h2 id="benchmark">The benchmark — same sample, same yardstick'
-              '</h2>',
-              "<p>Self-reported accuracy numbers are not comparable, so we "
-              "grade every column ourselves: each source's projections are "
-              "frozen in a public git commit <b>before the deadline</b> and "
-              "scored after the gameweek on the same players with the same "
-              "error definition. Mean absolute error, lower is better; "
-              "<i>n</i> is each source's own coverage. A model earns its keep "
-              "only by beating the naive baselines at the bottom.</p>"]
+    blocks = ['<h2 id="benchmark">Player by player — who projects most '
+              'accurately</h2>',
+              "<p>The analyst's view. Each source's projection for every "
+              "player is frozen before the deadline and scored after: mean "
+              "absolute error, lower is better, on the players who played "
+              "60+ minutes and on everyone. A model earns its keep only by "
+              "beating the two naive baselines.</p>"]
     for acc in graded:
         rows = []
         scores = acc["benchmark"]["scores"]
@@ -264,18 +353,19 @@ def benchmark_section() -> str:
         }
         rows = "".join(
             f'<tr><td>{_BENCH_SOURCE_LABEL.get(k, k)}</td>'
-            f'<td>{counts[k]}</td>'
             f'<td class="cmp-wait">graded after the gameweek</td></tr>'
             for k in _BENCH_ORDER)
         blocks.append(
             f'<h3>Gameweek {snap["gameweek"]} — frozen, waiting for kickoff'
             f'</h3>'
             f'<table class="cmp-table"><thead><tr><th>Source</th>'
-            f'<th>Players frozen</th><th>MAE / RMSE</th></tr></thead>'
+            f'<th>Error (MAE)</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
-            f'<p class="cmp-note">All columns snapshotted {taken} UTC — '
-            f'before the deadline — in a public git commit. That timestamp '
-            f'is the no-lookahead proof.</p>')
+            f'<p class="cmp-note">Frozen {taken} UTC, before the deadline, in '
+            f'a public git commit — the no-lookahead proof. Coverage: '
+            f'{counts["evmax"]} players projected by the models, '
+            f'{counts["baseline_ppg"]} with an appearance for the baselines.'
+            f'</p>')
     history = _ep_next_history()
     if history:
         blocks.append(history)
@@ -301,9 +391,10 @@ def compare_page() -> str:
 <h1>How we compare</h1>
 <p class="stand">{_html.escape(description)}</p>
 
+{squads_section()}
 {benchmark_section()}
 
-<h2>Why the table above never quotes anyone's self-reported number</h2>
+<h2>Why these tables never quote anyone's self-reported number</h2>
 <p>Every model grades itself over a different sample: different gameweeks, a
 different set of players, sometimes a different definition of error. Side by
 side, those numbers would look authoritative and prove nothing. The benchmark

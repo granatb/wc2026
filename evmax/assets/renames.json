@@ -1,17 +1,18 @@
 {
- "_comment": "Durable feed-rename ledger: FPL renames a player when a namesake arrives (web_name is not stable across a season). Frozen snapshots keep the name the feed used THAT week, so graders, exporters and live joins resolve old names through this map. Squad-state 'aliases' are per-squad and get wiped by wildcard resets \u2014 this file is the season-long record. core/fpl_diff detects renames; append them here when the churn report shows one.",
- "renames": {
-  "Sangar\u00e9": {
-   "to": "I.Sangar\u00e9",
-   "gameweek": 2,
-   "reason": "M.Sangar\u00e9 joined Brentford; the feed disambiguated both",
-   "recorded": "2026-08-26"
-  },
-  "Savinho": {
-   "to": "S\u00e1vio",
-   "gameweek": 2,
-   "reason": "feed renamed on his Spurs move",
-   "recorded": "2026-08-27"
+  "_comment": "Durable feed-rename ledger: FPL renames a player when a namesake arrives (web_name is not stable across a season). Frozen snapshots keep the name the feed used THAT week, so graders, exporters and live joins resolve old names through this map. Squad-state 'aliases' are per-squad and get wiped by wildcard resets — this file is the season-long record. core/fpl_diff detects renames; append them here when the churn report shows one.",
+  "renames": {
+    "Sangaré": {
+      "to": "I.Sangaré",
+      "gameweek": 2,
+      "reason": "M.Sangaré joined Brentford; the feed disambiguated both",
+      "recorded": "2026-08-26"
+    },
+    "Savinho": {
+      "to": "Sávio",
+      "gameweek": 2,
+      "reason": "feed renamed on his Spurs move",
+      "recorded": "2026-08-27"
+    },
+    "Angulo": "N.Angulo"
   }
- }
 }

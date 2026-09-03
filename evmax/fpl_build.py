@@ -370,6 +370,27 @@ def _article_entries(rows: list, matches: list, clubs: list,
     return entries_map, metas
 
 
+
+def _frozen_entries(gameweek: int) -> tuple:
+    """({slug: entries}, {slug: squad meta}) from the pre-deadline snapshot
+    archive, or ({}, {}) when a gameweek was never frozen."""
+    snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "assets", "projections", f"fpl-gw{gameweek}")
+    entries_map, metas = {}, {}
+    if not os.path.isdir(snap_dir):
+        return entries_map, metas
+    for fname in sorted(os.listdir(snap_dir)):
+        if not fname.endswith(".json"):
+            continue
+        slug = fname[:-5]
+        with open(os.path.join(snap_dir, fname), encoding="utf-8") as fh:
+            env = json.load(fh)
+        if env.get("entries") is not None:
+            entries_map[slug] = env["entries"]
+        if env.get("squad"):
+            metas[slug] = env["squad"]
+    return entries_map, metas
+
 def entries_or_abort(rows: list, matches: list, clubs: list,
                      states: dict, note_names=frozenset()) -> tuple:
     """_article_entries, converting article-layer ValueErrors into the same
@@ -479,6 +500,24 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
     entries_map, metas = entries_or_abort(rows, matches, clubs, states,
                                           note_names)
+
+    # GRADED GAMEWEEKS RENDER FROM THEIR FROZEN SNAPSHOT. The articles above
+    # were re-simulated from whatever bootstrap and odds happened to be cached
+    # at rebuild time, so a graded gameweek's pages quietly rewrote themselves:
+    # on 2026-09-02 the GW2 landing read "projecting 59.30" against the 56.10
+    # that had been frozen, published and graded, and every card wore GW3
+    # numbers under a "Gameweek 2" label. A published claim must not move
+    # after it has been graded. Once evmax/assets/accuracy/gw{N}.json exists,
+    # every article's entries and squad meta come from the pre-deadline
+    # snapshot archive (evmax/assets/projections/fpl-gw{N}/), and only the
+    # live realized-points layer is allowed to change.
+    if os.path.exists(_acc):
+        frozen_map, frozen_metas = _frozen_entries(gameweek)
+        if frozen_map:
+            entries_map = {k: frozen_map.get(k, v) for k, v in entries_map.items()}
+            metas = {k: frozen_metas.get(k, v) for k, v in metas.items()}
+            print(f"  [fpl] gameweek {gameweek} articles rendered from the "
+                  f"frozen snapshot ({len(frozen_map)} article(s))")
     squad_preflight(metas)
 
     # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
@@ -736,11 +775,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     duel = {"model": metas["our-squad"], "consensus": metas["consensus-squad"]}
     if live_data:
         duel["live"] = live_data
+    # The FPL deadline for the header strip, from the cached bootstrap's
+    # events — the same source the runbook reads it from.
+    deadline_iso = next((e.get("deadline_time") for e in boot.get("events", [])
+                         if e.get("id") == gameweek), None) if boot else None
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=matches, available_rounds=available,
                                   duel=duel, section=section,
-                                  pre_content_html=fpl_players.top_cards_html(
-                                      payloads),
+                                  cards_html=fpl_players.top_cards_html(payloads),
+                                  deadline_iso=deadline_iso,
                                   extra_style=(fpl_players.CARD_CSS +
                                                fpl_players.TOP_CARDS_CSS +
                                                render._NAV_SCROLL_CSS))

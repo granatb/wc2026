@@ -559,11 +559,16 @@ class TestGameweekBuild(unittest.TestCase):
         # a generated model take under every card in the two crowd rows
         self.assertIn("Crowd is buying. Model has him tier", html)
         self.assertIn("Crowd is selling. Model", html)
-        # the module renders BEFORE the duel strip and the featured article
+        # 2026-09-03 layout: a header strip (gameweek, deadline, duel) opens
+        # the page so a reader knows what he is looking at; the card rows sit
+        # below it in the grid's main column, beside the ties rail, and the
+        # featured article follows the cards.
         row_at = html.find('<section class="top-cards-full">')
         self.assertGreater(row_at, -1)
-        self.assertLess(row_at, html.find('<div class="duel">'))
+        self.assertLess(html.find('<div class="header-strip">'), row_at)
+        self.assertLess(html.find('<div class="duel">'), row_at)
         self.assertLess(row_at, html.find('<section class="feat">'))
+        self.assertIn("hs-deadline", html)   # when it locks, up top
         # the rows are in the owner's order, and "Check your player" is last
         self.assertLess(html.find("Our picks this gameweek"),
                         html.find("Most transferred in this gameweek"))

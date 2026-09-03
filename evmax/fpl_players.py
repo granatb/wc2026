@@ -542,7 +542,7 @@ CARD_CSS = (
     "font-variant-numeric:tabular-nums}"
     ".player-card .pc-hn i{font-style:normal;font-size:10.5px;"
     "font-weight:700;letter-spacing:1px;text-transform:uppercase;"
-    "color:var(--ink3)}"
+    "color:var(--ink3);white-space:nowrap}"
     ".player-card .pc-hn2 b{font-size:27px;color:var(--ink2)}"
     ".player-card .pc-heroline{font-size:10.5px;color:var(--ink3);"
     "margin:2px 0 4px;font-variant-numeric:tabular-nums}"
@@ -597,15 +597,21 @@ CARD_CSS = (
     ".player-card .pcl-row:first-child{border-top:0}"
     ".player-card .pcl-k{color:var(--ink3)}"
     ".player-card .pcl-row b{font-weight:800;color:var(--ink)}"
-    # The opponent row on the timeline's axis: CAPS home / lowercase away,
-    # tinted by the same difficulty scale the chips carried.
-    ".player-card .pc-dotopps{display:grid;margin-top:1px}"
-    ".player-card .pc-dotopps span{font-size:9.5px;font-weight:800;"
-    "letter-spacing:.4px;color:var(--ink2);text-align:center;"
-    "overflow:hidden;text-overflow:clip;white-space:nowrap}"
-    ".player-card .fxa-d1,.player-card .fxa-d2{color:var(--greend)}"
-    ".player-card .fxa-d4,.player-card .fxa-d5{color:#a8331c}"
-    ".player-card .fxa-unpriced{color:var(--ink3);font-weight:600}"
+    # The opponent boxes on the timeline's axis: 3-letter code in a small
+    # filled chip whose colour is the difficulty, one per projected dot.
+    ".player-card .pc-dotopps{display:grid;margin-top:3px;gap:0 3px}"
+    ".player-card .pc-dotopps span{display:block;margin:0 auto;"
+    "font-size:9px;font-weight:800;letter-spacing:.3px;line-height:1;"
+    "padding:3px 0;width:100%;max-width:36px;border-radius:5px;text-align:center;"
+    "white-space:nowrap;overflow:hidden}"
+    ".player-card .fxb{background:var(--chipbg);color:var(--ink2)}"
+    ".player-card .fxb-d1{background:#cfe8d8;color:#0a4f2d}"
+    ".player-card .fxb-d2{background:#e3f1e8;color:#0f7a45}"
+    ".player-card .fxb-d3{background:var(--chipbg);color:var(--ink2)}"
+    ".player-card .fxb-d4{background:#fbe3dc;color:#a8331c}"
+    ".player-card .fxb-d5{background:#f4c4b8;color:#7a2413}"
+    ".player-card .fxb-unpriced{background:transparent;color:var(--ink3);"
+    "border:1px dashed var(--line);font-weight:600}"
     # legacy fixture chips (still used by article pages that embed strips)
     ".player-card .fx{display:flex;align-items:baseline;"
     "justify-content:space-between;gap:6px;"
@@ -715,8 +721,16 @@ TOP_CARDS_CSS = (
     # internal column squeezed out of line ("maybe we could have 3 cards",
     # owner 2026-08-27); at three each face gets ~350px and the ledger and
     # fixture column hold their grid.
-    ".tcf-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;"
+    ".tcf-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;"
     "margin-top:12px}"
+    # Inside the landing grid's main column (the ties rail takes 320px) the
+    # cards are ~245px wide; the type steps down a notch to match.
+    ".tcf-row .player-card{padding:14px}"
+    ".tcf-row .pc-name{font-size:17px}"
+    ".tcf-row .pc-hn b{font-size:30px}"
+    ".tcf-row .pc-hn2 b{font-size:19px}"
+    ".tcf-row .pcl-row{font-size:11px;padding:3.5px 0}"
+    ".tcf-row .pc-tier{font-size:9.5px;padding:3px 7px}"
     # the cell wraps the linked face AND its take, so the take is a sibling of
     # the link rather than block content inside it
     ".tcf-row>.tcf-cell{display:flex;flex-direction:column;min-width:0;"
@@ -736,8 +750,7 @@ TOP_CARDS_CSS = (
     "color:var(--ink2)}"
     # full faces at quarter width: scale the display type down a notch
     ".tcf-row .pc-name{font-size:19px}"
-    ".tcf-row .pc-hn b{font-size:34px}"
-    ".tcf-row .pc-hn2 b{font-size:22px}"
+
     "@media(max-width:900px){.tcf-row{grid-template-columns:repeat(2,1fr)}}"
     "@media(max-width:600px){.tcf-row{display:flex;overflow-x:auto;"
     "-webkit-overflow-scrolling:touch;padding-bottom:10px}"
@@ -895,10 +908,14 @@ def _dots_html(payload: dict) -> str:
         if not f:
             opp_cells.append("<span></span>")
             continue
-        name = f["opponent"] or ""
-        name = name.upper() if f["venue"] == "H" else name.lower()
-        cls = (f'fxa-d{f["difficulty"]}' if f["difficulty"] is not None
-               else "fxa-unpriced")
+        # A small box: the 3-letter code, tinted by difficulty. No venue and
+        # no CAPS/lowercase code — "the caps vs small letters and green color
+        # for matchups is all mixed up" (owner, 2026-09-03); home/away is one
+        # glance away in the ties rail beside the cards. Venue stays in the
+        # tooltip for anyone who hovers.
+        name = (f["opponent"] or "").upper()
+        cls = (f'fxb fxb-d{f["difficulty"]}' if f["difficulty"] is not None
+               else "fxb fxb-unpriced")
         opp_cells.append(f'<span class="{cls}" title="GW{f["gw"]} · '
                          f'{_html.escape(f["opponent"])} '
                          f'({f["venue"]})">{_html.escape(name)}</span>')
@@ -924,9 +941,8 @@ def _dots_html(payload: dict) -> str:
     cols = f'repeat({n},1fr)'
     if opps:
         shown = [fx_by_gw[d["gw"]] for d in dots if fx_by_gw.get(d["gw"])]
-        legend.append("CAPS = home")
         if any(f["difficulty"] is not None for f in shown):
-            legend.append("greener opponent = easier")
+            legend.append("box colour = fixture difficulty, green easy to red hard")
         if any(f["difficulty"] is None for f in shown):
             legend.append("grey = not priced yet")
     return (f'<div class="pc-form">'

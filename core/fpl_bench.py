@@ -238,3 +238,97 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# =============================================================================
+# Squads: other sites' published teams, graded on official points
+# =============================================================================
+# The owner's actual question (2026-09-03): "I thought some sides will have
+# their teams and models and recommend stuff and we could compare to them."
+# A per-player error table is the analyst's view; the reader's view is the
+# duel extended to other sites — whose recommended XI scored what. Sources are
+# captured pre-deadline exactly as ours are, and graded the way FPL grades a
+# team: XI points with the captain doubled. No autosubs unless a bench and its
+# order were published (the two v1 sources publish a bench without a formal
+# order, so v1 grades the XI as named — stated on the page).
+
+SQUADS_SOURCES = {
+    "ffs_scout_picks": {"label": "Fantasy Football Scout — Scout Picks",
+                        "home": "https://www.fantasyfootballscout.co.uk"},
+    "ffiq_ai_squad": {"label": "Fantasy Football IQ — IQ AI's squad",
+                      "home": "https://fantasyfootballiq.app"},
+}
+
+
+def _squads_path(gameweek: int) -> str:
+    return os.path.join(BENCH_DIR, f"squads_gw{gameweek}.json")
+
+
+def load_squads(gameweek: int):
+    try:
+        with open(_squads_path(gameweek), encoding="utf-8") as fh:
+            return json.load(fh)
+    except OSError:
+        return None
+
+
+def freeze_squads(gameweek: int, squads: dict, now=None) -> str:
+    """Freeze other sites' published XIs for `gameweek`.
+
+    squads: {source_key: {"url", "published_at", "label"?, "xi": [[web_name,
+    club], ...], "captain": web_name, "vice": web_name|None, "bench":
+    [[web_name, club], ...], "status": "early"|"final"}}. A source may be
+    re-frozen with a later 'final' version ONLY while the gameweek is still
+    open — the file records both, and grading uses the latest one taken before
+    the deadline.
+    """
+    path = _squads_path(gameweek)
+    existing = load_squads(gameweek) or {"gameweek": gameweek, "versions": []}
+    existing["versions"].append({
+        "taken_at": (now or datetime.now(timezone.utc)).isoformat(),
+        "squads": squads,
+    })
+    os.makedirs(BENCH_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(existing, fh, ensure_ascii=False, indent=1)
+        fh.write("\n")
+    return path
+
+
+def latest_squads(frozen: dict, deadline_iso: str = None) -> dict:
+    """The newest frozen version taken before the deadline (or the newest)."""
+    versions = frozen.get("versions") or []
+    if deadline_iso:
+        versions = [v for v in versions if v["taken_at"] <= deadline_iso] or versions
+    return versions[-1]["squads"] if versions else {}
+
+
+def grade_squads(squads: dict, realized_by_key: dict) -> dict:
+    """{source: {"points", "captain", "captain_points", "missing": [...]}}.
+
+    XI points summed on official realized points, captain doubled. A player
+    the join cannot find is listed under `missing` and scores 0, so a broken
+    name never silently inflates or deflates a total.
+    """
+    out = {}
+    for source, sq in squads.items():
+        total, missing = 0, []
+        for name, club in sq.get("xi", []):
+            key = f"{name}|{club}"
+            if key not in realized_by_key:
+                missing.append(key); continue
+            pts = realized_by_key[key]
+            if name == sq.get("captain"):
+                pts *= 2
+            total += pts
+        cap_key = next((f"{n}|{c}" for n, c in sq.get("xi", [])
+                        if n == sq.get("captain")), None)
+        out[source] = {
+            "points": total,
+            "captain": sq.get("captain"),
+            "captain_points": realized_by_key.get(cap_key) if cap_key else None,
+            "missing": missing,
+            "status": sq.get("status"),
+            "url": sq.get("url"),
+        }
+    return out
