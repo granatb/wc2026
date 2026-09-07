@@ -176,3 +176,28 @@ graded players (noise ceiling ≈2.8; small sample).
   from the cards rejection held): the distributions agent caught a simcache
   int-key stringification the plan never anticipated, and reverted a caption fix
   that would have changed a WC page.
+
+## GW3 (graded 2026-09-07)
+
+- Model 37 official, Consensus 59 (Guéhi autosubbed for O'Reilly), field average
+  51 provisional. Duel 1-2, crowd leads. Player MAE 2.404 vs ep_next 3.198 —
+  third week beating FPL's own number — but the first open-benchmark grade puts
+  Fantasy Football IQ ahead of us on the same sample (2.37 vs 2.46 on 60+
+  minutes, 1.19 vs 1.26 on everyone). Published as such.
+- Squads benchmark, week one: Consensus 59 > FFIQ AI squad 45 > FFS Scout
+  Picks 41 > Model 37. The crowd's template beat every model including ours.
+- The captain: Bruno (model rank 1) returned 2 away at Everton, 4 doubled. Same
+  process that produced 46 a week earlier. Captaincy from model rank is a policy,
+  not a weekly bet; two data points say nothing yet, but the ledger holds both.
+- The hold on Ndiaye: he started (86 min, 3 pts), so the agreed rule says keep.
+  Gakpo scored 11 — the move we discussed and did not make cost 8 this week.
+  Thiaw scored -1 — the move we discussed and did not make saved 4 (Le Fée, whom
+  Thiaw would not have displaced anyway, scored 8 on the bench). Net of the two
+  declined moves: -4, and the free transfer is banked (2 into GW4).
+- Bench: Le Fée 8 and Shaw 4 sat behind an XI that scored 1-3 across six
+  players. No autosub fired (everyone played). Bench order was right by
+  projection; the outcome is variance, and the ledger records it as such.
+- PROCESS MISS, owned: the runbook's Friday-morning re-freeze of FFS's FINAL
+  Scout Picks did not run (no session Friday). Their squad is graded on the
+  "early" version without a captain, labelled so on the page. Fix: the Thursday
+  session must schedule the Friday check, or the freeze must be automated.

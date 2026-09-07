@@ -1,0 +1,591 @@
+{
+  "gameweek": 3,
+  "n": 63,
+  "mae_ours": 2.404,
+  "mae_ep_next": 3.198,
+  "beat_ep_next": true,
+  "players": [
+    {
+      "name": "B.Fernandes",
+      "x_points": 7.94,
+      "realized": 2,
+      "err_ours": 5.94,
+      "ep_next": 12.5,
+      "err_ep_next": 10.5
+    },
+    {
+      "name": "Scott",
+      "x_points": 4.14,
+      "realized": 10,
+      "err_ours": 5.86,
+      "ep_next": 7.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "Tavernier",
+      "x_points": 4.53,
+      "realized": 10,
+      "err_ours": 5.47,
+      "ep_next": 5.5,
+      "err_ep_next": 4.5
+    },
+    {
+      "name": "Gakpo",
+      "x_points": 5.6,
+      "realized": 11,
+      "err_ours": 5.4,
+      "ep_next": 8.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "E.Le Fée",
+      "x_points": 2.72,
+      "realized": 8,
+      "err_ours": 5.28,
+      "ep_next": 2.5,
+      "err_ep_next": 5.5
+    },
+    {
+      "name": "Thiaw",
+      "x_points": 3.98,
+      "realized": -1,
+      "err_ours": 4.98,
+      "ep_next": 4.5,
+      "err_ep_next": 5.5
+    },
+    {
+      "name": "Damsgaard",
+      "x_points": 3.04,
+      "realized": 8,
+      "err_ours": 4.96,
+      "ep_next": 2.0,
+      "err_ep_next": 6.0
+    },
+    {
+      "name": "O'Reilly",
+      "x_points": 4.17,
+      "realized": 0,
+      "err_ours": 4.17,
+      "ep_next": 2.0,
+      "err_ep_next": 2.0
+    },
+    {
+      "name": "M.Sangaré",
+      "x_points": 4.14,
+      "realized": 0,
+      "err_ours": 4.14,
+      "ep_next": 9.0,
+      "err_ep_next": 9.0
+    },
+    {
+      "name": "Szoboszlai",
+      "x_points": 6.66,
+      "realized": 3,
+      "err_ours": 3.66,
+      "ep_next": 6.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "Guéhi",
+      "x_points": 4.41,
+      "realized": 8,
+      "err_ours": 3.59,
+      "ep_next": 6.0,
+      "err_ep_next": 2.0
+    },
+    {
+      "name": "Donnarumma",
+      "x_points": 3.43,
+      "realized": 7,
+      "err_ours": 3.57,
+      "ep_next": 1.5,
+      "err_ep_next": 5.5
+    },
+    {
+      "name": "Mbeumo",
+      "x_points": 4.45,
+      "realized": 8,
+      "err_ours": 3.55,
+      "ep_next": 6.5,
+      "err_ep_next": 1.5
+    },
+    {
+      "name": "Milenković",
+      "x_points": 3.46,
+      "realized": 7,
+      "err_ours": 3.54,
+      "ep_next": 2.5,
+      "err_ep_next": 4.5
+    },
+    {
+      "name": "Saka",
+      "x_points": 5.45,
+      "realized": 2,
+      "err_ours": 3.45,
+      "ep_next": 10.0,
+      "err_ep_next": 8.0
+    },
+    {
+      "name": "Tzolis",
+      "x_points": 1.62,
+      "realized": 5,
+      "err_ours": 3.38,
+      "ep_next": 3.0,
+      "err_ep_next": 2.0
+    },
+    {
+      "name": "Rogers",
+      "x_points": 2.7,
+      "realized": 6,
+      "err_ours": 3.3,
+      "ep_next": 6.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Thiago",
+      "x_points": 5.26,
+      "realized": 2,
+      "err_ours": 3.26,
+      "ep_next": 1.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Bruno G.",
+      "x_points": 3.24,
+      "realized": 0,
+      "err_ours": 3.24,
+      "ep_next": 0.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Kinsky",
+      "x_points": 2.86,
+      "realized": 6,
+      "err_ours": 3.14,
+      "ep_next": 1.5,
+      "err_ep_next": 4.5
+    },
+    {
+      "name": "Egan",
+      "x_points": 2.91,
+      "realized": 6,
+      "err_ours": 3.09,
+      "ep_next": 8.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "N.Williams",
+      "x_points": 3.93,
+      "realized": 7,
+      "err_ours": 3.07,
+      "ep_next": 4.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "Calvert-Lewin",
+      "x_points": 3.8,
+      "realized": 1,
+      "err_ours": 2.8,
+      "ep_next": 4.5,
+      "err_ep_next": 3.5
+    },
+    {
+      "name": "Kayode",
+      "x_points": 3.78,
+      "realized": 1,
+      "err_ours": 2.78,
+      "ep_next": 7.5,
+      "err_ep_next": 6.5
+    },
+    {
+      "name": "Cash",
+      "x_points": 3.48,
+      "realized": 6,
+      "err_ours": 2.52,
+      "ep_next": 0.5,
+      "err_ep_next": 5.5
+    },
+    {
+      "name": "João Pedro",
+      "x_points": 3.5,
+      "realized": 1,
+      "err_ours": 2.5,
+      "ep_next": 10.0,
+      "err_ep_next": 9.0
+    },
+    {
+      "name": "Dubravka",
+      "x_points": 2.5,
+      "realized": 0,
+      "err_ours": 2.5,
+      "ep_next": 0.0,
+      "err_ep_next": 0.0
+    },
+    {
+      "name": "Zubimendi",
+      "x_points": 3.49,
+      "realized": 1,
+      "err_ours": 2.49,
+      "ep_next": 1.0,
+      "err_ep_next": 0.0
+    },
+    {
+      "name": "Collins",
+      "x_points": 3.49,
+      "realized": 1,
+      "err_ours": 2.49,
+      "ep_next": 4.5,
+      "err_ep_next": 3.5
+    },
+    {
+      "name": "Struijk",
+      "x_points": 3.48,
+      "realized": 1,
+      "err_ours": 2.48,
+      "ep_next": 0.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Richards",
+      "x_points": 3.26,
+      "realized": 1,
+      "err_ours": 2.26,
+      "ep_next": 1.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Leno",
+      "x_points": 3.17,
+      "realized": 1,
+      "err_ours": 2.17,
+      "ep_next": 2.5,
+      "err_ep_next": 1.5
+    },
+    {
+      "name": "Garner",
+      "x_points": 4.14,
+      "realized": 2,
+      "err_ours": 2.14,
+      "ep_next": 1.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Gibbs-White",
+      "x_points": 5.09,
+      "realized": 3,
+      "err_ours": 2.09,
+      "ep_next": 7.5,
+      "err_ep_next": 4.5
+    },
+    {
+      "name": "Adams",
+      "x_points": 1.94,
+      "realized": 4,
+      "err_ours": 2.06,
+      "ep_next": 1.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "J.Murphy",
+      "x_points": 3.01,
+      "realized": 1,
+      "err_ours": 2.01,
+      "ep_next": 0.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Enzo",
+      "x_points": 4.94,
+      "realized": 3,
+      "err_ours": 1.94,
+      "ep_next": 0.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "Semenyo",
+      "x_points": 4.13,
+      "realized": 6,
+      "err_ours": 1.87,
+      "ep_next": 3.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "Calafiori",
+      "x_points": 3.79,
+      "realized": 2,
+      "err_ours": 1.79,
+      "ep_next": 10.0,
+      "err_ep_next": 8.0
+    },
+    {
+      "name": "Evanilson",
+      "x_points": 3.76,
+      "realized": 2,
+      "err_ours": 1.76,
+      "ep_next": 4.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "Senesi",
+      "x_points": 1.72,
+      "realized": 0,
+      "err_ours": 1.72,
+      "ep_next": 1.5,
+      "err_ep_next": 1.5
+    },
+    {
+      "name": "Virgil",
+      "x_points": 4.39,
+      "realized": 6,
+      "err_ours": 1.61,
+      "ep_next": 1.5,
+      "err_ep_next": 4.5
+    },
+    {
+      "name": "Kelleher",
+      "x_points": 3.59,
+      "realized": 2,
+      "err_ours": 1.59,
+      "ep_next": 4.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "Shaw",
+      "x_points": 2.49,
+      "realized": 4,
+      "err_ours": 1.51,
+      "ep_next": 1.5,
+      "err_ep_next": 2.5
+    },
+    {
+      "name": "Muharemović",
+      "x_points": 2.49,
+      "realized": 4,
+      "err_ours": 1.51,
+      "ep_next": 5.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Stach",
+      "x_points": 3.33,
+      "realized": 2,
+      "err_ours": 1.33,
+      "ep_next": 8.5,
+      "err_ep_next": 6.5
+    },
+    {
+      "name": "F.Kadıoğlu",
+      "x_points": 3.28,
+      "realized": 2,
+      "err_ours": 1.28,
+      "ep_next": 0.0,
+      "err_ep_next": 2.0
+    },
+    {
+      "name": "Cherki",
+      "x_points": 4.08,
+      "realized": 3,
+      "err_ours": 1.08,
+      "ep_next": 11.0,
+      "err_ep_next": 8.0
+    },
+    {
+      "name": "Yeremy",
+      "x_points": 3.97,
+      "realized": 5,
+      "err_ours": 1.03,
+      "ep_next": 3.0,
+      "err_ep_next": 2.0
+    },
+    {
+      "name": "Diop",
+      "x_points": 2.05,
+      "realized": 3,
+      "err_ours": 0.95,
+      "ep_next": 2.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Anderson",
+      "x_points": 3.93,
+      "realized": 3,
+      "err_ours": 0.93,
+      "ep_next": 2.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Konsa",
+      "x_points": 3.13,
+      "realized": 4,
+      "err_ours": 0.87,
+      "ep_next": 0.5,
+      "err_ep_next": 3.5
+    },
+    {
+      "name": "Ndiaye",
+      "x_points": 3.81,
+      "realized": 3,
+      "err_ours": 0.81,
+      "ep_next": 6.5,
+      "err_ep_next": 3.5
+    },
+    {
+      "name": "Ajer",
+      "x_points": 2.74,
+      "realized": 2,
+      "err_ours": 0.74,
+      "ep_next": 5.5,
+      "err_ep_next": 3.5
+    },
+    {
+      "name": "Lacroix",
+      "x_points": 2.71,
+      "realized": 2,
+      "err_ours": 0.71,
+      "ep_next": 3.5,
+      "err_ep_next": 1.5
+    },
+    {
+      "name": "Tarkowski",
+      "x_points": 3.6,
+      "realized": 3,
+      "err_ours": 0.6,
+      "ep_next": 9.0,
+      "err_ep_next": 6.0
+    },
+    {
+      "name": "Slater",
+      "x_points": 2.53,
+      "realized": 3,
+      "err_ours": 0.47,
+      "ep_next": 4.0,
+      "err_ep_next": 1.0
+    },
+    {
+      "name": "Mukiele",
+      "x_points": 3.54,
+      "realized": 4,
+      "err_ours": 0.46,
+      "ep_next": 4.5,
+      "err_ep_next": 0.5
+    },
+    {
+      "name": "Hall",
+      "x_points": 3.57,
+      "realized": 4,
+      "err_ours": 0.43,
+      "ep_next": 7.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "Haaland",
+      "x_points": 8.58,
+      "realized": 9,
+      "err_ours": 0.42,
+      "ep_next": 7.5,
+      "err_ep_next": 1.5
+    },
+    {
+      "name": "Verbruggen",
+      "x_points": 3.35,
+      "realized": 3,
+      "err_ours": 0.35,
+      "ep_next": 3.0,
+      "err_ep_next": 0.0
+    },
+    {
+      "name": "Raya",
+      "x_points": 3.34,
+      "realized": 3,
+      "err_ours": 0.34,
+      "ep_next": 6.0,
+      "err_ep_next": 3.0
+    },
+    {
+      "name": "Sánchez",
+      "x_points": 0.0,
+      "realized": 0,
+      "err_ours": 0.0,
+      "ep_next": 0.0,
+      "err_ep_next": 0.0
+    }
+  ],
+  "squads": {
+    "our-squad": {
+      "projected": 59.52,
+      "realized": 37,
+      "realized_official": 37,
+      "autosubs": []
+    },
+    "consensus-squad": {
+      "projected": 53.68,
+      "realized": 51,
+      "realized_official": 59,
+      "autosubs": [
+        {
+          "out": "O'Reilly",
+          "in": "Guéhi"
+        }
+      ]
+    }
+  },
+  "benchmark": {
+    "taken_at": "2026-09-02T07:43:05.990197+00:00",
+    "scores": {
+      "evmax": {
+        "mae_all": 1.263,
+        "n_all": 585,
+        "mae_60plus": 2.46,
+        "rmse_60plus": 3.462,
+        "n_60plus": 195
+      },
+      "ffiq": {
+        "mae_all": 1.189,
+        "n_all": 617,
+        "mae_60plus": 2.368,
+        "rmse_60plus": 3.236,
+        "n_60plus": 207
+      },
+      "ep_next": {
+        "mae_all": 1.308,
+        "n_all": 617,
+        "mae_60plus": 2.977,
+        "rmse_60plus": 3.92,
+        "n_60plus": 207
+      },
+      "baseline_ppg": {
+        "mae_all": 2.302,
+        "n_all": 358,
+        "mae_60plus": 2.939,
+        "rmse_60plus": 3.911,
+        "n_60plus": 204
+      },
+      "baseline_form4": {
+        "mae_all": 2.302,
+        "n_all": 358,
+        "mae_60plus": 2.939,
+        "rmse_60plus": 3.911,
+        "n_60plus": 204
+      }
+    },
+    "attribution": "https://fantasyfootballiq.app",
+    "squads": {
+      "ffs_scout_picks": {
+        "points": 41,
+        "captain": null,
+        "captain_points": null,
+        "missing": [],
+        "status": "early",
+        "url": "https://www.fantasyfootballscout.co.uk/2026/08/31/fpl-gameweek-3-early-scout-picks-piling-up-on-man-city"
+      },
+      "ffiq_ai_squad": {
+        "points": 45,
+        "captain": "B.Fernandes",
+        "captain_points": 2,
+        "missing": [],
+        "status": "final",
+        "url": "https://fantasyfootballiq.app/articles/fpl-gameweek-3-iq-ais-squad-270"
+      }
+    }
+  }
+}
