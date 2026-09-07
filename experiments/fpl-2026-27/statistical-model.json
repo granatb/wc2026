@@ -31,7 +31,7 @@
   "ridge_penalty": 100,
   "trained_through": "2024-05-19T15:00:00+00:00",
   "train_n": 27877,
-  "feature_source_sha256": "42d9070583cfc97fa5a908d7fd4a143182055af479e66b88efcea284cc93f330",
+  "feature_source_sha256": "c17541b2da5027af0ed010a1daf71e16085795b151c6452b5eaf2480b8a22470",
   "sources": [
     {
       "path": "fpl-2023-24.csv",
@@ -45,16 +45,16 @@
   "heldout": {
     "start": "2024-08-16T19:00:00+00:00",
     "scores": {
-      "n": 26427,
-      "mae": 1.1001283921864031,
-      "rmse": 2.0933511121880843,
-      "bias": -0.027488363955193523
+      "n": 26135,
+      "mae": 1.0573515318235993,
+      "rmse": 1.9902236188153415,
+      "bias": 0.008421696730330585
     },
     "last4": {
-      "n": 26427,
-      "mae": 1.1043093553310377,
-      "rmse": 2.2310148080507943,
-      "bias": -0.021363882897541656
+      "n": 26135,
+      "mae": 1.061112173968497,
+      "rmse": 2.1432253887695296,
+      "bias": -0.0189018557489956
     }
   },
   "limitations": [
@@ -65,5 +65,5 @@
     "Availability gates are prospective rules, not included in heldout scores.",
     "Historical scoring differs; no demonstrated edge over the market model."
   ],
-  "artifact_id": "385fca5c4be8a5ebe40d439aa24708aee2ad8efdbb6901b53aabf6b9a47cf4dd"
+  "artifact_id": "9c67bbe0d81d8d22b174d591ec9cfa03ce5b1489292680a22e45adea453562ad"
 }

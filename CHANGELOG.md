@@ -1,3 +1,13 @@
+## 2026-09-07 — minutes research and player-population correction
+
+Fit and chronologically evaluate a shrunk three-role minutes-transition candidate,
+with cold-start/early-history/minutes cohorts, calibration bins and paired weekly
+comparisons. The candidate improves Brier score and RMSE but worsens MAE against
+last-four minutes; it remains research-only. Remove Assistant Manager rows from
+player-model evaluations and retain the original research report alongside a
+corrected player-only report. Ridge coefficients are unchanged; corrected sample
+sizes and scores are reflected in the regenerated candidate artifact.
+
 ## 2026-09-07 — prospective comparison methodology
 
 Add frozen-input player cohorts, sample counts, paired equal-gameweek MSE

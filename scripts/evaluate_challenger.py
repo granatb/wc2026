@@ -36,6 +36,8 @@ def examples(path, min_prior=6):
     positions = {}
     with open(path, newline='', encoding='utf-8-sig') as fh:
         for r in csv.DictReader(fh):
+            if r['position'] not in ('GK', 'DEF', 'MID', 'FWD'):
+                continue  # 2024/25 Assistant Manager entries are not players.
             pid, gw = r['element'], int(r.get('GW') or r['round'])
             positions[pid, gw] = r['position']
             for key in ['total_points', 'minutes', 'expected_goals', 'expected_assists']:

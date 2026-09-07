@@ -1,0 +1,137 @@
+{
+  "generated_at": "2026-09-07T18:49:16.469940+00:00",
+  "model": "odds-free-ridge-v1",
+  "train_n": 23591,
+  "cohorts": {
+    "played_60plus": {
+      "ridge": {
+        "n": 6439,
+        "mae": 2.2936304639213785,
+        "rmse": 3.348508229782476,
+        "bias": -0.9232737870115216
+      },
+      "last4": {
+        "n": 6439,
+        "mae": 2.53113837552415,
+        "rmse": 3.5743386630812233,
+        "bias": -0.7535331573225656
+      },
+      "season_ppg": {
+        "n": 6439,
+        "mae": 2.334887780056958,
+        "rmse": 3.390458838256766,
+        "bias": -1.0092076570318635
+      }
+    },
+    "prior_last4_60plus": {
+      "ridge": {
+        "n": 5454,
+        "mae": 2.301558080082902,
+        "rmse": 3.10742513554079,
+        "bias": 0.051880606170255285
+      },
+      "last4": {
+        "n": 5454,
+        "mae": 2.5295654565456545,
+        "rmse": 3.4097084288088744,
+        "bias": 0.296983865053172
+      },
+      "season_ppg": {
+        "n": 5454,
+        "mae": 2.264179170446227,
+        "rmse": 3.1575159607347625,
+        "bias": -0.15909711046588543
+      }
+    }
+  },
+  "test_gameweeks": [
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38
+  ],
+  "scores": {
+    "ridge": {
+      "n": 22233,
+      "mae": 1.0660343172300601,
+      "rmse": 2.0027160782616207,
+      "bias": 0.00773269720643446
+    },
+    "last4": {
+      "n": 22233,
+      "mae": 1.0724261233301848,
+      "rmse": 2.150013284213771,
+      "bias": -0.02807763234831107
+    },
+    "season_ppg": {
+      "n": 22233,
+      "mae": 1.0819685094822769,
+      "rmse": 2.058420831439059,
+      "bias": -0.016873681646040216
+    }
+  },
+  "ridge_minus_last4_mse_block95": [
+    -0.6798059618656975,
+    -0.5387373972694646
+  ],
+  "weights": {
+    "intercept": 0.18167595752793952,
+    "last4_points": 0.18497544986748632,
+    "last4_minutes_90": 1.2641856857535014,
+    "last4_xg": 0.4896153380286165,
+    "last4_xa": 0.9058622575838406,
+    "season_points_per_gw": 0.3753095792907793,
+    "GK": -0.1209954687922709,
+    "DEF": -0.16326665099030344,
+    "MID": -0.017604779215278338
+  },
+  "ridge_penalty": 100,
+  "sources": [
+    {
+      "path": "data/research/fpl-2023-24.csv",
+      "sha256": "e9c09c8856f1c86b4f920f46ddd5033af83409439dfda53be925df2a3e7c8a9e"
+    },
+    {
+      "path": "data/research/fpl-2024-25.csv",
+      "sha256": "5bbbcba6353b4c72ad273adcc8e3aa451946a826564679788f45b1cb3325b84e"
+    }
+  ],
+  "train_end": "2024-05-19T15:00:00+00:00",
+  "test_start": "2024-08-16T19:00:00+00:00",
+  "limitations": [
+    "Retrospective extracts; not a point-in-time production forecast record.",
+    "Population: recorded player-gameweeks with at least six prior recorded gameweeks.",
+    "No odds comparison: historical pre-deadline odds are absent.",
+    "No current-season statistics, FC27 ratings, injuries, prices or ownership used.",
+    "Position is from the historical row; scoring rules differ from 2026/27.",
+    "No holdout hyperparameter search; independent prospective validation still required."
+  ]
+}

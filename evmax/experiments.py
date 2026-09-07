@@ -12,7 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]/'experiments/fpl-2026-27'
 
 def report():
     protocol = json.loads((ROOT/'protocol.json').read_text())
-    return ledger.report_from_directory(protocol, ROOT/'records')
+    data = ledger.report_from_directory(protocol, ROOT/'records')
+    path = ROOT.parents[1]/'docs/research/2026-09-07-minutes-results.json'
+    if path.exists():
+        candidate = json.loads(path.read_text())
+        data['minutes_research'] = dict(status=candidate['status'],
+            model=candidate['model']['version'], trained_through=candidate['model']['trained_through'],
+            heldout_start=candidate['heldout_start'],
+            scores={name:{k:v for k,v in score.items() if k != 'calibration'}
+                    for name,score in candidate['cohorts']['all_single_fixture'].items()},
+            limitations=candidate['limitations'])
+    return data
 
 
 def page(data):
@@ -75,6 +85,20 @@ def page(data):
             '<th>Mean MSE difference</th><th>95% exploratory interval</th></tr></thead><tbody>'+
             ''.join(comparison_rows)+'</tbody></table></div>')
     learning_section += '<p>'+html.escape(analysis.get('uncertainty_note', 'Awaiting prospective results.'))+'</p>'
+    minutes_section = ''
+    if data.get('minutes_research'):
+        candidate = data['minutes_research']
+        method_labels = {'transition':'Trained transitions', 'last4':'Last four recorded fixtures', 'season':'Season history'}
+        minute_rows = ''.join('<tr><td>'+html.escape(method_labels[name])+'</td><td>'+str(s['n'])+'</td><td>'+
+            f"{s['multiclass_brier']:.3f}</td><td>{s['minutes_mae']:.2f}</td><td>{s['minutes_rmse']:.2f}</td></tr>"
+            for name,s in candidate['scores'].items())
+        minutes_section = ('<h2>Minutes research: candidate, not production</h2><p>Trained on 2023/24 and evaluated on '
+            '2024/25 player-only single-fixture gameweeks. The transition model predicts no appearance, under 60 minutes, '
+            'or 60+ minutes. These are played-minute roles, not start probabilities.</p><div class="scroll"><table>'
+            '<thead><tr><th>Method</th><th>Player-gameweeks</th><th>Role Brier score</th><th>Minutes MAE</th><th>Minutes RMSE</th>'
+            '</tr></thead><tbody>'+minute_rows+'</tbody></table></div><p>Lower is better. The candidate improves probability '
+            'scores and RMSE but worsens MAE against the last-four baseline. Cold starts remain weak; injuries, blanks '
+            'and doubles are not validated. It has not replaced our production minutes assumptions.</p>')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -97,6 +121,7 @@ forecasts together, then track their decisions and outcomes.</p>
 with equal weight per gameweek on identical player populations. A lucky captain can win a
 week without proving that the underlying forecast is better. We do not automatically select a winner.</p>
 {learning_section}
+{minutes_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for

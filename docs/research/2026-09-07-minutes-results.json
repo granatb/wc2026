@@ -1,0 +1,1733 @@
+{
+  "model": {
+    "version": "minutes-transition-v1",
+    "classes": [
+      "did_not_play",
+      "played_under_60",
+      "played_60plus"
+    ],
+    "strength": 20,
+    "counts": {
+      "GK": [
+        2454,
+        23,
+        706
+      ],
+      "DEF": [
+        5369,
+        786,
+        2828
+      ],
+      "MID": [
+        7003,
+        1908,
+        3084
+      ],
+      "FWD": [
+        2244,
+        600,
+        754
+      ]
+    },
+    "class_minutes": {
+      "GK": [
+        0.0,
+        33.69565217391305,
+        89.91218130311614
+      ],
+      "DEF": [
+        0.0,
+        22.334605597964376,
+        87.62517680339462
+      ],
+      "MID": [
+        0.0,
+        22.2227463312369,
+        83.46368352788586
+      ],
+      "FWD": [
+        0.0,
+        19.968333333333334,
+        82.0185676392573
+      ]
+    },
+    "cells": {
+      "MID|cold": [
+        209,
+        66,
+        94
+      ],
+      "DEF|cold": [
+        162,
+        31,
+        83
+      ],
+      "FWD|cold": [
+        69,
+        20,
+        23
+      ],
+      "GK|cold": [
+        76,
+        1,
+        21
+      ],
+      "DEF|0|0": [
+        4098,
+        210,
+        122
+      ],
+      "GK|2|2": [
+        42,
+        9,
+        559
+      ],
+      "MID|1|0": [
+        279,
+        359,
+        119
+      ],
+      "MID|0|0": [
+        5621,
+        399,
+        68
+      ],
+      "DEF|2|2": [
+        210,
+        147,
+        1824
+      ],
+      "FWD|1|1": [
+        58,
+        129,
+        74
+      ],
+      "MID|2|2": [
+        129,
+        259,
+        1881
+      ],
+      "FWD|0|0": [
+        1867,
+        125,
+        14
+      ],
+      "GK|0|0": [
+        2202,
+        8,
+        31
+      ],
+      "DEF|1|1": [
+        110,
+        85,
+        120
+      ],
+      "FWD|1|0": [
+        83,
+        138,
+        43
+      ],
+      "FWD|2|2": [
+        27,
+        64,
+        420
+      ],
+      "DEF|1|0": [
+        131,
+        94,
+        88
+      ],
+      "MID|1|1": [
+        198,
+        391,
+        275
+      ],
+      "MID|1|2": [
+        68,
+        49,
+        107
+      ],
+      "DEF|2|1": [
+        117,
+        79,
+        375
+      ],
+      "DEF|0|1": [
+        433,
+        107,
+        101
+      ],
+      "MID|2|1": [
+        103,
+        205,
+        433
+      ],
+      "MID|0|1": [
+        365,
+        170,
+        74
+      ],
+      "FWD|2|1": [
+        20,
+        62,
+        132
+      ],
+      "FWD|0|1": [
+        95,
+        44,
+        17
+      ],
+      "FWD|1|2": [
+        15,
+        16,
+        27
+      ],
+      "DEF|1|2": [
+        53,
+        19,
+        51
+      ],
+      "DEF|0|2": [
+        55,
+        14,
+        64
+      ],
+      "MID|0|2": [
+        31,
+        10,
+        33
+      ],
+      "GK|0|2": [
+        21,
+        0,
+        10
+      ],
+      "GK|2|1": [
+        24,
+        1,
+        51
+      ],
+      "GK|0|1": [
+        78,
+        4,
+        22
+      ],
+      "FWD|0|2": [
+        10,
+        2,
+        4
+      ],
+      "GK|1|1": [
+        3,
+        0,
+        3
+      ],
+      "GK|1|2": [
+        4,
+        0,
+        4
+      ],
+      "GK|1|0": [
+        4,
+        0,
+        5
+      ]
+    },
+    "trained_through": "2024-05-19T15:00:00+00:00",
+    "training_n": 27759,
+    "implementation_sha256": "e6e44d8121a3bea6361109452c38e8f3eafa4d121634d7a5fde741f27fc2b73c",
+    "sources": [
+      {
+        "path": "fpl-2023-24.csv",
+        "sha256": "e9c09c8856f1c86b4f920f46ddd5033af83409439dfda53be925df2a3e7c8a9e"
+      },
+      {
+        "path": "fpl-2024-25.csv",
+        "sha256": "5bbbcba6353b4c72ad273adcc8e3aa451946a826564679788f45b1cb3325b84e"
+      }
+    ]
+  },
+  "heldout_start": "2024-08-16T19:00:00+00:00",
+  "cohorts": {
+    "all_single_fixture": {
+      "transition": {
+        "n": 26555,
+        "multiclass_brier": 0.30262128743793143,
+        "log_loss": 0.5513747771072666,
+        "minutes_mae": 15.498974202739698,
+        "minutes_rmse": 23.98102057579325,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 6749,
+            "mean_probability": 0.09191250374511266,
+            "observed_frequency": 0.08001185360794191
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 3631,
+            "mean_probability": 0.29227666626646026,
+            "observed_frequency": 0.2506196640044065
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 2023,
+            "mean_probability": 0.5303246203263948,
+            "observed_frequency": 0.49876421156697975
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 1077,
+            "mean_probability": 0.6806190029072771,
+            "observed_frequency": 0.6796657381615598
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 13075,
+            "mean_probability": 0.9313778481925524,
+            "observed_frequency": 0.9256596558317399
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 21336,
+            "mean_probability": 0.06991208351194474,
+            "observed_frequency": 0.0775684289463817
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 2831,
+            "mean_probability": 0.267649530106855,
+            "observed_frequency": 0.29070999646767925
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 2388,
+            "mean_probability": 0.4601915764819134,
+            "observed_frequency": 0.49036850921273034
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 15459,
+            "mean_probability": 0.03810500165763434,
+            "observed_frequency": 0.04036483601785368
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 3079,
+            "mean_probability": 0.29927349404022974,
+            "observed_frequency": 0.30302046118869763
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 1773,
+            "mean_probability": 0.529628070998689,
+            "observed_frequency": 0.5634517766497462
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 1083,
+            "mean_probability": 0.7192473443115652,
+            "observed_frequency": 0.7137580794090489
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 5161,
+            "mean_probability": 0.8356880310232581,
+            "observed_frequency": 0.8298779306335982
+          }
+        ]
+      },
+      "last4": {
+        "n": 26555,
+        "multiclass_brier": 0.31975685490984096,
+        "log_loss": 0.5981080638787699,
+        "minutes_mae": 13.56126545736637,
+        "minutes_rmse": 25.13509197677024,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 7105,
+            "mean_probability": 0.12508559860718438,
+            "observed_frequency": 0.10513722730471499
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 3112,
+            "mean_probability": 0.31773930001413125,
+            "observed_frequency": 0.2686375321336761
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 2585,
+            "mean_probability": 0.5370565520263382,
+            "observed_frequency": 0.4851063829787234
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 2400,
+            "mean_probability": 0.7272281359388155,
+            "observed_frequency": 0.6745833333333333
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 11353,
+            "mean_probability": 0.9213453877324908,
+            "observed_frequency": 0.9546375407381309
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 18596,
+            "mean_probability": 0.028233906348355018,
+            "observed_frequency": 0.058507205850720584
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 4117,
+            "mean_probability": 0.23279442874823014,
+            "observed_frequency": 0.23633713869322323
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 2299,
+            "mean_probability": 0.4391187996783485,
+            "observed_frequency": 0.35667681600695955
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 1139,
+            "mean_probability": 0.6385102505391903,
+            "observed_frequency": 0.4618086040386304
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 4,
+            "n": 404,
+            "mean_probability": 0.8310382700870902,
+            "observed_frequency": 0.599009900990099
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 15184,
+            "mean_probability": 0.057597322070862135,
+            "observed_frequency": 0.04182033719704953
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 2931,
+            "mean_probability": 0.25927448305497175,
+            "observed_frequency": 0.31183896281132717
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 2038,
+            "mean_probability": 0.4565650880684861,
+            "observed_frequency": 0.49313052011776254
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 2577,
+            "mean_probability": 0.6600477869835272,
+            "observed_frequency": 0.6930539386883974
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 3825,
+            "mean_probability": 0.8527806621791129,
+            "observed_frequency": 0.8554248366013072
+          }
+        ]
+      },
+      "season": {
+        "n": 26555,
+        "multiclass_brier": 0.34948893302465367,
+        "log_loss": 0.6212720420906311,
+        "minutes_mae": 16.33295380420483,
+        "minutes_rmse": 26.734051169729224,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 4844,
+            "mean_probability": 0.1294891726888298,
+            "observed_frequency": 0.11890999174236168
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 4669,
+            "mean_probability": 0.29691383010835704,
+            "observed_frequency": 0.25487256371814093
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 3996,
+            "mean_probability": 0.5105109025188669,
+            "observed_frequency": 0.4647147147147147
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 3739,
+            "mean_probability": 0.7115529417334044,
+            "observed_frequency": 0.7378978336453598
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 9307,
+            "mean_probability": 0.9161734675095027,
+            "observed_frequency": 0.9575588266895885
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 19646,
+            "mean_probability": 0.060387428506494714,
+            "observed_frequency": 0.07065051409956224
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 4751,
+            "mean_probability": 0.28681593822473256,
+            "observed_frequency": 0.2799410650389392
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 1795,
+            "mean_probability": 0.48013163283332716,
+            "observed_frequency": 0.41114206128133707
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 356,
+            "mean_probability": 0.660561361117794,
+            "observed_frequency": 0.5280898876404494
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 4,
+            "n": 7,
+            "mean_probability": 0.8337649412390801,
+            "observed_frequency": 0.7142857142857143
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 14321,
+            "mean_probability": 0.07422012154636759,
+            "observed_frequency": 0.04804133789539836
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 3932,
+            "mean_probability": 0.2932921049074956,
+            "observed_frequency": 0.31256358087487285
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 3259,
+            "mean_probability": 0.5004529178440816,
+            "observed_frequency": 0.5510892911936177
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 3342,
+            "mean_probability": 0.7026576675531939,
+            "observed_frequency": 0.7238180730101735
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 1701,
+            "mean_probability": 0.8623656511445013,
+            "observed_frequency": 0.8700764256319812
+          }
+        ]
+      }
+    },
+    "cold_start": {
+      "transition": {
+        "n": 782,
+        "multiclass_brier": 0.5713150752704125,
+        "log_loss": 0.9427775306092725,
+        "minutes_mae": 33.02197046859936,
+        "minutes_rmse": 37.54155982707175,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 613,
+            "mean_probability": 0.5762016192870069,
+            "observed_frequency": 0.5448613376835236
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 169,
+            "mean_probability": 0.6935996293528494,
+            "observed_frequency": 0.6331360946745562
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 782,
+            "mean_probability": 0.13707403881046362,
+            "observed_frequency": 0.1534526854219949
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 782,
+            "mean_probability": 0.26135316069903813,
+            "observed_frequency": 0.2826086956521739
+          }
+        ]
+      },
+      "last4": {
+        "n": 782,
+        "multiclass_brier": 0.5730705323459535,
+        "log_loss": 0.9456190837402747,
+        "minutes_mae": 33.089071893048136,
+        "minutes_rmse": 37.54381859334597,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 613,
+            "mean_probability": 0.5898113610694888,
+            "observed_frequency": 0.5448613376835236
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 169,
+            "mean_probability": 0.6948219714882027,
+            "observed_frequency": 0.6331360946745562
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 782,
+            "mean_probability": 0.11956823156638532,
+            "observed_frequency": 0.1534526854219949
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 782,
+            "mean_probability": 0.2679262984628996,
+            "observed_frequency": 0.2826086956521739
+          }
+        ]
+      },
+      "season": {
+        "n": 782,
+        "multiclass_brier": 0.5730705323459535,
+        "log_loss": 0.9456190837402747,
+        "minutes_mae": 33.089071893048136,
+        "minutes_rmse": 37.54381859334597,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 613,
+            "mean_probability": 0.5898113610694888,
+            "observed_frequency": 0.5448613376835236
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 169,
+            "mean_probability": 0.6948219714882027,
+            "observed_frequency": 0.6331360946745562
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 782,
+            "mean_probability": 0.11956823156638532,
+            "observed_frequency": 0.1534526854219949
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 782,
+            "mean_probability": 0.2679262984628996,
+            "observed_frequency": 0.2826086956521739
+          }
+        ]
+      }
+    },
+    "early_history": {
+      "transition": {
+        "n": 3109,
+        "multiclass_brier": 0.29320838190536513,
+        "log_loss": 0.5430473689883637,
+        "minutes_mae": 13.680612398850139,
+        "minutes_rmse": 21.99190652750372,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 834,
+            "mean_probability": 0.08750071623045813,
+            "observed_frequency": 0.06474820143884892
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 437,
+            "mean_probability": 0.29861861633251846,
+            "observed_frequency": 0.28604118993135014
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 122,
+            "mean_probability": 0.4928655578644957,
+            "observed_frequency": 0.45901639344262296
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 54,
+            "mean_probability": 0.6811419219159439,
+            "observed_frequency": 0.7592592592592593
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 1662,
+            "mean_probability": 0.9312796822709397,
+            "observed_frequency": 0.9073405535499398
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 2542,
+            "mean_probability": 0.06490886884997406,
+            "observed_frequency": 0.08654602675059009
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 241,
+            "mean_probability": 0.26801497034487176,
+            "observed_frequency": 0.27800829875518673
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 326,
+            "mean_probability": 0.4604566862644672,
+            "observed_frequency": 0.5184049079754601
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 1898,
+            "mean_probability": 0.03495340940598889,
+            "observed_frequency": 0.03635405690200211
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 276,
+            "mean_probability": 0.3136697200901157,
+            "observed_frequency": 0.2463768115942029
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 136,
+            "mean_probability": 0.5292714017988236,
+            "observed_frequency": 0.5808823529411765
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 116,
+            "mean_probability": 0.7392379388092322,
+            "observed_frequency": 0.7758620689655172
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 683,
+            "mean_probability": 0.8352623953343898,
+            "observed_frequency": 0.8243045387994143
+          }
+        ]
+      },
+      "last4": {
+        "n": 3109,
+        "multiclass_brier": 0.324553040627327,
+        "log_loss": 0.6157221736852617,
+        "minutes_mae": 11.218398198777745,
+        "minutes_rmse": 23.29644219860556,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 736,
+            "mean_probability": 0.15667685191575487,
+            "observed_frequency": 0.11277173913043478
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 526,
+            "mean_probability": 0.30745160108495695,
+            "observed_frequency": 0.20342205323193915
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 174,
+            "mean_probability": 0.5218328120305769,
+            "observed_frequency": 0.5632183908045977
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 481,
+            "mean_probability": 0.7603512021129679,
+            "observed_frequency": 0.7754677754677755
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 1192,
+            "mean_probability": 0.895737441917742,
+            "observed_frequency": 0.9421140939597316
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 2332,
+            "mean_probability": 0.03735820628201523,
+            "observed_frequency": 0.0741852487135506
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 380,
+            "mean_probability": 0.29365881199210814,
+            "observed_frequency": 0.2736842105263158
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 255,
+            "mean_probability": 0.5226350351942162,
+            "observed_frequency": 0.42745098039215684
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 126,
+            "mean_probability": 0.7082104672510979,
+            "observed_frequency": 0.49206349206349204
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 4,
+            "n": 16,
+            "mean_probability": 0.8294316851399307,
+            "observed_frequency": 0.5
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 2023,
+            "mean_probability": 0.08752008475926197,
+            "observed_frequency": 0.05338606030647553
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 126,
+            "mean_probability": 0.2887316881007684,
+            "observed_frequency": 0.3968253968253968
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 201,
+            "mean_probability": 0.47880890919703173,
+            "observed_frequency": 0.4527363184079602
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 472,
+            "mean_probability": 0.6868747445147259,
+            "observed_frequency": 0.815677966101695
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 287,
+            "mean_probability": 0.8339846229909824,
+            "observed_frequency": 0.818815331010453
+          }
+        ]
+      },
+      "season": {
+        "n": 3109,
+        "multiclass_brier": 0.368213949026657,
+        "log_loss": 0.6730732218031534,
+        "minutes_mae": 11.218398198777745,
+        "minutes_rmse": 23.29644219860556,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 833,
+            "mean_probability": 0.3153814981725389,
+            "observed_frequency": 0.13565426170468187
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 594,
+            "mean_probability": 0.4801881918305922,
+            "observed_frequency": 0.28619528619528617
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 1132,
+            "mean_probability": 0.7318362791148725,
+            "observed_frequency": 0.8666077738515902
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 550,
+            "mean_probability": 0.842069394467081,
+            "observed_frequency": 0.9454545454545454
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 2380,
+            "mean_probability": 0.06763321916516908,
+            "observed_frequency": 0.07605042016806722
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 536,
+            "mean_probability": 0.2878200769842421,
+            "observed_frequency": 0.34328358208955223
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 177,
+            "mean_probability": 0.48341927739001656,
+            "observed_frequency": 0.4689265536723164
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 16,
+            "mean_probability": 0.6344964681569945,
+            "observed_frequency": 0.5
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 1840,
+            "mean_probability": 0.1456868254997334,
+            "observed_frequency": 0.051086956521739134
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 426,
+            "mean_probability": 0.2882064063645656,
+            "observed_frequency": 0.2746478873239437
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 556,
+            "mean_probability": 0.5011123479342835,
+            "observed_frequency": 0.7607913669064749
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 287,
+            "mean_probability": 0.6587618787892038,
+            "observed_frequency": 0.818815331010453
+          }
+        ]
+      }
+    },
+    "prior_low_minutes": {
+      "transition": {
+        "n": 16389,
+        "multiclass_brier": 0.22822599314298975,
+        "log_loss": 0.4323886938081108,
+        "minutes_mae": 8.981320157412068,
+        "minutes_rmse": 17.41810306238208,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 211,
+            "mean_probability": 0.14893678437310245,
+            "observed_frequency": 0.17535545023696683
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 1982,
+            "mean_probability": 0.31262367421138865,
+            "observed_frequency": 0.29364278506559033
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 685,
+            "mean_probability": 0.50773151614931,
+            "observed_frequency": 0.527007299270073
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 436,
+            "mean_probability": 0.6782814877263572,
+            "observed_frequency": 0.7431192660550459
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 13075,
+            "mean_probability": 0.9313778481925524,
+            "observed_frequency": 0.9256596558317399
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 13658,
+            "mean_probability": 0.05423629553618659,
+            "observed_frequency": 0.059745204275882265
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 1067,
+            "mean_probability": 0.2762404098830215,
+            "observed_frequency": 0.31208997188378634
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 1664,
+            "mean_probability": 0.46490136290999146,
+            "observed_frequency": 0.5300480769230769
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 14780,
+            "mean_probability": 0.033347657120833166,
+            "observed_frequency": 0.03146143437077131
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 1193,
+            "mean_probability": 0.3044822970355553,
+            "observed_frequency": 0.22799664710813075
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 248,
+            "mean_probability": 0.5767892332944462,
+            "observed_frequency": 0.4879032258064516
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 168,
+            "mean_probability": 0.6451716770927344,
+            "observed_frequency": 0.5535714285714286
+          }
+        ]
+      },
+      "last4": {
+        "n": 16389,
+        "multiclass_brier": 0.23557646202582044,
+        "log_loss": 0.46076917741876,
+        "minutes_mae": 7.031093009538918,
+        "minutes_rmse": 18.376081867307878,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 548,
+            "mean_probability": 0.12683965852067808,
+            "observed_frequency": 0.20255474452554745
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 961,
+            "mean_probability": 0.3180083321920608,
+            "observed_frequency": 0.34755463059313213
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 1311,
+            "mean_probability": 0.5189087774193384,
+            "observed_frequency": 0.47292143401983217
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 2216,
+            "mean_probability": 0.7301274466193332,
+            "observed_frequency": 0.6787003610108303
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 11353,
+            "mean_probability": 0.9213453877324908,
+            "observed_frequency": 0.9546375407381309
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 12181,
+            "mean_probability": 0.024312803185366678,
+            "observed_frequency": 0.0384204909284952
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 1872,
+            "mean_probability": 0.23403559948471628,
+            "observed_frequency": 0.2537393162393162
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 1229,
+            "mean_probability": 0.44351685175608774,
+            "observed_frequency": 0.4003254678600488
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 744,
+            "mean_probability": 0.6414816658295129,
+            "observed_frequency": 0.49731182795698925
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 4,
+            "n": 363,
+            "mean_probability": 0.8310816468030783,
+            "observed_frequency": 0.6225895316804407
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 15100,
+            "mean_probability": 0.05749688726719537,
+            "observed_frequency": 0.03960264900662252
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 1289,
+            "mean_probability": 0.25531477154062665,
+            "observed_frequency": 0.273855702094647
+          }
+        ]
+      },
+      "season": {
+        "n": 16389,
+        "multiclass_brier": 0.2638330991939199,
+        "log_loss": 0.48503062573224603,
+        "minutes_mae": 9.932226928150083,
+        "minutes_rmse": 20.340245556891496,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 386,
+            "mean_probability": 0.15616172965438418,
+            "observed_frequency": 0.27461139896373055
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 1414,
+            "mean_probability": 0.31308405023716535,
+            "observed_frequency": 0.4816124469589816
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 2120,
+            "mean_probability": 0.5045384374719438,
+            "observed_frequency": 0.5764150943396227
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 3211,
+            "mean_probability": 0.7158863165368174,
+            "observed_frequency": 0.7807536592961695
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 9258,
+            "mean_probability": 0.9165441659998069,
+            "observed_frequency": 0.9603586087707928
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 12559,
+            "mean_probability": 0.04933732180234407,
+            "observed_frequency": 0.05151684051277968
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 2475,
+            "mean_probability": 0.28957835138401355,
+            "observed_frequency": 0.3054545454545455
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 1104,
+            "mean_probability": 0.4853978470991732,
+            "observed_frequency": 0.4411231884057971
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 246,
+            "mean_probability": 0.6589397025802112,
+            "observed_frequency": 0.5528455284552846
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 4,
+            "n": 5,
+            "mean_probability": 0.8318757789574718,
+            "observed_frequency": 1.0
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 13739,
+            "mean_probability": 0.07142406281186316,
+            "observed_frequency": 0.03428197103137055
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 1649,
+            "mean_probability": 0.28608297634349295,
+            "observed_frequency": 0.15281989084293512
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 735,
+            "mean_probability": 0.4913226504114329,
+            "observed_frequency": 0.2163265306122449
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 260,
+            "mean_probability": 0.6721342542533026,
+            "observed_frequency": 0.25384615384615383
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 6,
+            "mean_probability": 0.8212820688000829,
+            "observed_frequency": 0.5
+          }
+        ]
+      }
+    },
+    "prior_regular": {
+      "transition": {
+        "n": 6412,
+        "multiclass_brier": 0.33093117330251975,
+        "log_loss": 0.6128400782349946,
+        "minutes_mae": 22.774026944194112,
+        "minutes_rmse": 29.17612601582068,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 5683,
+            "mean_probability": 0.08121476727024271,
+            "observed_frequency": 0.07284884743973254
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 328,
+            "mean_probability": 0.3309131223096446,
+            "observed_frequency": 0.14939024390243902
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 340,
+            "mean_probability": 0.44766138474679884,
+            "observed_frequency": 0.38529411764705884
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 61,
+            "mean_probability": 0.6854076439692357,
+            "observed_frequency": 0.5901639344262295
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 6084,
+            "mean_probability": 0.08836921405066905,
+            "observed_frequency": 0.09960552268244575
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 328,
+            "mean_probability": 0.21967677682252343,
+            "observed_frequency": 0.2865853658536585
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 117,
+            "mean_probability": 0.3314080528555497,
+            "observed_frequency": 0.46153846153846156
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 612,
+            "mean_probability": 0.440270787536065,
+            "observed_frequency": 0.5130718954248366
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 522,
+            "mean_probability": 0.7988574004605241,
+            "observed_frequency": 0.8256704980842912
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 5161,
+            "mean_probability": 0.8356880310232581,
+            "observed_frequency": 0.8298779306335982
+          }
+        ]
+      },
+      "last4": {
+        "n": 6412,
+        "multiclass_brier": 0.3503017848606144,
+        "log_loss": 0.6800924065405943,
+        "minutes_mae": 18.13815242254107,
+        "minutes_rmse": 30.570684413533947,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 5391,
+            "mean_probability": 0.12563545137244414,
+            "observed_frequency": 0.0849564088295307
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 1016,
+            "mean_probability": 0.3160052758560686,
+            "observed_frequency": 0.16535433070866143
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 5,
+            "mean_probability": 0.442639673571877,
+            "observed_frequency": 0.8
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 4996,
+            "mean_probability": 0.024355690301605327,
+            "observed_frequency": 0.08346677341873499
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 1256,
+            "mean_probability": 0.23071681568984062,
+            "observed_frequency": 0.19585987261146498
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 160,
+            "mean_probability": 0.42855089349935255,
+            "observed_frequency": 0.23125
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 214,
+            "mean_probability": 0.4741145349810349,
+            "observed_frequency": 0.5934579439252337
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 2373,
+            "mean_probability": 0.6607874789209204,
+            "observed_frequency": 0.7092288242730721
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 3825,
+            "mean_probability": 0.8527806621791129,
+            "observed_frequency": 0.8554248366013072
+          }
+        ]
+      },
+      "season": {
+        "n": 6412,
+        "multiclass_brier": 0.39715896146313856,
+        "log_loss": 0.7127570498831542,
+        "minutes_mae": 22.293473135274393,
+        "minutes_rmse": 31.726943894428455,
+        "calibration": [
+          {
+            "role": "did_not_play",
+            "bucket": 0,
+            "n": 3570,
+            "mean_probability": 0.1236131283684499,
+            "observed_frequency": 0.0803921568627451
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 1,
+            "n": 2098,
+            "mean_probability": 0.2868060117313743,
+            "observed_frequency": 0.11201143946615824
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 2,
+            "n": 630,
+            "mean_probability": 0.4747926180686411,
+            "observed_frequency": 0.11746031746031746
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 3,
+            "n": 105,
+            "mean_probability": 0.6851082751225118,
+            "observed_frequency": 0.29523809523809524
+          },
+          {
+            "role": "did_not_play",
+            "bucket": 4,
+            "n": 9,
+            "mean_probability": 0.8187107339159643,
+            "observed_frequency": 0.3333333333333333
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 0,
+            "n": 5142,
+            "mean_probability": 0.06904673575092889,
+            "observed_frequency": 0.08343057176196032
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 1,
+            "n": 1071,
+            "mean_probability": 0.27574946297938085,
+            "observed_frequency": 0.19514472455648926
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 2,
+            "n": 182,
+            "mean_probability": 0.45662730357791664,
+            "observed_frequency": 0.29120879120879123
+          },
+          {
+            "role": "played_under_60",
+            "bucket": 3,
+            "n": 17,
+            "mean_probability": 0.6464249588006874,
+            "observed_frequency": 0.5294117647058824
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 0,
+            "n": 71,
+            "mean_probability": 0.1665725158587375,
+            "observed_frequency": 0.4788732394366197
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 1,
+            "n": 494,
+            "mean_probability": 0.31902667380466815,
+            "observed_frequency": 0.6497975708502024
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 2,
+            "n": 1606,
+            "mean_probability": 0.5090820299240558,
+            "observed_frequency": 0.7403486924034869
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 3,
+            "n": 2594,
+            "mean_probability": 0.7082832210999965,
+            "observed_frequency": 0.8057054741711642
+          },
+          {
+            "role": "played_60plus",
+            "bucket": 4,
+            "n": 1647,
+            "mean_probability": 0.863265561339387,
+            "observed_frequency": 0.8791742562234366
+          }
+        ]
+      }
+    }
+  },
+  "paired_gameweeks": {
+    "multiclass_brier": {
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "mean_difference": -0.017213708554800578,
+      "exploratory_block95": [
+        -0.022303005741058163,
+        -0.012704075337360392
+      ],
+      "note": "Transition minus last-four baseline; equal gameweek weights, 3-week blocks, unadjusted exploratory interval."
+    },
+    "minutes_mae": {
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "mean_difference": 1.9439197499956145,
+      "exploratory_block95": [
+        1.8106927193724216,
+        2.1204438183510597
+      ],
+      "note": "Transition minus last-four baseline; equal gameweek weights, 3-week blocks, unadjusted exploratory interval."
+    },
+    "minutes_rmse": {
+      "gameweeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "mean_difference": -1.1501181266530631,
+      "exploratory_block95": [
+        -1.4444779944742483,
+        -0.9080403884283202
+      ],
+      "note": "Transition minus last-four baseline; equal gameweek weights, 3-week blocks, unadjusted exploratory interval."
+    }
+  },
+  "excluded": {
+    "train": {
+      "double_gameweek_rows": 1966
+    },
+    "test": {
+      "non_player_rows": 322,
+      "double_gameweek_rows": 728
+    }
+  },
+  "status": "research_candidate_not_integrated",
+  "limitations": [
+    "Retrospective extracts, not independently timestamped forecasts.",
+    "Pre-GW history cutoff is first kickoff; actual historical deadlines unavailable.",
+    "Target cohort contains recorded single-fixture player-gameweeks; blanks and doubles are not evaluated.",
+    "No injuries, lineup news, club changes or cross-season player joins.",
+    "Cold start uses historical position; historical registration-time position not independently verified.",
+    "Transition classes describe played minutes, not whether a player started.",
+    "Hyperparameters fixed before holdout; no comparison to production heuristic with its historical priors.",
+    "Class-conditional minute means approximate the full minutes distribution; no production replacement justified."
+  ]
+}

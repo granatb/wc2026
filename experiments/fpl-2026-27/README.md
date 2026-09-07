@@ -181,8 +181,10 @@ publish an independent receipt before that deadline. Do not freeze an old draft
 after its 30-minute window. No scheduler or official FPL account is operated here.
 The weekly workflow's freeze window opens on 11 September at 12:30 UTC.
 
-Heldout early-ridge RMSE is 2.093 versus 2.231 for last-four mean on 26,427 rows;
-MAE is 1.100 versus 1.104. This population differs from the original research model,
+After excluding non-player Assistant Manager entries, heldout early-ridge RMSE is
+1.990 versus 2.143 for last-four mean on 26,135 rows; MAE is 1.057 versus 1.061.
+The earlier 2.093/2.231 figures included 292 eligible manager rows and are retained
+in the dated audit as a corrected finding. This population differs from the original research model,
 excludes zero-history cases and does not test the new availability gate. No market
 comparison, cold-start validation or prospective improvement is established.
 Opponent-aware statistics, trained minutes, optimized blends and full multiweek
