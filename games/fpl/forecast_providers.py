@@ -255,6 +255,8 @@ def build_boards(context, trained, sims=5000, now=None, market_fn=market_predict
     boards = {}
     for arm, column in columns.items():
         boards[arm] = dict(model_version=versions[arm], provider_version=VERSION, generated_at=now.isoformat(),
+            model_identity_sha256=model_identity(arm, source),
+            model_identity_disclosed=arm != 'consensus',
             trained_through=(None if arm == 'consensus' else
                              now.isoformat() if arm == 'market' else trained['trained_through']),
             training_disclosed=arm != 'consensus', source_artifact_id=source['artifact_id'],
@@ -264,10 +266,25 @@ def build_boards(context, trained, sims=5000, now=None, market_fn=market_predict
     return boards, source
 
 
+def model_identity(arm, source):
+    """Separate fixed algorithm/parameter changes from normal weekly input changes."""
+    identity = dict(version=source['model_versions'][arm], implementation=source['implementation_sha256'])
+    if arm in ('market', 'hybrid'):
+        identity['engine'] = {k:v for k,v in source['engine_sources'].items()
+                              if k not in ('games/fpl/experiments.py', 'games/fpl/transfers.py')}
+        identity['preseason'] = evidence.digest(source['preseason_rates'])
+    if arm in ('statistical', 'hybrid'):
+        identity['trained'] = source['trained']['artifact_id']
+    return evidence.digest(identity)
+
+
 def verify_board_source(arm, board, source):
     verify(source)
     if board['source_artifact_id'] != source['artifact_id']:
         raise ValueError('board source identity mismatch')
+    if (board.get('model_identity_sha256') != model_identity(arm, source) or
+        board.get('model_identity_disclosed') != (arm != 'consensus')):
+        raise ValueError('board model identity differs from source')
     if (board['predictions'] != source['predictions'][arm] or
         board['model_version'] != source['model_versions'][arm] or
         board['generated_at'] != source['generated_at']):

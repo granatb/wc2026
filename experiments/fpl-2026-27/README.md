@@ -89,6 +89,38 @@ python3 scripts/fpl_providers.py build --context data/experiments/gw4-context.js
 python3 scripts/fpl_experiment.py prepare --gw 4 --boards data/experiments/gw4 --out data/experiments/gw4/submissions.json
 ```
 
+### Learning from the season
+
+The primary score remains RMSE over the complete common player population. Two
+secondary populations are selected entirely from the frozen forecast: players
+averaging at least 60 minutes per completed prior gameweek, and the union of all
+four squads. The first is a gameweek average (doubles can influence it), not a
+per-match minutes measure. Empty cohorts report unavailable scores rather than
+zero error. Every arm uses exactly the same cohort IDs.
+
+Paired comparisons subtract one arm's weekly MSE from another's and weight each
+eligible gameweek equally. The public page shows all-player comparisons; the API
+also includes both secondary cohorts, sample sizes, MAE and bias. Captain bonus
+points and transfer hits remain separate season totals in the API.
+
+Exploratory intervals resample consecutive three-gameweek blocks with a fixed
+seed and 2,000 draws. Intervals are suppressed until 12 eligible consecutive weeks
+exist with unchanged model versions. These are prespecified operational choices,
+not a power calculation. Dependence beyond three weeks, nonstationarity and
+multiple comparisons can still make intervals misleading. They do not establish
+an edge or automatically select a model for next season. Mixed-version season
+averages describe the deployed approach, not one unchanged model.
+Model fingerprints distinguish code and fitted-parameter changes from normal
+weekly inputs, even if a readable version label was not changed. Undisclosed
+external model revisions suppress intervals for those pairs. Old draft boards
+without fingerprints must be regenerated before source-verified enrollment.
+
+The block-resampling method follows the general idea of resampling dependent
+observations in blocks: [Künsch (1989)](https://doi.org/10.1214/aos/1176347265).
+Our particular block length, sample threshold and application to football are
+not validated by that paper. No historical or synthetic example is added to the
+prospective public results.
+
 Training uses the already downloaded 2023/24 CSV; 2024/25 is evaluation only. Run
 training once for this version, not weekly. Refresh fetches public official data,
 completed gameweek outcomes, ESPN match odds and FFIQ forecasts. It requires no paid

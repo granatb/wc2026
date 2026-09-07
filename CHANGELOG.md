@@ -1,3 +1,12 @@
+## 2026-09-07 — prospective comparison methodology
+
+Add frozen-input player cohorts, sample counts, paired equal-gameweek MSE
+differences and exploratory moving-block intervals. Insufficient weeks, gaps and
+mixed model versions suppress intervals. The public experiment page separates
+these comparisons from squad points; captain bonuses and hits remain available
+as separate totals. No prospective results are backfilled and no automatic model
+promotion is introduced. Refresh the priority plan to reflect the deployed work.
+
 ## 2026-09-07 — weekly experiment operations
 
 Add a single season CLI for status, rehearsal, final-24-hour freeze, grading and

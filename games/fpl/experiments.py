@@ -242,6 +242,8 @@ def grade_week(record, results):
             raise ValueError('negative official minutes')
     boot = record['bootstrap']
     by_id = {e['id']: e for e in boot['elements']}
+    from games.fpl import experiment_analysis
+    cohort_ids = experiment_analysis.cohorts(record)
     arms = {}
     for arm, sub in record['arms'].items():
         predictions = _predictions(sub['predictions'])
@@ -268,15 +270,22 @@ def grade_week(record, results):
                         captain_points=(stats[int(official['captain_effective'])]['total_points']
                                         if official['captain_effective'] else 0),
                         autosubs=official['autosubs_applied'], model_version=sub['model_version'],
+                        model_identity_sha256=sub.get('model_identity_sha256'),
+                        model_identity_disclosed=sub.get('model_identity_disclosed', False),
                         intervention_count=len(sub.get('interventions', [])))
+        arms[arm]['cohorts'] = {name:experiment_analysis.errors(predictions, stats, ids)
+                               for name,ids in cohort_ids.items()}
     return dict(gameweek=record['gameweek'], experiment_id=record['experiment_id'],
-                forecast_artifact_id=record['artifact_id'], results_sha256=evidence.digest(results), arms=arms)
+                forecast_artifact_id=record['artifact_id'], results_sha256=evidence.digest(results),
+                evaluation_version='paired-cohorts-v1', cohort_ids=cohort_ids, arms=arms)
 
 
 def season_report(grades):
     """Equal-GW averages for forecast loss; no ranking from incomparable weeks."""
+    from games.fpl import experiment_analysis
     if not grades:
-        return {'status': 'registered_not_started', 'gameweeks': [], 'arms': {}}
+        return dict(status='registered_not_started', gameweeks=[], arms={},
+                    analysis=experiment_analysis.summarize([]))
     if len({g['experiment_id'] for g in grades}) != 1 or len({g['gameweek'] for g in grades}) != len(grades):
         raise ValueError('mixed experiments or duplicate gameweeks')
     keys = set(grades[0]['arms'])
@@ -289,9 +298,12 @@ def season_report(grades):
             rmse_equal_gameweek=math.sqrt(sum(r['mse'] for r in rows)/len(rows)),
             mae_equal_gameweek=sum(r['mae'] for r in rows)/len(rows),
             model_versions=sorted({r['model_version'] for r in rows}),
+            captain_bonus_points=sum(r['captain_points'] for r in rows),
+            hit_points=sum(r['hit_points'] for r in rows),
             interventions=sum(r['intervention_count'] for r in rows))
     return dict(status='prospective_results', gameweeks=sorted(g['gameweek'] for g in grades),
-                arms=out, note='Separate forecast and squad scores. No automatic promotion or claim of superiority.')
+                arms=out, analysis=experiment_analysis.summarize(grades),
+                note='Separate forecast and squad scores. No automatic promotion or claim of superiority.')
 
 
 def choose_decision(squad_ids, prediction_rows, bootstrap, portfolio=None):

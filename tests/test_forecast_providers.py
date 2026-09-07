@@ -40,6 +40,19 @@ def fake_market(boot, fx, odds, backfill, sims):
 
 
 class ProviderTests(unittest.TestCase):
+    def test_model_identity_separates_input_changes_from_parameter_changes(self):
+        first, _ = providers.build_boards(context(), trained(), now=NOW, market_fn=fake_market)
+        c = context()
+        c['bootstrap']['elements'][0]['ep_next'] = '9'
+        c['receipts']['bootstrap']['payload_sha256'] = evidence.digest(c['bootstrap'])
+        second, _ = providers.build_boards(c, trained(), now=NOW, market_fn=fake_market)
+        for arm in first:
+            self.assertEqual(first[arm]['model_identity_sha256'], second[arm]['model_identity_sha256'])
+        fitted = trained(); fitted.pop('artifact_id'); fitted['weights'][0] = 2
+        third, _ = providers.build_boards(c, providers.seal(fitted), now=NOW, market_fn=fake_market)
+        self.assertNotEqual(first['statistical']['model_identity_sha256'], third['statistical']['model_identity_sha256'])
+        self.assertEqual(first['market']['model_identity_sha256'], third['market']['model_identity_sha256'])
+
     def test_full_population_and_fixed_blend_with_explicit_fallback(self):
         boards, source = providers.build_boards(context(), trained(), now=NOW, market_fn=fake_market)
         self.assertEqual({len(b['predictions']) for b in boards.values()}, {20})

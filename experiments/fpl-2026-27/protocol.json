@@ -24,6 +24,16 @@
     "blanks_and_doubles": "Known blanks are zero; statistical values scale with upcoming fixture count (approximation)"
   },
   "primary_forecast_metric": "rmse_all_common_players",
+  "evaluation_policy": {
+    "version": "paired-cohorts-v1",
+    "cohorts": ["all_players", "prior_60plus", "selected_by_any_arm"],
+    "prior_60plus": "Frozen season minutes divided by completed prior gameweeks >= 60; not per-match minutes",
+    "paired_metric": "left minus right MSE, averaged equally across eligible gameweeks",
+    "uncertainty": "Exploratory percentile moving-block bootstrap; 2000 draws, block length 3, fixed seed 20260907",
+    "minimum_interval_weeks": 12,
+    "interval_eligibility": "Consecutive eligible gameweeks and one unchanged model label and code/parameter fingerprint per arm; undisclosed revisions suppress intervals",
+    "limitations": "Unadjusted multiple comparisons; stationarity not established; thresholds are operational choices, not a power calculation"
+  },
   "secondary_metrics": ["mae", "bias", "official_squad_points_after_hits", "captain_points"],
   "human_interventions": "allowed_only_with_predeadline_reason_and_source",
   "promotion": "No automatic winner selection; assess paired forecast loss, decisions, uncertainty and model versions",

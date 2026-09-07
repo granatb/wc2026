@@ -38,13 +38,50 @@ def page(data):
     receipt_section = ('<h2>Frozen forecast receipts</h2><ul>'+receipts+'</ul><p>These hashes identify retained forecasts. '
         'Local timestamps alone do not prove when a forecast was published; independent publication must precede the deadline.</p>'
         if receipts else '')
+    analysis = data.get('analysis', {})
+    cohort_labels = dict(all_players='All forecast players', prior_60plus='Prior 60+ minutes per gameweek',
+                         selected_by_any_arm='Selected by at least one approach')
+    detail_rows = []
+    for cohort, scores in analysis.get('cohorts', {}).items():
+        for arm, score in scores.items():
+            error = '—' if score['rmse'] is None else f"{score['rmse']:.3f}"
+            detail_rows.append('<tr><td>'+html.escape(cohort_labels[cohort])+'</td><td>'+
+                html.escape(data['registered_arms'][arm])+'</td><td>'+str(score['gameweeks'])+
+                '</td><td>'+str(score['player_gameweeks'])+'</td><td>'+error+'</td></tr>')
+    comparison_rows = []
+    for pair in analysis.get('comparisons', []):
+        if pair['cohort'] != 'all_players':
+            continue
+        difference = '—' if pair['mean_mse_difference'] is None else f"{pair['mean_mse_difference']:+.3f}"
+        interval = pair['interval95']
+        uncertainty = (f"[{interval[0]:+.3f}, {interval[1]:+.3f}]" if interval else
+            {'insufficient_gameweeks':'Fewer than 12 eligible weeks', 'mixed_model_versions':'Model versions changed',
+             'undisclosed_model_revision':'External model revisions undisclosed',
+             'nonconsecutive_gameweeks':'Gaps between eligible weeks'}[pair['status']])
+        comparison_rows.append('<tr><td>'+html.escape(data['registered_arms'][pair['left']])+' minus '+
+            html.escape(data['registered_arms'][pair['right']])+'</td><td>'+difference+'</td><td>'+
+            html.escape(uncertainty)+'</td></tr>')
+    learning_section = '<h2>What the comparison can tell us</h2><p>We report all players, players who averaged at least '
+    learning_section += ('60 minutes per completed gameweek before the deadline, and the union of the four selected squads. '
+        'Cohorts use frozen inputs, never the minutes a player eventually played. The 60-minute cohort uses a gameweek '
+        'average, not a per-match average; empty cohorts have no score.</p>')
+    if detail_rows:
+        learning_section += ('<div class="scroll"><table><thead><tr><th>Population</th><th>Approach</th><th>Weeks</th>'
+            '<th>Player-gameweeks</th><th>RMSE</th></tr></thead><tbody>'+''.join(detail_rows)+'</tbody></table></div>')
+    if comparison_rows:
+        learning_section += ('<h2>Paired forecast differences</h2><p>Each difference compares the same players in the same weeks. '
+            'Negative mean squared error differences favor the first approach. These are exploratory comparisons, '
+            'not a declaration of a winning model.</p><div class="scroll"><table><thead><tr><th>Comparison</th>'
+            '<th>Mean MSE difference</th><th>95% exploratory interval</th></tr></thead><tbody>'+
+            ''.join(comparison_rows)+'</tbody></table></div>')
+    learning_section += '<p>'+html.escape(analysis.get('uncertainty_note', 'Awaiting prospective results.'))+'</p>'
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
 <style>{render._STYLE}
 main{{max-width:1050px;margin:40px auto;padding:0 24px}}h1{{font-size:36px}}p{{margin:18px 0}}
 table{{width:100%;border-collapse:collapse}}th,td{{padding:14px;text-align:left;border-bottom:1px solid var(--line)}}
-small{{color:var(--ink3)}}.scroll{{overflow-x:auto}}.status{{padding:18px;background:#eaf5ee;border-radius:10px}}
+small{{color:var(--ink3)}}code{{overflow-wrap:anywhere}}.scroll{{overflow-x:auto}}.status{{padding:18px;background:#eaf5ee;border-radius:10px}}
 </style></head><body><header><div class="wrap"><a class="logo" href="/">ev<b>max</b></a></div></header>
 <main><h1>Four approaches. One season of evidence.</h1>
 <p class="status">{html.escape(status)}</p>
@@ -59,6 +96,7 @@ forecasts together, then track their decisions and outcomes.</p>
 <p>Lower forecast error is better; more squad points is better. Forecast losses are averaged
 with equal weight per gameweek on identical player populations. A lucky captain can win a
 week without proving that the underlying forecast is better. We do not automatically select a winner.</p>
+{learning_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for
