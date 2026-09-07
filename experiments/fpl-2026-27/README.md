@@ -1,8 +1,8 @@
 # Prospective season experiment
 
 Four virtual approaches are registered in `protocol.json`: market, statistical,
-hybrid and consensus. No weeks have been enrolled. Forecast provider integration
-is still required; registration is not a running model or a performance result.
+hybrid and consensus. All four providers now run through `scripts/fpl_providers.py`.
+No weeks have been enrolled; draft forecasts are not frozen performance records.
 The two existing published teams retain their separate history.
 
 All four start with the same affordable 15-player seed. The shared policy chooses
@@ -18,7 +18,9 @@ existing FPL cache writer so their matching `.meta.json` receipts exist. Each
 provider supplies `market.json`, `statistical.json`, `hybrid.json` or
 `consensus.json` in a board directory. Each file contains:
 
-- `model_version`, `generated_at`, `trained_through` (UTC timestamps).
+- `model_version`, `generated_at`, `trained_through` (UTC timestamps). The external
+  consensus may explicitly declare `trained_through: null, training_disclosed: false`;
+  its training date must not be invented from our internal model's cutoff.
 - `source_artifact_id`: SHA-256 identifying retained source evidence.
 - `bootstrap_sha256` and `fixtures_sha256`, calculated with
   `core.forecast_archive.digest`; fixture context is filtered to the target GW.
@@ -26,10 +28,49 @@ provider supplies `market.json`, `statistical.json`, `hybrid.json` or
   the frozen bootstrap, with finite numbers and unique IDs.
 - Optional `interventions`, each containing `reason`, `source`, `recorded_at`.
 
-All providers must use the same context and generate within the registered
+All boards must use the same context and generate within the registered
 30-minute window before capture. Training cutoffs must precede generation.
 Do not relabel old forecasts with a fresh timestamp. Source digests identify
 evidence; operators must retain that evidence and verify provider provenance.
+Fresh observations and provider timestamps are separately limited to 24 hours.
+
+## Provider workflow
+
+```sh
+python3 scripts/fpl_providers.py train
+python3 scripts/fpl_providers.py refresh --gw 4 --context data/experiments/gw4-context.json
+python3 scripts/fpl_providers.py build --context data/experiments/gw4-context.json --out data/experiments/gw4 --sims 5000
+python3 scripts/fpl_experiment.py prepare --gw 4 --boards data/experiments/gw4 --out data/experiments/gw4/submissions.json
+```
+
+Training uses the already downloaded 2023/24 CSV; 2024/25 is evaluation only. Run
+training once for this version, not weekly. Refresh fetches public official data,
+completed gameweek outcomes, ESPN match odds and FFIQ forecasts. It requires no paid
+API key. Build performs no network fetches and writes all boards plus a hashed
+source bundle before the shared policy prepares squads.
+
+The market arm uses the corrected engine and official statistical priors with no
+editorial overrides. Every target fixture requires actual market prices; fallback
+team ratings are refused. The statistical arm uses the identical training/inference
+feature transform on prior gameweeks only, plus official availability gates. Its
+new version supports early-season history; it is distinct from the original
+six-prior-GW research experiment. Positional training means handle true cold starts;
+blanks are zero and doubles scale approximately by future match count.
+
+The hybrid is a **prespecified 50/50 average**, not a fitted or optimized blend.
+We lack matching historical market predictions to tune it honestly. The reference
+uses the mean of official FPL `ep_next` and FFIQ where covered, official alone
+otherwise. Coverage and missing IDs are retained. FFIQ IDs are used with club checks;
+name-and-club joins must be unambiguous when IDs are absent. Attribution:
+[Fantasy Football IQ](https://fantasyfootballiq.app). External training/data lineage
+is unknown. Internal market/statistical models do not consume FC27 ratings.
+
+Generated boards carry `provider_version`. Prepare and freeze require the referenced
+source file in `sources/` beside the boards/submissions (or `--sources PATH`). They
+verify the source hash and bind predictions, context, version and clock to it.
+Retain this directory for the season; `data/` is intentionally ignored by Git.
+Raw external projections are not added to the public website. Back up private source
+bundles separately; publish only authorized evidence/receipts and derived results.
 
 ```sh
 python3 scripts/fpl_experiment.py prepare --gw 4 --boards /path/to/boards --out /tmp/submissions.json
@@ -53,9 +94,18 @@ hits. Model versions and human interventions remain visible. No automatic winner
 is selected from a few gameweeks. Rules cannot change within a frozen history;
 a changed protocol requires a separately identified experiment.
 
-## Activation work remaining
+## Activation and remaining limitations
 
-Connect and validate all four forecast providers, including an explicitly defined
-consensus forecast with point predictions. Freeze statistical training and hybrid
-weights using earlier data, without FC27 ratings. Do not enroll placeholders or
-reconstruct past weeks. Start only when all four can meet the input contract.
+The 7 September live-data run produced four complete 654-player boards and a valid
+common-seed squad draft. These are working drafts, not enrolled GW4 forecasts.
+Refresh and regenerate near the 12 September 12:30 UTC deadline, then freeze and
+publish an independent receipt before that deadline. Do not freeze an old draft
+after its 30-minute window. No scheduler or official FPL account is operated here.
+
+Heldout early-ridge RMSE is 2.093 versus 2.231 for last-four mean on 26,427 rows;
+MAE is 1.100 versus 1.104. This population differs from the original research model,
+excludes zero-history cases and does not test the new availability gate. No market
+comparison, cold-start validation or prospective improvement is established.
+Opponent-aware statistics, trained minutes, optimized blends and full multiweek
+transfer/chip planning remain future work. Do not enroll placeholders or backfill
+past weeks. Update a model under an explicit new version rather than retuning silently.

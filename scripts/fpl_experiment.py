@@ -8,7 +8,7 @@ import sys
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from core import forecast_archive as evidence, fpl_live
-from games.fpl import experiments, grading
+from games.fpl import experiments, grading, forecast_providers
 
 
 def read(path):
@@ -28,6 +28,7 @@ def main(argv=None):
     ap.add_argument('--boards', type=Path, help='directory with one forecast file per registered arm')
     ap.add_argument('--seed-state', type=Path, default=REPO/'games/fpl/state.json')
     ap.add_argument('--submissions', type=Path)
+    ap.add_argument('--sources', type=Path, help='provider source directory; defaults beside the boards/submissions')
     ap.add_argument('--results', type=Path)
     ap.add_argument('--out', type=Path)
     args = ap.parse_args(argv)
@@ -68,6 +69,12 @@ def main(argv=None):
         submissions = {}
         for arm in protocol['arms']:
             board = read(args.boards/f'{arm}.json')
+            if board.get('provider_version'):
+                key = board['source_artifact_id']
+                if len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
+                    raise ValueError('invalid provider source ID')
+                forecast_providers.verify_board_source(arm, board,
+                    read((args.sources or args.boards/'sources')/f'{key}.json'))
             old = previous['arms'][arm] if previous else None
             decision = experiments.choose_decision(old['squad_ids'] if old else seed,
                                                   board['predictions'], boot,
@@ -80,7 +87,15 @@ def main(argv=None):
     else:
         if not args.submissions:
             ap.error('--submissions is required')
-        record = experiments.prepare_week(protocol, args.gw, boot, read(args.submissions), previous, fixtures=fx)
+        submissions = read(args.submissions)
+        for arm, board in submissions.items():
+            if board.get('provider_version'):
+                key = board['source_artifact_id']
+                if len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
+                    raise ValueError('invalid provider source ID')
+                forecast_providers.verify_board_source(arm, board,
+                    read((args.sources or args.submissions.parent/'sources')/f'{key}.json'))
+        record = experiments.prepare_week(protocol, args.gw, boot, submissions, previous, fixtures=fx)
         result = experiments.write_week(args.root, record)
         print(f"Frozen GW{args.gw}: {result['artifact_id']}. Publish an independent pre-deadline receipt.")
     return 0

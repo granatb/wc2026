@@ -59,6 +59,15 @@ every approach. This is a controlled comparison, not a complete season optimizer
 <p>Model versions and any human intervention are recorded before the deadline. Existing
 history is never backfilled into this experiment. Missing providers, partial results,
 changed rules or missing weeks stop the pipeline rather than silently changing the comparison.</p>
+<h2>What the four forecasts use</h2>
+<p>The market arm combines match odds with official player statistics, with editorial
+overrides disabled. The statistical arm uses lagged points, minutes, xG and xA with
+coefficients fitted on 2023/24. Neither internal model uses FC27 ratings.</p>
+<p>The hybrid is a prespecified 50/50 average, not an optimized blend. The reference
+averages official FPL projections with <a href="https://fantasyfootballiq.app">Fantasy Football IQ</a>;
+players absent from FFIQ retain the official projection, with coverage recorded in the evidence.
+External providers' training and underlying data lineage are undisclosed. No approach has
+yet demonstrated a prospective advantage in this experiment.</p>
 <p><a href="{API_PATH}">Download the experiment summary</a> ·
 <a href="/fpl/compare/">Published comparisons</a> · <a href="/track-record/">Existing track record</a></p>
 </main></body></html>'''

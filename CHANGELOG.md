@@ -1,3 +1,14 @@
+## 2026-09-07 — live experimental forecast providers
+
+Add explicit market, early-season statistical, fixed 50/50 hybrid and FPL/FFIQ
+reference providers. Retain full source bundles and verify board/source identity
+before preparing or freezing squads. Statistical training uses 2023/24 only;
+the later-season evaluation remains separate. Experimental market runs disable
+editorial overrides; normal site builds retain their existing behavior. All four
+providers ran against fresh GW4 inputs for 654 players; drafts are not enrolled
+forecasts. The experiment protocol labels now describe the actual providers and
+do not claim a fitted hybrid. External training is explicitly undisclosed.
+
 ## 2026-09-07 — prospective experiment framework
 
 Register four virtual approaches with a common seed, shared decision policy,

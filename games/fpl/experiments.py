@@ -134,7 +134,10 @@ def prepare_week(protocol, gw, bootstrap, submissions, previous=None, now=None, 
         generated = evidence.utc(sub['generated_at'])
         if not 0 <= (now-generated).total_seconds() <= protocol['forecast_window_minutes']*60:
             raise ValueError('forecasts must share the registered pre-deadline capture window')
-        if evidence.utc(sub['trained_through']) >= lock or evidence.utc(sub['trained_through']) > generated:
+        if sub.get('trained_through') is None:
+            if arm != 'consensus' or sub.get('training_disclosed') is not False:
+                raise ValueError('training cutoff required for internal models')
+        elif evidence.utc(sub['trained_through']) >= lock or evidence.utc(sub['trained_through']) > generated:
             raise ValueError('training cutoff must precede this deadline and forecast generation')
         if sub.get('bootstrap_sha256') != evidence.digest(bootstrap):
             raise ValueError('arms must use the same frozen player/price context')

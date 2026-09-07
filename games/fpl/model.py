@@ -949,7 +949,7 @@ def _int_keyed_distributions(rows: list) -> list:
 
 
 def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
-                   sims: int, use_cache: bool = True) -> tuple:
+                   sims: int, use_cache: bool = True, research_entries=None) -> tuple:
     """Simulate (or fetch from cache); return ({"rows", "matches"}, cache_hit).
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
@@ -973,7 +973,8 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     # only; without this filter the ticker would publish 48 national teams.
     fx = [f for f in fixtures.by_round(gameweek) if f.stage == "GW"]
     match_projection = _match_projection(fx)
-    research_entries = research.load_entries("players", gameweek)
+    if research_entries is None:
+        research_entries = research.load_entries("players", gameweek)
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
         for name, e in research_entries.items()

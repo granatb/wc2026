@@ -1,0 +1,69 @@
+{
+  "model_version": "odds-free-early-ridge-v1",
+  "features": [
+    "intercept",
+    "last4_points",
+    "last4_minutes_90",
+    "last4_xg",
+    "last4_xa",
+    "season_points_per_gw",
+    "GK",
+    "DEF",
+    "MID"
+  ],
+  "weights": [
+    0.23930472078900505,
+    0.1338594255506134,
+    1.563603843069374,
+    0.7872480674072566,
+    1.1191682715453741,
+    0.29261356600242006,
+    -0.14687918667861752,
+    -0.1992817314510616,
+    -0.03387576840768141
+  ],
+  "cold_start_points": {
+    "GK": 0.7520325203252033,
+    "DEF": 1.001219647411021,
+    "MID": 1.2099277828505022,
+    "FWD": 1.213672848048713
+  },
+  "ridge_penalty": 100,
+  "trained_through": "2024-05-19T15:00:00+00:00",
+  "train_n": 27877,
+  "feature_source_sha256": "42d9070583cfc97fa5a908d7fd4a143182055af479e66b88efcea284cc93f330",
+  "sources": [
+    {
+      "path": "fpl-2023-24.csv",
+      "sha256": "e9c09c8856f1c86b4f920f46ddd5033af83409439dfda53be925df2a3e7c8a9e"
+    },
+    {
+      "path": "fpl-2024-25.csv",
+      "sha256": "5bbbcba6353b4c72ad273adcc8e3aa451946a826564679788f45b1cb3325b84e"
+    }
+  ],
+  "heldout": {
+    "start": "2024-08-16T19:00:00+00:00",
+    "scores": {
+      "n": 26427,
+      "mae": 1.1001283921864031,
+      "rmse": 2.0933511121880843,
+      "bias": -0.027488363955193523
+    },
+    "last4": {
+      "n": 26427,
+      "mae": 1.1043093553310377,
+      "rmse": 2.2310148080507943,
+      "bias": -0.021363882897541656
+    }
+  },
+  "limitations": [
+    "Retrospective extracts, not timestamped historical forecasts.",
+    "At least one prior recorded GW; differs from the six-week research model.",
+    "Cold starts use a training positional mean, not a fitted minutes forecast.",
+    "No opponent strength; future doubles scaled by match count, blanks zeroed.",
+    "Availability gates are prospective rules, not included in heldout scores.",
+    "Historical scoring differs; no demonstrated edge over the market model."
+  ],
+  "artifact_id": "385fca5c4be8a5ebe40d439aa24708aee2ad8efdbb6901b53aabf6b9a47cf4dd"
+}

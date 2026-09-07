@@ -20,7 +20,18 @@ FEATURES = ['intercept', 'last4_points', 'last4_minutes_90', 'last4_xg', 'last4_
             'season_points_per_gw', 'GK', 'DEF', 'MID']
 
 
-def examples(path):
+def feature_vector(past, position):
+    """One shared training/inference transform; each item is one prior GW."""
+    if not past:
+        raise ValueError('at least one prior gameweek is required')
+    last = past[-4:]
+    avg = lambda k: sum(r.get(k, 0) for r in last) / len(last)
+    return [1, avg('total_points'), avg('minutes') / 90, avg('expected_goals'),
+            avg('expected_assists'), sum(r.get('total_points', 0) for r in past)/len(past),
+            int(position == 'GK'), int(position == 'DEF'), int(position == 'MID')]
+
+
+def examples(path, min_prior=6):
     players = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     positions = {}
     with open(path, newline='', encoding='utf-8-sig') as fh:
@@ -33,17 +44,13 @@ def examples(path):
     for pid, history in players.items():
         for gw in sorted(history):
             past_gws = sorted(g for g in history if g < gw)
-            if len(past_gws) < 6:
+            if len(past_gws) < min_prior:
                 continue
             # Include blank/DNP weeks as zeros within the player's known history.
             start = past_gws[0]
             past = [history.get(g, {}) for g in range(start, gw)]
-            last = past[-4:]
-            avg = lambda k: sum(r.get(k, 0) for r in last) / len(last)
-            ppg = sum(r.get('total_points', 0) for r in past) / len(past)
             pos = positions[pid, gw]
-            x = [1, avg('total_points'), avg('minutes') / 90, avg('expected_goals'),
-                 avg('expected_assists'), ppg, int(pos == 'GK'), int(pos == 'DEF'), int(pos == 'MID')]
+            x = feature_vector(past, pos)
             out.append({'gw': gw, 'player_id': pid, 'x': x,
                         'y': history[gw]['total_points'], 'minutes': history[gw]['minutes']})
     return sorted(out, key=lambda r: (r['gw'], r['player_id']))

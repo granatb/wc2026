@@ -2,10 +2,10 @@
   "experiment_id": "fpl-2026-27-shadow-v1",
   "season": "2026-27",
   "arms": {
-    "market": "Corrected market-informed model",
-    "statistical": "Odds-free statistical challenger",
-    "hybrid": "Blend with weights fixed using earlier data",
-    "consensus": "Consensus reference"
+    "market": "Market model without editorial overrides",
+    "statistical": "Odds-free early-season ridge",
+    "hybrid": "Prespecified 50/50 market-statistical blend",
+    "consensus": "FPL + FFIQ forecast reference"
   },
   "starting_budget_tenths": 1000,
   "initial_free_transfers": 1,
@@ -15,6 +15,14 @@
   "initial_roster": "identical_across_arms",
   "decision_policy": "single_swap_xi_mean_v1",
   "forecast_window_minutes": 30,
+  "provider_policy": {
+    "market": "Corrected event engine, fresh real match odds required for every fixture, no editorial overrides or FC27 ratings",
+    "statistical": "Fixed ridge penalty 100, train 2023/24 with at least one prior GW, evaluate 2024/25 without tuning; current lagged points/minutes/xG/xA and official availability",
+    "hybrid": "0.5 market + 0.5 statistical, prespecified without fitting; do not describe as optimized",
+    "consensus": "0.5 official ep_next + 0.5 FFIQ where matched; official alone otherwise, with coverage disclosed. External training/data lineage unknown",
+    "source_max_age_hours": 24,
+    "blanks_and_doubles": "Known blanks are zero; statistical values scale with upcoming fixture count (approximation)"
+  },
   "primary_forecast_metric": "rmse_all_common_players",
   "secondary_metrics": ["mae", "bias", "official_squad_points_after_hits", "captain_points"],
   "human_interventions": "allowed_only_with_predeadline_reason_and_source",
