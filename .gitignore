@@ -8,3 +8,5 @@ __pycache__/
 .wrangler/
 # the MCP server's installed dependency tree (package-lock.json IS committed)
 node_modules/
+.fpl-season.lock
+experiments/**/records/sources/

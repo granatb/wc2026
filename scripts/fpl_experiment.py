@@ -8,7 +8,7 @@ import sys
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from core import forecast_archive as evidence, fpl_live
-from games.fpl import experiments, grading, forecast_providers
+from games.fpl import experiments, forecast_providers
 
 
 def read(path):
@@ -47,8 +47,8 @@ def main(argv=None):
         if not args.results:
             ap.error('--results is required')
         record = experiments.read_week(args.root/f'gw{args.gw}.json')
-        grade = experiments.grade_week(record, read(args.results))
-        path = grading.write_accuracy(args.gw, grade, out_dir=args.root/'grades')
+        experiments.bank_grade(args.root, record, read(args.results))
+        path = args.root/'grades'/f'gw{args.gw}.json'
         print(f'Graded virtual squads: {path}')
         return 0
     boot = read(args.bootstrap)

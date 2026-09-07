@@ -229,9 +229,17 @@ def grade_week(record, results):
         raise ValueError('fixture coverage changed; review the evidence before grading')
     if any(f.get('event') != record['gameweek'] for f in results['fixtures']):
         raise ValueError('wrong fixture gameweek')
+    if len({f['id'] for f in results['fixtures']}) != len(results['fixtures']):
+        raise ValueError('duplicate result fixture')
     stats = {e['id']: e.get('stats', {}) for e in results['live']['elements']}
+    if len(stats) != len(results['live']['elements']):
+        raise ValueError('duplicate result player')
     if any(not {'total_points', 'minutes'} <= set(stats.get(pid, {})) for pid in record['population_ids']):
         raise ValueError('missing outcomes: do not change the evaluation population')
+    for pid in record['population_ids']:
+        _integer(stats[pid]['total_points'], 'official points')
+        if _integer(stats[pid]['minutes'], 'official minutes') < 0:
+            raise ValueError('negative official minutes')
     boot = record['bootstrap']
     by_id = {e['id']: e for e in boot['elements']}
     arms = {}
@@ -358,11 +366,54 @@ def report_from_directory(protocol, root):
         grade = json.loads(path.read_text())
         if grade['forecast_artifact_id'] != record['artifact_id']:
             raise ValueError('grade belongs to a different forecast')
+        key = grade['results_sha256']
+        if len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
+            raise ValueError('invalid result evidence ID')
+        results = json.loads((Path(root)/'results'/f'{key}.json').read_text())
+        if evidence.digest(results) != key or grade_week(record, results) != grade:
+            raise ValueError('grade differs from retained official outcomes')
         grades.append(grade)
     report = season_report(grades)
     report.update(registered_arms=dict(protocol['arms']), pending_gameweeks=pending,
                   frozen_gameweeks=[r['gameweek'] for r in records],
+                  receipts=[public_receipt(r) for r in records],
                   experiment_id=protocol['experiment_id'], protocol_sha256=evidence.digest(protocol))
     if records and not grades:
         report['status'] = 'forecasts_frozen_awaiting_results'
     return report
+
+
+def bank_grade(root, record, results, now=None):
+    """Retain actual outcomes before replacing a derived grade; preserve revisions."""
+    from games.fpl import grading
+    now = evidence.utc(now or datetime.now(timezone.utc))
+    if evidence.utc(results['fetched_at']) > now:
+        raise ValueError('future-dated result receipt')
+    grade = grade_week(record, results)
+    path = Path(root)/'grades'/f"gw{record['gameweek']}.json"
+    if path.exists():
+        previous = json.loads(path.read_text())
+        # Refreshing identical outcomes should not invent a grading revision.
+        # Still verify all score fields so a tampered grade cannot survive.
+        fields = lambda value: {k:v for k,v in value.items() if k != 'results_sha256'}
+        key = previous.get('results_sha256', '')
+        if fields(previous) == fields(grade) and len(key) == 64 and all(c in '0123456789abcdef' for c in key):
+            old_path = Path(root)/'results'/f'{key}.json'
+            if old_path.exists():
+                old = json.loads(old_path.read_text())
+                outcomes = lambda value: {k:v for k,v in value.items() if k != 'fetched_at'}
+                if evidence.digest(old) == key and outcomes(old) == outcomes(results):
+                    return previous
+    evidence.atomic_json(Path(root)/'results'/f"{grade['results_sha256']}.json", results)
+    grading.write_accuracy(record['gameweek'], grade, out_dir=Path(root)/'grades')
+    return grade
+
+
+def public_receipt(record):
+    """A publishable commitment without raw third-party projections."""
+    return dict(gameweek=record['gameweek'], forecast_artifact_id=record['artifact_id'],
+        captured_at=record['captured_at'], deadline=record['deadline'],
+        protocol_sha256=record['protocol_sha256'],
+        source_artifact_ids=sorted({s['source_artifact_id'] for s in record['arms'].values()}),
+        model_versions={arm:s['model_version'] for arm,s in record['arms'].items()},
+        receipt_note='Local capture metadata; independent pre-deadline publication must be verified separately.')

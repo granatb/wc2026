@@ -152,7 +152,7 @@ class MergeGateTests(unittest.TestCase):
             self.assertEqual(report['status'], 'registered_not_started')
             self.assertEqual(len(report['registered_arms']), 4)
             self.assertEqual(report['arms'], {})
-            self.assertIn('Awaiting forecast provider', public.page(report))
+            self.assertIn('Awaiting frozen weekly results', public.page(report))
             lab.write_week(tmp, first(), now=NOW)
             report = lab.report_from_directory(PROTOCOL, tmp)
             self.assertEqual(report['pending_gameweeks'], [4])

@@ -1,3 +1,13 @@
+## 2026-09-07 — weekly experiment operations
+
+Add a single season CLI for status, rehearsal, final-24-hour freeze, grading and
+backup verification. Repeated freezes preserve the original artifact; source/run
+backups finish before enrollment. Official outcomes are retained and every public
+report replays grades against them. Duplicate/missing/invalid outcomes fail;
+unchanged refreshes do not invent grading revisions. Publish forecast commitment
+receipts in the experiment summary and validate that summary before deployment.
+No experiment is enrolled early and no unattended schedule is installed.
+
 ## 2026-09-07 — live experimental forecast providers
 
 Add explicit market, early-season statistical, fixed 50/50 hybrid and FPL/FFIQ

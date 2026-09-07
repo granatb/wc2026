@@ -36,6 +36,52 @@ Fresh observations and provider timestamps are separately limited to 24 hours.
 
 ## Provider workflow
 
+The normal weekly entry point is now `scripts/fpl_season.py`:
+
+```sh
+python3 scripts/fpl_season.py status --gw 4
+python3 scripts/fpl_season.py rehearse --gw 4
+python3 scripts/fpl_season.py run --gw 4
+python3 scripts/fpl_season.py grade --gw 4
+```
+
+`status` is read-only and labels its cached input. `rehearse` refreshes inputs and
+builds all four forecasts and squads without enrolling them; `--context PATH`
+allows an offline rehearsal from retained, still-fresh inputs. It returns the exact
+run manifest path. `run` checks a fresh official deadline, then refreshes, builds,
+backs up and freezes together **only within the final 24 hours**. Outside that
+window it returns `rehearsal_only`; missed deadlines and history gaps fail. It
+never schedules itself or submits changes to an official FPL account.
+
+To freeze a reviewed run still inside its 30-minute forecast window:
+
+```sh
+python3 scripts/fpl_season.py freeze --run-file /path/from/rehearsal/run.json
+python3 scripts/fpl_season.py verify-backup --backup /path/to/backup.json
+```
+
+The CLI holds a POSIX file lock around mutations. Repeating the same freeze returns
+the original receipt, including after the deadline; a different run cannot replace
+it. Before enrollment, a self-contained forecast/source/run bundle is written under
+`data/experiments/season-2026-27/backups/`; the source is also retained beside the
+records in an ignored `sources/` directory. These are local recovery copies, not
+off-device backups. Copy backups to durable private storage. `verify-backup` checks
+their internal identities; recovery must preserve the original forecast hash and
+be checked against an independently published receipt, never recapture past data.
+
+`grade` fetches official outcomes and refuses unfinished, duplicate or missing
+results. Raw outcomes are retained under the ledger's `results/` directory before
+the derived grade is written. Every report recalculates scores against that evidence.
+Repeated fetches of identical outcomes do not create revisions; changed official
+outcomes preserve the previous grade and its original result receipt.
+
+The public API includes forecast commitment receipts, without raw external provider
+payloads. Publish those receipts before the deadline; a local timestamp or hash
+alone is not independent proof. Deployment validation checks that the experiment
+summary matches the retained evidence.
+
+The lower-level provider commands remain available for diagnosis:
+
 ```sh
 python3 scripts/fpl_providers.py train
 python3 scripts/fpl_providers.py refresh --gw 4 --context data/experiments/gw4-context.json
@@ -101,6 +147,7 @@ common-seed squad draft. These are working drafts, not enrolled GW4 forecasts.
 Refresh and regenerate near the 12 September 12:30 UTC deadline, then freeze and
 publish an independent receipt before that deadline. Do not freeze an old draft
 after its 30-minute window. No scheduler or official FPL account is operated here.
+The weekly workflow's freeze window opens on 11 September at 12:30 UTC.
 
 Heldout early-ridge RMSE is 2.093 versus 2.231 for last-four mean on 26,427 rows;
 MAE is 1.100 versus 1.104. This population differs from the original research model,

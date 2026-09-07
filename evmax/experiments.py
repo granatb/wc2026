@@ -27,11 +27,17 @@ def page(data):
         cells = ([str(score['net_points']), f"{score['rmse_equal_gameweek']:.3f}",
                   f"{score['mae_equal_gameweek']:.3f}", str(score['interventions'])]
                  if score else ['—']*4)
-        versions = ', '.join(score['model_versions']) if score else 'Awaiting forecast provider'
+        versions = ', '.join(score['model_versions']) if score else 'Awaiting frozen weekly results'
         rows.append('<tr><td>'+html.escape(label)+'<br><small>'+html.escape(versions)+'</small></td>'+
                     ''.join('<td>'+html.escape(c)+'</td>' for c in cells)+'</tr>')
     weeks = ', '.join(map(str, data['gameweeks'])) or 'None yet'
     pending = ', '.join(map(str, data['pending_gameweeks'])) or 'None'
+    receipts = ''.join('<li>GW'+str(r['gameweek'])+': <code>'+html.escape(r['forecast_artifact_id'])+
+                       '</code> — captured '+html.escape(r['captured_at'])+'</li>'
+                       for r in data.get('receipts', []))
+    receipt_section = ('<h2>Frozen forecast receipts</h2><ul>'+receipts+'</ul><p>These hashes identify retained forecasts. '
+        'Local timestamps alone do not prove when a forecast was published; independent publication must precede the deadline.</p>'
+        if receipts else '')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -49,6 +55,7 @@ forecasts together, then track their decisions and outcomes.</p>
 <th>Forecast RMSE</th><th>Forecast MAE</th><th>Human interventions</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div>
 <p>Graded gameweeks: {weeks}. Frozen weeks awaiting grades: {pending}.</p>
+{receipt_section}
 <p>Lower forecast error is better; more squad points is better. Forecast losses are averaged
 with equal weight per gameweek on identical player populations. A lucky captain can win a
 week without proving that the underlying forecast is better. We do not automatically select a winner.</p>

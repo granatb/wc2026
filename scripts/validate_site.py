@@ -62,6 +62,17 @@ def validate(out):
             archive = forecast_archive.load(latest['gameweek'])
             if archive and latest.get('forecast_artifact_id') != archive['artifact_id']:
                 errors.append('latest feed does not identify the archived forecast')
+    if gameweeks:
+        from evmax import experiments
+        summary = out/experiments.API_PATH.lstrip('/')
+        if not summary.exists() or not (out/experiments.PATH.lstrip('/')/'index.html').exists():
+            errors.append('experiment page or summary missing')
+        else:
+            try:
+                if json.loads(summary.read_text()) != experiments.report():
+                    errors.append('experiment summary differs from retained evidence')
+            except (ValueError, KeyError, OSError) as exc:
+                errors.append(f'experiment evidence invalid: {exc}')
     return errors
 
 
