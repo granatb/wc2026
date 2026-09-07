@@ -1,0 +1,460 @@
+{
+  "status": "decision_rehearsal_not_enrolled",
+  "generated_at": "2026-09-07T20:50:42.727340+00:00",
+  "gameweek": 4,
+  "deadline": "2026-09-12T12:30:00+00:00",
+  "policy_version": "joint-scenario-lineup-v1",
+  "source_forecast_artifact_id": "f39a4bc0cfe6a78f35edb026d456911a4018c0b6e69464b7fcc6cf8a91cbccd3",
+  "source_sha256": "529183c704405c9b36b25b7f95caac6a400953cf33c4a72be37f08deed8223ba",
+  "scenario_policy": "prior_marginals_constant_conditional_points_v1",
+  "optimization_draws": 256,
+  "audit_draws": 4096,
+  "seeds": [
+    20260907,
+    20260908
+  ],
+  "scenario_code_sha256": "d7160a6df77bb3d4029a358c0bdb9c7f82e73c8896c4f2f1a16d1cc0dca094fb",
+  "optimizer_code_sha256": "d72d7d35619b6828404e966c6ba4005186e40b075040b7a7d5f347bd9f91ad1f",
+  "squad_ids": [
+    1,
+    356,
+    498,
+    229,
+    426,
+    237,
+    480,
+    542,
+    368,
+    106,
+    79,
+    140,
+    469,
+    346,
+    423
+  ],
+  "appearance_probabilities": {
+    "1": 0.9329545454545454,
+    "79": 0.8644886363636363,
+    "106": 0.9497159090909091,
+    "140": 0,
+    "229": 0.9497159090909091,
+    "346": 0.8303977272727272,
+    "356": 0.9667613636363636,
+    "368": 0.9326704545454545,
+    "237": 0.8644886363636363,
+    "423": 0.9667613636363636,
+    "426": 0.9156249999999999,
+    "469": 0.9326704545454545,
+    "480": 0.9156249999999999,
+    "498": 0.9156249999999999,
+    "542": 0.8815340909090909
+  },
+  "names": {
+    "1": "Raya",
+    "356": "Virgil",
+    "498": "Senesi",
+    "229": "Tarkowski",
+    "426": "B.Fernandes",
+    "237": "Ndiaye",
+    "480": "Gibbs-White",
+    "542": "E.Le Fée",
+    "368": "Szoboszlai",
+    "106": "Thiago",
+    "79": "Evanilson",
+    "140": "Sánchez",
+    "469": "N.Williams",
+    "346": "Calvert-Lewin",
+    "423": "Shaw"
+  },
+  "results": {
+    "production": {
+      "independent": {
+        "candidate": {
+          "decision": {
+            "xi_ids": [
+              1,
+              229,
+              356,
+              469,
+              237,
+              368,
+              426,
+              480,
+              542,
+              79,
+              346
+            ],
+            "bench_ids": [
+              140,
+              106,
+              423,
+              498
+            ],
+            "captain_id": 426,
+            "vice_id": 480,
+            "decision_policy_id": "joint-scenario-lineup-v1"
+          },
+          "expected": {
+            "starter_points": 45.533343594203956,
+            "autosub_points": 2.965993243971772,
+            "captain_bonus": 6.429656949811263,
+            "vice_bonus": 0.44453227651881483,
+            "total": 55.3735260645058
+          },
+          "lineups_and_bench_orders": 3300,
+          "appearance_patterns": 86,
+          "note": "Optimal for these finite scenarios; not proof of calibrated real-world value."
+        },
+        "baseline": {
+          "squad_ids": [
+            1,
+            356,
+            498,
+            229,
+            426,
+            237,
+            480,
+            542,
+            368,
+            106,
+            79,
+            140,
+            469,
+            346,
+            423
+          ],
+          "xi_ids": [
+            1,
+            229,
+            469,
+            356,
+            426,
+            480,
+            368,
+            237,
+            542,
+            346,
+            79
+          ],
+          "bench_ids": [
+            106,
+            423,
+            498,
+            140
+          ],
+          "captain_id": 426,
+          "vice_id": 480,
+          "decision_policy_id": "single_swap_xi_mean_v1"
+        },
+        "audit_candidate": {
+          "starter_points": 46.12869111539019,
+          "autosub_points": 2.6456677133755315,
+          "captain_bonus": 6.505870555897755,
+          "vice_bonus": 0.3914914935250937,
+          "total": 55.67172087818857
+        },
+        "audit_baseline": {
+          "starter_points": 46.12869111539019,
+          "autosub_points": 2.6456677133755315,
+          "captain_bonus": 6.505870555897755,
+          "vice_bonus": 0.3914914935250937,
+          "total": 55.67172087818857
+        },
+        "audit_delta": 0.0
+      },
+      "shared_club": {
+        "candidate": {
+          "decision": {
+            "xi_ids": [
+              1,
+              229,
+              356,
+              469,
+              237,
+              368,
+              426,
+              480,
+              542,
+              79,
+              346
+            ],
+            "bench_ids": [
+              140,
+              106,
+              423,
+              498
+            ],
+            "captain_id": 426,
+            "vice_id": 480,
+            "decision_policy_id": "joint-scenario-lineup-v1"
+          },
+          "expected": {
+            "starter_points": 45.755135539518136,
+            "autosub_points": 2.7077348888765824,
+            "captain_bonus": 6.540513104118353,
+            "vice_bonus": 0.3839142388117037,
+            "total": 55.387297771324775
+          },
+          "lineups_and_bench_orders": 3300,
+          "appearance_patterns": 73,
+          "note": "Optimal for these finite scenarios; not proof of calibrated real-world value."
+        },
+        "baseline": {
+          "squad_ids": [
+            1,
+            356,
+            498,
+            229,
+            426,
+            237,
+            480,
+            542,
+            368,
+            106,
+            79,
+            140,
+            469,
+            346,
+            423
+          ],
+          "xi_ids": [
+            1,
+            229,
+            469,
+            356,
+            426,
+            480,
+            368,
+            237,
+            542,
+            346,
+            79
+          ],
+          "bench_ids": [
+            106,
+            423,
+            498,
+            140
+          ],
+          "captain_id": 426,
+          "vice_id": 480,
+          "decision_policy_id": "single_swap_xi_mean_v1"
+        },
+        "audit_candidate": {
+          "starter_points": 46.17476808658594,
+          "autosub_points": 2.516005582811133,
+          "captain_bonus": 6.47815651732098,
+          "vice_bonus": 0.40412025138074203,
+          "total": 55.5730504380988
+        },
+        "audit_baseline": {
+          "starter_points": 46.17476808658594,
+          "autosub_points": 2.516005582811133,
+          "captain_bonus": 6.47815651732098,
+          "vice_bonus": 0.40412025138074203,
+          "total": 55.5730504380988
+        },
+        "audit_delta": 0.0
+      }
+    },
+    "fixture": {
+      "independent": {
+        "candidate": {
+          "decision": {
+            "xi_ids": [
+              1,
+              229,
+              356,
+              469,
+              237,
+              368,
+              426,
+              480,
+              542,
+              79,
+              346
+            ],
+            "bench_ids": [
+              140,
+              106,
+              423,
+              498
+            ],
+            "captain_id": 426,
+            "vice_id": 368,
+            "decision_policy_id": "joint-scenario-lineup-v1"
+          },
+          "expected": {
+            "starter_points": 43.85836883408086,
+            "autosub_points": 2.8101948457359924,
+            "captain_bonus": 5.934348942253835,
+            "vice_bonus": 0.41908394306405794,
+            "total": 53.02199656513475
+          },
+          "lineups_and_bench_orders": 3300,
+          "appearance_patterns": 86,
+          "note": "Optimal for these finite scenarios; not proof of calibrated real-world value."
+        },
+        "baseline": {
+          "squad_ids": [
+            1,
+            356,
+            498,
+            229,
+            426,
+            237,
+            480,
+            542,
+            368,
+            106,
+            79,
+            140,
+            469,
+            346,
+            423
+          ],
+          "xi_ids": [
+            1,
+            229,
+            469,
+            356,
+            426,
+            368,
+            480,
+            237,
+            542,
+            346,
+            79
+          ],
+          "bench_ids": [
+            106,
+            423,
+            498,
+            140
+          ],
+          "captain_id": 426,
+          "vice_id": 368,
+          "decision_policy_id": "single_swap_xi_mean_v1"
+        },
+        "audit_candidate": {
+          "starter_points": 44.442064820358254,
+          "autosub_points": 2.5058344247498407,
+          "captain_bonus": 6.004691440492104,
+          "vice_bonus": 0.39164392298248246,
+          "total": 53.34423460858268
+        },
+        "audit_baseline": {
+          "starter_points": 44.442064820358254,
+          "autosub_points": 2.5058344247498407,
+          "captain_bonus": 6.004691440492104,
+          "vice_bonus": 0.39164392298248246,
+          "total": 53.34423460858268
+        },
+        "audit_delta": 0.0
+      },
+      "shared_club": {
+        "candidate": {
+          "decision": {
+            "xi_ids": [
+              1,
+              229,
+              356,
+              469,
+              237,
+              368,
+              426,
+              480,
+              542,
+              79,
+              346
+            ],
+            "bench_ids": [
+              140,
+              106,
+              423,
+              498
+            ],
+            "captain_id": 426,
+            "vice_id": 368,
+            "decision_policy_id": "joint-scenario-lineup-v1"
+          },
+          "expected": {
+            "starter_points": 44.07358501954805,
+            "autosub_points": 2.5645140284407137,
+            "captain_bonus": 6.036665303327177,
+            "vice_bonus": 0.37917118658176674,
+            "total": 53.0539355378977
+          },
+          "lineups_and_bench_orders": 3300,
+          "appearance_patterns": 73,
+          "note": "Optimal for these finite scenarios; not proof of calibrated real-world value."
+        },
+        "baseline": {
+          "squad_ids": [
+            1,
+            356,
+            498,
+            229,
+            426,
+            237,
+            480,
+            542,
+            368,
+            106,
+            79,
+            140,
+            469,
+            346,
+            423
+          ],
+          "xi_ids": [
+            1,
+            229,
+            469,
+            356,
+            426,
+            368,
+            480,
+            237,
+            542,
+            346,
+            79
+          ],
+          "bench_ids": [
+            106,
+            423,
+            498,
+            140
+          ],
+          "captain_id": 426,
+          "vice_id": 368,
+          "decision_policy_id": "single_swap_xi_mean_v1"
+        },
+        "audit_candidate": {
+          "starter_points": 44.49204647942917,
+          "autosub_points": 2.3816672219979043,
+          "captain_bonus": 5.979112350223767,
+          "vice_bonus": 0.40037483846298366,
+          "total": 53.25320089011382
+        },
+        "audit_baseline": {
+          "starter_points": 44.49204647942917,
+          "autosub_points": 2.3816672219979043,
+          "captain_bonus": 5.979112350223767,
+          "vice_bonus": 0.40037483846298366,
+          "total": 53.25320089011382
+        },
+        "audit_delta": 0.0
+      }
+    }
+  },
+  "limitations": [
+    "Scenario expectations are not observed performance or evidence of a points gain.",
+    "Appearance marginals approximate raw production priors, not simulated joint team lineups.",
+    "Constant points given appearance omit role/points dependence and opponent correlations.",
+    "Shared-club dependence is an extreme sensitivity assumption, not an estimated model.",
+    "Separate random-seed audit reduces scenario-selection optimism but does not validate assumptions.",
+    "No transfers, chips or policy changes to the four-arm experiment."
+  ],
+  "artifact_id": "4e71a8f03b624e76f7220f134629fcab7f5f18ddec9d561d6ff1d629bcd689b1"
+}

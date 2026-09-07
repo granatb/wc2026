@@ -35,6 +35,14 @@ def report():
     shadow_path = ROOT/'fixture-shadow-status.json'
     if shadow_path.exists():
         data['fixture_shadow'] = json.loads(shadow_path.read_text())
+    lineup_path = ROOT.parents[1]/'docs/research/2026-09-07-lineup-rehearsal.json'
+    if lineup_path.exists():
+        study = json.loads(lineup_path.read_text())
+        data['lineup_research'] = dict(status=study['status'], gameweek=study['gameweek'],
+            generated_at=study['generated_at'], artifact_id=study['artifact_id'],
+            policy_version=study['policy_version'], limitations=study['limitations'],
+            audit_deltas={arm:{mode:r['audit_delta'] for mode,r in modes.items()}
+                          for arm,modes in study['results'].items()})
     return data
 
 
@@ -144,6 +152,20 @@ def page(data):
             '<p>Snapshot: <code>'+html.escape(shadow['artifact_id'])+'</code>. '
             'Raw histories and forecasts are retained privately. A local hash alone does not prove pre-deadline '
             'publication. This status describes the dated snapshot, not a continuously refreshed feed.</p>')
+    lineup_section = ''
+    if data.get('lineup_research'):
+        study = data['lineup_research']
+        lineup_rows = ''.join('<tr><td>'+html.escape(arm)+'</td><td>'+html.escape(mode.replace('_',' '))+
+            f'</td><td>{delta:+.3f}</td></tr>' for arm,modes in study['audit_deltas'].items()
+            for mode,delta in modes.items())
+        lineup_section = ('<h2>Lineup decision rehearsal</h2><p>A scenario optimizer evaluates all 3,300 legal '
+            'XI and outfield bench-order combinations, plus captain/vice pairs. It accounts for formation-constrained '
+            'automatic substitutions and vice-captain fallback. This GW'+str(study['gameweek'])+
+            ' rehearsal uses assumed appearances and a separate random-seed audit.</p><div class="scroll"><table>'
+            '<thead><tr><th>Forecast</th><th>Appearance assumption</th><th>Audit points difference</th></tr></thead>'
+            '<tbody>'+lineup_rows+'</tbody></table></div><p>These are simulated expectations, not observed gains. '
+            'Decision changes require prospective validation. Shared-club dependence is a stress test, not an '
+            'estimated correlation. The controlled four-arm policy remains unchanged.</p>')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -169,6 +191,7 @@ week without proving that the underlying forecast is better. We do not automatic
 {minutes_section}
 {fixture_section}
 {shadow_section}
+{lineup_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for
