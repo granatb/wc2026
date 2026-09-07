@@ -1,0 +1,184 @@
+{
+  "model": "fixture-ridge-research-v1",
+  "status": "research_only",
+  "config": {
+    "ridge": 100,
+    "goal_prior": 1.4,
+    "prior_matches": 5,
+    "cutoff_hours": 2,
+    "finish_hours": 3,
+    "min_prior_fixtures": 1
+  },
+  "features": [
+    "intercept",
+    "last4_points_per_fixture",
+    "last4_minutes_90",
+    "last4_xg",
+    "last4_xa",
+    "season_points_per_fixture",
+    "GK",
+    "DEF",
+    "MID",
+    "home_minutes",
+    "own_attack_minutes",
+    "own_defence_minutes",
+    "opponent_attack_minutes",
+    "opponent_defence_minutes"
+  ],
+  "weights": {
+    "fixture": [
+      0.23868939916916612,
+      0.11422417945310197,
+      1.336101165148181,
+      0.7401197766050007,
+      1.040359178073555,
+      0.2607787091295486,
+      -0.15722604611928942,
+      -0.21308739308467645,
+      -0.04374002701745181,
+      0.5456775272639841,
+      0.3646987913246868,
+      -0.18164429665787923,
+      -0.5235402170579602,
+      0.6984355773160826
+    ],
+    "ablation": [
+      0.21896606705875232,
+      0.1292744240943072,
+      1.5351162582206261,
+      0.7253471691030722,
+      1.1148248481145626,
+      0.2808090877320501,
+      -0.1371216443979047,
+      -0.19163549504406802,
+      -0.030062699195983367
+    ]
+  },
+  "train_player_gameweeks": 27877,
+  "scores": {
+    "all_recorded": {
+      "fixture": {
+        "n": 26135,
+        "mae": 1.0294094488227992,
+        "rmse": 1.9634159529025217,
+        "bias": -0.02795325792826342
+      },
+      "ablation": {
+        "n": 26135,
+        "mae": 1.03535456885223,
+        "rmse": 1.970993966617644,
+        "bias": -0.018447863085346045
+      },
+      "last4_per_fixture": {
+        "n": 26135,
+        "mae": 1.0601906766150118,
+        "rmse": 2.1314832464457814,
+        "bias": 0.001654868949684331
+      }
+    },
+    "prior_60plus": {
+      "fixture": {
+        "n": 6501,
+        "mae": 2.231735688007374,
+        "rmse": 3.0678477955783925,
+        "bias": -0.028102158277757333
+      },
+      "ablation": {
+        "n": 6501,
+        "mae": 2.2523381571190777,
+        "rmse": 3.0847031264485913,
+        "bias": -0.00891878381570469
+      },
+      "last4_per_fixture": {
+        "n": 6501,
+        "mae": 2.521073680972158,
+        "rmse": 3.4079327993512853,
+        "bias": 0.36009844639286265
+      }
+    },
+    "double": {
+      "fixture": {
+        "n": 362,
+        "mae": 1.8894483290670259,
+        "rmse": 3.3989912840912013,
+        "bias": -0.3063760347654769
+      },
+      "ablation": {
+        "n": 362,
+        "mae": 1.9110397846621656,
+        "rmse": 3.451237403211951,
+        "bias": -0.3141941698811859
+      },
+      "last4_per_fixture": {
+        "n": 362,
+        "mae": 1.9976979742173113,
+        "rmse": 3.692057990309201,
+        "bias": -0.0501841620626151
+      }
+    }
+  },
+  "test_gameweeks": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38
+  ],
+  "fixture_minus_ablation_equal_gw_mse": -0.030141434771515225,
+  "exploratory_block95": [
+    -0.05394963806626676,
+    0.00033972897942896634
+  ],
+  "sources": [
+    {
+      "path": "data/research/fpl-2023-24.csv",
+      "sha256": "e9c09c8856f1c86b4f920f46ddd5033af83409439dfda53be925df2a3e7c8a9e"
+    },
+    {
+      "path": "data/research/fpl-2024-25.csv",
+      "sha256": "5bbbcba6353b4c72ad273adcc8e3aa451946a826564679788f45b1cb3325b84e"
+    }
+  ],
+  "implementation_sha256": "12870201d470041bd210aafa104255698cc72dddc7bff70461e90a6e636e8be2",
+  "limitations": [
+    "Retrospective fixtures and positions, not archived deadline snapshots.",
+    "Cutoff proxy: first GW kickoff minus two hours; prior kickoff plus three hours must precede it.",
+    "Only recorded player-gameweeks with prior fixtures; no validated blank or cold-start cohort.",
+    "Doubles summed by fixture with identical pre-GW player history; no first-leg outcome leakage.",
+    "Ablation isolates fixture features; not a head-to-head comparison with the production GW ridge.",
+    "No odds, FC27, injury or historical availability inputs; scoring rules can change between seasons.",
+    "Intervals are exploratory, unadjusted and do not establish a prospective edge."
+  ]
+}

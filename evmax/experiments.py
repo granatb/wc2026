@@ -22,6 +22,16 @@ def report():
             scores={name:{k:v for k,v in score.items() if k != 'calibration'}
                     for name,score in candidate['cohorts']['all_single_fixture'].items()},
             limitations=candidate['limitations'])
+    fixture_reports = {}
+    for phase in ('development', 'validation'):
+        fixture_path = ROOT.parents[1]/('docs/research/2026-09-07-fixtures-'+phase+'.json')
+        if fixture_path.exists():
+            candidate = json.loads(fixture_path.read_text())
+            fixture_reports[phase] = {k:candidate[k] for k in (
+                'model', 'status', 'scores', 'fixture_minus_ablation_equal_gw_mse',
+                'exploratory_block95', 'limitations')}
+    if fixture_reports:
+        data['fixture_research'] = fixture_reports
     return data
 
 
@@ -99,6 +109,23 @@ def page(data):
             '</tr></thead><tbody>'+minute_rows+'</tbody></table></div><p>Lower is better. The candidate improves probability '
             'scores and RMSE but worsens MAE against the last-four baseline. Cold starts remain weak; injuries, blanks '
             'and doubles are not validated. It has not replaced our production minutes assumptions.</p>')
+    fixture_section = ''
+    if data.get('fixture_research'):
+        fixture_rows = []
+        for phase, candidate in data['fixture_research'].items():
+            season = {'development':'2024/25 development', 'validation':'2025/26 validation'}[phase]
+            scores = candidate['scores']['all_recorded']
+            fixture_rows.append('<tr><td>'+season+'</td><td>'+str(scores['fixture']['n'])+'</td><td>'+
+                f"{scores['fixture']['rmse']:.3f}</td><td>{scores['ablation']['rmse']:.3f}</td></tr>")
+        fixture_section = ('<h2>Fixture research: small historical improvement</h2><p>A separate candidate adds '
+            'home/away and lagged team/opponent goal rates. Each fixture in a double gets its own forecast, '
+            'using only history available before the gameweek cutoff. Both models were trained on 2023/24; '
+            'the same specification was evaluated on the later season.</p><div class="scroll"><table>'
+            '<thead><tr><th>Season</th><th>Player-gameweeks</th><th>Fixture RMSE</th><th>Without fixture features</th>'
+            '</tr></thead><tbody>'+''.join(fixture_rows)+'</tbody></table></div><p>The comparison isolates fixture '
+            'features within a per-fixture model, not performance against our production gameweek model or odds. '
+            'These are retrospective extracts with an estimated deadline cutoff. Historical blank weeks, cold '
+            'starts and availability remain unvalidated. The candidate is research only; live forecasts are unchanged.</p>')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -122,6 +149,7 @@ with equal weight per gameweek on identical player populations. A lucky captain 
 week without proving that the underlying forecast is better. We do not automatically select a winner.</p>
 {learning_section}
 {minutes_section}
+{fixture_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for
