@@ -1,0 +1,22 @@
+{
+  "state": "shadow_rehearsal_not_frozen",
+  "gameweek": 4,
+  "generated_at": "2026-09-07T19:46:45.237862+00:00",
+  "frozen_at": null,
+  "deadline": "2026-09-12T12:30:00+00:00",
+  "artifact_id": "f39a4bc0cfe6a78f35edb026d456911a4018c0b6e69464b7fcc6cf8a91cbccd3",
+  "model_identity_sha256": "321f3185546c45b92a0e4727b14c3a13d725bd99804891e9f40e7512975190c5",
+  "players": 654,
+  "comparison_players": 654,
+  "cold_starts": 0,
+  "blanks": 0,
+  "mean_prediction_difference": -0.06882896967945602,
+  "mean_absolute_prediction_difference": 0.0978067720393558,
+  "limitations": [
+    "No prospective result yet; this is separate from the four-arm squad experiment.",
+    "Cold starts copy production and are excluded from the fixture comparison; blanks are reported separately.",
+    "Official availability scaling and per-fixture clamping were not part of historical evaluation.",
+    "Missing zero-history rows cannot be inferred from season totals; API coverage remains a limitation.",
+    "Local receipts and hashes are not independent proof of pre-deadline publication."
+  ]
+}

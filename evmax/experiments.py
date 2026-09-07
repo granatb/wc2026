@@ -32,6 +32,9 @@ def report():
                 'exploratory_block95', 'limitations')}
     if fixture_reports:
         data['fixture_research'] = fixture_reports
+    shadow_path = ROOT/'fixture-shadow-status.json'
+    if shadow_path.exists():
+        data['fixture_shadow'] = json.loads(shadow_path.read_text())
     return data
 
 
@@ -126,6 +129,21 @@ def page(data):
             'features within a per-fixture model, not performance against our production gameweek model or odds. '
             'These are retrospective extracts with an estimated deadline cutoff. Historical blank weeks, cold '
             'starts and availability remain unvalidated. The candidate is research only; live forecasts are unchanged.</p>')
+    shadow_section = ''
+    if data.get('fixture_shadow'):
+        shadow = data['fixture_shadow']
+        shadow_status = {'shadow_rehearsal_not_frozen':'Rehearsal only — not frozen',
+                         'shadow_frozen':'Frozen — awaiting final results'}[shadow['state']]
+        shadow_section = ('<h2>Live fixture shadow</h2><p>'+html.escape(shadow_status)+'. GW'+str(shadow['gameweek'])+
+            ', observed '+html.escape(shadow['generated_at'])+'. Receipt-backed histories cover '+str(shadow['players'])+
+            ' players; '+str(shadow['comparison_players'])+' qualify for the fixture-model comparison. '
+            'Cold-start fallbacks: '+str(shadow['cold_starts'])+'. Blanks: '+str(shadow['blanks'])+'.</p>'
+            '<p>This separate shadow compares fixture forecasts with the production statistical model on the same '
+            'official inputs. It does not change the four squads. Cold starts copy production and are excluded '
+            'from the fixture comparison. Forecast differences are not measured accuracy gains.</p>'
+            '<p>Snapshot: <code>'+html.escape(shadow['artifact_id'])+'</code>. '
+            'Raw histories and forecasts are retained privately. A local hash alone does not prove pre-deadline '
+            'publication. This status describes the dated snapshot, not a continuously refreshed feed.</p>')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -150,6 +168,7 @@ week without proving that the underlying forecast is better. We do not automatic
 {learning_section}
 {minutes_section}
 {fixture_section}
+{shadow_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for

@@ -187,6 +187,9 @@ The earlier 2.093/2.231 figures included 292 eligible manager rows and are retai
 in the dated audit as a corrected finding. This population differs from the original research model,
 excludes zero-history cases and does not test the new availability gate. No market
 comparison, cold-start validation or prospective improvement is established.
-Opponent-aware statistics, trained minutes, optimized blends and full multiweek
-transfer/chip planning remain future work. Do not enroll placeholders or backfill
+Opponent-aware statistics now have a separate receipt-backed fixture shadow;
+see `docs/research/2026-09-07-fixture-shadow.md` for its collection, guarded freeze
+and grading commands. The first 654-player shadow is a rehearsal, not an enrolled
+fifth arm. Trained minutes, optimized blends and full multiweek transfer/chip
+planning remain future work. Do not enroll placeholders or backfill
 past weeks. Update a model under an explicit new version rather than retuning silently.
