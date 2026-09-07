@@ -164,12 +164,28 @@ class TestBenchmarkSurfacing(unittest.TestCase):
         self.assertLess(html.index('id="squads"'), html.index('id="benchmark"'))
         self.assertIn("Whose team scored what", html)
 
+    # These two used to read the REAL asset files, so they passed only while a
+    # gameweek happened to be frozen-but-ungraded; the Monday grade flipped
+    # them red. Tests must carry their own state.
+    _PENDING = {"gameweek": 9, "taken_at": "2026-10-01T09:00:00+00:00",
+                "evmax": {"A|X": 5.0}, "ffiq": {"A|X": 4.0},
+                "baseline_inputs": {"A|X": {"season_points": 8, "appearances": 2,
+                                            "last4": [6, 2], "ep_next": 3.0}}}
+    _SQUADS = {"gameweek": 9, "versions": [{"taken_at": "2026-10-01T09:00:00+00:00",
+               "squads": {
+                   "ffs_scout_picks": {"url": "u1", "status": "early", "captain": None,
+                                       "published_at": "2026-09-29", "xi": [["A", "X"]]},
+                   "ffiq_ai_squad": {"url": "u2", "status": "final", "captain": "B.Fernandes",
+                                     "published_at": "2026-09-30", "xi": [["A", "X"]]}}}]}
+
     def test_pending_snapshot_renders_as_a_table_not_prose(self):
         """Owner opened the page pre-grading and found a heading over
         paragraphs ("i can't see table or anything"). The structure must be
         a table from day one, scores column honestly waiting."""
         from evmax import compare
-        html = compare.benchmark_section()
+        with mock.patch.object(compare, "_bench_data",
+                               return_value=([], [self._PENDING])):
+            html = compare.benchmark_section()
         self.assertIn("frozen, waiting for kickoff", html)
         self.assertIn("graded after the gameweek", html)
         self.assertIn("before the deadline", html)
@@ -179,12 +195,32 @@ class TestBenchmarkSurfacing(unittest.TestCase):
 
     def test_squads_section_names_every_frozen_xi_with_its_captain(self):
         from evmax import compare
-        html = compare.squads_section()
+        with mock.patch.object(compare, "_bench_data",
+                               return_value=([], [self._PENDING])), \
+             mock.patch("core.fpl_bench.load_squads",
+                        return_value=self._SQUADS):
+            html = compare.squads_section()
         self.assertIn("Fantasy Football IQ", html)
         self.assertIn("Fantasy Football Scout", html)
         self.assertIn("B.Fernandes", html)          # FFIQ's captain
         self.assertIn("not named", html)             # FFS early picks: none
         self.assertIn("evmax — Model XI", html)
+
+    def test_graded_gameweek_renders_official_points_per_team(self):
+        """And once graded, the same section shows every team's points."""
+        from evmax import compare
+        acc = {"gameweek": 3,
+               "squads": {"our-squad": {"realized_official": 37, "realized": 37},
+                          "consensus-squad": {"realized_official": 59, "realized": 51}},
+               "benchmark": {"scores": {},
+                             "squads": {"ffiq_ai_squad": {"points": 45, "captain": "B.Fernandes",
+                                                          "captain_points": 2, "status": "final",
+                                                          "missing": []}}}}
+        with mock.patch.object(compare, "_bench_data", return_value=([acc], [])):
+            html = compare.squads_section()
+        for pts in (">37<", ">59<", ">45<"):
+            self.assertIn(pts, html)
+        self.assertIn('class="cmp-best"', html)     # the 59 row is marked
 
     def test_the_ep_next_history_table_shows_immediately(self):
         from evmax import compare
