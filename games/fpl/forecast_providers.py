@@ -166,7 +166,7 @@ def consensus_predictions(bootstrap, fixtures, payload, gameweek, now):
         license=payload.get('license'), generated_at=payload['generated_at'])
 
 
-def market_predictions(bootstrap, fixtures, odds, backfill, sims):
+def market_predictions(bootstrap, fixtures, odds, backfill, sims, retain_ids=None, seed=None):
     """Reuse the corrected engine with explicit fixtures and no editorial overlay."""
     from core import fixtures as schedule
     from games.fpl import model
@@ -179,6 +179,12 @@ def market_predictions(bootstrap, fixtures, odds, backfill, sims):
         sum(bool(e.get('finished')) for e in bootstrap['events']),
         defcon_backfill={int(k):v for k,v in backfill.items()})
     matches = []
+    retain_names = None
+    if retain_ids is not None:
+        if len(retain_ids) != len(set(retain_ids)) or not set(retain_ids) <= {p['id'] for p in rows}:
+            raise ValueError('unique known player IDs required for joint retention')
+        playing_clubs = {t for f in fixtures for t in (teams[f['team_h']], teams[f['team_a']])}
+        retain_names = [p['name'] for p in rows if p['id'] in retain_ids and p['team'] in playing_clubs]
     for f in fixtures:
         price = odds.get('matches', {}).get(str(f['id']))
         if not price or not price.get('h2h') or str(price.get('source', '')).startswith(('fdr', 'strength')):
@@ -194,8 +200,13 @@ def market_predictions(bootstrap, fixtures, odds, backfill, sims):
     original = schedule.SCHEDULE
     try:
         schedule.SCHEDULE = matches
+        options = {}
+        if retain_names is not None:
+            options['retain_joint_for'] = retain_names
+        if seed is not None:
+            options['seed'] = seed
         artifact, _ = model.build_artifact(priors, {p['name']:p for p in rows}, gw, sims,
-                                          use_cache=False, research_entries={})
+                                          use_cache=False, research_entries={}, **options)
     finally:
         schedule.SCHEDULE = original
     by_name = {p['name']:p for p in rows}
@@ -206,8 +217,18 @@ def market_predictions(bootstrap, fixtures, odds, backfill, sims):
             if p['team'] in playing:
                 raise ValueError(f"market engine omitted player {p['id']}")
             predictions[p['id']] = 0
-    return predictions, dict(sims=sims, seed=model._SEED, cold_start_flags=flags,
-                            research_overlay='disabled for controlled experiment')
+    details = dict(sims=sims, seed=model._SEED if seed is None else seed, cold_start_flags=flags,
+                   research_overlay='disabled for controlled experiment')
+    if retain_ids is not None:
+        selected = {by_name[name]['id']:values for name,values in artifact['joint']['players'].items()}
+        for pid in retain_ids:
+            selected.setdefault(pid, dict(points=[0]*sims, played=[False]*sims))
+        for pid,values in selected.items():
+            if round(sum(values['points'])/sims, 2) != predictions[pid]:
+                raise ValueError('retained joint mean differs from market forecast')
+        details['joint'] = dict(schema_version=1, sims=sims, seed=details['seed'],
+            players=[dict(player_id=pid, **selected[pid]) for pid in sorted(selected)])
+    return predictions, details
 
 
 def build_boards(context, trained, sims=5000, now=None, market_fn=market_predictions):

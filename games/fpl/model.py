@@ -364,6 +364,17 @@ class SimPointsAccumulator:
             return 0.0
         return sum(self._per_sim.get(name, {}).values()) / self.sims
 
+    def joint(self, names) -> dict:
+        """Aligned weekly totals and any-appearance flags; consumes no randomness.
+
+        Bucket membership records appearance even when total points are zero or
+        negative. Both double-gameweek legs share a sim index, so points sum and
+        appearance is their union. Never reconstruct appearance from a PMF.
+        """
+        return {name:dict(points=[int(v) for v in self._distribution(name)],
+                          played=[i in self._per_sim.get(name, {}) for i in range(self.sims)])
+                for name in names}
+
     def histogram(self, name: str) -> dict:
         """{integer points: count of sims} over ALL sims — the discrete PMF.
 
@@ -949,7 +960,8 @@ def _int_keyed_distributions(rows: list) -> list:
 
 
 def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
-                   sims: int, use_cache: bool = True, research_entries=None) -> tuple:
+                   sims: int, use_cache: bool = True, research_entries=None,
+                   retain_joint_for=None, seed=None) -> tuple:
     """Simulate (or fetch from cache); return ({"rows", "matches"}, cache_hit).
 
     Consults core.simcache before running the Monte Carlo: the cache key covers
@@ -964,6 +976,16 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     """
     import config
     from core import fixtures, research, simcache
+
+    seed = _SEED if seed is None else seed
+    if type(seed) is not int:
+        raise ValueError('integer simulation seed required')
+    if retain_joint_for is not None:
+        retain_joint_for = list(retain_joint_for)
+        if len(retain_joint_for) != len(set(retain_joint_for)):
+            raise ValueError('duplicate retained player name')
+        # Joint evidence stays private and never rides the public marginal cache.
+        use_cache = False
 
     # GW-stage only: the shared SCHEDULE also carries World Cup fixtures whose
     # fantasy_round numbers collide with FPL gameweeks (WC round 1 == GW1).
@@ -1004,7 +1026,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     }
 
     key = simcache.cache_key(
-        gameweek=gameweek, sims=sims, seed=_SEED, lambdas=match_projection,
+        gameweek=gameweek, sims=sims, seed=seed, lambdas=match_projection,
         priors=priors_projection, research=research_projection,
         config=sim_config,
     )
@@ -1034,7 +1056,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         points.observe(match_id, rows, sim_index)
 
     samples, match_samples = engine_events.simulate_round(
-        gameweek, sims=sims, seed=_SEED,
+        gameweek, sims=sims, seed=seed,
         priors=lambda team: priors_by_team.get(team, []),
         research=research_entries,
         research_weight=research_weight,
@@ -1075,6 +1097,11 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     rows.sort(key=lambda r: -r["x_points"])
 
     artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}
+    if retain_joint_for is not None:
+        if not set(retain_joint_for) <= set(samples):
+            raise ValueError('retained player absent from simulated fixture population')
+        artifact['joint'] = dict(schema_version=1, sims=sims, seed=seed,
+                                players=points.joint(retain_joint_for))
     if use_cache:
         simcache.store(key, artifact, meta={"gameweek": gameweek, "sims": sims})
     return artifact, False

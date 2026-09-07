@@ -43,6 +43,12 @@ def report():
             policy_version=study['policy_version'], limitations=study['limitations'],
             audit_deltas={arm:{mode:r['audit_delta'] for mode,r in modes.items()}
                           for arm,modes in study['results'].items()})
+    joint_path = ROOT.parents[1]/'docs/research/2026-09-07-joint-lineup.json'
+    if joint_path.exists():
+        study = json.loads(joint_path.read_text())
+        data['joint_lineup_research'] = {k:study[k] for k in (
+            'status','gameweek','generated_at','source_artifact_id','sims_per_seed',
+            'optimization_seed','audit_seed','audit_delta','monte_carlo_precision','limitations')}
     return data
 
 
@@ -166,6 +172,18 @@ def page(data):
             '<tbody>'+lineup_rows+'</tbody></table></div><p>These are simulated expectations, not observed gains. '
             'Decision changes require prospective validation. Shared-club dependence is a stress test, not an '
             'estimated correlation. The controlled four-arm policy remains unchanged.</p>')
+    joint_section = ''
+    if data.get('joint_lineup_research'):
+        study = data['joint_lineup_research']
+        low, high = study['monte_carlo_precision']['normal_interval95']
+        joint_section = ('<h2>Joint engine sample check</h2><p>We now retain aligned appearance and points '
+            'from the market engine itself. The retained samples reproduce its forecast means. The lineup '
+            'optimizer uses '+str(study['sims_per_seed'])+' draws and is audited on a separate seed with the same '
+            'number of draws.</p><p>Candidate minus baseline: '+f"{study['audit_delta']:+.3f}"+
+            ' simulated points. The approximate Monte Carlo interval is '+f'[{low:+.3f}, {high:+.3f}]'+
+            '. This measures sampling precision inside this simulator, not uncertainty about real-world gains.</p>'
+            '<p>These samples belong to the market model; they are not distributions for the statistical or '
+            'external forecasts. Engine assumptions still require calibration. The four-arm policy is unchanged.</p>')
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The season experiment | evmax</title>{render._HEAD_COMMON}{render._FONTS}
@@ -192,6 +210,7 @@ week without proving that the underlying forecast is better. We do not automatic
 {fixture_section}
 {shadow_section}
 {lineup_section}
+{joint_section}
 <h2>The controlled decision policy</h2><p>Version 1 considers at most one positive-net transfer
 per week, then selects a legal XI, captain and vice using expected points. Bank balances,
 purchase and selling prices, free transfers and hits carry forward. Chips are disabled for
