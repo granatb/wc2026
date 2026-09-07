@@ -1,5 +1,8 @@
 # wc2026
 
+**Continuing the evmax/FPL work? Start with [HANDOFF.md](HANDOFF.md)** for the
+current checkpoint, prioritized plan, operating commands and private data requirements.
+
 Local decision engine for 5 fantasy competitions over the 2026 FIFA World Cup.
 
 > Recent engine/model/app changes are logged in [CHANGELOG.md](CHANGELOG.md).
