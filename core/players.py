@@ -8,6 +8,7 @@ in a game's state.json ("F. Wirtz") maps to the canonical record ("Florian Wirtz
 
 from __future__ import annotations
 
+from functools import lru_cache
 import json
 import os
 import unicodedata
@@ -16,6 +17,7 @@ _PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                      "data", "players.json")
 
 
+@lru_cache(maxsize=8192)
 def _parts(name: str):
     s = "".join(c for c in unicodedata.normalize("NFD", name)
                 if unicodedata.category(c) != "Mn")

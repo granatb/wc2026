@@ -54,6 +54,15 @@ def write_site_chrome(w, fpl_ledger=None) -> None:
     FPL build passes them so /track-record/ leads with the FPL section; the
     World Cup build passes nothing and its page stays byte-identical.
     """
+    w("/_headers", "/*\n"
+      "  X-Content-Type-Options: nosniff\n"
+      "  Referrer-Policy: strict-origin-when-cross-origin\n"
+      "  X-Frame-Options: DENY\n"
+      "  Permissions-Policy: camera=(), microphone=(), geolocation=()\n"
+      "  Content-Security-Policy: default-src 'self'; script-src 'self'; "
+      "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+      "font-src 'self'; connect-src 'self'; object-src 'none'; "
+      "base-uri 'self'; frame-ancestors 'none'; form-action https://buttondown.com\n")
     w(f"/{_GSC_VERIFICATION_FILE}", _GSC_VERIFICATION_CONTENT)
     # IndexNow key file (task 8): /{key}.txt containing exactly the key —
     # domain proof for the post-deploy ping (scripts/indexnow_ping.py). Lives

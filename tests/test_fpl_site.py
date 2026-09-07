@@ -427,10 +427,17 @@ class TestGameweekBuild(unittest.TestCase):
         # player_pages_cap: the smoke build writes the top 40 player pages,
         # not all 563 — the shape is identical, the suite stays fast.
         cls.PLAYER_CAP = 40
-        fpl_build.build(gameweek=1, sims=200, out=cls.out,
-                        url="https://example.test", use_llm=False,
-                        cache_dir=cls._prose_tmp.name,
-                        player_pages_cap=cls.PLAYER_CAP)
+        # Exercise the pre-deadline publishing pipeline; separate archive tests
+        # cover locked builds. No historical evidence is written to a temp build.
+        from datetime import datetime, timezone
+        clock = mock.Mock(wraps=datetime)
+        clock.now.return_value = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        with mock.patch.object(fpl_build, "datetime", clock), \
+             mock.patch.object(fpl_build, "dossier_gate"):
+            fpl_build.build(gameweek=1, sims=200, out=cls.out,
+                            url="https://example.test", use_llm=False,
+                            cache_dir=cls._prose_tmp.name,
+                            player_pages_cap=cls.PLAYER_CAP)
 
     @classmethod
     def tearDownClass(cls):

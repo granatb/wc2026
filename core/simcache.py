@@ -27,6 +27,7 @@ CACHE_DIR = os.path.join(_HERE, "data", "fpl", "simcache")
 # invalidate every cached artifact.
 FINGERPRINT_SOURCES = [
     os.path.join(_HERE, "core", "engine_events.py"),
+    os.path.join(_HERE, "core", "odds_math.py"),
     os.path.join(_HERE, "core", "fpl_priors.py"),
     os.path.join(_HERE, "core", "blend.py"),
     os.path.join(_HERE, "core", "research.py"),
@@ -38,7 +39,8 @@ FINGERPRINT_SOURCES = [
 # Research ENTRIES are hashed as data by cache_key, but the logic that interprets
 # them lives here, so editing either file must invalidate the cache too.
 #
-# Deliberately NOT fingerprinted: core/odds_math.py and core/ratings.py. They only
+# core/odds_math.py is fingerprinted because DC sampling consumes its grid.
+# Deliberately NOT fingerprinted: core/ratings.py. Its values only
 # reach the sim through the per-match lambdas, and cache_key hashes those as
 # computed VALUES — so any change to how they are derived already shows up.
 

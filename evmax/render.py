@@ -1685,9 +1685,9 @@ ones, with the raw data behind each row.</p>
 <dt>Our MAE</dt>
 <dd>Mean absolute error: the average gap between what we projected a player would
 score and what he actually scored, across every player we published a number
-about. Lower is better. Around 2.5 is roughly the state of the art for a single
-gameweek — football is mostly noise, and anyone claiming a much lower number is
-usually grading themselves on a handful of easy picks.</dd>
+about. Lower is better on the same population and forecast horizon. There is no
+universal accuracy threshold: availability and player coverage materially change MAE.
+Expected-points models should also be evaluated with RMSE and calibration.</dd>
 <dt>FPL ep_next MAE</dt>
 <dd>The same measurement applied to FPL's own projection, <code>ep_next</code>,
 captured from the official API before the same deadline. It is the fairest
@@ -1696,8 +1696,9 @@ it from Gameweek 2, so GW1 has no comparison and the cell says so instead of
 showing a zero.</dd>
 <dt>Model squad / Consensus squad</dt>
 <dd>Two real teams, both published before the deadline: ours, picked by the
-optimiser, and a consensus XI assembled from what the popular FPL sources were
-recommending that week. The arrow reads projected total → the official FPL score
+model-assisted process, and a consensus policy based on expert mentions in GW1
+and ownership from GW2, with disclosed manual decisions. This is a comparison
+of managed strategies, not a controlled experiment isolating model quality. The arrow reads projected total → the official FPL score
 that team actually returned, autosubs and captain fallback included.</dd>
 <dt>Duel (model-crowd)</dt>
 <dd>The running score between those two teams. A gameweek goes to whichever side
@@ -1709,21 +1710,24 @@ returned more official points; a tie moves neither column.</dd>
 <p>You do not have to take any of this on trust. The chain is public end to end:</p>
 <p><b>1. The claim was frozen before the deadline.</b> Every gameweek's projections
 are written to a timestamped snapshot at build time, before kickoff, and committed
-to the public repository. The build refuses to write a snapshot once the gameweek
-has locked, so a number cannot be quietly improved after the fact.</p>
+to the public repository. New full-board archives are content-addressed and
+the build refuses to create them after the deadline. Legacy GW1–3 retain article
+snapshots only. GW3’s final article version was committed on 7 September, after
+the deadline; its internal 3 September timestamp is not independent publication proof.</p>
 <p><b>2. The grading is a published file.</b> Each row above links its raw grading
 JSON under <code>/api/fpl/accuracy/</code> — every graded player, our projection,
 the realized points and the error, not just the average.</p>
 <p><b>3. The projections themselves are downloadable.</b> The full board for every
-gameweek is on <a class="lnk" href="/data/">the open dataset page</a> as JSON and
-CSV under CC BY 4.0. Grade us yourself against any scoring you like.</p>
+gameweek with a complete archived board is on <a class="lnk" href="/data/">the open dataset page</a> as JSON and
+CSV under CC BY 4.0. Missing historical boards are labelled unavailable. Grade us yourself against any scoring you like.</p>
 <p><b>4. The code is open.</b> The simulation, the grading and this page are in
 <a class="lnk" href="https://github.com/granatb/wc2026">the repository</a>.</p>
 </div>
 
 <h2>What we do not do</h2>
-<p>We do not drop bad gameweeks, re-run the model on a finished week and report the
-better number, or quote accuracy over a hand-picked subset of players. The ledger
+<p>Published article coverage and complete-board coverage are distinguished.
+Corrections retain the previous grading artifact. World Cup Round 3, previously
+excluded from display, was restored during the 7 September audit. The ledger
 above is every gameweek we have graded, in order. The
 <a class="lnk" href="/track-record/">track record</a> carries the same discipline
 for the World Cup work.</p>
@@ -2633,7 +2637,7 @@ def about_page():
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>About evmax — fantasy football simulations</title>
-<meta name="description" content="evmax uses 50,000 Monte-Carlo simulations on de-vigged market odds to generate free, transparent World Cup Fantasy picks.">
+<meta name="description" content="evmax combines football data, market context and simulation to explain FPL decisions and publish an open record.">
 <script type="application/ld+json">{organization_ld()}</script>
 {GSC_META_TAG}
 {_HEAD_COMMON}
@@ -2656,18 +2660,18 @@ def about_page():
 <div class="wrap">
 <div class="about-body">
 <div class="pagelabel" style="margin-top:34px">About evmax</div>
-<h1>Simulation-based World Cup Fantasy analysis, free and transparent</h1>
-<p class="lead">evmax runs 50,000 Monte-Carlo simulations before every deadline and publishes the results openly — no paywalls, no hidden models.</p>
+<h1>Fantasy football decisions, with evidence and an open record</h1>
+<p class="lead">evmax uses match simulations to compare fantasy football decisions, with openly published forecasts, methodology and results.</p>
 
 <h2>What is evmax?</h2>
-<p>evmax is a simulation engine for FIFA World Cup Fantasy. It estimates expected points for every available player in each fantasy round, giving you a data-driven edge over gut-feel picks. All numbers are free to read, share, and build on.</p>
+<p>evmax is a model-assisted decision tool for Fantasy Premier League, with an archived FIFA World Cup record. It estimates expected points for every available player in each fantasy round, to help compare decisions and their uncertainty; a predictive edge has not yet been established. All numbers are free to read, share, and build on.</p>
 
 <h2>The methodology</h2>
 <ul>
 <li><b>De-vig market odds</b> — we strip the bookmaker margin from pre-match odds to get implied true probabilities for each scoreline.</li>
-<li><b>Dixon-Coles model</b> — a bivariate Poisson framework calibrated on the de-vigged probabilities, accounting for low-scoring draw correction and team-level attack/defence strength.</li>
-<li><b>50,000 Monte-Carlo simulations</b> — each simulation draws a scoreline for every fixture and then allocates fantasy points per the official FIFA World Cup Fantasy scoring table (goals, assists, clean sheets, saves, yellow/red cards, minutes played).</li>
-<li><b>Per-player summaries</b> — across all simulations we compute expected points (mean), captain EV (2× mean), ceiling (85th-percentile outcome), and value (expected points per £m of price).</li>
+<li><b>Match model</b> — de-vigged odds inform goal intensities and a Dixon-Coles low-score correction where available. Player rates, expected minutes and sourced role information determine fantasy exposure.</li>
+<li><b>50,000 Monte-Carlo simulations</b> — each simulation draws a scoreline for every fixture and then allocates fantasy points under the relevant competition’s scoring rules (FPL for the league, FIFA Fantasy for the World Cup archive) (goals, assists, clean sheets, saves, yellow/red cards, minutes played).</li>
+<li><b>Per-player summaries</b> — across all simulations we compute expected points (mean), captain EV (2× mean), FPL ceiling (mean of the best 15% of simulated outcomes; legacy WC uses a goal-based percentile approximation), and value (expected points per £m of price).</li>
 </ul>
 
 <h2>Transparency and machine readability</h2>

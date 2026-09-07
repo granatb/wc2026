@@ -446,78 +446,85 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     generated_at = datetime.now(timezone.utc).isoformat()
     date_str = _format_date(generated_at)
 
-    priors_by_team, players_by_name, cold_start = fpl_model.load_gameweek(gameweek)
+    from core import forecast_archive
     boot = fpl_api.read_cache("bootstrap")
-    all_players = fpl_api.parse_players(boot) if boot else []
-
-    warnings = preflight(gameweek, all_players, cold_start)
-    states = load_states(all_players)
-    # The publish gate (spec D1): no red-flagged player ships without a
-    # sourced note. Runs on BOTH squads before any simulation is spent.
-    _acc = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "evmax", "assets", "accuracy", f"gw{gameweek}.json")
-    if os.path.exists(_acc):
-        print(f"  [fpl] gameweek {gameweek} is graded history — publish gate "
-              f"applies to open gameweeks only, skipping")
+    archive = forecast_archive.load(gameweek)
+    boot = archive["bootstrap"] if archive else boot
+    lock = forecast_archive.deadline(boot or {}, gameweek)
+    locked = datetime.now(timezone.utc) >= lock
+    frozen_envelopes = {}
+    warnings = []
+    if locked:
+        # No calls to load_gameweek/build_artifact on a historical rebuild.
+        if archive:
+            boot = archive["bootstrap"]
+            rows, matches = archive["rows"], archive["matches"]
+            states = archive["states"]
+            frozen_envelopes = archive["envelopes"]
+        else:
+            from scripts.grade_gw import load_snapshots
+            frozen_envelopes = load_snapshots(gameweek)
+            states = {key: forecast_archive.state_from_envelope(frozen_envelopes[slug])
+                      for slug, key in SQUAD_LIVE_KEYS.items()}
+            unique = {}
+            for env in frozen_envelopes.values():
+                for r in env.get("entries", []):
+                    if "name" in r and "x_points" in r:
+                        unique.setdefault(r["name"], r)
+            rows, matches = list(unique.values()), []
+            warnings.append("Legacy archive: only published article rows survive; full-board dataset unavailable.")
+        entries_map = {slug: env.get("entries", []) for slug, env in frozen_envelopes.items()}
+        metas = {slug: env["squad"] for slug, env in frozen_envelopes.items() if env.get("squad")}
+        for slug in ARTICLES:
+            entries_map.setdefault(slug, [])
+        generated_at = next(iter(frozen_envelopes.values()))["generated_at"]
+        date_str = _format_date(generated_at)
+        cache_hit = True
+        players_by_name = {}
+        all_players = []
     else:
+        if os.path.basename(os.path.normpath(out)) == "dist":
+            for name in ("bootstrap", "fixtures"):
+                forecast_archive.require_fresh(fpl_api.read_cache(name),
+                    fpl_api.read_cache(name + ".meta"))
+            odds_capture = (fpl_api.read_cache(f"odds_gw{gameweek}") or {}).get("captured_at")
+            if not odds_capture or not 0 <= (datetime.now(timezone.utc) - forecast_archive.utc(odds_capture)).total_seconds() <= 86400:
+                raise ValueError("market inputs lack a capture within 24h; refresh before publication")
+        priors_by_team, players_by_name, cold_start = fpl_model.load_gameweek(gameweek)
+        boot = fpl_api.read_cache("bootstrap")
+        all_players = fpl_api.parse_players(boot) if boot else []
+        warnings += preflight(gameweek, all_players, cold_start)
+        states = load_states(all_players)
         dossier_gate(gameweek, states, all_players, priors_by_team, boot)
+        artifact, cache_hit = fpl_model.build_artifact(
+            priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
+        warnings += cache_warnings(gameweek, cache_hit)
+        rows, matches = artifact["rows"], artifact["matches"]
+        if not rows:
+            raise SystemExit("empty projection board; refusing publication")
+        start_probs = {p.name: p.start_prob for squad in priors_by_team.values() for p in squad}
+        rows = [dict(r, start_prob=start_probs.get(r["name"]),
+                     player_id=players_by_name[r["name"]]["id"],
+                     ep_next=players_by_name[r["name"]].get("ep_next")) for r in rows]
+        note_names = {name for name, e in research.load_entries("players", gameweek).items() if e.sources}
+        clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
+        entries_map, metas = entries_or_abort(rows, matches, clubs, states, note_names)
+        # Stable IDs travel with the exact ordered squad and all article rows.
+        from core.fpl_live import resolve_squad
+        for st in states.values():
+            resolved = resolve_squad(st, boot)
+            for entry in st["squad"]:
+                entry["player_id"] = resolved[entry["name"]]["id"]
+        for entries in entries_map.values():
+            for entry in entries:
+                if entry.get("name") in players_by_name:
+                    entry["player_id"] = players_by_name[entry["name"]]["id"]
 
-    # The live "so far" layer (phase 4c): realized points NEXT TO the frozen
-    # projections. Article bodies stay frozen — live data reaches exactly two
-    # surfaces, the landing duel strip and the squad pages' panel block.
     live_on = live if live is not None else _live_default(gameweek, boot)
     live_data = None
     if live_on:
-        live_data, live_warnings = live_layer(gameweek, states, boot,
-                                              refresh=(live is True))
+        live_data, live_warnings = live_layer(gameweek, states, boot, refresh=(live is True))
         warnings += live_warnings
-
-    artifact, cache_hit = fpl_model.build_artifact(
-        priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
-    warnings += cache_warnings(gameweek, cache_hit)
-    rows, matches = artifact["rows"], artifact["matches"]
-    if not rows:
-        raise SystemExit(
-            f"evmax fpl build: the simulation produced no players for gameweek "
-            f"{gameweek} — the priors are empty, which usually means the bootstrap "
-            f"cache is stale. Refresh with `python3 manage.py fpl --round "
-            f"{gameweek} --refresh`.")
-
-    # Thread each row's start probability in from the priors (optimizer v2's
-    # minutes floor reads it) — rows are keyed by the same disambiguated
-    # names the priors carry, whether they came fresh from the sim or from
-    # the artifact cache (which predates this column).
-    start_probs = {p.name: p.start_prob
-                   for squad in priors_by_team.values() for p in squad}
-    rows = [dict(r, start_prob=start_probs.get(r["name"])) for r in rows]
-    # Names with a SOURCED research note may override the optimizer's floor —
-    # the same bar the publish gate holds (a source-less note vouches for
-    # nothing).
-    note_names = {name for name, e
-                  in research.load_entries("players", gameweek).items()
-                  if e.sources}
-
-    clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
-    entries_map, metas = entries_or_abort(rows, matches, clubs, states,
-                                          note_names)
-
-    # GRADED GAMEWEEKS RENDER FROM THEIR FROZEN SNAPSHOT. The articles above
-    # were re-simulated from whatever bootstrap and odds happened to be cached
-    # at rebuild time, so a graded gameweek's pages quietly rewrote themselves:
-    # on 2026-09-02 the GW2 landing read "projecting 59.30" against the 56.10
-    # that had been frozen, published and graded, and every card wore GW3
-    # numbers under a "Gameweek 2" label. A published claim must not move
-    # after it has been graded. Once evmax/assets/accuracy/gw{N}.json exists,
-    # every article's entries and squad meta come from the pre-deadline
-    # snapshot archive (evmax/assets/projections/fpl-gw{N}/), and only the
-    # live realized-points layer is allowed to change.
-    if os.path.exists(_acc):
-        frozen_map, frozen_metas = _frozen_entries(gameweek)
-        if frozen_map:
-            entries_map = {k: frozen_map.get(k, v) for k, v in entries_map.items()}
-            metas = {k: frozen_metas.get(k, v) for k, v in metas.items()}
-            print(f"  [fpl] gameweek {gameweek} articles rendered from the "
-                  f"frozen snapshot ({len(frozen_map)} article(s))")
     squad_preflight(metas)
 
     # /fpl/gw{N}/ pages accumulate the same way the WC's /round/{N}/ ones do:
@@ -538,22 +545,25 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # --- Player cards (STRATEGY §12 phase 1): assemble every player's payload
     # from the artifact + bootstrap + notes + horizon matrix + odds caches.
     # Assembled BEFORE the bulk feed so the feed can carry each player's page.
-    notes = research.load_entries("players", gameweek)
-    # Name -> "XI"/"Bench" for both published squads. The card's stance line
-    # says which, so membership alone is not enough.
-    squad_roles = {key: {e["name"]: e.get("role") for e in entries_map[slug]}
-                   for slug, key in SQUAD_LIVE_KEYS.items()}
-    fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
-                                         fpl_api.parse_teams(boot or {}))
-    payloads, unmatched = fpl_players.assemble_payloads(
-        rows, players_by_name, {e["id"]: e for e in (boot or {}).get("elements", [])},
-        notes, squad_roles, _load_horizon_matrix(), fx_rows_all,
-        _odds_caches(gameweek), gameweek, generated_at,
-        # The realized half of every card's dot timeline. Read-only here:
-        # fetching it is `python3 manage.py fpl --round N --form-history`, so a
-        # build never reaches the network. An absent cache degrades to all-
-        # projected dots rather than to a guess.
-        form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME) or {})
+    payloads, unmatched = (archive.get("player_payloads", []) if locked and archive else []), []
+    notes = {} if locked else research.load_entries("players", gameweek)
+    if not locked:
+        notes = research.load_entries("players", gameweek)
+        # Name -> "XI"/"Bench" for both published squads. The card's stance line
+        # says which, so membership alone is not enough.
+        squad_roles = {key: {e["name"]: e.get("role") for e in entries_map[slug]}
+                       for slug, key in SQUAD_LIVE_KEYS.items()}
+        fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
+                                             fpl_api.parse_teams(boot or {}))
+        payloads, unmatched = fpl_players.assemble_payloads(
+            rows, players_by_name, {e["id"]: e for e in (boot or {}).get("elements", [])},
+            notes, squad_roles, _load_horizon_matrix(), fx_rows_all,
+            _odds_caches(gameweek), gameweek, generated_at,
+            # The realized half of every card's dot timeline. Read-only here:
+            # fetching it is `python3 manage.py fpl --round N --form-history`, so a
+            # build never reaches the network. An absent cache degrades to all-
+            # projected dots rather than to a guess.
+            form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME) or {})
     if unmatched:
         names = ", ".join(unmatched[:6]) + (" ..." if len(unmatched) > 6 else "")
         warnings.append(
@@ -573,6 +583,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         "generated_at": generated_at,
         "methodology": section.methodology,
         "license": render.DATA_LICENSE_URL,
+        "coverage": "full" if (not locked or archive) else "published_articles_only",
         "players": [
             {"name": r["name"], "team": r.get("team"),
              "position": r.get("position"), "x_points": r["x_points"],
@@ -589,9 +600,14 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # dataset's whole promise is that it is the full board, not the slice we
     # wrote about. Element ids come from the bootstrap parse so an unmatched
     # name gets a null id rather than a guess that would poison a join.
-    dataset_gameweeks = _publish_dataset(
-        w, out, gameweek, rows, generated_at,
-        ids={name: p.get("id") for name, p in players_by_name.items()})
+    if not locked or archive:
+        dataset_gameweeks = _publish_dataset(
+            w, out, gameweek, rows, generated_at,
+            ids={r["name"]: r.get("player_id") for r in rows})
+    else:
+        dataset_gameweeks = _publish_dataset(w, out, gameweek, [], generated_at,
+                                              ids={}, available=False)
+
 
     # --- Player pages + per-player JSON + index + tier boards. Living
     # surfaces like the landing: regenerated every gameweek, never frozen.
@@ -604,14 +620,37 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         w(f"{fpl_players.page_path(p['slug'])}index.html",
           fpl_players.player_page_html(p, gameweek, date_str=date_str,
                                        methodology=section.methodology))
-    w(f"{fpl_players.PLAYERS_BASE}/index.html",
+    if not locked or archive:
+        w(f"{fpl_players.PLAYERS_BASE}/index.html",
       fpl_players.index_page_html(payloads, gameweek,
                                   section.players_json_path(gameweek),
                                   date_str=date_str))
-    for pos, _seg in fpl_players.TIER_SEGMENTS:
+    for pos, _seg in ([] if locked and not archive else fpl_players.TIER_SEGMENTS):
         w(f"{fpl_players.tier_path(pos)}index.html",
           fpl_players.tier_page_html(pos, payloads, gameweek,
                                      date_str=date_str))
+
+    if locked and not archive:
+        # Retire generated exports that cannot be proved to be pre-deadline.
+        # Never leave a stale historical PMF behind after an honest rebuild.
+        notice = (f'<!doctype html><html lang="en"><meta charset="utf-8">'
+                  f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+                  f'<title>GW{gameweek} archive · evmax</title><body style="font:18px system-ui;max-width:700px;margin:60px auto;padding:20px">'
+                  f'<h1>GW{gameweek}: incomplete player archive</h1>'
+                  '<p>Full player cards, distributions and tier boards were not frozen before this deadline. '
+                  'We cannot reconstruct them as historical forecasts.</p>'
+                  f'<p><a href="/fpl/gw{gameweek}/">Read the original published article forecasts</a></p></body></html>')
+        w('/fpl/players/index.html', notice)
+        for pos, _seg in fpl_players.TIER_SEGMENTS:
+            w(f'{fpl_players.tier_path(pos)}index.html', notice)
+        from pathlib import Path
+        for path in (Path(out) / 'api' / 'fpl' / f'gw{gameweek}' / 'players').glob('*.json'):
+            w('/' + str(path.relative_to(out)), json.dumps({
+                'gameweek': gameweek, 'status': 'unavailable',
+                'reason': 'No complete pre-deadline player archive survives.'}))
+        for path in (Path(out) / 'fpl' / 'players').glob('*/index.html'):
+            if f'/api/fpl/gw{gameweek}/players/' in path.read_text():
+                w('/' + str(path.relative_to(out)), notice)
 
     prose_map: dict = {}
     used_leads: set = set()
@@ -623,6 +662,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     ep_by_name = {name: p.get("ep_next")
                   for name, p in players_by_name.items()}
 
+    published_envelopes = {}
     for slug in ARTICLES:
         entries = entries_map[slug]
         columns = _COLUMNS[slug]
@@ -638,11 +678,13 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             if subject:
                 used_leads.add(subject)
 
-        prose = writer.article_prose(slug, gameweek, entries, columns,
-                                     cache_dir=cache_dir, use_llm=use_llm,
-                                     subject=subject,
-                                     cache_name=f"fpl-gw{gameweek}",
-                                     unit="Gameweek")
+        if locked and archive and slug in archive.get("prose", {}):
+            prose = archive["prose"][slug]
+        else:
+            prose = writer.article_prose(slug, gameweek, entries, columns,
+                                         cache_dir=cache_dir, use_llm=use_llm and not locked,
+                                         subject=subject,
+                                         cache_name=f"fpl-gw{gameweek}", unit="Gameweek")
         prose_map[slug] = prose
 
         if slug == "wildcard" or slug in SQUAD_SLUGS:
@@ -663,6 +705,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         env = render.article_json("fantasy_premier_league", gameweek, slug, title,
                                   generated_at, sims, entries,
                                   extra_fields=extra, section=section)
+        if locked and slug in frozen_envelopes:
+            env = frozen_envelopes[slug]
+        elif locked:
+            env["status"] = "unavailable"
+            env["reason"] = "No pre-deadline article snapshot survives."
+        published_envelopes[slug] = env
         env_json = json.dumps(env, ensure_ascii=False, indent=2)
         w(json_url, env_json)
 
@@ -670,8 +718,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         # will grade from GW1 forward (spec §7.4). Two guards, same as the World
         # Cup's: production builds only, and only while the gameweek is still open,
         # so a post-hoc rebuild cannot contaminate a published claim.
-        lock = fixtures.round_lock_time(gameweek)
-        if is_production and (lock is None or datetime.now(timezone.utc) < lock):
+        if is_production and not locked and datetime.now(timezone.utc) < lock:
             snap_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "assets", "projections", f"fpl-gw{gameweek}")
             os.makedirs(snap_dir, exist_ok=True)
@@ -683,6 +730,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             # makes that mechanical).
             from games.fpl import grading
             env_snap = grading.stamp_ep_next(env, ep_by_name)
+            published_envelopes[slug] = env_snap
             with open(os.path.join(snap_dir, f"{slug}.json"), "w",
                       encoding="utf-8") as fh:
                 fh.write(json.dumps(env_snap, ensure_ascii=False, indent=2))
@@ -704,6 +752,25 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                             generated_at, date_str,
                             canonical_path=section.article_path(gameweek, slug),
                             section=section))
+
+    if is_production and not locked:
+        import config
+        archive = forecast_archive.freeze(gameweek, {
+            "rows": rows, "matches": matches, "states": states,
+            "bootstrap": boot, "envelopes": published_envelopes,
+            "player_payloads": payloads, "prose": prose_map, "sims": sims, "seed": fpl_model._SEED,
+            "source_fingerprint": simcache.source_fingerprint(),
+            "inputs": {"fixtures": fpl_api.read_cache("fixtures"),
+                       "bootstrap_observation": fpl_api.read_cache("bootstrap.meta"),
+                       "fixtures_observation": fpl_api.read_cache("fixtures.meta"),
+                       "odds": fpl_api.read_cache(f"odds_gw{gameweek}"),
+                       "config": {"goal_concentration": config.GOAL_CONCENTRATION,
+                                  "pen_taker_goal_bonus": config.PEN_TAKER_GOAL_BONUS,
+                                  "research_weight": config.weight("fpl"),
+                                  "assist_probability": fpl_model.FPL_ASSIST_PROBABILITY}},
+            "priors": fpl_model._priors_projection(priors_by_team),
+            "research": {name: vars(entry) for name, entry in notes.items()},
+        }, boot)
 
     # --- Static pages and assets (shared with the World Cup section) ----------
     w("/about/index.html", render.about_page())
@@ -736,6 +803,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # claims (different samples prove nothing). Sits beside the ledger.
     from evmax import compare as _compare
     w(f"{_compare.COMPARE_PATH}index.html", _compare.compare_page())
+    from evmax import experiments as _experiments
+    _experiments.publish(w)
     _copy_assets(out)
 
     # --- Landing -------------------------------------------------------------
@@ -790,6 +859,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                   extra_style=(fpl_players.CARD_CSS +
                                                fpl_players.TOP_CARDS_CSS +
                                                render._NAV_SCROLL_CSS))
+    if locked and not archive:
+        notice = ('<aside style="padding:20px;background:#fff4db">'
+                  '<b>Legacy archive:</b> These are the original published article forecasts. '
+                  'A complete pre-deadline player board and player-card archive are unavailable. '
+                  'We do not regenerate missing historical predictions.</aside>')
+        landing = landing.replace('<body>', '<body>' + notice, 1)
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at
@@ -801,6 +876,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     nav = [(slug, ARTICLE_TITLES[slug]) for slug in ARTICLES]
     w("/api/latest.json", json.dumps(
         {"gameweek": gameweek, "generated_at": generated_at,
+         "forecast_artifact_id": archive["artifact_id"] if archive else None,
          "articles": {s: section.json_path(gameweek, s) for s in ARTICLES}},
         ensure_ascii=False, indent=2))
     w("/llms.txt", render.llms_txt(
@@ -815,7 +891,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # it on its own — a URL listed twice is a malformed sitemap.
     extra_urls = _persisted_urls(out, gameweek)
     for path in (dataset.DATA_PAGE, render.ACCURACY_PATH,
-                 __import__("evmax.compare", fromlist=["x"]).COMPARE_PATH):
+                 __import__("evmax.compare", fromlist=["x"]).COMPARE_PATH,
+                 _experiments.PATH):
         if path not in extra_urls:
             extra_urls.append(path)
     w("/sitemap.xml", render.sitemap_xml(gameweek, nav, lastmod=generated_at[:10],
@@ -1032,8 +1109,10 @@ def fpl_track_ledger() -> list:
             # `n` is read by /fpl/accuracy/ only (phase 2B) — the number of
             # players actually graded that week, so a low MAE cannot hide
             # behind a tiny sample. /track-record/'s block ignores it.
-            "n": acc.get("n"),
-            "mae_ours": acc.get("mae_ours"),
+            "n": acc.get("n_ep_next") if acc.get("mae_ep_next") is not None and acc.get("n_ep_next") is not None else acc.get("n"),
+            "n_all": acc.get("n"),
+            "mae_ours": acc.get("mae_ours_paired") if acc.get("mae_ours_paired") is not None else acc.get("mae_ours"),
+            "mae_ours_all": acc.get("mae_ours"),
             "mae_ep_next": acc.get("mae_ep_next"),
             "model_projected": ours.get("projected"),
             "model_realized": our_real,
@@ -1067,12 +1146,14 @@ def _published_dataset_gameweeks(out: str) -> list:
     for fname in os.listdir(root):
         if (fname.startswith("gw") and fname.endswith(".json")
                 and fname[2:-5].isdigit()):
-            gws.append(int(fname[2:-5]))
+            with open(os.path.join(root, fname), encoding="utf-8") as fh:
+                if json.load(fh).get("status") != "unavailable":
+                    gws.append(int(fname[2:-5]))
     return sorted(gws)
 
 
 def _publish_dataset(w, out: str, gameweek: int, rows: list,
-                     generated_at: str, ids: dict) -> list:
+                     generated_at: str, ids: dict, available=True) -> list:
     """Write this gameweek's dataset pair, refresh index.json, and rebuild the
     cumulative all.json|.csv from every gw*.json on disk. Returns the published
     gameweek list (for /data/ and the sitemap).
@@ -1080,6 +1161,8 @@ def _publish_dataset(w, out: str, gameweek: int, rows: list,
     Spec D3: emitted BY THE BUILD from artifacts already in memory.
     """
     payload = dataset.gameweek_payload(gameweek, rows, generated_at, ids=ids)
+    if not available:
+        payload.update(status="unavailable", reason="Complete pre-deadline board was not archived; article forecasts only.")
     w(f"{dataset.DATASET_BASE}/{dataset.json_name(gameweek)}",
       json.dumps(payload, ensure_ascii=False, indent=2))
     w(f"{dataset.DATASET_BASE}/{dataset.csv_name(gameweek)}",

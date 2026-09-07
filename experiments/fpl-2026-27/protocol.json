@@ -1,0 +1,23 @@
+{
+  "experiment_id": "fpl-2026-27-shadow-v1",
+  "season": "2026-27",
+  "arms": {
+    "market": "Corrected market-informed model",
+    "statistical": "Odds-free statistical challenger",
+    "hybrid": "Blend with weights fixed using earlier data",
+    "consensus": "Consensus reference"
+  },
+  "starting_budget_tenths": 1000,
+  "initial_free_transfers": 1,
+  "max_free_transfers": 5,
+  "hit_cost": 4,
+  "chips": "disabled_for_all_arms_v1",
+  "initial_roster": "identical_across_arms",
+  "decision_policy": "single_swap_xi_mean_v1",
+  "forecast_window_minutes": 30,
+  "primary_forecast_metric": "rmse_all_common_players",
+  "secondary_metrics": ["mae", "bias", "official_squad_points_after_hits", "captain_points"],
+  "human_interventions": "allowed_only_with_predeadline_reason_and_source",
+  "promotion": "No automatic winner selection; assess paired forecast loss, decisions, uncertainty and model versions",
+  "scope": "Virtual prospective squads. No official FPL accounts are created or operated. Existing published squads are a separate historical record."
+}

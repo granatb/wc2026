@@ -109,13 +109,18 @@ def resolve_squad(state: dict, bootstrap: dict) -> dict:
     by_name: dict = {}
     for el in bootstrap.get("elements", []):
         by_name.setdefault(el["web_name"], []).append(el)
+    by_id = {el["id"]: el for el in bootstrap.get("elements", [])}
     aliases = state.get("aliases") or {}
 
     resolved, problems = {}, []
     for entry in state["squad"]:
         name = entry["name"]
         looked_up = name
-        candidates = by_name.get(name)
+        frozen_id = entry.get("player_id", entry.get("id"))
+        candidates = ([by_id[frozen_id]] if frozen_id in by_id else None) if frozen_id is not None else by_name.get(name)
+        if frozen_id is None and not candidates:
+            candidates = [el for el in by_id.values()
+                          if f"{el.get('first_name', '')} {el.get('second_name', '')}".strip() == name]
         if not candidates and name in aliases:
             looked_up = aliases[name]
             candidates = by_name.get(looked_up)

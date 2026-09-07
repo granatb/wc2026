@@ -55,7 +55,7 @@ _SQUADS = {
     ],
 }
 
-EXPECTED_DIGEST = "9f892aed68afdbc46d69054237399306f738a62cb2bdc45509bc8582a984a5b1"
+EXPECTED_DIGEST = "f35c1106e0e993234a3c7dadb3208204c1f3274cb307adec847eea4479dcc20a"
 
 
 def _serialise(players: dict, matches: dict) -> str:

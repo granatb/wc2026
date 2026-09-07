@@ -74,11 +74,11 @@ export async function fetchJson(path) {
     const why = err && err.name === "AbortError"
       ? `no response within ${TIMEOUT_MS / 1000}s`
       : (err && err.message) || "network error";
-    throw new EvmaxError(`Could not reach ${url} (${why}).`);
-  } finally {
     clearTimeout(timer);
+    throw new EvmaxError(`Could not reach ${url} (${why}).`);
   }
 
+  try {
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new EvmaxError(
@@ -101,23 +101,28 @@ export async function fetchJson(path) {
       `${url} did not return valid JSON. It may have been served from a stale ` +
       `cache; try again shortly.`);
   }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Fetch a CSV/text document; null when not published. */
 async function fetchText(path) {
   const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, {
-    headers: { "user-agent": USER_AGENT },
-  }).catch((err) => {
-    throw new EvmaxError(`Could not reach ${url} (${err.message}).`);
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new EvmaxError(`${url} returned HTTP ${response.status}.`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {headers: {"user-agent": USER_AGENT}, signal: controller.signal});
+    if (response.status === 404) return null;
+    if (!response.ok) throw new EvmaxError(`${url} returned HTTP ${response.status}.`);
+    const body = await response.text();
+    return body.trimStart().startsWith("<!doctype") ? null : body;
+  } catch (err) {
+    if (err instanceof EvmaxError) throw err;
+    throw new EvmaxError(`Could not read ${url} (${err.message}).`);
+  } finally {
+    clearTimeout(timer);
   }
-  const body = await response.text();
-  if (body.trimStart().startsWith("<!doctype")) return null;
-  return body;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,7 +189,7 @@ export async function listGameweeks() {
  */
 export async function projectionsFor(gameweek) {
   const payload = await fetchJson(`${DATASET_BASE}/gw${gameweek}.json`);
-  if (payload && Array.isArray(payload.players)) {
+  if (payload && payload.status !== "unavailable" && Array.isArray(payload.players)) {
     return {
       rows: payload.players,
       source: `${BASE_URL}${DATASET_BASE}/gw${gameweek}.json`,
@@ -198,6 +203,7 @@ export async function projectionsFor(gameweek) {
       rows: feed.players,
       source: `${BASE_URL}/api/fpl/gw${gameweek}/players.json`,
       kind: "players-feed",
+      coverage: feed.coverage,
       hasDistributions: false,
     };
   }
@@ -420,7 +426,7 @@ async function toolGetProjections(args) {
   const lines = [
     `Gameweek ${gameweek} projections — top ${rows.length}` +
     (args.position ? ` ${args.position}` : "") +
-    ` by projected points (50,000 simulations).`,
+    ` by projected points.`,
     "",
   ];
   for (const r of rows) {
@@ -443,7 +449,7 @@ async function toolGetProjections(args) {
     lines.push("",
       "Note: served from the projections feed, which carries no price or " +
       "ownership — the bulk dataset (which does) is not published for this " +
-      "gameweek.");
+      "gameweek. Coverage may be limited to the originally published articles.");
   }
   return block(lines, result.source);
 }
@@ -511,7 +517,7 @@ async function toolGetDuel() {
   let model = 0;
   let crowd = 0;
   const history = [];
-  for (let gw = 1; gw < gameweek; gw += 1) {
+  for (let gw = 1; gw <= gameweek; gw += 1) {
     const graded = await fetchJson(`/api/fpl/accuracy/gw${gw}.json`);
     const squads = graded && graded.squads;
     if (!squads) continue;
@@ -563,6 +569,7 @@ async function toolGetAccuracy(args) {
         ? "FPL's own ep_next: not captured for this gameweek (we started " +
           "capturing it from GW2)."
         : `FPL's own ep_next:      ${fmt(graded.mae_ep_next, 3)}` +
+          ` (paired n=${graded.n_ep_next ?? graded.n}; our paired MAE ${fmt(graded.mae_ours_paired ?? graded.mae_ours, 3)})` +
           ` (${graded.beat_ep_next ? "we were closer" : "ep_next was closer"})`,
     ];
     for (const [slug, line] of Object.entries(graded.squads || {})) {

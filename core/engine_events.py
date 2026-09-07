@@ -23,6 +23,7 @@ later for speed if needed; the public API (`simulate_round`, `PlayerSample`) sta
 
 from __future__ import annotations
 
+import bisect
 import math
 import random
 from collections import defaultdict
@@ -74,6 +75,7 @@ class PlayerSample:
     # --- fields added for FPL. The engine samples RAW events; each game applies its
     # own rules to them. Zero/empty for World Cup games, which don't read them.
     conceded: float = 0.0            # raw goals conceded while on the pitch (GK/DEF).
+    conceded_samples: list[int] = field(default_factory=list)
                                      # conc_beyond is FIFA's max(0, ga-1); FPL needs
                                      # floor(ga/2), which that cannot express.
     played_60: float = 0.0           # times the player reached 60 minutes. FPL pays 1
@@ -195,10 +197,54 @@ def percentile(values: list[float], q: float) -> float:
     return s[lo] + frac * (s[hi] - s[lo])
 
 
+def _intervals(squad, starts, rng):
+    """Bounded team appearances. Unknown slots remain unmodelled.
+
+    Start marginals are an approximation under the team-cap constraint. A
+    replacement occupies its starter's remaining interval, never a twelfth slot.
+    """
+    chosen = [p for p in squad if rng.random() < min(1.0, max(0.0, starts[p.name]))]
+    keepers = [p for p in chosen if p.position == "GK"]
+    outfield = [p for p in chosen if p.position != "GK"]
+    if len(keepers) > 1:
+        keepers = rng.choices(keepers, weights=[starts[p.name] for p in keepers], k=1)
+    if len(outfield) > 10:
+        outfield = rng.sample(outfield, 10)
+    chosen = keepers + outfield
+    intervals = {p.name: (0.0, min(90.0, max(1.0, rng.gauss(p.exp_minutes, 12))))
+                 for p in chosen}
+    # Keeper substitutions are rare and not modelled in this version.
+    candidates = [p for p in squad if p.name not in intervals and p.position != "GK"
+                  and starts[p.name] > 0 and rng.random() < p.cameo_prob]
+    rng.shuffle(candidates)
+    slots = sorted((p for p in outfield if intervals[p.name][1] < 85),
+                   key=lambda p: intervals[p.name][1])[:5]
+    for starter, sub in zip(slots, candidates):
+        intervals[sub.name] = (intervals[starter.name][1], 90.0)
+    return intervals
+
+
+def _allocate_events(times, squad, intervals, rng, goal_weights, assist_weights, gamma,
+                     assist_probability=0.75):
+    goals, assists = defaultdict(int), defaultdict(int)
+    for minute in times:
+        active = {p.name: p.name in intervals and intervals[p.name][0] <= minute < intervals[p.name][1]
+                  for p in squad}
+        goal = _distribute(1, squad, active, rng, goal_weights, gamma)
+        for name, count in goal.items():
+            goals[name] += count
+            active[name] = False
+        # Explicit unassisted probability, versioned and subject to calibration.
+        if rng.random() < assist_probability:
+            for name, count in _distribute(1, squad, active, rng, assist_weights, gamma).items():
+                assists[name] += count
+    return goals, assists
+
+
 def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                    market_rates: dict | None = None, research: dict | None = None,
                    research_weight: float = 0.0, concentration: float | None = None,
-                   priors=None, per_match_hook=None):
+                   priors=None, per_match_hook=None, fixture_list=None, assist_probability=0.75):
     """Run the shared Monte Carlo for every fixture in a round.
 
     market_rates:    optional {player_name: goal_rate} from bookmaker player props.
@@ -232,7 +278,16 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
     import config
     gamma = config.GOAL_CONCENTRATION if concentration is None else concentration
     rng = random.Random(seed)
-    fx = fixtures.by_round(fantasy_round)
+    fx = list(fixture_list) if fixture_list is not None else fixtures.by_round(fantasy_round)
+    grids = {}
+    from . import odds_math
+    for f in fx:
+        if f.rho:
+            grid = odds_math.score_matrix_dc(*f.lambdas(), f.rho)
+            values, cdf, total = [], [], 0.0
+            for score, probability in grid.items():
+                values.append(score); total += probability; cdf.append(total)
+            grids[f.match_id] = (values, cdf)
     market_rates = market_rates or {}
     research = research or {}
     prior_of = priors or ratings.players_for_team
@@ -266,8 +321,14 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
     for sim_index in range(sims):
         for f in fx:
             lam_h, lam_a = f.lambdas()
-            hg = _poisson(lam_h, rng)
-            ag = _poisson(lam_a, rng)
+            if f.match_id in grids:
+                values, cdf = grids[f.match_id]
+                hg, ag = values[min(bisect.bisect_left(cdf, rng.random() * cdf[-1]), len(values)-1)]
+            else:
+                hg = _poisson(lam_h, rng)
+                ag = _poisson(lam_a, rng)
+            goal_times = {f.home: [rng.random() * 90 for _ in range(hg)],
+                          f.away: [rng.random() * 90 for _ in range(ag)]}
             ms = match_samples[f.match_id]
             ms.sims += 1
             ms.scorelines[(hg, ag)] += 1
@@ -279,17 +340,21 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                 if not squad:
                     continue
                 # Who is on the pitch this sim (blended start probabilities).
-                on_pitch = {p.name: rng.random() < eff_start[p.name] for p in squad}
-                goals = _distribute(gf, squad, on_pitch, rng, eff_weight, gamma)
-                assists = _distribute(gf, squad, on_pitch, rng, assist_weight, gamma)
-                clean = (ga == 0)
+                intervals = _intervals(squad, eff_start, rng)
+                on_pitch = {p.name: p.name in intervals for p in squad}
+                goals, assists = _allocate_events(goal_times[team], squad, intervals, rng,
+                                                  eff_weight, assist_weight, gamma, assist_probability)
+                opponent = f.away if team == f.home else f.home
                 won, drew = gf > ga, gf == ga
                 for p in squad:
                     ps = player_samples[p.name]
                     ps.sims += 1
                     if not on_pitch[p.name]:
                         continue
-                    mins = min(90, max(0, rng.gauss(p.exp_minutes, 12)))
+                    entered, left = intervals[p.name]
+                    mins = left - entered
+                    conceded_on_pitch = sum(entered <= t < left for t in goal_times[opponent])
+                    clean = conceded_on_pitch == 0
                     ps.minutes += mins
                     ps.played += 1
                     if mins >= 60:
@@ -300,14 +365,18 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                     ps.assists += a
                     ps.goal_samples.append(g)
                     ps.sot += _poisson(p.sot_per90 * mins / 90, rng) + g  # goals are SoT
-                    if p.position in ("DEF", "GK"):
-                        ps.conceded += ga
+                    if p.position in ("DEF", "GK", "MID"):
+                        if p.position in ("DEF", "GK"):
+                            ps.conceded += conceded_on_pitch
+                            ps.conceded_samples.append(conceded_on_pitch)
                         if mins >= 60:
                             if clean:
                                 ps.clean_sheet += 1
-                            ps.conc_beyond += max(0, ga - 1)  # -pts per goal after the first
+                            if p.position in ("DEF", "GK"):
+                                ps.conc_beyond += max(0, conceded_on_pitch - 1)
                     if p.position == "GK":
-                        s = _poisson(max(0.0, ga + 1.5), rng)
+                        rate = p.saves_per90 if p.saves_per90 > 0 else 3.0
+                        s = _poisson(rate * mins / 90.0, rng)
                         ps.saves += s
                         ps.save_samples.append(s)
                     defcon_count = 0
@@ -322,8 +391,8 @@ def simulate_round(fantasy_round: int, sims: int = 50_000, seed: int = 12345,
                     if hook_rows is not None:
                         hook_rows.append((
                             p.name, p.position, g, a, mins,
-                            bool(clean and mins >= 60 and p.position in ("DEF", "GK")),
-                            ga if p.position in ("DEF", "GK") else 0,
+                            bool(clean and mins >= 60 and p.position in ("DEF", "GK", "MID")),
+                            conceded_on_pitch if p.position in ("DEF", "GK") else 0,
                             ps.save_samples[-1] if p.position == "GK" else 0,
                             yel, red, defcon_count,
                         ))

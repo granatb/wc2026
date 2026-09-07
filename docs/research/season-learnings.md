@@ -201,3 +201,12 @@ graded players (noise ceiling ≈2.8; small sample).
   Scout Picks did not run (no session Friday). Their squad is graded on the
   "early" version without a captain, labelled so on the page. Fix: the Thursday
   session must schedule the Friday check, or the freeze must be automated.
+
+
+## Audit correction — 2026-09-07
+
+The GW2/GW3 prose above overstated the ep_next streak. There are TWO measured
+wins (GW2 and GW3); GW1 had no captured ep_next. There is no established
+2.8-point noise ceiling. Original entries remain as the audit trail.
+The original external GW3 comparison used different populations; corrected
+common-population grades must be versioned, never presented as original grades.

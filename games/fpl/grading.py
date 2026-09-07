@@ -22,6 +22,9 @@ from __future__ import annotations
 
 import json
 import os
+import math
+from pathlib import Path
+from core.forecast_archive import atomic_json, digest
 
 
 def grade(snapshot_rows: list, realized_points: dict) -> dict:
@@ -41,14 +44,17 @@ def grade(snapshot_rows: list, realized_points: dict) -> dict:
     """
     players = []
     err_ours_total = 0.0
-    err_ep_total, ep_n = 0.0, 0
+    err_ep_total, ep_n, paired_ours, squared = 0.0, 0, 0.0, 0.0
+    missing = []
     for row in snapshot_rows:
         name = row["name"]
         if name not in realized_points:
+            missing.append(name)
             continue
         realized = realized_points[name]
         err_ours = abs(row["x_points"] - realized)
         err_ours_total += err_ours
+        squared += (row["x_points"] - realized) ** 2
         line = {"name": name, "x_points": row["x_points"],
                 "realized": realized, "err_ours": round(err_ours, 2)}
         ep = row.get("ep_next")
@@ -56,6 +62,7 @@ def grade(snapshot_rows: list, realized_points: dict) -> dict:
             err_ep = abs(ep - realized)
             err_ep_total += err_ep
             ep_n += 1
+            paired_ours += err_ours
             line["ep_next"] = ep
             line["err_ep_next"] = round(err_ep, 2)
         players.append(line)
@@ -65,9 +72,13 @@ def grade(snapshot_rows: list, realized_points: dict) -> dict:
     mae_ep = round(err_ep_total / ep_n, 3) if ep_n else None
     return {
         "n": n,
+        "missing": missing,
+        "rmse_ours": round(math.sqrt(squared / n), 3) if n else None,
+        "n_ep_next": ep_n,
+        "mae_ours_paired": round(paired_ours / ep_n, 3) if ep_n else None,
         "mae_ours": mae_ours,
         "mae_ep_next": mae_ep,
-        "beat_ep_next": (mae_ours < mae_ep) if (mae_ours is not None
+        "beat_ep_next": (paired_ours / ep_n < err_ep_total / ep_n) if (mae_ours is not None
                                                 and mae_ep is not None)
         else None,
         "players": sorted(players, key=lambda p: -p["err_ours"]),
@@ -87,7 +98,9 @@ def squad_line(envelope: dict, realized_points: dict) -> dict:
     for e in envelope.get("entries", []):
         if e.get("role") != "XI":
             continue
-        pts = realized_points.get(e["name"], 0)
+        if e["name"] not in realized_points:
+            raise ValueError(f"missing squad outcome: {e['name']}")
+        pts = realized_points[e["name"]]
         realized += pts * (2 if e.get("is_captain") else 1)
     return {"projected": (envelope.get("squad") or {}).get("projected_total"),
             "realized": realized}
@@ -110,11 +123,16 @@ def stamp_ep_next(envelope: dict, ep_by_name: dict) -> dict:
 
 def write_accuracy(gameweek: int, payload: dict, out_dir: str) -> str:
     """Bank one gameweek's accuracy JSON: {out_dir}/gw{N}.json."""
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, f"gw{gameweek}.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2)
-    return path
+    path = Path(out_dir) / f"gw{gameweek}.json"
+    if path.exists():
+        previous = json.loads(path.read_text())
+        if previous == payload:
+            return str(path)
+        # Preserve the exact original before replacing the canonical corrected view.
+        atomic_json(Path(out_dir) / "revisions" / f"gw{gameweek}-{digest(previous)}.json", previous)
+    atomic_json(path, payload)
+    return str(path)
+
 
 
 def format_report(payload: dict) -> str:
@@ -122,7 +140,7 @@ def format_report(payload: dict) -> str:
     gw = payload.get("gameweek")
     lines = [f"=== Accuracy — gameweek {gw} "
              f"({payload.get('n', 0)} graded players) ==="]
-    mae_ours = payload.get("mae_ours")
+    mae_ours = payload.get("mae_ours_paired") if payload.get("mae_ours_paired") is not None else payload.get("mae_ours")
     mae_ep = payload.get("mae_ep_next")
     if mae_ep is None:
         lines.append(f"  MAE ours {mae_ours} — no ep_next benchmark in this "

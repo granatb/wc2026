@@ -309,7 +309,9 @@ def benchmark_section() -> str:
               "<p>The analyst's view. Each source's projection for every "
               "player is frozen before the deadline and scored after: mean "
               "absolute error, lower is better, on the players who played "
-              "60+ minutes and on everyone. A model earns its keep only by "
+              "60+ minutes and on the common intersection of all nonempty sources. "
+              "Original source coverage is reported separately. The 60+ group is "
+              "selected after outcomes; it is a descriptive slice. A model earns its keep only by "
               "beating the two naive baselines.</p>"]
     for acc in graded:
         rows = []
@@ -327,7 +329,7 @@ def benchmark_section() -> str:
                 f'<span class="cmp-n">n={v.get("n_60plus")}</span></td>'
                 f'<td>{v.get("rmse_60plus") if v.get("rmse_60plus") is not None else "—"}</td>'
                 f'<td>{v.get("mae_all") if v.get("mae_all") is not None else "—"}'
-                f'<span class="cmp-n">n={v.get("n_all")}</span></td></tr>')
+                f'<span class="cmp-n">n={v.get("n_all")}; source coverage={v.get("coverage_all", "—")}</span></td></tr>')
         blocks.append(
             f'<h3>Gameweek {acc["gameweek"]}</h3>'
             f'<table class="cmp-table"><thead><tr><th>Source</th>'
@@ -402,6 +404,8 @@ above exists precisely so the comparison can be made honestly: one sample,
 one yardstick, frozen in public before kickoff.</p>
 
 <h2>What can actually be checked</h2>
+<p>Our <a href="/fpl/experiments/">prospective season experiment</a> tracks
+registered approaches under shared rules, separately from the historical squads.</p>
 <p class="cmp-note">Every cell links to its source. Checked {CHECKED}. If a row
 is wrong or out of date, tell us and we will correct it here.</p>
 {_table()}

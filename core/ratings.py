@@ -64,6 +64,7 @@ class PlayerPrior:
     # (the two DefCon stat sets differ by position); saves_per90 is GK-only.
     defcon_per90: float = 0.0
     saves_per90: float = 0.0
+    cameo_prob: float = 0.0  # conditional on not starting; estimated separately
 
 
 # ---------------------------------------------------------------------------

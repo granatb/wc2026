@@ -87,9 +87,9 @@
       return;
     }
     var rows = matches.slice(0, MAX_RESULTS).map(function (p) {
-      var href = p.page || "#";
+      var href = /^\/[a-zA-Z0-9/_-]+\/$/.test(p.page || "") ? p.page : "#";
       return (
-        '<tr><td><a href="' + href + '" style="color:var(--greend)">' +
+        '<tr><td><a href="' + escapeHtml(href) + '" style="color:var(--greend)">' +
         escapeHtml(p.name) + "</a></td><td>" + escapeHtml(p.team || "") +
         "</td><td>" + escapeHtml(p.position || "") + "</td><td>" +
         fmt1(p.x_points) + "</td></tr>"

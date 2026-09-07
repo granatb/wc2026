@@ -1,0 +1,53 @@
+{
+  "round": 4,
+  "status": "final",
+  "kind": "retrospective",
+  "generated_at": null,
+  "note": "Reconstructed after the fact from frozen closing odds (research overlay off, fixed seed). NOT published predictions.",
+  "grades": {
+    "captains": {
+      "slug": "captains",
+      "graded": true,
+      "matched": 18,
+      "total": 20,
+      "mae": 3.406,
+      "spearman": 0.62,
+      "top_pick": {
+        "name": "Kane",
+        "projected": 7.96,
+        "realized": 13
+      },
+      "best_in_list": {
+        "name": "Mbapp\u00e9",
+        "realized": 14
+      },
+      "captain_regret": 1
+    },
+    "best-xi": {
+      "slug": "best-xi",
+      "graded": true,
+      "matched": 11,
+      "total": 11,
+      "mae": 3.477,
+      "spearman": 0.63,
+      "top_pick": {
+        "name": "Kane",
+        "projected": 7.96,
+        "realized": 13
+      },
+      "best_in_list": {
+        "name": "Mbapp\u00e9",
+        "realized": 14
+      },
+      "xi_projected_total": 65.59,
+      "xi_realized_total": 54
+    }
+  },
+  "coverage": {
+    "matched": 20,
+    "total": 22
+  },
+  "misses": [
+    "Round 4 captains: left 1.0 pts on the table \u2014 Mbapp\u00e9 (14.0 pts) outscored our top pick Kane (13.0 pts)."
+  ]
+}

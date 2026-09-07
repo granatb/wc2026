@@ -32,7 +32,7 @@ import os
 import urllib.request
 from datetime import datetime, timezone
 
-from core import fpl_api
+from core import fpl_api, forecast_archive
 
 FFIQ_URL = "https://fantasyfootballiq.app/data/ffiq-projections-latest.json"
 FFIQ_ATTRIBUTION = "https://fantasyfootballiq.app"
@@ -78,23 +78,13 @@ def ffiq_column(payload: dict, gameweek: int) -> dict:
 
 
 def our_column(gameweek: int) -> dict:
-    """{(web_name, club): x_points} from the live horizon matrix — the same
-    numbers the site publishes for the gameweek."""
-    import glob
-    paths = sorted(glob.glob(os.path.join(
-        os.path.dirname(BENCH_DIR), "..", "..", "data", "fpl",
-        "xpts_gw*.json")))
-    if not paths:
-        raise SystemExit("bench snapshot: no horizon matrix — build it first "
-                         "(scripts/build_horizon.py)")
-    with open(paths[-1], encoding="utf-8") as fh:
-        matrix = json.load(fh)
-    out = {}
-    for name, rec in matrix.items():
-        v = (rec.get("gw") or {}).get(str(gameweek))
-        if v is not None:
-            out[(name, rec.get("team"))] = float(v)
-    return out
+    """The exact archived full board; refuse an unrelated horizon vintage."""
+    record = forecast_archive.load(gameweek)
+    if record is None:
+        raise SystemExit("bench snapshot: publish and archive the full board first")
+    elements = {e["id"]: e for e in record["bootstrap"]["elements"]}
+    return {(elements[r["player_id"]]["web_name"], r["team"]): float(r["x_points"])
+            for r in record["rows"]}
 
 
 def baseline_inputs(bootstrap: dict, form_history: dict, gameweek: int) -> dict:
@@ -108,11 +98,13 @@ def baseline_inputs(bootstrap: dict, form_history: dict, gameweek: int) -> dict:
     for e in bootstrap.get("elements", []):
         rows = (form_history or {}).get(str(e["id"])) \
             or (form_history or {}).get(e["id"]) or []
+        rows = [r for r in rows if r.get("round", 0) < gameweek]
         played = [r["total_points"] for r in rows
                   if (r.get("minutes") or 0) > 0]
         appearances = len(played)
         out[f'{e["web_name"]}|{teams.get(e["team"], "???")}'] = {
-            "season_points": e.get("total_points") or 0,
+            "player_id": e["id"],
+            "season_points": sum(r.get("total_points", 0) for r in rows),
             "appearances": appearances,
             "last4": played[-4:],
             "ep_next": fpl_api._f(e.get("ep_next")) or 0.0,
@@ -137,13 +129,16 @@ def take_snapshot(gameweek: int, ffiq_payload: dict = None,
     bootstrap = bootstrap or fpl_api.read_cache("bootstrap")
     form_history = (form_history if form_history is not None
                     else fpl_api.read_cache(fpl_api.FORM_CACHE_NAME) or {})
+    captured = forecast_archive.utc(now or datetime.now(timezone.utc))
+    if captured >= forecast_archive.deadline(bootstrap, gameweek):
+        raise SystemExit("benchmark snapshot: deadline passed")
     ffiq = ffiq_column(ffiq_payload, gameweek)
     ours = our_column(gameweek)
     snapshot = {
         "gameweek": gameweek,
         "taken_at": (now or datetime.now(timezone.utc)).isoformat(),
         "sources": {
-            "evmax": "this repo, the published horizon matrix column",
+            "evmax": "this repo, full pre-deadline forecast archive",
             "ffiq": {"url": FFIQ_URL,
                      "attribution": FFIQ_ATTRIBUTION,
                      "license": (ffiq_payload.get("license") or ""),
@@ -188,9 +183,9 @@ def grade_snapshot(snapshot: dict, realized_by_key: dict,
     """Same-sample scores for every column in the snapshot.
 
     realized_by_key / minutes_by_key: {"web_name|CLUB": value} for the
-    finished gameweek. Sources are graded on the INTERSECTION of their own
-    coverage with realized players — and n is published per source per
-    population, so coverage differences are visible rather than smoothed over.
+    finished gameweek. Every nonempty source uses the common intersection across sources.
+    Original coverage is reported separately; the 60+ group is selected after
+    outcomes and is descriptive, not a pre-deadline selection rule.
     """
     inputs = snapshot.get("baseline_inputs") or {}
     columns = {
@@ -204,14 +199,21 @@ def grade_snapshot(snapshot: dict, realized_by_key: dict,
             k: (sum(v["last4"]) / len(v["last4"]))
             for k, v in inputs.items() if v["last4"]},
     }
+    # Every ranked score uses the same players, including the naive baselines.
+    populated = [set(c) for c in columns.values() if c]
+    common = set(realized_by_key).intersection(*populated) if populated else set()
     out = {}
-    for source, pred in columns.items():
+    for source, original in columns.items():
+        pred = {k: v for k, v in original.items() if k in common}
         full = {k: v for k, v in pred.items()
                 if (minutes_by_key.get(k) or 0) >= FULL_SHIFT_MINUTES}
         errs_all = _errors(pred, realized_by_key)
         errs_60 = _errors(full, realized_by_key)
         out[source] = {
             "mae_all": _mae(errs_all), "n_all": len(errs_all),
+            "rmse_all": _rmse(errs_all),
+            "coverage_all": len(_errors(original, realized_by_key)),
+            "population": "common_intersection",
             "mae_60plus": _mae(errs_60), "rmse_60plus": _rmse(errs_60),
             "n_60plus": len(errs_60),
         }
@@ -299,7 +301,9 @@ def latest_squads(frozen: dict, deadline_iso: str = None) -> dict:
     """The newest frozen version taken before the deadline (or the newest)."""
     versions = frozen.get("versions") or []
     if deadline_iso:
-        versions = [v for v in versions if v["taken_at"] <= deadline_iso] or versions
+        lock = forecast_archive.utc(deadline_iso)
+        versions = [v for v in versions if forecast_archive.utc(v["taken_at"]) < lock]
+    versions = sorted(versions, key=lambda v: forecast_archive.utc(v["taken_at"]))
     return versions[-1]["squads"] if versions else {}
 
 

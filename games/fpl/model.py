@@ -15,6 +15,10 @@ E[floor(x/n)] != floor(E[x]/n).
 
 from __future__ import annotations
 
+# 2023/24 training season: 1,071 FPL assists / 1,246 fixture goals.
+# Global starting estimate; player allocation and unmodelled sinks need validation.
+FPL_ASSIST_PROBABILITY = 1071 / 1246
+
 from core import engine_events
 
 # --- confirmed scoring values (games/fpl/rules.md) -------------------------
@@ -556,6 +560,8 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     teams = fpl_api.parse_teams(boot)
     events = fpl_api.parse_events(boot)
     players = fpl_api.parse_players(boot)
+    for player in players:
+        player["season_started"] = any(e.get("finished") for e in events.values())
 
     # DefCon backfill: bootstrap-static zeroes defensive_contribution for every
     # player preseason, so without this the DefCon model (and the order book's
@@ -570,6 +576,9 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     existing = {f.match_id for f in fixtures.SCHEDULE}
     for r in rows:
         if r["match_id"] in existing:
+            old = next(f for f in fixtures.SCHEDULE if f.match_id == r["match_id"])
+            old.kickoff = fpl_api._parse_utc(r["kickoff_utc"])
+            old.home, old.away = r["home"], r["away"]
             continue
         fixtures.SCHEDULE.append(fixtures.Fixture(
             match_id=r["match_id"], home=r["home"], away=r["away"],
@@ -592,6 +601,7 @@ def load_gameweek(gameweek: int, refresh: bool = False):
         m = (odds.get("matches") or {}).get(f.match_id)
         if m and m.get("lam_home") is not None:
             f.lam_home, f.lam_away = m["lam_home"], m["lam_away"]
+            f.rho = m.get("rho", 0.0)
             priced += 1
         else:
             unpriced.append(f"{f.home} v {f.away}")
@@ -624,7 +634,7 @@ _SEED = 12345
 
 # PlayerPrior fields that feed the sim, in a fixed order so the cache key's
 # projection is stable regardless of dataclass field order.
-_PRIOR_FIELDS = ("start_prob", "exp_minutes", "goal_share", "assist_share",
+_PRIOR_FIELDS = ("team", "position", "cameo_prob", "start_prob", "exp_minutes", "goal_share", "assist_share",
                  "sot_per90", "pen_taker", "defcon_per90", "saves_per90")
 
 
@@ -656,7 +666,20 @@ def _bps_baselines(players_by_name: dict) -> dict:
     for name, p in players_by_name.items():
         minutes = p.get("minutes") or 0
         if minutes > 0:
-            baselines[name] = (p.get("bps") or 0) * 90.0 / minutes
+            pos = p.get("position", "MID")
+            # Remove the historical components explicitly simulated below.
+            # Aggregate starts approximate full appearances when match-level
+            # components are unavailable; shrink this residual, never total BPS.
+            known = (6 * (p.get("starts") or 0)
+                     + BPS_GOAL.get(pos, 18) * (p.get("goals_scored") or 0)
+                     + BPS_ASSIST * (p.get("assists") or 0)
+                     + BPS_CLEAN_SHEET.get(pos, 0) * (p.get("clean_sheets") or 0)
+                     + BPS_SAVE * (p.get("saves") or 0)
+                     + BPS_YELLOW * (p.get("yellow_cards") or 0)
+                     + BPS_RED * (p.get("red_cards") or 0))
+            if pos in _CONCEDE_POSITIONS:
+                known += BPS_CONCEDED * (p.get("goals_conceded") or 0)
+            baselines[name] = ((p.get("bps") or 0) - known) * 90.0 / (minutes + 450.0)
     return baselines
 
 
@@ -747,7 +770,8 @@ def _match_projection(fx: list) -> dict:
     finding 2).
     """
     return {f.match_id: {"lambdas": f.lambdas(),
-                         "kickoff": f.kickoff.isoformat()}
+                         "kickoff": f.kickoff.isoformat(), "rho": f.rho,
+                         "home": f.home, "away": f.away}
             for f in fx}
 
 
@@ -886,7 +910,7 @@ def _derive_row(*, name: str, means: dict, x_points: float, ceiling: float,
         "ceiling": round(ceiling, 2),
         "price": price,
         "ownership_pct": ownership,
-        "value": round(x_points / price, 3) if price else None,
+        "value": round(round(x_points, 2) / price, 3) if price else None,
         "bonus": round(bonus, 2),
         # Points and probability are the same quantity in two units
         # (points == 2 x probability). The DefCon article headlines the
@@ -975,6 +999,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         # does. Leaving it out would mean a config edit could silently serve a
         # stale artifact -- the one failure mode this cache exists to prevent.
         "research_weight": research_weight,
+        "assist_probability": FPL_ASSIST_PROBABILITY,
     }
 
     key = simcache.cache_key(
@@ -991,8 +1016,13 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
             # source fingerprint covers this file, so the edit that added the
             # layer invalidated all of them — but the .get costs nothing and
             # means a hand-copied artifact degrades rather than crashing.
-            return {"rows": _int_keyed_distributions(cached["rows"]),
-                    "matches": cached.get("matches", [])}, True
+            rows = _int_keyed_distributions(cached["rows"])
+            for r in rows:
+                meta = players_by_name.get(r["name"], {})
+                r["price"] = meta.get("price")
+                r["ownership_pct"] = meta.get("ownership")
+                r["value"] = round(r["x_points"] / r["price"], 3) if r["price"] else None
+            return {"rows": rows, "matches": cached.get("matches", [])}, True
 
     baselines = _bps_baselines(players_by_name)
     bonus = BonusAccumulator(baselines)
@@ -1007,7 +1037,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         priors=lambda team: priors_by_team.get(team, []),
         research=research_entries,
         research_weight=research_weight,
-        per_match_hook=_hook,
+        per_match_hook=_hook, fixture_list=fx, assist_probability=FPL_ASSIST_PROBABILITY,
     )
     means = engine_events.event_means(samples)
 
@@ -1090,32 +1120,8 @@ def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
 
 
 def _conceded_series(sample) -> list:
-    """Per-sim conceded counts for the -1-per-2 threshold.
-
-    The engine accumulates `conceded` as a total rather than a list (goals conceded
-    is a team-level quantity, so keeping 50k per-player copies would waste memory).
-    Reconstruct a two-point series around the mean, which preserves the threshold's
-    convexity better than applying the divisor to the mean alone.
-
-    Design choice: `sample.conceded / sample.played` is deliberate, not
-    `/ sample.sims`. save_samples and defcon_samples are also collected only on
-    sims where the player was on the pitch (appended after the on-pitch guard),
-    so they are already E[x | played] -- this series matches that convention
-    exactly, and total_points scales conceded_points' result by
-    appearance_probability(sample) afterward, identically to saves and DefCon.
-    Centring on `conceded / sims` instead would make this series unconditional
-    already, and it would then need to be the ONE component NOT scaled --
-    correct in principle, but a special case that is easy to get wrong later.
-    Keeping every conditional component conditional, and applying one uniform
-    scaling step in total_points, is the same amount of correctness with one
-    fewer way to reintroduce this bug.
-    """
-    if not sample.played:
-        return []
-    mean = sample.conceded / sample.played
-    lo, hi = int(mean), int(mean) + 1
-    frac = mean - lo
-    return [lo] * max(1, int(round((1 - frac) * 100))) + [hi] * max(0, int(round(frac * 100)))
+    """Actual conditional counts preserve E[floor(conceded/2)] exactly."""
+    return sample.conceded_samples
 
 
 def _print_squad_view(state: dict, by_name: dict) -> None:

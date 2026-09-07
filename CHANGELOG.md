@@ -1,3 +1,27 @@
+## 2026-09-07 — prospective experiment framework
+
+Register four virtual approaches with a common seed, shared decision policy,
+carried portfolio accounting, pre-deadline immutable records, final-result grading
+and separate forecast/squad scores. Publish honest registration/pending/results
+states at `/fpl/experiments/`. Providers are not yet connected and no experimental
+weeks are enrolled. Missing captain files can no longer evade the deployment
+validator. Forecast archive loading also verifies the embedded artifact ID.
+
+## 2026-09-07 — model 2026-09-07.1 (candidate)
+
+The shared event engine now allocates goals and assists at sampled event times,
+prevents self-assists, constrains simultaneous keeper/outfield selection, and
+models substitution intervals. MID clean sheets, actual on-pitch conceded
+thresholds, goalkeeper save rates and fitted Dixon–Coles scorelines are consumed.
+BPS baselines subtract approximated scoring-event contributions; DefCon live
+rates are shrunk. RNG consumption and new WC simulations intentionally change;
+the determinism fixture is re-recorded as f35c1106e0e993234a3c7dadb3208204c1f3274cb307adec847eea4479dcc20a.
+Published historical forecasts are not regenerated. These are corrections and
+new assumptions, not evidence of an accuracy improvement. The WC 75% assisted-event probability, FPL training-season estimate
+(1,071 assists / 1,246 goals), conditional cameo proxy, lineup constraints and approximate residual
+BPS require calibration and prospective testing. Red-card departure and goalkeeper
+substitutions remain unmodelled.
+
 # Changelog
 
 Engine / model / app changes, newest first. Verification: `python3 -m unittest discover -s tests -t .`

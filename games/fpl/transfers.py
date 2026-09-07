@@ -12,7 +12,9 @@ the incoming player clears the minutes floor (start_prob >= START_FLOOR when
 the horizon rows carry one, unless a sourced note vouches — the same bar the
 optimizer and the publish gate hold).
 
-Scoring:  delta = sum over the horizon of DISCOUNT^i * (xPts_in - xPts_out).
+Scoring: delta = discounted change in the best legal weekly XI plus captain
+mean. Partial analysis pools use player sums. Autosub/vice option value is not
+yet modelled.
 DISCOUNT = 0.95 is the squad doctrine's horizon band (the GW1 build discounted
 GW1-6 at 1.00 -> 0.78 ~= 0.95^5, docs/STRATEGY.md 08-19). A player missing
 from a gameweek's rows contributes 0 for that week — a blank prices itself.
@@ -34,6 +36,31 @@ TOP_N = 5
 PER_PLAYER_CAP = 2   # rows any single outgoing player may occupy
 MAX_PER_CLUB = 3
 START_FLOOR = 0.75
+
+
+def weekly_utility(squad: list, rows: dict) -> float:
+    """Best legal XI plus captain mean; no claimed autosub/vice option value.
+
+    Partial pools retain player-level valuation for analysis callers. Production
+    15-player squads must support a legal formation and are valued as teams.
+    """
+    if len(squad) != 15:
+        return sum((rows.get(p["name"]) or {}).get("x_points", 0) for p in squad)
+    groups = {pos: sorted(((rows.get(p["name"]) or {}).get("x_points", 0)
+                           for p in squad if p["position"] == pos), reverse=True)
+              for pos in ("GK", "DEF", "MID", "FWD")}
+    scores = []
+    for defenders in range(3, 6):
+        for midfielders in range(2, 6):
+            forwards = 10 - defenders - midfielders
+            counts = dict(GK=1, DEF=defenders, MID=midfielders, FWD=forwards)
+            if not 1 <= forwards <= 3 or any(len(groups[p]) < n for p, n in counts.items()):
+                continue
+            xi = [xp for pos, n in counts.items() for xp in groups[pos][:n]]
+            scores.append(sum(xi) + max(xi))
+    if not scores:
+        raise ValueError("squad cannot field a legal XI")
+    return max(scores)
 
 
 def _xp(rows_by_gw: dict, gws: list, name: str) -> list:
@@ -76,6 +103,7 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
 
     squad = list(state.get("squad", []))
     squad_names = {e["name"] for e in squad}
+    before = [weekly_utility(squad, rows_by_gw[gw]) for gw in gws]
     club_counts: dict = {}
     for e in squad:
         club_counts[e["team"]] = club_counts.get(e["team"], 0) + 1
@@ -83,7 +111,6 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
     swaps = []
     for out_e in squad:
         sell_budget = round(bank + (out_e.get("price") or 0.0), 1)
-        out_xp = _xp(rows_by_gw, gws, out_e["name"])
         for name, cand in pool.items():
             if name in squad_names or cand.get("position") != out_e["position"]:
                 continue
@@ -97,14 +124,16 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
             sp = cand.get("start_prob")
             if sp is not None and sp < START_FLOOR and name not in notes:
                 continue
-            in_xp = _xp(rows_by_gw, gws, name)
-            delta = sum(DISCOUNT ** i * (i_xp - o_xp)
-                        for i, (i_xp, o_xp) in enumerate(zip(in_xp, out_xp)))
+            after_squad = [e for e in squad if e["name"] != out_e["name"]] + [dict(cand, name=name)]
+            delta = sum(DISCOUNT ** i * (weekly_utility(after_squad, rows_by_gw[gw]) - before[i])
+                        for i, gw in enumerate(gws))
             delta = round(delta, 2)
             hit_adjusted = round(delta - HIT_COST, 2) \
                 if free_transfers == 0 else delta
 
             reasons = []
+            if len(squad) == 15:
+                reasons.append("Legal weekly XI + captain mean; autosub and vice option value excluded")
             if out_e["name"] in for_sale:
                 reasons.append(f"{out_e['name']} is flagged red by the "
                                f"dossier and unresolved — sale candidate")

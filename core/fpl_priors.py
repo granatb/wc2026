@@ -316,14 +316,14 @@ def shrink_defcon_rate(position: str, observed: float, minutes: float) -> float:
 def _defcon_rate(player: dict, backfill: dict | None) -> float:
     """The DefCon per-90 rate to carry onto this player's prior.
 
-    Bootstrap's own `defcon_per90` wins whenever it is non-zero -- in-season,
-    live data always beats last season's history. Only when bootstrap has
+    In-season observations are shrunk toward position priors, including zero
+    rates once minutes exist. Only when bootstrap has
     nothing (preseason, when bootstrap-static zeroes the field for everyone) do
     we fall back to `backfill`, the core.fpl_api.fetch_defcon_backfill mapping of
     element id -> {"defcon_per90", "minutes"}. A player missing from `backfill`
     (no backfill supplied, or the id wasn't in it) safely falls through to 0.0.
 
-    The backfilled rate is shrunk toward the position prior before it reaches the
+    Both live and backfilled rates are shrunk toward the position prior before the
     prior (see shrink_defcon_rate) -- raw per-90 rates from the tiny samples
     common in the backfill (61 of 400 real players under 200 minutes) are noise
     that would otherwise dominate the DefCon ranking. Goalkeepers are gated to
@@ -333,8 +333,8 @@ def _defcon_rate(player: dict, backfill: dict | None) -> float:
     if player.get("position") == "GK":
         return 0.0
     live = player.get("defcon_per90") or 0.0
-    if live:
-        return live
+    if player.get("season_started", bool(live)) and (player.get("minutes") or 0) > 0:
+        return shrink_defcon_rate(player.get("position", "MID"), live, player["minutes"])
     if not backfill:
         return 0.0
     entry = backfill.get(player.get("id"))
@@ -403,6 +403,7 @@ def build_with_flags(players: list[dict], team_matches: int,
                 pen_taker=bool(p.get("pen_taker")),
                 defcon_per90=_defcon_rate(p, defcon_backfill),
                 saves_per90=p.get("saves_per90") or 0.0,
+                cameo_prob=(0.25 * availability_factor(p) if p["position"] != "GK" else 0.0),
             ))
         by_team[team] = priors
 

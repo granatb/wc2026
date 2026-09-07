@@ -121,6 +121,8 @@ def parse_players(raw: dict) -> list[dict]:
             "saves_per90": _f(e.get("saves_per_90")),
             "defcon_per90": _f(e.get("defensive_contribution_per_90")),
             "bps": e.get("bps", 0),
+            **{k: e.get(k, 0) for k in ("goals_scored", "assists", "clean_sheets",
+                "goals_conceded", "saves", "yellow_cards", "red_cards")},
             "ep_next": _f(e.get("ep_next")),
             "pen_taker": e.get("penalties_order") == 1,
         })
@@ -206,10 +208,18 @@ def parse_fixtures(raw: list, teams: dict[int, str]) -> list[dict]:
 
 def write_cache(name: str, payload) -> str:
     """Persist a raw payload under data/fpl/ so models can run offline."""
+    from datetime import datetime, timezone
+    from .forecast_archive import atomic_json, digest
     os.makedirs(DATA_DIR, exist_ok=True)
     path = os.path.join(DATA_DIR, f"{name}.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh)
+    atomic_json(path, payload)
+    if name in ("bootstrap", "fixtures"):
+        observed = {"source": BOOTSTRAP if name == "bootstrap" else FIXTURES,
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
+                    "payload_sha256": digest(payload), "payload": payload}
+        atomic_json(os.path.join(DATA_DIR, "observations", name, digest(observed) + ".json"), observed)
+        atomic_json(os.path.join(DATA_DIR, name + ".meta.json"),
+                    {k: v for k, v in observed.items() if k != "payload"})
     return path
 
 

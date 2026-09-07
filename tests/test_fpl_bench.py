@@ -6,6 +6,7 @@ snapshots that refuse overwrite, same-sample grading with per-source n, the
 60+ minute population alongside everyone, and no republication of anyone's
 projections on the rendered site (the snapshot file is repo evidence only).
 """
+from datetime import datetime, timezone
 import json
 import os
 import sys
@@ -31,6 +32,7 @@ _FFIQ = {
 }
 
 _BOOT = {
+    "events": [{"id": 3, "deadline_time": "2026-09-04T17:00:00Z"}],
     "teams": [{"id": 1, "short_name": "ARS"}, {"id": 2, "short_name": "MCI"}],
     "elements": [
         {"id": 10, "web_name": "Raya", "team": 1, "total_points": 8,
@@ -82,7 +84,7 @@ class TestSnapshot(unittest.TestCase):
                                return_value={("Raya", "ARS"): 3.4}):
             return fpl_bench.take_snapshot(
                 gw, ffiq_payload=_FFIQ, bootstrap=_BOOT, form_history=_FORM,
-                now=None)
+                now=datetime(2026, 9, 2, tzinfo=timezone.utc))
 
     def test_snapshot_freezes_every_column(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -121,10 +123,10 @@ class TestGrading(unittest.TestCase):
         realized = {"A|X": 7, "B|X": 1}
         minutes = {"A|X": 90, "B|X": 20}
         out = fpl_bench.grade_snapshot(self._snapshot(), realized, minutes)
-        # evmax graded on both, only A is a 60+ player
-        self.assertEqual(out["evmax"]["n_all"], 2)
+        # All sources graded on their common player A; coverage is separate.
+        self.assertEqual(out["evmax"]["n_all"], 1)
         self.assertEqual(out["evmax"]["n_60plus"], 1)
-        self.assertAlmostEqual(out["evmax"]["mae_all"], 1.5)   # |5-7|,|2-1|
+        self.assertAlmostEqual(out["evmax"]["mae_all"], 2.0)   # |5-7|,|2-1|
         self.assertAlmostEqual(out["evmax"]["mae_60plus"], 2.0)
         # ffiq only covers A — its n says so instead of hiding it
         self.assertEqual(out["ffiq"]["n_all"], 1)
@@ -138,7 +140,7 @@ class TestGrading(unittest.TestCase):
         self.assertAlmostEqual(out["baseline_ppg"]["mae_all"], 0.0)
         # form4: A = (6+2)/2 = 4.0 → error 0
         self.assertAlmostEqual(out["baseline_form4"]["mae_all"], 0.0)
-        self.assertEqual(out["ep_next"]["n_all"], 2)
+        self.assertEqual(out["ep_next"]["n_all"], 1)
 
     def test_an_empty_population_reports_none_not_a_crash(self):
         out = fpl_bench.grade_snapshot(self._snapshot(), {}, {})

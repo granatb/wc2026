@@ -1,10 +1,6 @@
 {
   "gameweek": 1,
   "n": 58,
-  "missing": [],
-  "rmse_ours": 3.209,
-  "n_ep_next": 0,
-  "mae_ours_paired": null,
   "mae_ours": 2.734,
   "mae_ep_next": null,
   "beat_ep_next": null,
@@ -358,8 +354,6 @@
       "err_ours": 0.01
     }
   ],
-  "forecast_coverage": "published_article_union",
-  "forecast_sha256": "8fe700af3791a9a12d1d48db1dc70718dc1f0d7a70187279c20e5ac4880c2acf",
   "squads": {
     "our-squad": {
       "projected": 65.92,
@@ -378,11 +372,5 @@
       "realized_official": 53,
       "autosubs": []
     }
-  },
-  "grading_version": "2026-09-07.1",
-  "results_fetched_at": "2026-08-25T12:29:45.743898+00:00",
-  "results_sha256": "688194a0d6e53fbb264993ae631febafd3c91faf9721878e8df927967d9537b5",
-  "identity_amendments": {
-    "Sangaré|NFO": "Ibrahim Sangaré, FPL ID 488"
   }
 }

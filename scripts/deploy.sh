@@ -10,8 +10,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+python3 scripts/validate_site.py --out dist
+
 echo "==> Deploying dist/ to Cloudflare Pages (project: evmax)"
-npx wrangler@latest pages deploy dist --project-name evmax --branch main --commit-dirty=true
+npx --yes wrangler@4.120.0 pages deploy dist --project-name evmax --branch main --commit-dirty=true
 
 # --- IndexNow ping -----------------------------------------------------------
 # Delegated to the tested script (stdlib, injectable, offline-tested in

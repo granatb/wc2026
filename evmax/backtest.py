@@ -37,10 +37,8 @@ _GRADEABLE_LIST_ARTICLES = {
 
 _FINAL_STATUSES_PREFIXES = ("STATUS_FULL_TIME", "STATUS_FINAL")
 
-# Owner decision 2026-07-04: hide Round 3 from the public track record for now.
-# Snapshots are kept untouched on disk at evmax/assets/projections/round-3/ —
-# nothing is deleted. Flip this set (remove 3, or empty it) to re-enable.
-EXCLUDED_DISPLAY_ROUNDS = {3}
+# Restore every published round, including the poor Round 3 results.
+EXCLUDED_DISPLAY_ROUNDS = set()  # restored 2026-09-07; all published rounds count
 
 # Rounds that were NEVER PUBLISHED on the site (no frozen pre-lock snapshot)
 # but are reconstructed after the fact, purely for context. These are graded
@@ -512,7 +510,7 @@ def _misses_for_round(round_no: int, grades: dict) -> list[str]:
 # Top-level report
 # ---------------------------------------------------------------------------
 
-def build_track_record(assets_dir: str | None = None) -> dict:
+def build_track_record(assets_dir: str | None = None, recompute_retrospective=False) -> dict:
     """Build the public track record.
 
     Three kinds of round can appear in the output:
@@ -580,7 +578,13 @@ def build_track_record(assets_dir: str | None = None) -> dict:
     for round_no in sorted(RETROSPECTIVE_ROUNDS):
         if round_no in EXCLUDED_DISPLAY_ROUNDS:
             continue
-        rounds_out.append(retrospective_round(round_no))
+        if recompute_retrospective:
+            rounds_out.append(retrospective_round(round_no))
+        else:
+            path = os.path.join(os.path.dirname(_ASSETS_DIR), "retrospectives", f"round-{round_no}.json")
+            if os.path.exists(path):
+                with open(path, encoding="utf-8") as fh:
+                    rounds_out.append(json.load(fh))
 
     rounds_out.sort(key=lambda r: r["round"], reverse=True)
 

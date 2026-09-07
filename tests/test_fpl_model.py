@@ -599,7 +599,8 @@ class TestMatchSummaries(unittest.TestCase):
             self.assertIn(key, m)
         self.assertAlmostEqual(m["p_home"] + m["p_draw"] + m["p_away"], 1.0, places=2)
         self.assertAlmostEqual(m["exp_total"],
-                               m["exp_home_goals"] + m["exp_away_goals"], places=2)
+                               m["exp_home_goals"] + m["exp_away_goals"], delta=0.0100001)
+        # Independently rounded components can differ from their rounded total by 0.01.
 
     def test_no_advancement_fields_ever(self):
         """FPL has no knockout. articles.match_predictions would emit p_advance_*

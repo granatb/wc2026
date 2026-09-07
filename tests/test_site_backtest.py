@@ -231,13 +231,11 @@ class MissesTest(unittest.TestCase):
 
 class BuildTrackRecordTest(unittest.TestCase):
     @_NEEDS_DATA
-    def test_round_3_excluded_from_rounds_list(self):
-        # Owner decision 2026-07-04: round 3 hidden from the public track record.
-        # Snapshots stay on disk (round_status/realized_points still see them),
-        # but build_track_record() must not surface round 3 at all.
+    def test_round_3_restored_to_rounds_list(self):
+        # September integrity correction: include every published round.
         record = backtest.build_track_record()
         rounds = {r["round"] for r in record["rounds"]}
-        self.assertNotIn(3, rounds)
+        self.assertIn(3, rounds)
         # The underlying data is untouched -- only the display is filtered.
         self.assertEqual(backtest.round_status(3), "final")
 
@@ -292,7 +290,7 @@ class BuildTrackRecordTest(unittest.TestCase):
              mock.patch.object(backtest, "realized_points_for_entries",
                                return_value={"points": {"Fake Captain": 1.0, "Second": 99.0},
                                              "matched": 2, "total": 2, "unmatched": []}):
-            record = backtest.build_track_record()
+            record = backtest.build_track_record(recompute_retrospective=True)
         by_round = {r["round"]: r for r in record["rounds"]}
         r4 = by_round[4]
         # A deliberately huge captain_regret for the fake round-4 data -- if it
@@ -303,7 +301,7 @@ class BuildTrackRecordTest(unittest.TestCase):
 
     def test_retrospective_round_pending_when_fixtures_unfinished(self):
         with mock.patch.object(backtest, "round_status_ignoring_snapshot", return_value="pending"):
-            record = backtest.build_track_record()
+            record = backtest.build_track_record(recompute_retrospective=True)
         by_round = {r["round"]: r for r in record["rounds"]}
         r4 = by_round[4]
         self.assertEqual(r4["status"], "pending")
@@ -322,7 +320,7 @@ class TrackRecordPageTest(unittest.TestCase):
         html = render.track_record_page(record)
         self.assertIn("<!doctype html>", html.lower())
         # Round 3 is hidden (owner decision) -- must not appear on the page.
-        self.assertNotIn("Round 3</h2>", html)
+        self.assertIn("Round 3</h2>", html)
         self.assertIn("Round 5", html)
         self.assertIn("pending", html.lower())
         self.assertIn('href="/track-record/"', html)

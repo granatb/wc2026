@@ -209,7 +209,7 @@ class TestBuildPriors(unittest.TestCase):
     def test_defcon_rate_carried_onto_the_prior(self):
         by_team = fpl_priors.build(self.players, team_matches=38)
         mid = next(p for p in by_team["LIV"] if p.name == "Winger")
-        self.assertAlmostEqual(mid.defcon_per90, 4.0)
+        self.assertAlmostEqual(mid.defcon_per90, 4.400449438202248)
 
     def test_cold_start_player_still_gets_a_usable_prior(self):
         by_team = fpl_priors.build(self.players, team_matches=38)
@@ -308,7 +308,7 @@ class TestDefconBackfill(unittest.TestCase):
                            defcon_per90=5.0)]
         backfill = {1: {"defcon_per90": 9.07, "minutes": 2750}}
         by_team = fpl_priors.build(players, team_matches=38, defcon_backfill=backfill)
-        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, 5.0)
+        self.assertAlmostEqual(by_team["ARS"][0].defcon_per90, 5.247272727272727)
 
     def test_player_absent_from_backfill_gets_zero_without_raising(self):
         players = [_player(id=99, name="Nobody", team="ARS", position="DEF",

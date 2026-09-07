@@ -1,10 +1,6 @@
 {
   "gameweek": 2,
   "n": 64,
-  "missing": [],
-  "rmse_ours": 3.865,
-  "n_ep_next": 64,
-  "mae_ours_paired": 2.848,
   "mae_ours": 2.848,
   "mae_ep_next": 2.909,
   "beat_ep_next": true,
@@ -522,8 +518,6 @@
       "err_ep_next": 1.1
     }
   ],
-  "forecast_coverage": "published_article_union",
-  "forecast_sha256": "ba521f7059fc8a71add8727e852adddb2c1ffb8dcfbbfc3429274588786471b9",
   "squads": {
     "our-squad": {
       "projected": 55.96,
@@ -542,8 +536,5 @@
       "realized_official": 84,
       "autosubs": []
     }
-  },
-  "grading_version": "2026-09-07.1",
-  "results_fetched_at": "2026-09-03T11:57:59.711017+00:00",
-  "results_sha256": "53d84ec898b00138d6190c651043507609366f0fbbf19f6d7adab1cf7294a06b"
+  }
 }

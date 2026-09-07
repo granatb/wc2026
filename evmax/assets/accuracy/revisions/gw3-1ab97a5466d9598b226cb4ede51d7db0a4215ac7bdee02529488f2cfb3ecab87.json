@@ -1,10 +1,6 @@
 {
   "gameweek": 3,
   "n": 63,
-  "missing": [],
-  "rmse_ours": 2.835,
-  "n_ep_next": 63,
-  "mae_ours_paired": 2.404,
   "mae_ours": 2.404,
   "mae_ep_next": 3.198,
   "beat_ep_next": true,
@@ -514,8 +510,6 @@
       "err_ep_next": 0.0
     }
   ],
-  "forecast_coverage": "published_article_union",
-  "forecast_sha256": "6b5a71ff229b2213eaa4fc65d3003990496b5b44322be29ef230aeb67df19444",
   "squads": {
     "our-squad": {
       "projected": 59.52,
@@ -535,61 +529,43 @@
       ]
     }
   },
-  "grading_version": "2026-09-07.1",
-  "results_fetched_at": "2026-09-07T11:02:00.199980+00:00",
-  "results_sha256": "ce3cea27edacd1ca6c24c93bab77d60deeca2c40225bf641e4e2ebc4e1c727e4",
   "benchmark": {
     "taken_at": "2026-09-02T07:43:05.990197+00:00",
     "scores": {
       "evmax": {
-        "mae_all": 1.891,
-        "n_all": 343,
-        "rmse_all": 2.791,
-        "coverage_all": 585,
-        "population": "common_intersection",
-        "mae_60plus": 2.468,
-        "rmse_60plus": 3.477,
-        "n_60plus": 192
+        "mae_all": 1.263,
+        "n_all": 585,
+        "mae_60plus": 2.46,
+        "rmse_60plus": 3.462,
+        "n_60plus": 195
       },
       "ffiq": {
-        "mae_all": 1.786,
-        "n_all": 343,
-        "rmse_all": 2.629,
-        "coverage_all": 617,
-        "population": "common_intersection",
-        "mae_60plus": 2.371,
-        "rmse_60plus": 3.245,
-        "n_60plus": 192
+        "mae_all": 1.189,
+        "n_all": 617,
+        "mae_60plus": 2.368,
+        "rmse_60plus": 3.236,
+        "n_60plus": 207
       },
       "ep_next": {
-        "mae_all": 2.157,
-        "n_all": 343,
-        "rmse_all": 3.163,
-        "coverage_all": 617,
-        "population": "common_intersection",
-        "mae_60plus": 2.986,
-        "rmse_60plus": 3.931,
-        "n_60plus": 192
+        "mae_all": 1.308,
+        "n_all": 617,
+        "mae_60plus": 2.977,
+        "rmse_60plus": 3.92,
+        "n_60plus": 207
       },
       "baseline_ppg": {
-        "mae_all": 2.297,
-        "n_all": 343,
-        "rmse_all": 3.342,
-        "coverage_all": 358,
-        "population": "common_intersection",
-        "mae_60plus": 2.951,
-        "rmse_60plus": 3.913,
-        "n_60plus": 192
+        "mae_all": 2.302,
+        "n_all": 358,
+        "mae_60plus": 2.939,
+        "rmse_60plus": 3.911,
+        "n_60plus": 204
       },
       "baseline_form4": {
-        "mae_all": 2.297,
-        "n_all": 343,
-        "rmse_all": 3.342,
-        "coverage_all": 358,
-        "population": "common_intersection",
-        "mae_60plus": 2.951,
-        "rmse_60plus": 3.913,
-        "n_60plus": 192
+        "mae_all": 2.302,
+        "n_all": 358,
+        "mae_60plus": 2.939,
+        "rmse_60plus": 3.911,
+        "n_60plus": 204
       }
     },
     "attribution": "https://fantasyfootballiq.app",

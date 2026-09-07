@@ -33,7 +33,7 @@ _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-from core import fpl_api, fpl_live, fpl_priors           # noqa: E402
+from core import forecast_archive, fpl_api, fpl_live, fpl_priors           # noqa: E402
 from games.fpl import grading                            # noqa: E402
 
 SQUAD_SLUGS = ("our-squad", "consensus-squad")
@@ -41,6 +41,9 @@ SQUAD_SLUGS = ("our-squad", "consensus-squad")
 
 def load_snapshots(gameweek: int) -> dict:
     """{slug: envelope} for every committed projection snapshot of this GW."""
+    archived = forecast_archive.load(gameweek)
+    if archived:
+        return archived["envelopes"]
     snap_dir = os.path.join(_HERE, "evmax", "assets", "projections",
                             f"fpl-gw{gameweek}")
     out = {}
@@ -73,7 +76,9 @@ def realized_points(gameweek: int, refresh: bool) -> dict:
             f"grade_gw: no live payload for gameweek {gameweek} — fetch the "
             f"final stats with\n    python3 scripts/grade_gw.py "
             f"--gw {gameweek} --refresh")
-    boot = fpl_api.read_cache("bootstrap")
+    forecast_archive.require_final(payload)
+    archive = forecast_archive.load(gameweek)
+    boot = archive["bootstrap"] if archive else fpl_api.read_cache("bootstrap")
     if boot is None:
         raise SystemExit(
             "grade_gw: data/fpl/bootstrap.json is missing — refresh with\n"
@@ -82,8 +87,13 @@ def realized_points(gameweek: int, refresh: bool) -> dict:
     fpl_priors._disambiguate_names(players)
     stats = {e["id"]: (e.get("stats") or {})
              for e in (payload.get("live") or {}).get("elements", [])}
-    return {p["name"]: stats[p["id"]].get("total_points", 0)
-            for p in players if p["id"] in stats}
+    outcomes = {p["name"]: stats[p["id"]]["total_points"]
+                for p in players if p["id"] in stats and "total_points" in stats[p["id"]]}
+    # Explicit legacy identity correction, recorded separately from the frozen
+    # forecast. GW1 called NFO's Ibrahim Sangaré "Sangaré" before disambiguation.
+    if gameweek == 1 and 488 in stats:
+        outcomes["Sangaré"] = stats[488]["total_points"]
+    return outcomes
 
 
 def assemble(gameweek: int, envelopes: dict, realized: dict) -> dict:
@@ -97,7 +107,12 @@ def assemble(gameweek: int, envelopes: dict, realized: dict) -> dict:
             seen.add(name)
             rows.append(entry)
     payload = {"gameweek": gameweek}
-    payload.update(grading.grade(rows, realized))
+    archive = forecast_archive.load(gameweek)
+    payload.update(grading.grade(archive["rows"] if archive else rows, realized))
+    payload["forecast_coverage"] = "full_board" if archive else "published_article_union"
+    payload["forecast_sha256"] = archive["artifact_id"] if archive else forecast_archive.digest(envelopes)
+    if payload["missing"]:
+        raise ValueError("unresolved forecast outcomes: " + ", ".join(payload["missing"]))
     payload["squads"] = {
         slug: grading.squad_line(envelopes[slug], realized)
         for slug in SQUAD_SLUGS if slug in envelopes
@@ -119,37 +134,63 @@ def main(argv=None) -> int:
     envelopes = load_snapshots(args.gw)
     realized = realized_points(args.gw, refresh=args.refresh)
     payload = assemble(args.gw, envelopes, realized)
+    payload["grading_version"] = "2026-09-07.1"
+    lp = fpl_live.read_live_cache(args.gw)
+    forecast_archive.require_final(lp)
+    payload["results_fetched_at"] = lp.get("fetched_at")
+    payload["results_sha256"] = forecast_archive.digest(lp)
+    if args.gw == 1:
+        payload["identity_amendments"] = {"Sangaré|NFO": "Ibrahim Sangaré, FPL ID 488"}
     # Official FPL scoring (autosubs + captain fallback) alongside the
     # as-published grading line — readers compare official totals.
     try:
-        from core import fpl_live
         from games.fpl import state as fpl_state
         lp = fpl_live.read_live_cache(args.gw)
         if lp:
             boot = fpl_api.read_cache("bootstrap")
             for slug, path in (("our-squad", "games/fpl/state.json"),
                                ("consensus-squad", "games/fpl/state_consensus.json")):
-                st = fpl_state.load_state(path)
+                archive = forecast_archive.load(args.gw)
+                key = "model" if slug == "our-squad" else "consensus"
+                st = (archive["states"][key] if archive else
+                      forecast_archive.state_from_envelope(envelopes[slug]))
+                if archive:
+                    boot = archive["bootstrap"]
+                resolved = fpl_live.resolve_squad(st, boot)
+                scored_ids = {e["id"] for e in lp["live"]["elements"]
+                              if "total_points" in (e.get("stats") or {})}
+                if any(e["id"] not in scored_ids for e in resolved.values()):
+                    raise ValueError("official squad outcome is incomplete")
                 g = fpl_live.grade_squad(st, lp["live"], lp["fixtures"], boot)
+                if g["players_pending"]:
+                    raise ValueError("official squad still has pending players")
                 if g["players_pending"] == 0:
                     payload["squads"][slug]["realized_official"] = g["total_so_far"]
                     payload["squads"][slug]["autosubs"] = g["autosubs_applied"]
-    except Exception as exc:  # official line is additive; grading must still bank
-        print(f"  (official-scoring line unavailable: {exc})")
+    except Exception as exc:
+        raise SystemExit(f"Official grading failed; no result written: {exc}")
     # The open benchmark: same-sample scores for every column frozen before
     # the deadline (core/fpl_bench.py). Additive like the official line —
     # a missing snapshot means the benchmark simply has no row this week.
     try:
-        from core import fpl_bench, fpl_live
+        from core import fpl_bench
         snap = fpl_bench.load_snapshot(args.gw)
         if snap:
             lp = fpl_live.read_live_cache(args.gw)
             boot = fpl_api.read_cache("bootstrap")
+            lock = forecast_archive.deadline(boot, args.gw)
+            if forecast_archive.utc(snap["taken_at"]) >= lock:
+                raise ValueError("late benchmark snapshot")
             teams = fpl_api.parse_teams(boot)
             el_team = {e["id"]: teams.get(e["team"], "???")
                        for e in boot.get("elements", [])}
             el_name = {e["id"]: e["web_name"]
                        for e in boot.get("elements", [])}
+            for key, item in (snap.get("baseline_inputs") or {}).items():
+                if item.get("player_id") is not None:
+                    name, club = key.rsplit("|", 1)
+                    el_name[item["player_id"]] = name
+                    el_team[item["player_id"]] = club
             realized_k, minutes_k = {}, {}
             for e in (lp.get("live") or {}).get("elements", []):
                 key = f'{el_name.get(e["id"])}|{el_team.get(e["id"])}'
@@ -170,7 +211,7 @@ def main(argv=None) -> int:
                 deadline = next((e.get("deadline_time") for e in
                                  boot.get("events", []) if e.get("id") == args.gw),
                                 None)
-                latest = fpl_bench.latest_squads(frozen_sq, deadline)
+                latest = fpl_bench.latest_squads(frozen_sq, lock.isoformat())
                 payload["benchmark"]["squads"] = fpl_bench.grade_squads(
                     latest, realized_k)
             print("  benchmark graded: "
@@ -180,7 +221,7 @@ def main(argv=None) -> int:
                   f"pre-deadline with: python3 -m core.fpl_bench --snapshot "
                   f"--gw {args.gw})")
     except Exception as exc:
-        print(f"  (benchmark grading unavailable: {exc})")
+        raise SystemExit(f"Benchmark grading failed; no result written: {exc}")
     path = grading.write_accuracy(args.gw, payload, out_dir=args.out)
     print(grading.format_report(payload))
     print(f"\nbanked → {os.path.relpath(path, _HERE)} (commit it with the "
