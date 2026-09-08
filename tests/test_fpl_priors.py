@@ -129,15 +129,25 @@ class TestMinutesModel(unittest.TestCase):
         self.assertGreater(mins, 80)
 
     def test_live_sample_outweighs_history_as_it_accumulates(self):
-        """A dropped starter must not hide behind last season forever."""
+        """A dropped starter must not hide behind last season.
+
+        Rewritten 2026-09-08 (owner decision: the last three games carry the
+        answer, last season almost none of it). The original asserted that two
+        blanks "barely move a full season" (>0.8); a nailed starter left out
+        twice in a row is now read as what it looks like -- a role change --
+        while one blank still leaves him more likely than not to start.
+        """
         history = {"4242": {"starts": 34, "minutes": 3000}}
-        benched = _player(minutes=0, starts=0, id=4242)
         with fpl_priors.preseason_rates_override(history):
-            early, _ = fpl_priors.minutes_model(benched, team_matches=2)
+            one_blank, _ = fpl_priors.minutes_model(
+                _player(minutes=0, starts=0, id=4242), team_matches=1)
+            two_blanks, _ = fpl_priors.minutes_model(
+                _player(minutes=0, starts=0, id=4242), team_matches=2)
             late, _ = fpl_priors.minutes_model(
                 _player(minutes=200, starts=1, id=4242), team_matches=20)
-        self.assertGreater(early, 0.8)      # two blanks barely move a full season
-        self.assertLess(late, early)        # 20 matches of evidence does
+        self.assertGreater(one_blank, 0.5)
+        self.assertLess(two_blanks, 0.5)
+        self.assertLess(late, two_blanks)   # 20 matches of evidence decides
 
     def test_no_history_falls_back_without_dividing_by_zero(self):
         p = _player(minutes=0, starts=0)

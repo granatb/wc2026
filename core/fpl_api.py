@@ -311,8 +311,14 @@ FORM_REQUEST_DELAY = DEFCON_REQUEST_DELAY   # same politeness delay
 
 
 def form_rows_from_history(history: list) -> list[dict]:
-    """[{"round", "total_points", "minutes"}, ...] for the CURRENT season,
-    ascending by round.
+    """[{"round", "total_points", "minutes", "starts"}, ...] for the CURRENT
+    season, ascending by round.
+
+    `starts` (added 2026-09-08) is the per-gameweek start count the minutes
+    model's recency weighting reads -- a start three weeks ago should count
+    for less than one last week, and season aggregates cannot say which was
+    which. A row without the key predates the field; fetch_form_history treats
+    such a cache as stale and refreshes it once.
 
     `history` is this season only -- `history_past` is the per-season roll-up
     the DefCon backfill reads -- so nothing here filters by season. A double
@@ -326,9 +332,10 @@ def form_rows_from_history(history: list) -> list[dict]:
         except (KeyError, TypeError, ValueError):
             continue                       # a row without a round is unusable
         slot = by_round.setdefault(
-            rnd, {"round": rnd, "total_points": 0, "minutes": 0})
+            rnd, {"round": rnd, "total_points": 0, "minutes": 0, "starts": 0})
         slot["total_points"] += int(_f(h.get("total_points")))
         slot["minutes"] += int(_f(h.get("minutes")))
+        slot["starts"] += int(_f(h.get("starts")))
     return [by_round[r] for r in sorted(by_round)]
 
 
@@ -354,6 +361,8 @@ def fetch_form_history(players: list[dict], gameweek: int,
 
     def up_to_date(pid: int) -> bool:
         rows = cache.get(pid) or []
+        if rows and not all("starts" in r for r in rows):
+            return False        # pre-2026-09-08 cache without per-game starts
         return max((int(r.get("round") or 0) for r in rows), default=0) >= gameweek
 
     todo = [p for p in players

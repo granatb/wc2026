@@ -134,7 +134,18 @@ Principle: **the engine is the product; everything else is distribution.**
 | Distributions-over-rankings philosophy | 🟡 partial — ceiling_ratio/"Safe floor" chips; validated by R3 grades (aggregates calibrated, rankings noisy) |
 | Bayesian in-tournament updating / hierarchical player priors / DR minute-sim | ⬜ backlog (L-sized) |
 
-### Known model gap: a transfer changes role, not skill (found 2026-08-27)
+### Model gap, closed 2026-09-08: a transfer changes role, not skill (found 2026-08-27)
+
+**Resolution (owner decision 2026-09-08).** Last season's start rate now enters
+the minutes model as at most four matches of evidence and that weight halves
+with every match this season (`core/fpl_priors.py`: `ROLE_PRIOR_MATCHES`,
+`ROLE_PRIOR_DECAY`); within the season, finished gameweeks are recency-weighted
+with a three-match half-life (`ROLE_HALF_LIFE`) from the per-gameweek starts in
+the form-history cache. After three matches the season carries ~85% of the
+start probability, after five ~97%. Scoring and defensive rates are untouched:
+skill still carries over, role does not. The club-move detection below is no
+longer needed for this; the text is kept as the record of the diagnosis.
+
 
 The minutes model weights last season's sample by its match count. That is right
 for a player who stayed put and wrong for one who moved: M.Sangaré's record was

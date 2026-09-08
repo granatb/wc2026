@@ -189,7 +189,8 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     finished = sum(1 for e in fpl_api.parse_events(boot).values()
                    if e.get("finished"))
     priors_by_team, _flags = fpl_priors.build_with_flags(
-        fpl_api.parse_players(boot), finished)
+        fpl_api.parse_players(boot), finished,
+        form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME))
     start_probs = {p.name: p.start_prob
                    for squad in priors_by_team.values() for p in squad}
     for gw_rows in rows_by_gw.values():

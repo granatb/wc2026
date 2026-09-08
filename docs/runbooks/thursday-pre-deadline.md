@@ -23,6 +23,12 @@ behind every card's played dots. It had a reader and no writer until
 only and no realized results at all. Incremental — an already-current cache
 costs no requests.
 
+**Since 2026-09-08 it is a model input, not just card decoration:** the
+per-gameweek `starts` it carries drive the minutes model's recency weighting
+(last three matches dominate, last season decays away). Run it BEFORE the
+build every Thursday; a stale cache silently falls back to season aggregates,
+which is honest but blunter.
+
 Re-captures `data/fpl/bootstrap.json`, `fixtures.json` and `odds_gw{N}.json`
 (current market lines — these beat every estimate). First run of a season also
 pays the one-time DefCon backfill (~400 calls, then cached).

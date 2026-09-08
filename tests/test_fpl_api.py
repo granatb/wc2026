@@ -264,8 +264,8 @@ class TestFormRowsFromHistory(unittest.TestCase):
             {"round": 1, "total_points": 2, "minutes": 90},
         ])
         self.assertEqual(rows, [
-            {"round": 1, "total_points": 2, "minutes": 90},
-            {"round": 3, "total_points": 6, "minutes": 88},
+            {"round": 1, "total_points": 2, "minutes": 90, "starts": 0},
+            {"round": 3, "total_points": 6, "minutes": 88, "starts": 0},
         ])
 
     def test_a_double_gameweek_is_one_summed_row(self):
@@ -276,7 +276,7 @@ class TestFormRowsFromHistory(unittest.TestCase):
             {"round": 4, "total_points": 9, "minutes": 75},
         ])
         self.assertEqual(rows, [{"round": 4, "total_points": 14,
-                                 "minutes": 165}])
+                                 "minutes": 165, "starts": 0}])
 
     def test_unusable_and_empty_input_degrade_quietly(self):
         self.assertEqual(fpl_api.form_rows_from_history([]), [])
@@ -318,7 +318,7 @@ class TestFetchFormHistory(unittest.TestCase):
 
         self.assertEqual(fetch.call_count, 2)
         self.assertEqual(result[1][-1], {"round": 2, "total_points": 4,
-                                         "minutes": 90})
+                                         "minutes": 90, "starts": 0})
 
         fetch2 = mock.Mock(return_value=self._summary([1, 2]))
         again = fpl_api.fetch_form_history(

@@ -54,8 +54,38 @@ PRESEASON_MATCHES = 38       # the snapshot's sample size
 _DEFAULT_START_PROB = 0.25   # unknown player: assume a squad role, not a starter
 
 
-def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
+def _live_start_observations(live_starts, live_matches: int,
+                             history_rows) -> list:
+    """(value, weight) pairs for this season's starts.
+
+    With per-gameweek rows (data/fpl/form_history.json, which now carries
+    `starts`) every finished gameweek is one observation: 1 if he started,
+    0 if not (a round with no row is a round he did not start), weighted by
+    recency with a ROLE_HALF_LIFE half-life. Without rows that reach the last
+    finished gameweek -- a cache behind the season, or a player the cache
+    skipped -- the season aggregate stands in as one uniform observation, which
+    is exactly what the model did before recency existed."""
+    if live_matches <= 0:
+        return []
+    rows = history_rows or []
+    covered = max((int(r.get("round") or 0) for r in rows), default=0)
+    if rows and covered >= live_matches and all("starts" in r for r in rows):
+        by_round = {int(r["round"]): r for r in rows}
+        out = []
+        for rnd in range(1, live_matches + 1):
+            started = 1.0 if (by_round.get(rnd) or {}).get("starts") else 0.0
+            age = live_matches - rnd
+            out.append((started, ROLE_PRIOR_DECAY ** (age / ROLE_HALF_LIFE)))
+        return out
+    return [(live_rate_of(live_starts, live_matches), live_matches)]
+
+
+def minutes_model(player: dict, team_matches: int,
+                  history_rows=None) -> tuple[float, float]:
     """(start_prob, exp_minutes) for one player, blending history with this season.
+
+    history_rows: this player's per-gameweek rows from the form-history cache
+    (see _live_start_observations); None falls back to the season aggregates.
 
     start_rate is the observed start rate, then multiplied by FPL's availability
     signal. exp_minutes is minutes-per-start, which separates a 90-minute nailed
@@ -86,14 +116,23 @@ def minutes_model(player: dict, team_matches: int) -> tuple[float, float]:
     if (team_matches <= 0 or (live_starts == 0 and live_minutes == 0)) and not hist_minutes:
         return _DEFAULT_START_PROB * gate, _DEFAULT_EXP_MINUTES
 
-    # Starts over matches, with the prior as pseudo-matches. Without it a player
-    # who started the season's only fixture reads as a 100% nailed starter --
-    # which is how a 5.5m promoted forward outranked the entire league.
+    # The role prior: last season's start rate, softened toward the generic
+    # squad-player rate, then DECAYED by this season's match count (see
+    # ROLE_PRIOR_MATCHES). Before a ball is kicked it is four matches of
+    # evidence -- enough that a player who starts the season's only fixture
+    # does not read as a 100% starter (the 5.5m promoted forward who outranked
+    # the league) -- and by match three it is half a match, so the season's own
+    # games decide. Without any history the generic prior plays the same role.
     live_matches = max(0, team_matches)
-    start_rate = shrink(PRIOR_START_RATE, PRIOR_MATCHES, [
-        (hist_rate_of(hist_starts, hist_matches), hist_matches),
-        (live_rate_of(live_starts, live_matches), live_matches),
-    ])
+    if hist_minutes:
+        prior_rate = shrink(PRIOR_START_RATE, PRIOR_MATCHES,
+                            [(hist_rate_of(hist_starts, hist_matches), hist_matches)])
+    else:
+        prior_rate = PRIOR_START_RATE
+    prior_weight = ROLE_PRIOR_MATCHES * (ROLE_PRIOR_DECAY ** live_matches)
+    start_rate = shrink(prior_rate, prior_weight,
+                        _live_start_observations(live_starts, live_matches,
+                                                 history_rows))
 
     total_starts = hist_starts + live_starts
     total_minutes = hist_minutes + live_minutes
@@ -209,6 +248,24 @@ def blend_rate(hist_value, hist_minutes, live_value, live_minutes) -> float:
 PRIOR_MINUTES = 450.0        # five matches
 PRIOR_MATCHES = 3.0          # for the start rate, whose denominator is matches
 PRIOR_START_RATE = 0.35      # a squad player, before we know anything else
+
+# --- The role prior (owner decision 2026-09-08) ------------------------------
+# A player's ROLE is the least persistent thing about him: a transfer, a new
+# manager, an injury to the man ahead of him, and last season's start rate says
+# nothing. Skill (the scoring rates above) carries over; role does not. So last
+# season's start rate enters the minutes model as at most ROLE_PRIOR_MATCHES
+# matches of evidence, and that weight HALVES with every match this season.
+# After three matches the season's own games carry ~85% of the answer and last
+# season under 15%; after five, under 5%. Within the season the games are
+# recency-weighted with a ROLE_HALF_LIFE-match half-life, so the last three
+# dominate the last ten. The case that forced it: Isak started all three
+# September games (90, 90, 63) and the model still called him a 27% starter,
+# because 8 starts in last season's 694 post-transfer minutes outvoted them
+# 38 matches to 3. Same failure as Sangaré and Watkins; the from_round notes
+# were a knowledge-layer patch over this gap.
+ROLE_PRIOR_MATCHES = 4.0     # last season's role, worth at most four matches
+ROLE_PRIOR_DECAY = 0.5       # ...and halved by every match this season
+ROLE_HALF_LIFE = 3.0         # a start three matches ago counts half a start now
 
 
 def hist_rate_of(starts, matches) -> float:
@@ -346,7 +403,8 @@ def _defcon_rate(player: dict, backfill: dict | None) -> float:
 
 
 def build_with_flags(players: list[dict], team_matches: int,
-                     defcon_backfill: dict[int, dict] | None = None
+                     defcon_backfill: dict[int, dict] | None = None,
+                     form_history: dict | None = None
                      ) -> tuple[dict[str, list], list[dict]]:
     """Build priors grouped by club, plus a list of cold-start flags for preflight.
 
@@ -360,10 +418,15 @@ def build_with_flags(players: list[dict], team_matches: int,
     are unaffected: they get bootstrap's own defcon_per90 (0.0 preseason) exactly
     as before.
 
+    `form_history` is the form-history cache ({element id: per-gameweek rows},
+    str or int keys); it feeds the minutes model's recency weighting and is
+    optional -- without it the start rate falls back to season aggregates.
+
     Mutates `players` to disambiguate colliding names before anything else reads
     them -- see `_disambiguate_names`.
     """
     _disambiguate_names(players)
+    form_by_id = {int(k): v for k, v in (form_history or {}).items()}
 
     by_team: dict[str, list] = {}
     flags: list[dict] = []
@@ -375,7 +438,8 @@ def build_with_flags(players: list[dict], team_matches: int,
     for team, squad in grouped.items():
         weighted = []
         for p in squad:
-            start_prob, exp_minutes = minutes_model(p, team_matches)
+            start_prob, exp_minutes = minutes_model(
+                p, team_matches, history_rows=form_by_id.get(p.get("id")))
             xg90, xa90 = _rates(p)
             # A genuine cold start now means no history ANYWHERE — a player
             # with a preseason sample blends (see _rates) and must not be
@@ -411,7 +475,9 @@ def build_with_flags(players: list[dict], team_matches: int,
 
 
 def build(players: list[dict], team_matches: int,
-         defcon_backfill: dict[int, dict] | None = None) -> dict[str, list]:
+         defcon_backfill: dict[int, dict] | None = None,
+         form_history: dict | None = None) -> dict[str, list]:
     """build_with_flags without the flags, for callers that don't need preflight."""
-    by_team, _flags = build_with_flags(players, team_matches, defcon_backfill)
+    by_team, _flags = build_with_flags(players, team_matches, defcon_backfill,
+                                       form_history=form_history)
     return by_team

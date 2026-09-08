@@ -210,3 +210,27 @@ wins (GW2 and GW3); GW1 had no captured ep_next. There is no established
 2.8-point noise ceiling. Original entries remain as the audit trail.
 The original external GW3 comparison used different populations; corrected
 common-population grades must be versioned, never presented as original grades.
+
+
+## Role prior — 2026-09-08 (structural fix, closes the Sangaré/Watkins/Isak pattern)
+
+- Mistake: Isak started all three September games (90, 90, 63) and the GW4
+  preview card called him a 27% starter, 2.07 xPts, model rank 132nd. His GW2
+  note (start 0.88, "re-pin forward each week while Ekitiké is out") was
+  pinned to `round: 2` and nobody re-pinned it.
+- Root cause: the minutes model weighted last season's start rate by its match
+  count. 8 starts in 694 post-transfer minutes counted as 38 matches of
+  "fringe" against 3 matches of "starts every week". Third occurrence of the
+  same gap (Sangaré GW2, Watkins GW3); each time the fix was a research note,
+  i.e. a knowledge-layer patch over a model defect.
+- Structural fix (owner decision): last season's role is worth at most four
+  matches and halves with every match played this season; this season's
+  matches are recency-weighted with a three-match half-life from per-gameweek
+  starts (form-history cache now carries `starts`; refetched once). Skill
+  rates unchanged. Isak reads ~0.9 without any note.
+- Cost accepted: a nailed starter benched twice in a row now reads below 50%
+  (was >80%). That is a real role signal more often than not; the availability
+  gate still handles injuries separately.
+- Status: closed in code (`core/fpl_priors.py`), tests in
+  `tests/test_role_prior.py`. Watch item: promoted-club players with no
+  snapshot still start from the generic 0.35 prior.

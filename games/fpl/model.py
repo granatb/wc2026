@@ -632,8 +632,12 @@ def load_gameweek(gameweek: int, refresh: bool = False):
     # of FINISHED gameweeks, and fpl_priors blends the preseason snapshot in by
     # minutes so August still leans on last season.
     team_matches = sum(1 for e in events.values() if e.get("finished")) or 0
+    # The form-history cache (manage.py fpl --round N --form-history) is a
+    # model input since 2026-09-08: per-gameweek starts drive the minutes
+    # model's recency weighting. Cache read only; absent, aggregates stand in.
     priors_by_team, flags = fpl_priors.build_with_flags(
-        players, team_matches, defcon_backfill=defcon_backfill)
+        players, team_matches, defcon_backfill=defcon_backfill,
+        form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME))
     return priors_by_team, {p["name"]: p for p in players}, flags
 
 
