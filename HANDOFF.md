@@ -22,6 +22,17 @@ This is a dated checkpoint, not a claim about future repository or season state.
 Inspect current Git history, records, official deadlines and input freshness
 before acting. Do not assume GW4 is still the next gameweek when returning later.
 
+## Owner decisions after the checkpoint
+
+- **2026-09-08 — player cards are always visible.** A locked gameweek's build
+  renders *preview cards* for the next open gameweek (fresh simulation on
+  today's inputs, labelled with simulation date and deadline, JSON under
+  `/api/fpl/preview/`, replaced and deleted by Thursday's real build). The
+  landing carries no archive banner. The locked gameweek's own forecast
+  surfaces stay frozen/unavailable as before. See `evmax/fpl_build.py`
+  (`_preview_gameweek`, `_preview_payloads`), `tests/test_preview_cards.py`
+  and `docs/runbooks/monday-post-gw.md`.
+
 ## Immediate next actions
 
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.

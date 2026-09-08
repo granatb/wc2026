@@ -120,10 +120,14 @@ class HistoricalBuildTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp, \
                  patch.object(fpl_build.fpl_model, 'load_gameweek', side_effect=AssertionError('historical data reload')), \
                  patch.object(engine, 'simulate_round', side_effect=AssertionError('historical resimulation')):
-                fpl_build.build(1, 200, tmp, use_llm=False, live=False)
+                # preview=False: the preview cards are the one thing a locked
+                # build IS allowed to simulate (the next open gameweek); this
+                # test is about the locked gameweek's own board staying frozen.
+                fpl_build.build(1, 200, tmp, use_llm=False, live=False, preview=False)
                 dataset = json.loads((Path(tmp) / 'api/fpl/dataset/gw1.json').read_text())
                 self.assertEqual(dataset['status'], 'unavailable')
-                self.assertIn('Legacy archive', (Path(tmp) / 'index.html').read_text())
+                # No archive banner on the landing (owner decision 2026-09-08).
+                self.assertNotIn('Legacy archive', (Path(tmp) / 'index.html').read_text())
         finally:
             render.SITE_URL = site_url
 

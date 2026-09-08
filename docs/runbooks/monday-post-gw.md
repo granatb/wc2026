@@ -25,9 +25,20 @@ python3 -c "
 from core import fpl_api
 e = [x for x in fpl_api.read_cache('bootstrap')['events'] if x['id'] == N][0]
 print('GW average manager:', e['average_entry_score'], '· highest:', e.get('highest_score'))"
-python3 -m evmax.build --gw N --live && scripts/deploy.sh   # final realized panels
+python3 manage.py fpl --round N+1 --form-history           # the watermark is round-1: GW N's played dots for the cards
+python3 -m evmax.build --gw N --live && scripts/deploy.sh   # final realized panels + preview cards
 python3 scripts/indexnow_ping.py --out dist                 # tell the engines (deploy.sh already pings; explicit re-run form)
 ```
+
+The rebuild of a finished gameweek renders **preview cards for GW N+1** (owner
+decision 2026-09-08): the landing rows, `/fpl/players/`, the tier boards and
+every player page are a fresh simulation of the coming week on today's
+bootstrap and the cached `odds_gw{N+1}.json`, labelled "Preview" with the
+simulation date and the deadline. Their JSON lives under `/api/fpl/preview/`,
+never under `/api/fpl/gw{N+1}/` — that tree is the frozen record. Thursday's
+build replaces them with the real cards and deletes the preview tree. If
+`odds_gw{N+1}.json` is missing, the fixture boxes show unpriced; run the
+Thursday odds fetch early if you want priced previews.
 
 Collect: both squads' final totals (the build's live layer prints them into
 the duel strip), the GW average, and the cumulative season line. The claim

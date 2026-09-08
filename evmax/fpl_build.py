@@ -431,7 +431,7 @@ def squad_preflight(metas: dict) -> None:
 def build(gameweek: int, sims: int = 50_000, out: str = "dist",
           url: str = "https://evmax.ai", use_llm: bool = True,
           use_cache: bool = True, cache_dir: str = "data/articles",
-          live=None, player_pages_cap=None) -> None:
+          live=None, player_pages_cap=None, preview=None) -> None:
     """live: True = refresh the live feed and render the so-far layer;
     False = force it off; None (default) = auto — on mid-gameweek from the
     cached payload only (see _live_default / live_layer).
@@ -440,7 +440,15 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     written (the top N by x_points), so the end-to-end smoke build never pays
     for 563 pages. None (production) writes every player. The index and tier
     boards list the same capped set, so a capped build never links a page it
-    did not write."""
+    did not write.
+
+    preview: once this gameweek's deadline has passed, the player cards (the
+    landing rows, /fpl/players/, the tier boards and every player page) are
+    PREVIEW cards for the next open gameweek — a fresh simulation on today's
+    inputs, labelled as such (owner decision 2026-09-08: readers see cards at
+    all times; after the last game they see next week's). None = auto (on
+    when locked); False = off (tests, and a season with no open gameweek).
+    The locked gameweek's own forecast surfaces are never re-simulated."""
     render.SITE_URL = url
     section = render.FPL
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -545,8 +553,16 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # --- Player cards (STRATEGY §12 phase 1): assemble every player's payload
     # from the artifact + bootstrap + notes + horizon matrix + odds caches.
     # Assembled BEFORE the bulk feed so the feed can carry each player's page.
-    payloads, unmatched = (archive.get("player_payloads", []) if locked and archive else []), []
+    payloads, unmatched = [], []
     notes = {} if locked else research.load_entries("players", gameweek)
+    preview_meta, preview_rows, preview_notes = None, [], {}
+    if locked and preview is not False:
+        preview_gw = _preview_gameweek(boot)
+        if preview_gw:
+            (payloads, unmatched, preview_notes, preview_rows,
+             preview_meta) = _preview_payloads(preview_gw, sims, use_cache, boot)
+            print(f"  [fpl] gameweek {gameweek} is locked — player cards "
+                  f"preview gameweek {preview_gw} ({len(payloads)} players)")
     if not locked:
         notes = research.load_entries("players", gameweek)
         # Name -> "XI"/"Bench" for both published squads. The card's stance line
@@ -594,6 +610,32 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             for r in rows
         ],
     }, ensure_ascii=False, indent=2))
+    if preview_meta:
+        # The preview board's own feed — the /fpl/players/ search reads it
+        # while the cards are previews. Same derived-only shape as above.
+        w(fpl_players.PREVIEW_FEED_PATH, json.dumps({
+            "gameweek": preview_meta["gameweek"],
+            "preview": preview_meta,
+            "generated_at": preview_meta["as_of"],
+            "methodology": section.methodology,
+            "license": render.DATA_LICENSE_URL,
+            "coverage": "full",
+            "players": [
+                {"name": r["name"], "team": r.get("team"),
+                 "position": r.get("position"), "x_points": r["x_points"],
+                 "captain_ev": r["captain_ev"], "ceiling": r["ceiling"],
+                 "kickoff": r.get("kickoff"),
+                 "flag": _player_flag(r["name"], preview_notes),
+                 "page": page_by_name.get(r["name"])}
+                for r in preview_rows
+            ],
+        }, ensure_ascii=False, indent=2))
+    elif not locked:
+        # Thursday's real cards replace the preview; a stale preview tree must
+        # not outlive them in the cumulative dist/.
+        import shutil
+        shutil.rmtree(os.path.join(out, fpl_players.PREVIEW_API_BASE.lstrip("/")),
+                      ignore_errors=True)
 
     # --- The public CC BY dataset (phase 2B, spec P2/D3). EVERY simulated
     # player — `rows`, not the (possibly capped) page payloads — because the
@@ -611,24 +653,30 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
     # --- Player pages + per-player JSON + index + tier boards. Living
     # surfaces like the landing: regenerated every gameweek, never frozen.
+    cards_gw = preview_meta["gameweek"] if preview_meta else gameweek
+    cards_date = (_format_date(preview_meta["as_of"]) if preview_meta
+                  else date_str)
     for p in payloads:
-        w(fpl_players.json_path(gameweek, p["id"]), json.dumps(
+        w(fpl_players.payload_json_path(p), json.dumps(
             fpl_players.player_json(p, section.methodology, url,
                                     render.DATA_LICENSE_URL,
                                     render.DATA_LICENSE_TEXT),
             ensure_ascii=False, indent=2))
         w(f"{fpl_players.page_path(p['slug'])}index.html",
-          fpl_players.player_page_html(p, gameweek, date_str=date_str,
+          fpl_players.player_page_html(p, cards_gw, date_str=cards_date,
                                        methodology=section.methodology))
-    if not locked or archive:
+    if payloads:
         w(f"{fpl_players.PLAYERS_BASE}/index.html",
-      fpl_players.index_page_html(payloads, gameweek,
-                                  section.players_json_path(gameweek),
-                                  date_str=date_str))
-    for pos, _seg in ([] if locked and not archive else fpl_players.TIER_SEGMENTS):
-        w(f"{fpl_players.tier_path(pos)}index.html",
-          fpl_players.tier_page_html(pos, payloads, gameweek,
-                                     date_str=date_str))
+          fpl_players.index_page_html(
+              payloads, cards_gw,
+              (fpl_players.PREVIEW_FEED_PATH if preview_meta
+               else section.players_json_path(gameweek)),
+              date_str=cards_date, preview=preview_meta))
+        for pos, _seg in fpl_players.TIER_SEGMENTS:
+            w(f"{fpl_players.tier_path(pos)}index.html",
+              fpl_players.tier_page_html(pos, payloads, cards_gw,
+                                         date_str=cards_date,
+                                         preview=preview_meta))
 
     if locked and not archive:
         # Retire generated exports that cannot be proved to be pre-deadline.
@@ -640,9 +688,10 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                   '<p>Full player cards, distributions and tier boards were not frozen before this deadline. '
                   'We cannot reconstruct them as historical forecasts.</p>'
                   f'<p><a href="/fpl/gw{gameweek}/">Read the original published article forecasts</a></p></body></html>')
-        w('/fpl/players/index.html', notice)
-        for pos, _seg in fpl_players.TIER_SEGMENTS:
-            w(f'{fpl_players.tier_path(pos)}index.html', notice)
+        if not payloads:
+            w('/fpl/players/index.html', notice)
+            for pos, _seg in fpl_players.TIER_SEGMENTS:
+                w(f'{fpl_players.tier_path(pos)}index.html', notice)
         from pathlib import Path
         for path in (Path(out) / 'api' / 'fpl' / f'gw{gameweek}' / 'players').glob('*.json'):
             w('/' + str(path.relative_to(out)), json.dumps({
@@ -859,12 +908,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                   extra_style=(fpl_players.CARD_CSS +
                                                fpl_players.TOP_CARDS_CSS +
                                                render._NAV_SCROLL_CSS))
-    if locked and not archive:
-        notice = ('<aside style="padding:20px;background:#fff4db">'
-                  '<b>Legacy archive:</b> These are the original published article forecasts. '
-                  'A complete pre-deadline player board and player-card archive are unavailable. '
-                  'We do not regenerate missing historical predictions.</aside>')
-        landing = landing.replace('<body>', '<body>' + notice, 1)
+    # No archive banner on the landing (owner decision 2026-09-08). The
+    # dataset and per-gameweek API still declare a missing pre-deadline board
+    # as unavailable; the landing shows the preview cards instead of a notice.
     w(f"{section.base.format(r=gameweek)}/index.html", landing)
     # Owner decision 2026-07-30: FPL takes the root. The World Cup tree under
     # /round/N/ is untouched and stays live (spec D5) — its landing survives at
@@ -1017,6 +1063,74 @@ def _llms_player_lines(gameweek: int, count: int, url: str) -> list:
         "{element_id}.json — element ids and page URLs are in the players "
         "feed below.",
     ]
+
+
+def _preview_gameweek(boot, now=None):
+    """The first gameweek whose deadline is still ahead of us, or None.
+
+    Read from the cached bootstrap's events — the same clock the deadline
+    strip and forecast_archive use. A season with nothing left open (or an
+    empty cache) previews nothing, and the caller renders no cards rather
+    than stale ones."""
+    now = now or datetime.now(timezone.utc)
+    from core import forecast_archive
+    for e in sorted((boot or {}).get("events", []), key=lambda e: e.get("id", 0)):
+        dl = e.get("deadline_time")
+        if dl and forecast_archive.utc(dl) > now:
+            return e["id"]
+    return None
+
+
+def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
+    """Preview cards for `preview_gw`: the normal card pipeline run on the
+    next open gameweek from today's caches.
+
+    Returns (payloads, unmatched, notes, rows, meta). Every payload carries
+    `preview = meta` ({gameweek, as_of, deadline}) so each renderer labels
+    itself. Squad roles come from the two CURRENT state files — "we own him,
+    in our XI" reads as the squad stands today; Thursday's transfers land
+    with Thursday's cards. Nothing here touches the locked gameweek's frozen
+    surfaces, and nothing here reaches the network: a missing odds cache
+    prices the strip as unpriced, exactly as a Thursday build would."""
+    from core import forecast_archive
+    priors_by_team, players_by_name, _cold = fpl_model.load_gameweek(preview_gw)
+    all_players = fpl_api.parse_players(boot) if boot else []
+    states = load_states(all_players)
+    artifact, _hit = fpl_model.build_artifact(
+        priors_by_team, players_by_name, preview_gw, sims, use_cache=use_cache)
+    rows = artifact["rows"]
+    if not rows:
+        raise SystemExit(f"preview build: the simulation produced no players "
+                         f"for gameweek {preview_gw}; refresh the caches.")
+    start_probs = {p.name: p.start_prob
+                   for squad in priors_by_team.values() for p in squad}
+    rows = [dict(r, start_prob=start_probs.get(r["name"]),
+                 player_id=(players_by_name.get(r["name"]) or {}).get("id"),
+                 ep_next=(players_by_name.get(r["name"]) or {}).get("ep_next"))
+            for r in rows]
+    notes = research.load_entries("players", preview_gw)
+    squad_roles = {
+        key: {e["name"]: ("XI" if e.get("is_starter") else "Bench")
+              for e in states[key]["squad"]}
+        for key in SQUAD_LIVE_KEYS.values() if key in states}
+    fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
+                                         fpl_api.parse_teams(boot or {}))
+    generated_at = datetime.now(timezone.utc).isoformat()
+    payloads, unmatched = fpl_players.assemble_payloads(
+        rows, players_by_name,
+        {e["id"]: e for e in (boot or {}).get("elements", [])},
+        notes, squad_roles, _load_horizon_matrix(), fx_rows_all,
+        _odds_caches(preview_gw), preview_gw, generated_at,
+        form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME) or {})
+    try:
+        deadline_iso = forecast_archive.deadline(boot or {}, preview_gw).isoformat()
+    except ValueError:
+        deadline_iso = None
+    meta = {"gameweek": preview_gw, "as_of": generated_at,
+            "deadline": deadline_iso}
+    for p in payloads:
+        p["preview"] = meta
+    return payloads, unmatched, notes, rows, meta
 
 
 def _load_horizon_matrix():

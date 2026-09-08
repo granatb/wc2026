@@ -70,6 +70,56 @@ def json_path(gameweek: int, element_id: int) -> str:
     return f"/api/fpl/gw{gameweek}/players/{element_id}.json"
 
 
+# --- Preview cards (owner decision 2026-09-08) --------------------------------
+# Once a gameweek's deadline has passed its cards are history, and history is
+# not what a reader landing between the last whistle and Thursday wants. They
+# want the coming week. So a locked build renders PREVIEW cards for the next
+# gameweek: a fresh simulation on today's prices, odds and team news, labelled
+# as a preview and replaced by the real cards on Thursday. Preview JSON lives
+# under its own path, never under /api/fpl/gw{N}/ — that tree is the frozen
+# forecast record and the deploy validator treats it as evidence.
+PREVIEW_API_BASE = "/api/fpl/preview"
+PREVIEW_FEED_PATH = f"{PREVIEW_API_BASE}/players.json"
+
+
+def preview_json_path(element_id: int) -> str:
+    return f"{PREVIEW_API_BASE}/players/{element_id}.json"
+
+
+def payload_json_path(payload: dict) -> str:
+    """Where this payload's JSON twin is published: the preview tree for a
+    preview payload, the gameweek's frozen tree otherwise."""
+    if payload.get("preview"):
+        return preview_json_path(payload["id"])
+    return json_path(payload["gameweek"], payload["id"])
+
+
+def _short_date(iso: str) -> str:
+    from datetime import datetime as _dt
+    try:
+        t = _dt.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return iso or ""
+    return f"{t.day} {t.strftime('%B')}"
+
+
+def preview_note_html(preview: dict, cls: str = "tcf-preview") -> str:
+    """The one line every preview surface carries: which gameweek, simulated
+    when, refreshed when. Empty string for a non-preview payload."""
+    if not preview:
+        return ""
+    from evmax import render
+    gw = preview.get("gameweek")
+    when = _short_date(preview.get("as_of") or "")
+    deadline = preview.get("deadline")
+    tail = (f" We refresh these cards on Thursday, before the "
+            f"{render._format_deadline(deadline)} deadline." if deadline
+            else " We refresh these cards on Thursday, before the deadline.")
+    return (f'<p class="{cls}"><b>Preview</b> Gameweek {gw} cards, simulated '
+            f'{_html.escape(when)} from today\'s prices, odds and team news.'
+            f'{_html.escape(tail)}</p>')
+
+
 def tier_path(position: str) -> str:
     return f"{TIERS_BASE}/{_SEGMENT_BY_POS[position]}/"
 
@@ -663,6 +713,11 @@ CARD_CSS = (
     "font-size:14.5px;font-variant-numeric:tabular-nums}"
     ".pd-table td:last-child{text-align:right;font-weight:700}"
     ".pc-provenance{font-size:13px;color:var(--ink3);margin:14px 0}"
+    ".pc-preview{display:block;margin:0 0 14px;padding:8px 12px;border:1px solid var(--line);"
+    "border-left:3px solid var(--acc);border-radius:8px;background:var(--surf);"
+    "font-size:13px;color:var(--ink2);max-width:72ch}"
+    ".pc-preview b{color:var(--acc);font-size:11px;font-weight:800;"
+    "letter-spacing:.8px;text-transform:uppercase;margin-right:8px}"
     # -- players index (search) ----------------------------------------------
     ".pi-search{margin:18px 0 8px}"
     "#player-search{width:100%;max-width:420px;font-family:var(--sans);"
@@ -716,6 +771,14 @@ TOP_CARDS_CSS = (
     ".tcf-intro{margin:6px 0 0;font-size:14px;color:var(--ink2);"
     "max-width:60ch}"
     ".tcf-key{margin:2px 0 6px;font-size:11.5px;color:var(--ink3)}"
+    # The preview note: one quiet line with an accent bar, not a banner. It
+    # states a fact about the numbers (when simulated, when replaced); it does
+    # not apologise for them.
+    ".tcf-preview{margin:0 0 16px;padding:8px 12px;border:1px solid var(--line);"
+    "border-left:3px solid var(--acc);border-radius:8px;background:var(--surf);"
+    "font-size:13px;color:var(--ink2);max-width:72ch}"
+    ".tcf-preview b{color:var(--acc);font-size:11px;font-weight:800;"
+    "letter-spacing:.8px;text-transform:uppercase;margin-right:8px}"
     ".tcf-check{margin:6px 0 0;font-size:13.5px;font-weight:600}"
     ".tcf-check a{color:var(--green)}"
     # THREE per row, not four. At four across each card got ~250px and every
@@ -1531,19 +1594,27 @@ def top_cards_html(payloads: list, count: int = 3) -> str:
     # be more visible", owner 2026-08-27). The duel is the product; the crowd
     # rows are the argument around it.
     blocks = []
+    # Between the last whistle and Thursday the cards preview the NEXT
+    # gameweek (owner decision 2026-09-08: "users see the cards at all
+    # times"). The rows say so in their headings, and one note above them
+    # says when the numbers were simulated and when they get replaced.
+    preview = (payloads[0].get("preview") or None) if payloads else None
+    gw_word = f"for gameweek {preview['gameweek']}" if preview else "this gameweek"
 
     ours = our_picks(payloads, count)
     if ours:
         blocks.append(_card_row(
-            "Our picks this gameweek",
-            "The players we actually field, from the squad we publish and "
-            "grade in public every week.",
+            f"Our picks {gw_word}" + (" · preview" if preview else ""),
+            ("The players we field as the squad stands today. Any transfer "
+             "we make lands with Thursday's final cards." if preview else
+             "The players we actually field, from the squad we publish and "
+             "grade in public every week."),
             [_card_cell(p) for p in ours], lead=True))
 
     buying = transfer_leaders(payloads, "in", count)
     if buying:
         blocks.append(_card_row(
-            "Most transferred in this gameweek",
+            f"Most transferred in {gw_word}",
             "Who the crowd is piling into, and what our model makes of each "
             "move.",
             [_card_cell(p, model_take(p, "in")) for p in buying]))
@@ -1551,14 +1622,15 @@ def top_cards_html(payloads: list, count: int = 3) -> str:
     selling = transfer_leaders(payloads, "out", count)
     if selling:
         blocks.append(_card_row(
-            "Most transferred out this gameweek",
+            f"Most transferred out {gw_word}",
             "Who is being dumped hardest. Where the model disagrees, it says "
             "so.",
             [_card_cell(p, model_take(p, "out")) for p in selling]))
 
     if not blocks:
         return ""
-    return (f'<section class="top-cards-full">{"".join(blocks)}'
+    return (f'<section class="top-cards-full">{preview_note_html(preview)}'
+            f'{"".join(blocks)}'
             f'<p class="tcf-key">Fixture boxes under the dots: the next opponent, coloured by difficulty — green easy, red hard, dashed grey not priced yet.</p>'
             f'<p class="tcf-check"><a href="{PLAYERS_BASE}/">Check your '
             f'player — search all cards →</a> · '
@@ -1607,14 +1679,16 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
     Regenerated every gameweek — never frozen."""
     name = payload["name"]
     proj = payload["projection"]
-    title = (f"{name} — FPL Gameweek {gameweek} projection, "
+    preview = payload.get("preview") or None
+    gw_label = f"Gameweek {gameweek}" + (" preview" if preview else "")
+    title = (f"{name} — FPL {gw_label} projection, "
              f"{_fmt(proj.get('x_points'))} xPts")
     description = (f"{name} ({payload['team']}, {payload['position']}): "
                    f"{_fmt(proj.get('x_points'))} expected points in Gameweek "
                    f"{gameweek}, tier {payload['verdict']['tier']}, "
                    f"£{_fmt(payload['price'], 1)}m. From 50,000 Monte-Carlo "
                    f"simulations, regenerated every gameweek.")
-    jpath = json_path(gameweek, payload["id"])
+    jpath = payload_json_path(payload)
     head_extra = (f'<link rel="alternate" type="application/json" '
                   f'href="{jpath}">\n')
 
@@ -1647,7 +1721,7 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
     table = ("".join(f'<tr><td>{_html.escape(k)}</td><td>{v}</td></tr>'
                      for k, v in rows))
     table_html = (f'<table class="pd-table"><thead><tr>'
-                  f'<th>Metric</th><th>Gameweek {gameweek}</th></tr></thead>'
+                  f'<th>Metric</th><th>{gw_label}</th></tr></thead>'
                   f'<tbody>{table}</tbody></table>')
 
     if payload["notes"]:
@@ -1679,9 +1753,10 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
 
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     body = f"""<article class="art">
-<div class="kick">Player card · Gameweek {gameweek}</div>
+<div class="kick">Player card · {gw_label}</div>
+{preview_note_html(preview, cls="pc-preview")}
 {card_html(payload)}
-<div class="meta"><span class="av">e</span><span>By the evmax model{byline_date} · regenerated every gameweek</span></div>
+<div class="meta"><span class="av">e</span><span>By the evmax model{byline_date} · {"preview, replaced by Thursday's final card" if preview else "regenerated every gameweek"}</span></div>
 <div class="prose">
 <h2>The data</h2>
 {table_html}
@@ -1724,7 +1799,7 @@ _INDEX_SORT_JS = """
 
 
 def index_page_html(payloads: list, gameweek: int, players_json_url: str,
-                    date_str: str = None) -> str:
+                    date_str: str = None, preview: dict = None) -> str:
     """/fpl/players/ — "Check your player": instant client-side search
     (first-party /js/players.js over the bulk players feed) over a no-JS
     ranked table fallback that always renders — every player in model-rank
@@ -1771,8 +1846,9 @@ def index_page_html(payloads: list, gameweek: int, players_json_url: str,
 
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     body = f"""<div class="rate-wrap" style="max-width:860px">
-<div class="pagelabel" style="margin-top:34px">Player cards · Gameweek {gameweek}</div>
+<div class="pagelabel" style="margin-top:34px">Player cards · Gameweek {gameweek}{" preview" if preview else ""}</div>
 <h1>Check your player</h1>
+{preview_note_html(preview, cls="pc-preview")}
 <p class="stand">Every player's card: this week's projection, ceiling, value
 and a verdict tier — regenerated each gameweek from 50,000 simulations.{byline_date}</p>
 <p class="pi-tablenote">The table below is every player in model-rank order, with
@@ -1803,7 +1879,7 @@ _POSITION_LABEL = {"GK": "Goalkeepers", "DEF": "Defenders",
 
 
 def tier_page_html(position: str, payloads: list, gameweek: int,
-                   date_str: str = None) -> str:
+                   date_str: str = None, preview: dict = None) -> str:
     """/fpl/tiers/{pos}/ — one plain, table-based board per position, players
     grouped S→D with letter, this-week xPts and price. The design pass will
     restyle; the scaffold keeps it legible and crawlable."""
@@ -1837,8 +1913,9 @@ def tier_page_html(position: str, payloads: list, gameweek: int,
 
     byline_date = f" · {_html.escape(date_str)}" if date_str else ""
     body = f"""<div class="rate-wrap" style="max-width:760px">
-<div class="pagelabel" style="margin-top:34px">Tier boards · Gameweek {gameweek}</div>
+<div class="pagelabel" style="margin-top:34px">Tier boards · Gameweek {gameweek}{" preview" if preview else ""}</div>
 <h1>{label}, tiered S to D</h1>
+{preview_note_html(preview, cls="pc-preview")}
 <p class="stand">Ranked within position by this gameweek's expected points:
 S is the top 5%, A the next 15%, B and C the middle 60%, D the rest.{byline_date}</p>
 {_tier_nav_html(active=position)}
