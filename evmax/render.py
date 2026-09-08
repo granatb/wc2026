@@ -2158,7 +2158,7 @@ def _quick_picks_html(picks: list) -> str:
 
 
 def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
-                        section=WC) -> str:
+                        section=WC, label=None, link=True) -> str:
     """The landing page's right-hand 'This round's ties' sidebar. fixtures is a
     list of match_predictions() entries (home/away/kickoff/p_home/p_draw/p_away/
     close/top_scoreline, and possibly finished/final_score).
@@ -2174,10 +2174,16 @@ def _fixtures_rail_html(round_no: int, fixtures: list, quick_picks=None,
     rows = "".join(_fixtures_rail_row(m) for m in fixtures)
     qp = _quick_picks_html(quick_picks) if quick_picks else ""
     fixtures_slug = "matches" if section.key == "round" else "ticker"
+    # `label` renames the list (a locked gameweek's landing previews the NEXT
+    # week's ties beside the preview cards, owner 2026-09-08); `link=False`
+    # drops the all-predictions link when the round has no fixture article yet.
+    all_link = (f'<a class="rail-link" href="{section.article_path(round_no, fixtures_slug)}">All match predictions →</a>'
+                if link else "")
+    title = _html.escape(label) if label else "This round's ties"
     content = (
-        f'{qp}<div class="pagelabel">This round\'s ties</div>'
+        f'{qp}<div class="pagelabel">{title}</div>'
         f'{rows}'
-        f'<a class="rail-link" href="{section.article_path(round_no, fixtures_slug)}">All match predictions →</a>'
+        f'{all_link}'
     )
     return (
         '<aside class="rail">'
@@ -2430,7 +2436,8 @@ def _format_deadline(iso: str) -> str:
 def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_picks=None,
                  available_rounds=None, live_xi=None, duel=None, section=WC,
                  pre_feed_html="", extra_style="", pre_content_html="",
-                 cards_html="", deadline_iso=None, duel_history=None):
+                 cards_html="", deadline_iso=None, duel_history=None,
+                 rail_label=None, rail_link=True):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2530,7 +2537,8 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
         # feat -> rail (folded) -> feed via the areas list, so the owner can
         # actually find the rail without scrolling to the very bottom.
         rail_html = _fixtures_rail_html(round_no, fixtures, quick_picks=quick_picks,
-                                        section=section)
+                                        section=section, label=rail_label,
+                                        link=rail_link)
         # The rail spans from the very top: the header strip is a grid area
         # too, so everything that is not the ties list sits in the left column
         # ("pull this round's ties all the way up and keep everything else to

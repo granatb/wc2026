@@ -109,7 +109,12 @@ class LockedBuildPreviewTest(unittest.TestCase):
         payloads = _preview_payloads()
         rows = [dict(p["projection"], name=p["name"], team=p["team"],
                      position=p["position"]) for p in payloads]
-        fake = (payloads, [], {}, rows, dict(PREVIEW))
+        matches = [{"match_id": "31", "home": "AVL", "away": "NFO",
+                    "kickoff": "2026-09-12T14:00:00+00:00", "exp_home_goals": 1.5,
+                    "exp_away_goals": 1.1, "exp_total": 2.6, "top_scoreline": "1-1",
+                    "p_home": 0.44, "p_draw": 0.27, "p_away": 0.29,
+                    "p_cs_home": 0.32, "p_cs_away": 0.23, "market": True}]
+        fake = (payloads, [], {}, rows, matches, dict(PREVIEW))
         site_url = render.SITE_URL
         try:
             with tempfile.TemporaryDirectory() as tmp, \
@@ -124,6 +129,11 @@ class LockedBuildPreviewTest(unittest.TestCase):
                 landing = (out / "index.html").read_text()
                 self.assertNotIn("Legacy archive", landing)
                 self.assertIn("Our picks for gameweek 4 · preview", landing)
+                # The ties rail follows the cards: next week's fixtures, no
+                # link to a fixture article that does not exist yet.
+                self.assertIn("Gameweek 4 ties · preview", landing)
+                self.assertIn("AVL", landing.split('class="rail-content"')[1][:3000])
+                self.assertNotIn("All match predictions", landing)
                 index = (out / "fpl/players/index.html").read_text()
                 self.assertIn("player-index-table", index)
                 self.assertNotIn("incomplete player archive", index)

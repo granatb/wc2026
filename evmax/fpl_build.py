@@ -555,11 +555,11 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # Assembled BEFORE the bulk feed so the feed can carry each player's page.
     payloads, unmatched = [], []
     notes = {} if locked else research.load_entries("players", gameweek)
-    preview_meta, preview_rows, preview_notes = None, [], {}
+    preview_meta, preview_rows, preview_notes, preview_matches = None, [], {}, []
     if locked and preview is not False:
         preview_gw = _preview_gameweek(boot)
         if preview_gw:
-            (payloads, unmatched, preview_notes, preview_rows,
+            (payloads, unmatched, preview_notes, preview_rows, preview_matches,
              preview_meta) = _preview_payloads(preview_gw, sims, use_cache, boot)
             print(f"  [fpl] gameweek {gameweek} is locked — player cards "
                   f"preview gameweek {preview_gw} ({len(payloads)} players)")
@@ -897,8 +897,16 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # events — the same source the runbook reads it from.
     deadline_iso = next((e.get("deadline_time") for e in boot.get("events", [])
                          if e.get("id") == gameweek), None) if boot else None
+    # The ties rail follows the cards: a locked gameweek's landing shows the
+    # coming week's fixtures beside the coming week's preview cards (the
+    # legacy path has no matches of its own; the archive path has last
+    # week's, which nobody landing after the final whistle needs).
+    rail_fixtures = preview_matches if preview_meta else matches
+    rail_label = (f"Gameweek {preview_meta['gameweek']} ties · preview"
+                  if preview_meta else None)
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
-                                  fixtures=matches, available_rounds=available,
+                                  fixtures=rail_fixtures, available_rounds=available,
+                                  rail_label=rail_label, rail_link=not preview_meta,
                                   duel=duel, section=section,
                                   cards_html=fpl_players.top_cards_html(payloads),
                                   deadline_iso=deadline_iso,
@@ -1085,7 +1093,7 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
     """Preview cards for `preview_gw`: the normal card pipeline run on the
     next open gameweek from today's caches.
 
-    Returns (payloads, unmatched, notes, rows, meta). Every payload carries
+    Returns (payloads, unmatched, notes, rows, matches, meta). Every payload carries
     `preview = meta` ({gameweek, as_of, deadline}) so each renderer labels
     itself. Squad roles come from the two CURRENT state files — "we own him,
     in our XI" reads as the squad stands today; Thursday's transfers land
@@ -1130,7 +1138,7 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
             "deadline": deadline_iso}
     for p in payloads:
         p["preview"] = meta
-    return payloads, unmatched, notes, rows, meta
+    return payloads, unmatched, notes, rows, artifact["matches"], meta
 
 
 def _load_horizon_matrix():
