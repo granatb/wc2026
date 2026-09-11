@@ -14,6 +14,19 @@ from games.fpl import model
 class ArchiveTests(unittest.TestCase):
     boot = {"events": [{"id": 4, "deadline_time": "2026-09-11T17:00:00Z"}]}
 
+    def test_integer_keyed_rows_survive_the_roundtrip(self):
+        # The real board: points distributions keyed by int. Numeric key
+        # order before the write, string order after it; the digest must be
+        # taken on the canonical (round-tripped) form or load() rejects the
+        # freeze it just wrote.
+        rows = [{"name": "A", "distribution": {15: 3, 3: 10, -1: 2, 10: 4}}]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(archive, "ROOT", Path(tmp)):
+            record = archive.freeze(4, {"rows": rows}, self.boot,
+                                    datetime(2026, 9, 10, tzinfo=timezone.utc))
+            loaded = archive.load(4)
+            self.assertEqual(loaded["artifact_id"], record["artifact_id"])
+            self.assertEqual(loaded["rows"][0]["distribution"]["15"], 3)
+
     def test_roundtrip_and_tamper_detection(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(archive, "ROOT", Path(tmp)):
             record = archive.freeze(4, {"rows": [{"player_id": 1, "x_points": 4}]}, self.boot,

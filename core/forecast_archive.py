@@ -55,6 +55,13 @@ def freeze(gw, payload, bootstrap, now=None):
     body = dict(payload, gameweek=gw, captured_at=now.isoformat(),
                 deadline=lock.isoformat(), model_version=MODEL_VERSION,
                 schema_version=1)
+    # Canonicalise through a JSON round trip BEFORE digesting. The rows carry
+    # integer-keyed dicts (the points distributions); json sorts those keys
+    # numerically on the way out and as strings on the way back in, so a
+    # digest of the live objects never matched the digest of the file and
+    # load() rejected every real freeze (found on the first production
+    # freeze, GW4, 2026-09-11).
+    body = json.loads(json.dumps(body, ensure_ascii=False, allow_nan=False))
     key = digest(body)
     record = dict(body, artifact_id=key)
     folder = ROOT / f"gw{gw}"

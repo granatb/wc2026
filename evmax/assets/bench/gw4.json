@@ -1,0 +1,7231 @@
+{
+ "gameweek": 4,
+ "taken_at": "2026-09-11T10:46:57.460336+00:00",
+ "sources": {
+  "evmax": "this repo, full pre-deadline forecast archive",
+  "ffiq": {
+   "url": "https://fantasyfootballiq.app/data/ffiq-projections-latest.json",
+   "attribution": "https://fantasyfootballiq.app",
+   "license": "Free to use in articles, videos, tools and research — attribution required: link to https://fantasyfootballiq.app",
+   "generated_at": "2026-09-11T00:15:09+00:00"
+  },
+  "ep_next": "official bootstrap-static at snapshot time",
+  "baselines": "season pts/appearance and last-4 mean, inputs frozen here"
+ },
+ "evmax": {
+  "Palmer|CHE": 7.75,
+  "Saka|ARS": 6.54,
+  "Haaland|MCI": 6.07,
+  "João Pedro|CHE": 5.9,
+  "Szoboszlai|LIV": 5.72,
+  "B.Fernandes|MUN": 5.43,
+  "Thiago|BRE": 5.3,
+  "Tavernier|BOU": 5.07,
+  "Calvert-Lewin|LEE": 5.02,
+  "Gibbs-White|NFO": 4.95,
+  "Isak|LIV": 4.95,
+  "Wirtz|LIV": 4.9,
+  "Gabriel|ARS": 4.77,
+  "Lacroix|CHE": 4.71,
+  "Barry|EVE": 4.68,
+  "Rogers|CHE": 4.66,
+  "Nketiah|CRY": 4.61,
+  "De Cuyper|BHA": 4.61,
+  "Groß|BHA": 4.51,
+  "Calafiori|ARS": 4.5,
+  "Buendía|AVL": 4.4,
+  "Martinez|CHE": 4.38,
+  "Virgil|LIV": 4.38,
+  "Henderson|CRY": 4.3,
+  "Raya|ARS": 4.27,
+  "Mbeumo|MUN": 4.27,
+  "Richards|CRY": 4.22,
+  "Wissa|NEW": 4.21,
+  "Van Hecke|TOT": 4.18,
+  "White|ARS": 4.17,
+  "Evanilson|BOU": 4.16,
+  "Havertz|ARS": 4.12,
+  "Gomez|BHA": 4.04,
+  "Schade|BRE": 3.99,
+  "Barnes|NEW": 3.91,
+  "Neto|CHE": 3.86,
+  "Ødegaard|ARS": 3.8,
+  "Hall|NEW": 3.77,
+  "Gakpo|LIV": 3.76,
+  "Rice|ARS": 3.72,
+  "Maatsen|AVL": 3.71,
+  "Tel|TOT": 3.7,
+  "Mitchell|CRY": 3.69,
+  "N.Williams|NFO": 3.66,
+  "Kluivert|BOU": 3.66,
+  "Gonzalo|FUL": 3.64,
+  "Hato|CHE": 3.63,
+  "Wharton|CRY": 3.62,
+  "Van de Ven|TOT": 3.62,
+  "Canvot|CRY": 3.61,
+  "Scott|BOU": 3.6,
+  "A.Becker|LIV": 3.59,
+  "Dewsbury-Hall|EVE": 3.58,
+  "Khalaili|CRY": 3.57,
+  "Tarkowski|EVE": 3.54,
+  "Kerkez|LIV": 3.53,
+  "Vuskovic|BHA": 3.52,
+  "Stach|LEE": 3.52,
+  "Dunk|BHA": 3.51,
+  "Jacquet|LIV": 3.5,
+  "Muharemović|LEE": 3.48,
+  "Yeremy|CRY": 3.45,
+  "McGinn|AVL": 3.43,
+  "Justin|LEE": 3.43,
+  "Thiaw|NEW": 3.43,
+  "Rayan|BOU": 3.41,
+  "Fofana|CHE": 3.39,
+  "Truffert|BOU": 3.37,
+  "Barkley|AVL": 3.36,
+  "Marmoush|TOT": 3.36,
+  "Kinsky|TOT": 3.31,
+  "Semenyo|MCI": 3.31,
+  "Bogle|LEE": 3.3,
+  "Lavia|CHE": 3.29,
+  "Kamada|CRY": 3.25,
+  "Cunha|MUN": 3.24,
+  "Verbruggen|BHA": 3.23,
+  "Boscagli|BHA": 3.22,
+  "James|CHE": 3.21,
+  "Murillo|NFO": 3.2,
+  "Milenković|NFO": 3.19,
+  "Guéhi|MCI": 3.17,
+  "Lewis-Potter|BRE": 3.16,
+  "Kostoulas|BHA": 3.16,
+  "Awoniyi|COV": 3.14,
+  "Hill|BOU": 3.09,
+  "Botman|NEW": 3.07,
+  "Silva|BOU": 3.06,
+  "Enciso|IPS": 3.06,
+  "Ajer|BRE": 3.03,
+  "Cherki|MCI": 3.03,
+  "Trafford|LEE": 3.03,
+  "Horníček|NEW": 3.03,
+  "Petrović|BOU": 3.01,
+  "O.Dango|BRE": 2.99,
+  "Tonali|TOT": 2.99,
+  "L.Miley|NEW": 2.99,
+  "Pickford|EVE": 2.98,
+  "Ndiaye|MCI": 2.98,
+  "Elanga|NEW": 2.98,
+  "Pedro Porro|TOT": 2.96,
+  "Anderson|MCI": 2.96,
+  "Kelleher|BRE": 2.95,
+  "Janelt|BRE": 2.95,
+  "Thomas|COV": 2.94,
+  "Lindelöf|AVL": 2.93,
+  "McBurnie|HUL": 2.93,
+  "E.Le Fée|SUN": 2.92,
+  "Ampadu|LEE": 2.91,
+  "George|EVE": 2.88,
+  "N.Jackson|AVL": 2.86,
+  "Kayode|BRE": 2.86,
+  "Munoz|LIV": 2.85,
+  "Branthwaite|EVE": 2.85,
+  "F.Kadıoğlu|BHA": 2.85,
+  "Gusto|CHE": 2.83,
+  "Mykolenko|EVE": 2.79,
+  "Ballard|SUN": 2.79,
+  "Lammens|MUN": 2.79,
+  "Mac Allister|LIV": 2.77,
+  "Jair Cunha|NFO": 2.76,
+  "Aina|NFO": 2.74,
+  "McAtee|NFO": 2.74,
+  "Gvardiol|MCI": 2.74,
+  "Ndoye|NFO": 2.73,
+  "M.Sangaré|BRE": 2.72,
+  "Xhaka|SUN": 2.69,
+  "Tielemans|MUN": 2.69,
+  "Brobbey|SUN": 2.67,
+  "Diop|IPS": 2.66,
+  "Lukić|IPS": 2.66,
+  "Cash|AVL": 2.65,
+  "Davis|IPS": 2.65,
+  "Donnarumma|MCI": 2.65,
+  "Armstrong|EVE": 2.64,
+  "O'Shea|IPS": 2.63,
+  "Sels|NFO": 2.62,
+  "Acheampong|CHE": 2.62,
+  "Okafor|LEE": 2.62,
+  "Fatawu|IPS": 2.6,
+  "Damsgaard|BRE": 2.59,
+  "Maeda|IPS": 2.59,
+  "George Hemmings|AVL": 2.58,
+  "Bobb|FUL": 2.58,
+  "Mukiele|SUN": 2.57,
+  "Yalcouyé|BHA": 2.56,
+  "Scherpen|IPS": 2.55,
+  "King|FUL": 2.55,
+  "Khusanov|MCI": 2.49,
+  "Iwobi|FUL": 2.48,
+  "Kamara|AVL": 2.47,
+  "Röhl|EVE": 2.47,
+  "Lewis-Skelly|ARS": 2.47,
+  "Rúben|MCI": 2.47,
+  "Grimes|COV": 2.42,
+  "Suzuki|AVL": 2.41,
+  "Tzolis|ARS": 2.41,
+  "Robertson|TOT": 2.4,
+  "Konsa|ARS": 2.39,
+  "Smith|BOU": 2.37,
+  "Greaves|IPS": 2.36,
+  "Shaw|MUN": 2.35,
+  "Reinildo|SUN": 2.34,
+  "Maguire|MUN": 2.34,
+  "Belloumi|HUL": 2.32,
+  "Foden|MCI": 2.29,
+  "Dasilva|COV": 2.28,
+  "van Ewijk|COV": 2.27,
+  "Schlager|NFO": 2.23,
+  "Bentancur|TOT": 2.23,
+  "Frimpong|LIV": 2.22,
+  "Amenda|COV": 2.22,
+  "Willock|NEW": 2.21,
+  "Sadiki|SUN": 2.2,
+  "Ayari|BHA": 2.2,
+  "Palacios|FUL": 2.18,
+  "Colwill|CHE": 2.16,
+  "Emersonn|IPS": 2.14,
+  "Igor Jesus|NFO": 2.11,
+  "Rudoni|COV": 2.1,
+  "Mainoo|MUN": 2.1,
+  "Roefs|SUN": 2.09,
+  "Meunier|SUN": 2.09,
+  "Aaronson|LEE": 2.09,
+  "Slater|HUL": 2.08,
+  "Rashford|MUN": 2.07,
+  "Gallagher|TOT": 2.06,
+  "N.Angulo|SUN": 2.06,
+  "Bijol|LEE": 2.06,
+  "Dalot|MUN": 2.03,
+  "Leno|FUL": 2.02,
+  "Pau|AVL": 2.01,
+  "Rushworth|COV": 2.01,
+  "Sávio|TOT": 1.99,
+  "O'Reilly|MCI": 1.98,
+  "N.Gonzalez|NEW": 1.94,
+  "Dedić|NEW": 1.94,
+  "Egan|HUL": 1.93,
+  "Garner|EVE": 1.93,
+  "Enzo|MCI": 1.92,
+  "Robinson|FUL": 1.85,
+  "Gray|TOT": 1.85,
+  "Castagne|FUL": 1.83,
+  "Disasi|CRY": 1.73,
+  "Hume|SUN": 1.72,
+  "Senesi|TOT": 1.71,
+  "Tchaouna|COV": 1.71,
+  "Mings|AVL": 1.68,
+  "Bassey|FUL": 1.64,
+  "Onyeka|COV": 1.62,
+  "Elvedi|LEE": 1.62,
+  "Gudmundsson|LEE": 1.61,
+  "Delap|NFO": 1.6,
+  "Strand Larsen|CRY": 1.6,
+  "Palacios|IPS": 1.6,
+  "Ajayi|HUL": 1.59,
+  "Araujo|LIV": 1.57,
+  "Martinez|MUN": 1.56,
+  "Stroud|HUL": 1.54,
+  "Núñez|IPS": 1.52,
+  "Andersen|FUL": 1.52,
+  "Tanaka|LEE": 1.51,
+  "Mendy|HUL": 1.5,
+  "Mason-Clark|COV": 1.49,
+  "Udogie|TOT": 1.47,
+  "Tzolakis|HUL": 1.46,
+  "Johnson|EVE": 1.46,
+  "Cook|BOU": 1.44,
+  "Berge|FUL": 1.44,
+  "Fernandes|TOT": 1.43,
+  "Wilson|LEE": 1.42,
+  "Ngumoha|LIV": 1.36,
+  "Adams|BOU": 1.34,
+  "Yirenkyi|COV": 1.32,
+  "Muñoz|NFO": 1.31,
+  "Timber|CRY": 1.3,
+  "Anthony|BRE": 1.29,
+  "Gravenberch|LIV": 1.26,
+  "Giles|HUL": 1.22,
+  "Mosquera|ARS": 1.18,
+  "Tomiyasu|CRY": 1.16,
+  "Gourna-Douath|HUL": 1.15,
+  "Pinnock|COV": 1.15,
+  "McNeil|CRY": 1.13,
+  "Charles|FUL": 1.08,
+  "Simms|COV": 1.08,
+  "Bergvall|TOT": 1.07,
+  "Danso|SUN": 1.07,
+  "Anselmino|CHE": 1.01,
+  "Hackney|EVE": 1.01,
+  "Andrey Santos|MUN": 1.01,
+  "Dorgu|MUN": 1.0,
+  "Danns|LIV": 0.99,
+  "Steur|NEW": 0.99,
+  "Mbaye|AVL": 0.98,
+  "Thomas-Asante|COV": 0.98,
+  "I.Sangaré|NFO": 0.96,
+  "Lucky|LIV": 0.93,
+  "Georginio|BHA": 0.93,
+  "Svoboda|BHA": 0.92,
+  "Welbeck|CHE": 0.91,
+  "Ahanor|CRY": 0.91,
+  "Andrés|BHA": 0.91,
+  "McConnell|LIV": 0.9,
+  "Hadjam|BHA": 0.9,
+  "Harwood-Bellis|AVL": 0.89,
+  "Cherif|COV": 0.89,
+  "M.França|CRY": 0.88,
+  "Doucouré|CRY": 0.88,
+  "Williams-Barnett|TOT": 0.87,
+  "Lewis|MCI": 0.87,
+  "Rowe|AVL": 0.86,
+  "Coyle|HUL": 0.86,
+  "Gyökeres|ARS": 0.84,
+  "Mehmeti|IPS": 0.83,
+  "Florentino|IPS": 0.83,
+  "Hinshelwood|BHA": 0.83,
+  "Crooks|HUL": 0.82,
+  "Gboho|COV": 0.82,
+  "Bahoya|LEE": 0.82,
+  "Sanchez|BOU": 0.8,
+  "Vaz|HUL": 0.8,
+  "Palestra|CHE": 0.79,
+  "Bard|LEE": 0.79,
+  "Emegha|CHE": 0.78,
+  "Lienou|LEE": 0.78,
+  "Cresswell|LEE": 0.78,
+  "Shahar|NEW": 0.78,
+  "Shepherd|COV": 0.77,
+  "O.Richards|NFO": 0.76,
+  "Collins|BRE": 0.76,
+  "Graham|EVE": 0.76,
+  "Ji-soo|BRE": 0.75,
+  "Diouf|BRE": 0.75,
+  "Bruno G.|ARS": 0.75,
+  "Obi|MUN": 0.75,
+  "Allan|MCI": 0.75,
+  "Mazraoui|MUN": 0.74,
+  "J.Angulo|SUN": 0.73,
+  "Struijk|BHA": 0.73,
+  "Mouzakitis|HUL": 0.72,
+  "Akintola|HUL": 0.71,
+  "Gelhardt|HUL": 0.71,
+  "Kipré|IPS": 0.71,
+  "Heaven|MUN": 0.71,
+  "Ömür|HUL": 0.7,
+  "Ángel|FUL": 0.7,
+  "Samba|MCI": 0.7,
+  "Dowell|HUL": 0.69,
+  "Zambrano|HUL": 0.69,
+  "Zepa|FUL": 0.69,
+  "Ahoka|SUN": 0.69,
+  "Eze|ARS": 0.68,
+  "Zubimendi|ARS": 0.68,
+  "O'Nien|SUN": 0.67,
+  "Bidwell|COV": 0.67,
+  "Latibeaudiere|COV": 0.67,
+  "Methalie|SUN": 0.63,
+  "Brooks|BOU": 0.62,
+  "J.Cuenca|FUL": 0.62,
+  "Amass|MUN": 0.62,
+  "Garnacho|AVL": 0.6,
+  "Estêvão|CHE": 0.59,
+  "Hincapie|ARS": 0.58,
+  "Solanke|TOT": 0.55,
+  "J.Murphy|NEW": 0.55,
+  "Hudson-Odoi|NFO": 0.54,
+  "Keane|EVE": 0.54,
+  "Nmecha|LEE": 0.54,
+  "Kudus|TOT": 0.53,
+  "Šeško|MUN": 0.53,
+  "Matheus N.|MCI": 0.53,
+  "Yarmoliuk|BRE": 0.52,
+  "Affengruber|FUL": 0.52,
+  "O'Brien|EVE": 0.51,
+  "M.Bizot|AVL": 0.5,
+  "Merino|ARS": 0.5,
+  "Lerma|CRY": 0.49,
+  "Madueke|ARS": 0.49,
+  "Smith Rowe|FUL": 0.48,
+  "Grealish|EVE": 0.48,
+  "Azeez|BHA": 0.48,
+  "Wood|NFO": 0.47,
+  "Hughes|CRY": 0.47,
+  "Alderete|SUN": 0.47,
+  "Caicedo|CHE": 0.46,
+  "Akpom|IPS": 0.46,
+  "Abraham|AVL": 0.45,
+  "Clarke|IPS": 0.44,
+  "J.Ramsey|NEW": 0.44,
+  "Penders|CHE": 0.43,
+  "McCarthy|HUL": 0.43,
+  "Isidor|SUN": 0.43,
+  "Guessand|CRY": 0.4,
+  "Flemming|IPS": 0.4,
+  "Talbi|SUN": 0.4,
+  "Dominguez|NFO": 0.39,
+  "Christie|BOU": 0.39,
+  "De Fougerolles|FUL": 0.39,
+  "Gittens|CHE": 0.38,
+  "Walle Egeli|IPS": 0.38,
+  "Barcola|LIV": 0.38,
+  "Muniz|FUL": 0.38,
+  "David|BHA": 0.38,
+  "Yoro|MUN": 0.38,
+  "Longstaff|LEE": 0.38,
+  "Schär|NEW": 0.38,
+  "Livramento|NEW": 0.38,
+  "Henry|BRE": 0.37,
+  "Henderson|CHE": 0.37,
+  "Iroegbunam|HUL": 0.36,
+  "Sessegnon|FUL": 0.36,
+  "O'Riley|BHA": 0.36,
+  "Diakité|BOU": 0.35,
+  "Rodríguez|BOU": 0.35,
+  "Dowman|ARS": 0.35,
+  "Aït-Nouri|MCI": 0.35,
+  "Mount|MUN": 0.34,
+  "James|LEE": 0.34,
+  "Bogarde|AVL": 0.33,
+  "Wilson|BRE": 0.33,
+  "Barco|CHE": 0.33,
+  "Nyoni|LIV": 0.33,
+  "Kevin|FUL": 0.33,
+  "Rigg|SUN": 0.33,
+  "Quenda|CHE": 0.32,
+  "McAteer|IPS": 0.32,
+  "Koumas|LIV": 0.32,
+  "Tete|FUL": 0.32,
+  "Alcaraz|EVE": 0.32,
+  "Fernandez-Pardo|NEW": 0.32,
+  "Hickey|BRE": 0.31,
+  "Tosin|TOT": 0.31,
+  "Hjertø-Dahl|HUL": 0.3,
+  "Cho|HUL": 0.3,
+  "Thomas|HUL": 0.3,
+  "Gozo|CRY": 0.3,
+  "Osorio|CRY": 0.3,
+  "Torp|COV": 0.3,
+  "Zirkzee|MUN": 0.3,
+  "Touré|NEW": 0.3,
+  "Jebbison|BOU": 0.29,
+  "Carvalho|BRE": 0.29,
+  "Mheuka|CHE": 0.29,
+  "Tsimikas|LIV": 0.29,
+  "Endo|LIV": 0.29,
+  "Sakamoto|COV": 0.29,
+  "Kalimuendo|NFO": 0.28,
+  "Tóth.A|BOU": 0.28,
+  "Furlong|IPS": 0.28,
+  "Bouaddi|MCI": 0.28,
+  "Bamba|NEW": 0.28,
+  "Alysson|AVL": 0.27,
+  "Furo|BRE": 0.27,
+  "Mingueza|CRY": 0.27,
+  "Chilwell|CRY": 0.27,
+  "Larsson|FUL": 0.27,
+  "Mudryk|TOT": 0.27,
+  "Dibling|EVE": 0.27,
+  "Fofana|SUN": 0.27,
+  "Hamer|COV": 0.27,
+  "Costinha|BHA": 0.27,
+  "McAidoo|MCI": 0.27,
+  "Burrowes|AVL": 0.26,
+  "Yates|NFO": 0.26,
+  "Gannon-Doak|BOU": 0.26,
+  "Drakes-Thomas|CRY": 0.26,
+  "Davies|TOT": 0.26,
+  "Osman|BHA": 0.26,
+  "Kovačić|MCI": 0.26,
+  "Cairns|LEE": 0.26,
+  "Wan-Bissaka|AVL": 0.25,
+  "Netz|NFO": 0.25,
+  "Diomande|NFO": 0.25,
+  "Schuster|BRE": 0.25,
+  "Ouattara|IPS": 0.25,
+  "Reed|FUL": 0.25,
+  "Coppola|BHA": 0.25,
+  "Oriola|BHA": 0.25,
+  "Vitor Reis|MCI": 0.25,
+  "Zetterer|LEE": 0.25,
+  "Gillespie|NEW": 0.25,
+  "A.García|AVL": 0.24,
+  "Watkins|AVL": 0.24,
+  "Chavarria|CHE": 0.24,
+  "Kusi-Asare|FUL": 0.24,
+  "Jocelin.T|SUN": 0.24,
+  "Braithwaite|MCI": 0.24,
+  "Ruggeri|AVL": 0.23,
+  "Olusesi|TOT": 0.23,
+  "Meslier|ARS": 0.23,
+  "Soler|BOU": 0.22,
+  "Davies|LIV": 0.22,
+  "Maitland-Niles|EVE": 0.22,
+  "Austin|TOT": 0.21,
+  "Lacey|MUN": 0.21,
+  "Fletcher|MUN": 0.21,
+  "McNair|HUL": 0.2,
+  "Targett|HUL": 0.2,
+  "Norton-Cuffy|HUL": 0.2,
+  "Walton|IPS": 0.2,
+  "Palmer|IPS": 0.2,
+  "Button|IPS": 0.2,
+  "Byfield|TOT": 0.2,
+  "Rowswell|TOT": 0.2,
+  "J.Fletcher|MUN": 0.2,
+  "Bendito Mantato|MUN": 0.2,
+  "Benda|NFO": 0.19,
+  "Matthews|CRY": 0.19,
+  "Maddison|TOT": 0.19,
+  "Wilson|COV": 0.19,
+  "Bentley|COV": 0.18,
+  "Steele|BHA": 0.18,
+  "Herrington|HUL": 0.17,
+  "J.Timber|ARS": 0.17,
+  "Phillips|HUL": 0.16,
+  "Bettinelli|MCI": 0.16,
+  "Rulli|MCI": 0.16,
+  "Forster|BOU": 0.15,
+  "King|EVE": 0.15,
+  "Di Gregorio|BOU": 0.14,
+  "Travers|EVE": 0.14,
+  "Lecomte|FUL": 0.1,
+  "Jaouen|NEW": 0.09,
+  "Gruev|LEE": 0.08,
+  "Dubravka|TOT": 0.07,
+  "Pope|NEW": 0.07,
+  "Darlow|MUN": 0.03,
+  "Mamardashvili|LIV": 0.01,
+  "Digne|AVL": 0.0,
+  "Nedeljkovic|AVL": 0.0,
+  "Bailey|AVL": 0.0,
+  "Onana|AVL": 0.0,
+  "Iling Jr|AVL": 0.0,
+  "Manzambi|AVL": 0.0,
+  "Gomes|AVL": 0.0,
+  "Madjo|AVL": 0.0,
+  "Lynch|AVL": 0.0,
+  "Goretzka|AVL": 0.0,
+  "John|NFO": 0.0,
+  "Morato|NFO": 0.0,
+  "Savona|NFO": 0.0,
+  "Abbott|NFO": 0.0,
+  "Bindon|NFO": 0.0,
+  "Hutchinson|NFO": 0.0,
+  "Bakwa|NFO": 0.0,
+  "Dennis|BOU": 0.0,
+  "Milosavljević|BOU": 0.0,
+  "J.Araujo|BOU": 0.0,
+  "Adli|BOU": 0.0,
+  "Kroupi.Jr|BOU": 0.0,
+  "Enes Ünal|BOU": 0.0,
+  "Valdimarsson|BRE": 0.0,
+  "Van den Berg|BRE": 0.0,
+  "Jensen|BRE": 0.0,
+  "Milambo|BRE": 0.0,
+  "Dasilva|BRE": 0.0,
+  "Sánchez|CHE": 0.0,
+  "Jörgensen|CHE": 0.0,
+  "Chalobah|CHE": 0.0,
+  "B.Badiashile|CHE": 0.0,
+  "M.Sarr|CHE": 0.0,
+  "D.Essugo|CHE": 0.0,
+  "Marc Guiu|CHE": 0.0,
+  "Butland|HUL": 0.0,
+  "Cartwright|HUL": 0.0,
+  "Lo-Tutala|HUL": 0.0,
+  "Hughes|HUL": 0.0,
+  "Drameh|HUL": 0.0,
+  "Jacob|HUL": 0.0,
+  "Millar|HUL": 0.0,
+  "Matazo|HUL": 0.0,
+  "Kamara|HUL": 0.0,
+  "Gyabi|HUL": 0.0,
+  "Destan|HUL": 0.0,
+  "Burstow|HUL": 0.0,
+  "Morita|HUL": 0.0,
+  "Ansah|HUL": 0.0,
+  "Benitez|CRY": 0.0,
+  "Sosa|CRY": 0.0,
+  "Chadi Riad|CRY": 0.0,
+  "Sarr|CRY": 0.0,
+  "Devenny|CRY": 0.0,
+  "Esse|CRY": 0.0,
+  "J.Rak-Sakyi|CRY": 0.0,
+  "Cardines|CRY": 0.0,
+  "Mateta|CRY": 0.0,
+  "Uche|CRY": 0.0,
+  "Johnson|IPS": 0.0,
+  "Matusiwa|IPS": 0.0,
+  "Burns|IPS": 0.0,
+  "Taylor|IPS": 0.0,
+  "Ogbene|IPS": 0.0,
+  "Hirst|IPS": 0.0,
+  "Philogene|IPS": 0.0,
+  "Szmodics|IPS": 0.0,
+  "Al-Hamadi|IPS": 0.0,
+  "Van Oevelen|IPS": 0.0,
+  "Humphreys|IPS": 0.0,
+  "Woodman|LIV": 0.0,
+  "Pecsi|LIV": 0.0,
+  "Jaros|LIV": 0.0,
+  "Gomez|LIV": 0.0,
+  "Bradley|LIV": 0.0,
+  "Leoni|LIV": 0.0,
+  "Ramsay|LIV": 0.0,
+  "Chiesa|LIV": 0.0,
+  "C.Jones|LIV": 0.0,
+  "Bajcetic|LIV": 0.0,
+  "Ekitiké|LIV": 0.0,
+  "Elliott|LIV": 0.0,
+  "McNally|FUL": 0.0,
+  "Cairney|FUL": 0.0,
+  "Vicario|TOT": 0.0,
+  "Romero|TOT": 0.0,
+  "Spence|TOT": 0.0,
+  "Phillips|TOT": 0.0,
+  "Souza|TOT": 0.0,
+  "Xavi|TOT": 0.0,
+  "Odobert|TOT": 0.0,
+  "P.M.Sarr|TOT": 0.0,
+  "Kulusevski|TOT": 0.0,
+  "Moore|TOT": 0.0,
+  "Richarlison|TOT": 0.0,
+  "Scarlett|TOT": 0.0,
+  "Nørgaard|EVE": 0.0,
+  "Patterson|EVE": 0.0,
+  "Aznou|EVE": 0.0,
+  "Beto|EVE": 0.0,
+  "Patterson|SUN": 0.0,
+  "Ellborg|SUN": 0.0,
+  "Seelt|SUN": 0.0,
+  "Hjelde|SUN": 0.0,
+  "Masuaku|SUN": 0.0,
+  "Diarra|SUN": 0.0,
+  "Adingra|SUN": 0.0,
+  "Mundle|SUN": 0.0,
+  "Arrizabalaga|ARS": 0.0,
+  "Saliba|ARS": 0.0,
+  "Martinelli|ARS": 0.0,
+  "Nwaneri|ARS": 0.0,
+  "Fábio Vieira|ARS": 0.0,
+  "Nelson|ARS": 0.0,
+  "G.Jesus|ARS": 0.0,
+  "Dovin|COV": 0.0,
+  "Kitching|COV": 0.0,
+  "Kesler-Hayden|COV": 0.0,
+  "Woolfenden|COV": 0.0,
+  "Brau|COV": 0.0,
+  "Eccles|COV": 0.0,
+  "Borges Rodrigues|COV": 0.0,
+  "Andrews|COV": 0.0,
+  "Wright|COV": 0.0,
+  "Markelo|COV": 0.0,
+  "Bassette|COV": 0.0,
+  "Igor|BHA": 0.0,
+  "Mitoma|BHA": 0.0,
+  "Minteh|BHA": 0.0,
+  "Buonanotte|BHA": 0.0,
+  "Wieffer|BHA": 0.0,
+  "Howell|BHA": 0.0,
+  "Watson|BHA": 0.0,
+  "Yohanna|BHA": 0.0,
+  "Tzimas|BHA": 0.0,
+  "Ferguson|BHA": 0.0,
+  "Cozier-Duberry|BHA": 0.0,
+  "Baleba|MUN": 0.0,
+  "Bayindir|MUN": 0.0,
+  "Heaton|MUN": 0.0,
+  "De Ligt|MUN": 0.0,
+  "Fredricson|MUN": 0.0,
+  "Amad|MUN": 0.0,
+  "Ugarte|MUN": 0.0,
+  "Collyer|MUN": 0.0,
+  "Alleyne|MCI": 0.0,
+  "Doku|MCI": 0.0,
+  "Rodrigo|MCI": 0.0,
+  "Reijnders|MCI": 0.0,
+  "Echeverri|MCI": 0.0,
+  "Phillips|MCI": 0.0,
+  "Mukasa|MCI": 0.0,
+  "Monga|MCI": 0.0,
+  "Perri|LEE": 0.0,
+  "Rodon|LEE": 0.0,
+  "Bornauw|LEE": 0.0,
+  "Gnonto|LEE": 0.0,
+  "Harrison|LEE": 0.0,
+  "Piroe|LEE": 0.0,
+  "Mateo Joseph|LEE": 0.0,
+  "Burn|NEW": 0.0,
+  "A.Murphy|NEW": 0.0,
+  "Joelinton|NEW": 0.0,
+  "Woltemade|NEW": 0.0,
+  "Osula|NEW": 0.0,
+  "Neave|NEW": 0.0
+ },
+ "ffiq": {
+  "Raya|ARS": 4.1,
+  "Arrizabalaga|ARS": 0.5,
+  "Meslier|ARS": 0.3,
+  "Gabriel|ARS": 4.9,
+  "J.Timber|ARS": 0.9,
+  "Saliba|ARS": 0.0,
+  "Lewis-Skelly|ARS": 2.5,
+  "Calafiori|ARS": 4.4,
+  "Hincapie|ARS": 1.1,
+  "White|ARS": 4.4,
+  "Mosquera|ARS": 1.0,
+  "Saka|ARS": 4.2,
+  "Rice|ARS": 3.6,
+  "Eze|ARS": 0.9,
+  "Ødegaard|ARS": 4.1,
+  "Madueke|ARS": 0.6,
+  "Merino|ARS": 0.5,
+  "Martinelli|ARS": 0.0,
+  "Zubimendi|ARS": 0.9,
+  "Dowman|ARS": 0.8,
+  "Nwaneri|ARS": 0.0,
+  "Fábio Vieira|ARS": 0.0,
+  "Nelson|ARS": 0.0,
+  "Gyökeres|ARS": 0.9,
+  "Havertz|ARS": 3.0,
+  "G.Jesus|ARS": 0.0,
+  "Konsa|ARS": 3.3,
+  "Bruno G.|ARS": 1.1,
+  "Tzolis|ARS": 2.6,
+  "M.Bizot|AVL": 0.3,
+  "Digne|AVL": 0.0,
+  "Cash|AVL": 3.5,
+  "Mings|AVL": 3.2,
+  "Pau|AVL": 1.7,
+  "Bogarde|AVL": 0.4,
+  "Maatsen|AVL": 3.6,
+  "Lindelöf|AVL": 3.3,
+  "A.García|AVL": 0.1,
+  "Nedeljkovic|AVL": 0.0,
+  "Buendía|AVL": 3.4,
+  "Bailey|AVL": 0.0,
+  "McGinn|AVL": 3.1,
+  "Barkley|AVL": 2.9,
+  "Kamara|AVL": 2.5,
+  "Onana|AVL": 0.0,
+  "Iling Jr|AVL": 0.0,
+  "Burrowes|AVL": 0.1,
+  "George Hemmings|AVL": 2.5,
+  "Alysson|AVL": 0.4,
+  "Manzambi|AVL": 0.4,
+  "Gomes|AVL": 0.0,
+  "Watkins|AVL": 0.0,
+  "Abraham|AVL": 0.3,
+  "Garnacho|AVL": 0.8,
+  "N.Jackson|AVL": 2.2,
+  "Madjo|AVL": 0.0,
+  "Ruggeri|AVL": 0.1,
+  "Suzuki|AVL": 2.2,
+  "Rowe|AVL": 1.5,
+  "Lynch|AVL": 0.0,
+  "Wan-Bissaka|AVL": 1.0,
+  "Goretzka|AVL": 0.4,
+  "Harwood-Bellis|AVL": 0.4,
+  "Mbaye|AVL": 0.6,
+  "Petrović|BOU": 3.8,
+  "Forster|BOU": 1.3,
+  "Dennis|BOU": 0.0,
+  "Hill|BOU": 4.8,
+  "Truffert|BOU": 4.3,
+  "Diakité|BOU": 1.3,
+  "Milosavljević|BOU": 0.0,
+  "Smith|BOU": 3.2,
+  "J.Araujo|BOU": 0.0,
+  "Soler|BOU": 0.4,
+  "Rayan|BOU": 3.7,
+  "Tavernier|BOU": 5.3,
+  "Scott|BOU": 4.3,
+  "Kluivert|BOU": 3.7,
+  "Cook|BOU": 1.3,
+  "Gannon-Doak|BOU": 0.4,
+  "Adams|BOU": 2.2,
+  "Brooks|BOU": 1.0,
+  "Christie|BOU": 0.8,
+  "Tóth.A|BOU": 0.5,
+  "Adli|BOU": 0.0,
+  "Kroupi.Jr|BOU": 0.0,
+  "Evanilson|BOU": 3.3,
+  "Enes Ünal|BOU": 0.0,
+  "Rodríguez|BOU": 0.7,
+  "Silva|BOU": 3.2,
+  "Sanchez|BOU": 0.8,
+  "Jebbison|BOU": 0.6,
+  "Di Gregorio|BOU": 0.3,
+  "Kelleher|BRE": 3.3,
+  "Valdimarsson|BRE": 0.0,
+  "Collins|BRE": 1.1,
+  "Van den Berg|BRE": 0.0,
+  "Lewis-Potter|BRE": 3.6,
+  "Ajer|BRE": 3.2,
+  "Kayode|BRE": 2.3,
+  "Henry|BRE": 0.4,
+  "Hickey|BRE": 0.6,
+  "Ji-soo|BRE": 0.0,
+  "Schuster|BRE": 1.6,
+  "Schade|BRE": 3.3,
+  "O.Dango|BRE": 1.4,
+  "Damsgaard|BRE": 3.2,
+  "Jensen|BRE": 0.0,
+  "Janelt|BRE": 3.3,
+  "Milambo|BRE": 0.0,
+  "Carvalho|BRE": 0.2,
+  "Yarmoliuk|BRE": 0.8,
+  "Dasilva|BRE": 0.0,
+  "Anthony|BRE": 1.9,
+  "Thiago|BRE": 3.6,
+  "Furo|BRE": 0.0,
+  "Wilson|BRE": 0.6,
+  "M.Sangaré|BRE": 2.3,
+  "Diouf|BRE": 0.9,
+  "Verbruggen|BHA": 4.5,
+  "Steele|BHA": 0.1,
+  "F.Kadıoğlu|BHA": 4.5,
+  "Boscagli|BHA": 5.1,
+  "De Cuyper|BHA": 6.4,
+  "Dunk|BHA": 4.5,
+  "Coppola|BHA": 0.7,
+  "Igor|BHA": 0.0,
+  "Costinha|BHA": 0.2,
+  "Svoboda|BHA": 0.9,
+  "Mitoma|BHA": 0.0,
+  "Minteh|BHA": 0.0,
+  "Hinshelwood|BHA": 0.4,
+  "Groß|BHA": 6.0,
+  "Georginio|BHA": 1.0,
+  "O'Riley|BHA": 0.3,
+  "Gomez|BHA": 4.5,
+  "Buonanotte|BHA": 0.0,
+  "Ayari|BHA": 3.2,
+  "Wieffer|BHA": 0.0,
+  "Howell|BHA": 0.0,
+  "Watson|BHA": 0.0,
+  "Oriola|BHA": 0.0,
+  "Yohanna|BHA": 0.0,
+  "Tzimas|BHA": 0.0,
+  "Kostoulas|BHA": 2.6,
+  "Ferguson|BHA": 0.0,
+  "Struijk|BHA": 1.4,
+  "Vuskovic|BHA": 4.6,
+  "David|BHA": 0.3,
+  "Osman|BHA": 0.1,
+  "Yalcouyé|BHA": 2.3,
+  "Hadjam|BHA": 0.7,
+  "Cozier-Duberry|BHA": 0.0,
+  "Andrés|BHA": 0.6,
+  "Azeez|BHA": 0.3,
+  "Martinez|CHE": 3.1,
+  "Rogers|CHE": 7.0,
+  "Henderson|CHE": 1.0,
+  "Welbeck|CHE": 1.6,
+  "Sánchez|CHE": 0.0,
+  "Jörgensen|CHE": 0.0,
+  "James|CHE": 3.4,
+  "Chalobah|CHE": 0.0,
+  "Gusto|CHE": 1.5,
+  "Fofana|CHE": 3.0,
+  "B.Badiashile|CHE": 0.0,
+  "Hato|CHE": 2.4,
+  "Colwill|CHE": 1.9,
+  "M.Sarr|CHE": 0.0,
+  "Acheampong|CHE": 1.4,
+  "Palestra|CHE": 0.5,
+  "Palmer|CHE": 6.4,
+  "Neto|CHE": 4.3,
+  "Estêvão|CHE": 0.9,
+  "Gittens|CHE": 1.0,
+  "Caicedo|CHE": 1.2,
+  "Lavia|CHE": 2.0,
+  "D.Essugo|CHE": 0.0,
+  "Quenda|CHE": 0.8,
+  "João Pedro|CHE": 6.4,
+  "Marc Guiu|CHE": 0.0,
+  "Mheuka|CHE": 0.6,
+  "Emegha|CHE": 0.5,
+  "Lacroix|CHE": 3.9,
+  "Penders|CHE": 0.3,
+  "Anselmino|CHE": 0.6,
+  "Barco|CHE": 0.8,
+  "Chavarria|CHE": 0.7,
+  "Pinnock|COV": 2.0,
+  "Onyeka|COV": 2.0,
+  "Rushworth|COV": 2.4,
+  "Dovin|COV": 0.0,
+  "Wilson|COV": 0.2,
+  "Thomas|COV": 2.9,
+  "Kitching|COV": 0.0,
+  "van Ewijk|COV": 2.9,
+  "Dasilva|COV": 2.3,
+  "Kesler-Hayden|COV": 0.0,
+  "Bidwell|COV": 0.5,
+  "Latibeaudiere|COV": 0.5,
+  "Woolfenden|COV": 0.0,
+  "Brau|COV": 0.0,
+  "Amenda|COV": 2.2,
+  "Rudoni|COV": 1.7,
+  "Grimes|COV": 2.6,
+  "Sakamoto|COV": 0.2,
+  "Mason-Clark|COV": 1.7,
+  "Eccles|COV": 0.5,
+  "Torp|COV": 0.2,
+  "Shepherd|COV": 0.4,
+  "Tchaouna|COV": 1.0,
+  "Borges Rodrigues|COV": 0.0,
+  "Andrews|COV": 0.0,
+  "Wright|COV": 0.0,
+  "Thomas-Asante|COV": 0.8,
+  "Simms|COV": 1.1,
+  "Markelo|COV": 0.0,
+  "Bassette|COV": 0.0,
+  "Awoniyi|COV": 2.3,
+  "Yirenkyi|COV": 1.0,
+  "Hamer|COV": 0.2,
+  "Cherif|COV": 0.6,
+  "Bentley|COV": 0.2,
+  "Guessand|CRY": 0.9,
+  "Disasi|CRY": 1.7,
+  "Henderson|CRY": 2.3,
+  "Benitez|CRY": 0.8,
+  "Richards|CRY": 2.8,
+  "Canvot|CRY": 2.9,
+  "Mitchell|CRY": 4.8,
+  "Sosa|CRY": 0.0,
+  "Chadi Riad|CRY": 0.0,
+  "Mingueza|CRY": 0.7,
+  "Sarr|CRY": 0.0,
+  "Wharton|CRY": 4.2,
+  "Yeremy|CRY": 5.1,
+  "Hughes|CRY": 1.0,
+  "Lerma|CRY": 1.5,
+  "Kamada|CRY": 3.6,
+  "Devenny|CRY": 0.0,
+  "Esse|CRY": 0.0,
+  "M.França|CRY": 0.8,
+  "Doucouré|CRY": 0.8,
+  "J.Rak-Sakyi|CRY": 1.0,
+  "Cardines|CRY": 0.0,
+  "Drakes-Thomas|CRY": 0.6,
+  "Strand Larsen|CRY": 2.7,
+  "Mateta|CRY": 0.0,
+  "Nketiah|CRY": 3.2,
+  "Uche|CRY": 0.0,
+  "McNeil|CRY": 1.5,
+  "Matthews|CRY": 0.3,
+  "Tomiyasu|CRY": 0.7,
+  "Khalaili|CRY": 2.6,
+  "Gozo|CRY": 0.7,
+  "Ahanor|CRY": 0.5,
+  "Chilwell|CRY": 0.8,
+  "Timber|CRY": 1.8,
+  "Osorio|CRY": 1.0,
+  "Nørgaard|EVE": 0.0,
+  "Johnson|EVE": 1.1,
+  "Pickford|EVE": 4.1,
+  "Travers|EVE": 0.5,
+  "King|EVE": 0.0,
+  "Tarkowski|EVE": 4.9,
+  "Branthwaite|EVE": 4.2,
+  "Keane|EVE": 1.6,
+  "O'Brien|EVE": 1.3,
+  "Mykolenko|EVE": 4.0,
+  "Patterson|EVE": 0.0,
+  "Aznou|EVE": 0.0,
+  "Dewsbury-Hall|EVE": 3.8,
+  "Grealish|EVE": 0.8,
+  "Garner|EVE": 2.9,
+  "George|EVE": 2.8,
+  "Alcaraz|EVE": 0.3,
+  "Armstrong|EVE": 2.8,
+  "Dibling|EVE": 0.5,
+  "Röhl|EVE": 2.5,
+  "Hackney|EVE": 1.1,
+  "Beto|EVE": 0.0,
+  "Barry|EVE": 3.4,
+  "Maitland-Niles|EVE": 0.2,
+  "Graham|EVE": 0.3,
+  "Leno|FUL": 1.7,
+  "Lecomte|FUL": 0.2,
+  "McNally|FUL": 0.0,
+  "Andersen|FUL": 1.8,
+  "Robinson|FUL": 1.6,
+  "J.Cuenca|FUL": 0.7,
+  "Tete|FUL": 0.8,
+  "Bassey|FUL": 1.4,
+  "Castagne|FUL": 1.7,
+  "Iwobi|FUL": 2.8,
+  "Smith Rowe|FUL": 0.9,
+  "Kevin|FUL": 0.6,
+  "Bobb|FUL": 1.5,
+  "Berge|FUL": 1.7,
+  "Cairney|FUL": 0.0,
+  "King|FUL": 3.0,
+  "Sessegnon|FUL": 0.9,
+  "Reed|FUL": 0.6,
+  "Muniz|FUL": 0.9,
+  "Kusi-Asare|FUL": 0.4,
+  "Gonzalo|FUL": 2.6,
+  "Palacios|FUL": 2.3,
+  "Charles|FUL": 1.4,
+  "De Fougerolles|FUL": 0.5,
+  "Zepa|FUL": 0.4,
+  "Larsson|FUL": 0.5,
+  "Ángel|FUL": 1.1,
+  "Affengruber|FUL": 0.5,
+  "Iroegbunam|HUL": 0.5,
+  "Phillips|HUL": 0.2,
+  "Butland|HUL": 0.0,
+  "Cartwright|HUL": 0.0,
+  "Lo-Tutala|HUL": 0.0,
+  "Egan|HUL": 2.4,
+  "Hughes|HUL": 0.0,
+  "Ajayi|HUL": 2.1,
+  "Coyle|HUL": 1.6,
+  "Drameh|HUL": 0.0,
+  "Giles|HUL": 1.9,
+  "Jacob|HUL": 0.0,
+  "McCarthy|HUL": 0.4,
+  "McNair|HUL": 0.3,
+  "Belloumi|HUL": 3.3,
+  "Millar|HUL": 0.0,
+  "Dowell|HUL": 0.4,
+  "Crooks|HUL": 1.4,
+  "Slater|HUL": 3.0,
+  "Matazo|HUL": 0.0,
+  "Ömür|HUL": 0.5,
+  "Kamara|HUL": 0.0,
+  "Zambrano|HUL": 0.4,
+  "McBurnie|HUL": 3.3,
+  "Akintola|HUL": 0.5,
+  "Gyabi|HUL": 0.0,
+  "Destan|HUL": 0.0,
+  "Burstow|HUL": 0.0,
+  "Gelhardt|HUL": 0.5,
+  "Targett|HUL": 0.5,
+  "Morita|HUL": 0.0,
+  "Tzolakis|HUL": 2.1,
+  "Hjertø-Dahl|HUL": 0.4,
+  "Stroud|HUL": 1.9,
+  "Herrington|HUL": 0.2,
+  "Mendy|HUL": 1.8,
+  "Gourna-Douath|HUL": 1.4,
+  "Cho|HUL": 0.8,
+  "Ansah|HUL": 0.0,
+  "Vaz|HUL": 0.5,
+  "Norton-Cuffy|HUL": 0.1,
+  "Thomas|HUL": 0.3,
+  "Mouzakitis|HUL": 0.5,
+  "Diop|IPS": 1.9,
+  "Lukić|IPS": 2.4,
+  "Walton|IPS": 0.6,
+  "Palmer|IPS": 0.7,
+  "Button|IPS": 0.2,
+  "Kipré|IPS": 0.4,
+  "O'Shea|IPS": 2.5,
+  "Davis|IPS": 2.5,
+  "Greaves|IPS": 1.7,
+  "Johnson|IPS": 0.0,
+  "Furlong|IPS": 0.4,
+  "Núñez|IPS": 1.7,
+  "Matusiwa|IPS": 0.0,
+  "Burns|IPS": 0.0,
+  "Taylor|IPS": 0.0,
+  "Clarke|IPS": 1.0,
+  "Ogbene|IPS": 0.0,
+  "Fatawu|IPS": 3.5,
+  "Emersonn|IPS": 4.3,
+  "Hirst|IPS": 0.0,
+  "Philogene|IPS": 0.0,
+  "Szmodics|IPS": 0.0,
+  "Akpom|IPS": 1.3,
+  "Walle Egeli|IPS": 1.0,
+  "Al-Hamadi|IPS": 0.0,
+  "McAteer|IPS": 0.8,
+  "Mehmeti|IPS": 0.5,
+  "Van Oevelen|IPS": 0.0,
+  "Maeda|IPS": 3.8,
+  "Scherpen|IPS": 1.7,
+  "Florentino|IPS": 1.3,
+  "Enciso|IPS": 4.0,
+  "Ouattara|IPS": 0.4,
+  "Humphreys|IPS": 0.0,
+  "Palacios|IPS": 1.8,
+  "Flemming|IPS": 1.6,
+  "Wilson|LEE": 1.3,
+  "Perri|LEE": 0.0,
+  "Bijol|LEE": 1.4,
+  "Rodon|LEE": 0.0,
+  "Bogle|LEE": 4.0,
+  "Gudmundsson|LEE": 2.6,
+  "Justin|LEE": 3.7,
+  "Bornauw|LEE": 0.0,
+  "Muharemović|LEE": 4.2,
+  "Stach|LEE": 3.9,
+  "Okafor|LEE": 2.5,
+  "Aaronson|LEE": 1.2,
+  "Ampadu|LEE": 3.5,
+  "Longstaff|LEE": 0.7,
+  "Gnonto|LEE": 0.0,
+  "Harrison|LEE": 0.0,
+  "James|LEE": 0.7,
+  "Gruev|LEE": 0.3,
+  "Tanaka|LEE": 3.0,
+  "Calvert-Lewin|LEE": 3.9,
+  "Nmecha|LEE": 1.1,
+  "Piroe|LEE": 0.0,
+  "Mateo Joseph|LEE": 0.0,
+  "Trafford|LEE": 4.0,
+  "Elvedi|LEE": 2.3,
+  "Lienou|LEE": 0.7,
+  "Cresswell|LEE": 0.9,
+  "Cairns|LEE": 0.3,
+  "Zetterer|LEE": 0.2,
+  "Bard|LEE": 0.5,
+  "Bahoya|LEE": 0.4,
+  "A.Becker|LIV": 4.0,
+  "Mamardashvili|LIV": 1.4,
+  "Woodman|LIV": 1.0,
+  "Pecsi|LIV": 0.0,
+  "Jaros|LIV": 0.0,
+  "Davies|LIV": 0.7,
+  "Virgil|LIV": 5.0,
+  "Frimpong|LIV": 1.6,
+  "Kerkez|LIV": 1.8,
+  "Gomez|LIV": 0.0,
+  "Bradley|LIV": 0.0,
+  "Lucky|LIV": 0.6,
+  "Jacquet|LIV": 3.1,
+  "Leoni|LIV": 0.0,
+  "Tsimikas|LIV": 2.1,
+  "Ramsay|LIV": 0.0,
+  "Wirtz|LIV": 4.8,
+  "Gakpo|LIV": 3.3,
+  "Szoboszlai|LIV": 5.7,
+  "Ngumoha|LIV": 1.6,
+  "Chiesa|LIV": 0.0,
+  "Gravenberch|LIV": 1.4,
+  "Mac Allister|LIV": 3.6,
+  "C.Jones|LIV": 0.0,
+  "Endo|LIV": 0.5,
+  "Nyoni|LIV": 0.6,
+  "Bajcetic|LIV": 0.0,
+  "Munoz|LIV": 3.0,
+  "McConnell|LIV": 0.6,
+  "Isak|LIV": 6.4,
+  "Ekitiké|LIV": 0.0,
+  "Koumas|LIV": 0.7,
+  "Danns|LIV": 0.6,
+  "Elliott|LIV": 0.0,
+  "Araujo|LIV": 2.4,
+  "Barcola|LIV": 1.0,
+  "Enzo|MCI": 2.4,
+  "Ndiaye|MCI": 2.3,
+  "Donnarumma|MCI": 2.3,
+  "Bettinelli|MCI": 0.2,
+  "O'Reilly|MCI": 0.9,
+  "Guéhi|MCI": 3.2,
+  "Matheus N.|MCI": 0.9,
+  "Rúben|MCI": 2.5,
+  "Gvardiol|MCI": 2.8,
+  "Aït-Nouri|MCI": 0.9,
+  "Khusanov|MCI": 2.3,
+  "Alleyne|MCI": 0.0,
+  "Lewis|MCI": 0.6,
+  "Vitor Reis|MCI": 0.4,
+  "Semenyo|MCI": 4.3,
+  "Foden|MCI": 4.2,
+  "Cherki|MCI": 4.6,
+  "Doku|MCI": 0.0,
+  "Rodrigo|MCI": 0.0,
+  "Reijnders|MCI": 0.0,
+  "Kovačić|MCI": 0.8,
+  "Echeverri|MCI": 0.0,
+  "Phillips|MCI": 0.0,
+  "Mukasa|MCI": 0.0,
+  "Monga|MCI": 0.0,
+  "Haaland|MCI": 7.7,
+  "Anderson|MCI": 4.5,
+  "Rulli|MCI": 0.2,
+  "Bouaddi|MCI": 0.6,
+  "McAidoo|MCI": 0.4,
+  "Braithwaite|MCI": 0.3,
+  "Allan|MCI": 0.8,
+  "Samba|MCI": 0.4,
+  "Tielemans|MUN": 3.5,
+  "Baleba|MUN": 0.0,
+  "Andrey Santos|MUN": 1.0,
+  "Darlow|MUN": 0.2,
+  "Lammens|MUN": 1.9,
+  "Bayindir|MUN": 0.0,
+  "Heaton|MUN": 0.0,
+  "Dorgu|MUN": 1.5,
+  "De Ligt|MUN": 0.0,
+  "Dalot|MUN": 1.8,
+  "Maguire|MUN": 2.3,
+  "Martinez|MUN": 1.6,
+  "Yoro|MUN": 0.5,
+  "Heaven|MUN": 1.0,
+  "Mazraoui|MUN": 0.6,
+  "Shaw|MUN": 1.7,
+  "Amass|MUN": 0.2,
+  "Fredricson|MUN": 0.0,
+  "B.Fernandes|MUN": 7.7,
+  "Mbeumo|MUN": 6.3,
+  "Cunha|MUN": 4.5,
+  "Rashford|MUN": 2.5,
+  "Mount|MUN": 1.0,
+  "Amad|MUN": 0.0,
+  "Mainoo|MUN": 3.6,
+  "Ugarte|MUN": 0.0,
+  "J.Fletcher|MUN": 0.0,
+  "Lacey|MUN": 0.5,
+  "Collyer|MUN": 0.0,
+  "Bendito Mantato|MUN": 0.0,
+  "Fletcher|MUN": 0.2,
+  "Šeško|MUN": 1.0,
+  "Zirkzee|MUN": 0.5,
+  "Obi|MUN": 0.7,
+  "N.Gonzalez|NEW": 2.2,
+  "Pope|NEW": 0.4,
+  "Gillespie|NEW": 0.2,
+  "Jaouen|NEW": 0.2,
+  "Thiaw|NEW": 3.9,
+  "Schär|NEW": 1.0,
+  "Botman|NEW": 4.1,
+  "Burn|NEW": 0.0,
+  "Hall|NEW": 4.3,
+  "Livramento|NEW": 0.6,
+  "A.Murphy|NEW": 0.0,
+  "Barnes|NEW": 3.5,
+  "Elanga|NEW": 3.6,
+  "J.Ramsey|NEW": 1.5,
+  "J.Murphy|NEW": 0.9,
+  "Joelinton|NEW": 0.0,
+  "L.Miley|NEW": 1.7,
+  "Willock|NEW": 3.0,
+  "Touré|NEW": 0.4,
+  "Steur|NEW": 0.5,
+  "Woltemade|NEW": 0.0,
+  "Wissa|NEW": 3.6,
+  "Osula|NEW": 0.0,
+  "Neave|NEW": 0.0,
+  "Bamba|NEW": 0.5,
+  "Horníček|NEW": 3.5,
+  "Dedić|NEW": 1.5,
+  "Shahar|NEW": 0.7,
+  "Fernandez-Pardo|NEW": 0.3,
+  "Delap|NFO": 1.7,
+  "Muñoz|NFO": 1.5,
+  "Sels|NFO": 3.7,
+  "John|NFO": 1.3,
+  "N.Williams|NFO": 4.0,
+  "Morato|NFO": 0.0,
+  "Milenković|NFO": 3.9,
+  "Murillo|NFO": 4.2,
+  "Aina|NFO": 3.1,
+  "Jair Cunha|NFO": 3.5,
+  "Savona|NFO": 0.0,
+  "O.Richards|NFO": 2.1,
+  "Abbott|NFO": 0.0,
+  "Netz|NFO": 0.7,
+  "Bindon|NFO": 0.0,
+  "Gibbs-White|NFO": 4.2,
+  "Hudson-Odoi|NFO": 1.0,
+  "Ndoye|NFO": 1.4,
+  "Hutchinson|NFO": 0.0,
+  "Bakwa|NFO": 0.0,
+  "McAtee|NFO": 2.5,
+  "Dominguez|NFO": 0.8,
+  "I.Sangaré|NFO": 1.2,
+  "Yates|NFO": 0.7,
+  "Wood|NFO": 1.1,
+  "Igor Jesus|NFO": 1.8,
+  "Kalimuendo|NFO": 0.5,
+  "Schlager|NFO": 2.6,
+  "Diomande|NFO": 0.5,
+  "Benda|NFO": 0.3,
+  "Van Hecke|TOT": 4.7,
+  "Tosin|TOT": 1.1,
+  "Marmoush|TOT": 2.1,
+  "Sávio|TOT": 2.2,
+  "Tonali|TOT": 2.8,
+  "Vicario|TOT": 0.0,
+  "Austin|TOT": 1.4,
+  "Kinsky|TOT": 3.8,
+  "Dubravka|TOT": 1.5,
+  "Senesi|TOT": 2.4,
+  "Pedro Porro|TOT": 4.4,
+  "Romero|TOT": 0.0,
+  "Robertson|TOT": 1.5,
+  "Van de Ven|TOT": 4.5,
+  "Spence|TOT": 0.0,
+  "Udogie|TOT": 3.0,
+  "Phillips|TOT": 0.0,
+  "Davies|TOT": 1.4,
+  "Byfield|TOT": 0.3,
+  "Rowswell|TOT": 0.3,
+  "Souza|TOT": 0.0,
+  "Kudus|TOT": 1.2,
+  "Xavi|TOT": 0.0,
+  "Tel|TOT": 2.8,
+  "Maddison|TOT": 0.8,
+  "Bentancur|TOT": 2.8,
+  "Odobert|TOT": 0.0,
+  "P.M.Sarr|TOT": 0.0,
+  "Gallagher|TOT": 1.2,
+  "Bergvall|TOT": 0.7,
+  "Kulusevski|TOT": 0.0,
+  "Gray|TOT": 1.2,
+  "Moore|TOT": 0.0,
+  "Olusesi|TOT": 0.3,
+  "Fernandes|TOT": 1.3,
+  "Solanke|TOT": 1.0,
+  "Richarlison|TOT": 0.0,
+  "Scarlett|TOT": 0.0,
+  "Mudryk|TOT": 0.6,
+  "Williams-Barnett|TOT": 0.4,
+  "Danso|SUN": 2.8,
+  "Roefs|SUN": 4.2,
+  "Patterson|SUN": 0.0,
+  "Ellborg|SUN": 0.5,
+  "Ballard|SUN": 4.7,
+  "Mukiele|SUN": 4.4,
+  "Hume|SUN": 1.6,
+  "Alderete|SUN": 0.9,
+  "Reinildo|SUN": 3.9,
+  "Seelt|SUN": 0.0,
+  "Hjelde|SUN": 0.0,
+  "O'Nien|SUN": 1.4,
+  "Masuaku|SUN": 0.0,
+  "Meunier|SUN": 3.0,
+  "E.Le Fée|SUN": 3.6,
+  "Diarra|SUN": 0.0,
+  "Xhaka|SUN": 3.7,
+  "Sadiki|SUN": 2.7,
+  "Adingra|SUN": 0.0,
+  "Mundle|SUN": 0.0,
+  "Rigg|SUN": 0.6,
+  "Talbi|SUN": 0.6,
+  "Jocelin.T|SUN": 0.0,
+  "N.Angulo|SUN": 2.1,
+  "Brobbey|SUN": 2.5,
+  "Isidor|SUN": 1.3,
+  "Methalie|SUN": 0.7,
+  "Ahoka|SUN": 0.3,
+  "Fofana|SUN": 0.1,
+  "J.Angulo|SUN": 1.0
+ },
+ "baseline_inputs": {
+  "Raya|ARS": {
+   "player_id": 1,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    6,
+    6,
+    3
+   ],
+   "ep_next": 5.0
+  },
+  "Arrizabalaga|ARS": {
+   "player_id": 2,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Meslier|ARS": {
+   "player_id": 3,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gabriel|ARS": {
+   "player_id": 4,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    5,
+    8,
+    2
+   ],
+   "ep_next": 5.0
+  },
+  "J.Timber|ARS": {
+   "player_id": 5,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Saliba|ARS": {
+   "player_id": 6,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lewis-Skelly|ARS": {
+   "player_id": 7,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    3,
+    3,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Calafiori|ARS": {
+   "player_id": 8,
+   "season_points": 22,
+   "appearances": 3,
+   "last4": [
+    9,
+    11,
+    2
+   ],
+   "ep_next": 7.3
+  },
+  "Hincapie|ARS": {
+   "player_id": 9,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "White|ARS": {
+   "player_id": 10,
+   "season_points": 20,
+   "appearances": 3,
+   "last4": [
+    11,
+    7,
+    2
+   ],
+   "ep_next": 6.7
+  },
+  "Mosquera|ARS": {
+   "player_id": 11,
+   "season_points": 12,
+   "appearances": 2,
+   "last4": [
+    6,
+    6
+   ],
+   "ep_next": 2.0
+  },
+  "Saka|ARS": {
+   "player_id": 12,
+   "season_points": 22,
+   "appearances": 3,
+   "last4": [
+    9,
+    11,
+    2
+   ],
+   "ep_next": 7.3
+  },
+  "Rice|ARS": {
+   "player_id": 13,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    3,
+    5,
+    5
+   ],
+   "ep_next": 4.3
+  },
+  "Eze|ARS": {
+   "player_id": 14,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Ødegaard|ARS": {
+   "player_id": 15,
+   "season_points": 24,
+   "appearances": 3,
+   "last4": [
+    11,
+    3,
+    10
+   ],
+   "ep_next": 8.0
+  },
+  "Madueke|ARS": {
+   "player_id": 16,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Merino|ARS": {
+   "player_id": 17,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    0
+   ],
+   "ep_next": 0.7
+  },
+  "Martinelli|ARS": {
+   "player_id": 18,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Zubimendi|ARS": {
+   "player_id": 19,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Dowman|ARS": {
+   "player_id": 20,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Nwaneri|ARS": {
+   "player_id": 22,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fábio Vieira|ARS": {
+   "player_id": 23,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Nelson|ARS": {
+   "player_id": 24,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gyökeres|ARS": {
+   "player_id": 25,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Havertz|ARS": {
+   "player_id": 26,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    6,
+    2,
+    8
+   ],
+   "ep_next": 5.3
+  },
+  "G.Jesus|ARS": {
+   "player_id": 27,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Konsa|ARS": {
+   "player_id": 31,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    1,
+    4
+   ],
+   "ep_next": 1.7
+  },
+  "Bruno G.|ARS": {
+   "player_id": 452,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Tzolis|ARS": {
+   "player_id": 557,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    6,
+    0,
+    5
+   ],
+   "ep_next": 3.7
+  },
+  "M.Bizot|AVL": {
+   "player_id": 29,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Digne|AVL": {
+   "player_id": 30,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cash|AVL": {
+   "player_id": 32,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    -1,
+    2,
+    6
+   ],
+   "ep_next": 1.7
+  },
+  "Mings|AVL": {
+   "player_id": 33,
+   "season_points": 7,
+   "appearances": 2,
+   "last4": [
+    1,
+    6
+   ],
+   "ep_next": 2.3
+  },
+  "Pau|AVL": {
+   "player_id": 34,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    0,
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Bogarde|AVL": {
+   "player_id": 35,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Maatsen|AVL": {
+   "player_id": 36,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    7
+   ],
+   "ep_next": 2.7
+  },
+  "Lindelöf|AVL": {
+   "player_id": 37,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    -2,
+    2,
+    6
+   ],
+   "ep_next": 2.0
+  },
+  "A.García|AVL": {
+   "player_id": 38,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Nedeljkovic|AVL": {
+   "player_id": 39,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Buendía|AVL": {
+   "player_id": 41,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Bailey|AVL": {
+   "player_id": 44,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McGinn|AVL": {
+   "player_id": 45,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    3
+   ],
+   "ep_next": 1.7
+  },
+  "Barkley|AVL": {
+   "player_id": 46,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Kamara|AVL": {
+   "player_id": 47,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Onana|AVL": {
+   "player_id": 48,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Iling Jr|AVL": {
+   "player_id": 49,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Burrowes|AVL": {
+   "player_id": 50,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "George Hemmings|AVL": {
+   "player_id": 51,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Alysson|AVL": {
+   "player_id": 52,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    0,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Manzambi|AVL": {
+   "player_id": 53,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gomes|AVL": {
+   "player_id": 54,
+   "season_points": -2,
+   "appearances": 1,
+   "last4": [
+    -2
+   ],
+   "ep_next": 0.0
+  },
+  "Watkins|AVL": {
+   "player_id": 55,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Abraham|AVL": {
+   "player_id": 56,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Garnacho|AVL": {
+   "player_id": 160,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "N.Jackson|AVL": {
+   "player_id": 166,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Madjo|AVL": {
+   "player_id": 582,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ruggeri|AVL": {
+   "player_id": 596,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Suzuki|AVL": {
+   "player_id": 597,
+   "season_points": 12,
+   "appearances": 2,
+   "last4": [
+    2,
+    10
+   ],
+   "ep_next": 4.0
+  },
+  "Rowe|AVL": {
+   "player_id": 606,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lynch|AVL": {
+   "player_id": 607,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wan-Bissaka|AVL": {
+   "player_id": 611,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Goretzka|AVL": {
+   "player_id": 618,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Harwood-Bellis|AVL": {
+   "player_id": 630,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.8
+  },
+  "Mbaye|AVL": {
+   "player_id": 631,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 2.2
+  },
+  "Petrović|BOU": {
+   "player_id": 57,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Forster|BOU": {
+   "player_id": 58,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Dennis|BOU": {
+   "player_id": 59,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Hill|BOU": {
+   "player_id": 60,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Truffert|BOU": {
+   "player_id": 61,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    0
+   ],
+   "ep_next": 1.7
+  },
+  "Diakité|BOU": {
+   "player_id": 62,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Milosavljević|BOU": {
+   "player_id": 63,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Smith|BOU": {
+   "player_id": 64,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    0
+   ],
+   "ep_next": 0.7
+  },
+  "J.Araujo|BOU": {
+   "player_id": 65,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Soler|BOU": {
+   "player_id": 66,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Rayan|BOU": {
+   "player_id": 67,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Tavernier|BOU": {
+   "player_id": 68,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    10,
+    1,
+    10
+   ],
+   "ep_next": 7.0
+  },
+  "Scott|BOU": {
+   "player_id": 69,
+   "season_points": 24,
+   "appearances": 3,
+   "last4": [
+    2,
+    12,
+    10
+   ],
+   "ep_next": 8.0
+  },
+  "Kluivert|BOU": {
+   "player_id": 70,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    3,
+    3,
+    1
+   ],
+   "ep_next": 2.3
+  },
+  "Cook|BOU": {
+   "player_id": 71,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    3,
+    3,
+    1
+   ],
+   "ep_next": 2.3
+  },
+  "Gannon-Doak|BOU": {
+   "player_id": 72,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Adams|BOU": {
+   "player_id": 73,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    4
+   ],
+   "ep_next": 2.0
+  },
+  "Brooks|BOU": {
+   "player_id": 74,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Christie|BOU": {
+   "player_id": 75,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Tóth.A|BOU": {
+   "player_id": 76,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Adli|BOU": {
+   "player_id": 77,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kroupi.Jr|BOU": {
+   "player_id": 78,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Evanilson|BOU": {
+   "player_id": 79,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    4,
+    5,
+    2
+   ],
+   "ep_next": 3.7
+  },
+  "Enes Ünal|BOU": {
+   "player_id": 80,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Rodríguez|BOU": {
+   "player_id": 81,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Silva|BOU": {
+   "player_id": 566,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    4,
+    1
+   ],
+   "ep_next": 2.3
+  },
+  "Sanchez|BOU": {
+   "player_id": 573,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Jebbison|BOU": {
+   "player_id": 608,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Di Gregorio|BOU": {
+   "player_id": 615,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kelleher|BRE": {
+   "player_id": 82,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    7,
+    2,
+    2
+   ],
+   "ep_next": 3.7
+  },
+  "Valdimarsson|BRE": {
+   "player_id": 83,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Collins|BRE": {
+   "player_id": 84,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    6,
+    3,
+    1
+   ],
+   "ep_next": 0.8
+  },
+  "Van den Berg|BRE": {
+   "player_id": 85,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lewis-Potter|BRE": {
+   "player_id": 86,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    10,
+    6,
+    2
+   ],
+   "ep_next": 6.0
+  },
+  "Ajer|BRE": {
+   "player_id": 87,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    8,
+    3,
+    2
+   ],
+   "ep_next": 4.3
+  },
+  "Kayode|BRE": {
+   "player_id": 88,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    13,
+    2,
+    1
+   ],
+   "ep_next": 5.3
+  },
+  "Henry|BRE": {
+   "player_id": 89,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Hickey|BRE": {
+   "player_id": 90,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Ji-soo|BRE": {
+   "player_id": 92,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Schuster|BRE": {
+   "player_id": 93,
+   "season_points": 4,
+   "appearances": 1,
+   "last4": [
+    4
+   ],
+   "ep_next": 1.3
+  },
+  "Schade|BRE": {
+   "player_id": 94,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    3,
+    10,
+    2
+   ],
+   "ep_next": 5.0
+  },
+  "O.Dango|BRE": {
+   "player_id": 95,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    3,
+    1,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Damsgaard|BRE": {
+   "player_id": 96,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    1,
+    3,
+    8
+   ],
+   "ep_next": 4.0
+  },
+  "Jensen|BRE": {
+   "player_id": 97,
+   "season_points": 6,
+   "appearances": 1,
+   "last4": [
+    6
+   ],
+   "ep_next": 0.0
+  },
+  "Janelt|BRE": {
+   "player_id": 98,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    9,
+    1,
+    11
+   ],
+   "ep_next": 7.0
+  },
+  "Milambo|BRE": {
+   "player_id": 99,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Carvalho|BRE": {
+   "player_id": 100,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Yarmoliuk|BRE": {
+   "player_id": 102,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    0
+   ],
+   "ep_next": 0.7
+  },
+  "Dasilva|BRE": {
+   "player_id": 103,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Anthony|BRE": {
+   "player_id": 105,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Thiago|BRE": {
+   "player_id": 106,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    0,
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Furo|BRE": {
+   "player_id": 107,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wilson|BRE": {
+   "player_id": 108,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "M.Sangaré|BRE": {
+   "player_id": 565,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    14,
+    4,
+    0
+   ],
+   "ep_next": 6.0
+  },
+  "Diouf|BRE": {
+   "player_id": 620,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Verbruggen|BHA": {
+   "player_id": 109,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    6,
+    0,
+    3
+   ],
+   "ep_next": 3.0
+  },
+  "Steele|BHA": {
+   "player_id": 111,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "F.Kadıoğlu|BHA": {
+   "player_id": 113,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    0,
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Boscagli|BHA": {
+   "player_id": 114,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    6,
+    -1,
+    2
+   ],
+   "ep_next": 2.3
+  },
+  "De Cuyper|BHA": {
+   "player_id": 115,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    17,
+    0,
+    4
+   ],
+   "ep_next": 7.0
+  },
+  "Dunk|BHA": {
+   "player_id": 116,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    6,
+    -1,
+    5
+   ],
+   "ep_next": 3.3
+  },
+  "Coppola|BHA": {
+   "player_id": 117,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Igor|BHA": {
+   "player_id": 118,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Costinha|BHA": {
+   "player_id": 119,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    0,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Svoboda|BHA": {
+   "player_id": 120,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mitoma|BHA": {
+   "player_id": 121,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Minteh|BHA": {
+   "player_id": 122,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Hinshelwood|BHA": {
+   "player_id": 123,
+   "season_points": 16,
+   "appearances": 1,
+   "last4": [
+    16
+   ],
+   "ep_next": 2.6
+  },
+  "Groß|BHA": {
+   "player_id": 124,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    2,
+    13,
+    1
+   ],
+   "ep_next": 5.3
+  },
+  "Georginio|BHA": {
+   "player_id": 125,
+   "season_points": 5,
+   "appearances": 1,
+   "last4": [
+    5
+   ],
+   "ep_next": 1.3
+  },
+  "O'Riley|BHA": {
+   "player_id": 126,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gomez|BHA": {
+   "player_id": 127,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    6,
+    5,
+    2
+   ],
+   "ep_next": 4.3
+  },
+  "Buonanotte|BHA": {
+   "player_id": 128,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ayari|BHA": {
+   "player_id": 129,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Wieffer|BHA": {
+   "player_id": 130,
+   "season_points": 7,
+   "appearances": 2,
+   "last4": [
+    7,
+    0
+   ],
+   "ep_next": 0.0
+  },
+  "Howell|BHA": {
+   "player_id": 132,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Watson|BHA": {
+   "player_id": 133,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Oriola|BHA": {
+   "player_id": 134,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Yohanna|BHA": {
+   "player_id": 135,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Tzimas|BHA": {
+   "player_id": 137,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kostoulas|BHA": {
+   "player_id": 138,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    1,
+    5,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Ferguson|BHA": {
+   "player_id": 139,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Struijk|BHA": {
+   "player_id": 328,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Vuskovic|BHA": {
+   "player_id": 504,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    6,
+    0,
+    12
+   ],
+   "ep_next": 6.0
+  },
+  "David|BHA": {
+   "player_id": 594,
+   "season_points": 1,
+   "appearances": 2,
+   "last4": [
+    1,
+    0
+   ],
+   "ep_next": 0.3
+  },
+  "Osman|BHA": {
+   "player_id": 600,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Yalcouyé|BHA": {
+   "player_id": 605,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    1,
+    8,
+    2
+   ],
+   "ep_next": 3.7
+  },
+  "Hadjam|BHA": {
+   "player_id": 614,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cozier-Duberry|BHA": {
+   "player_id": 624,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Andrés|BHA": {
+   "player_id": 639,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 2.0
+  },
+  "Azeez|BHA": {
+   "player_id": 652,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.0
+  },
+  "Martinez|CHE": {
+   "player_id": 28,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    2,
+    3
+   ],
+   "ep_next": 1.7
+  },
+  "Rogers|CHE": {
+   "player_id": 40,
+   "season_points": 19,
+   "appearances": 3,
+   "last4": [
+    8,
+    5,
+    6
+   ],
+   "ep_next": 6.3
+  },
+  "Henderson|CHE": {
+   "player_id": 101,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Welbeck|CHE": {
+   "player_id": 136,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Sánchez|CHE": {
+   "player_id": 140,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.0
+  },
+  "Jörgensen|CHE": {
+   "player_id": 141,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "James|CHE": {
+   "player_id": 142,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Chalobah|CHE": {
+   "player_id": 143,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gusto|CHE": {
+   "player_id": 144,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Fofana|CHE": {
+   "player_id": 145,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    0,
+    3
+   ],
+   "ep_next": 1.0
+  },
+  "B.Badiashile|CHE": {
+   "player_id": 146,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Hato|CHE": {
+   "player_id": 148,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    3
+   ],
+   "ep_next": 2.7
+  },
+  "Colwill|CHE": {
+   "player_id": 149,
+   "season_points": 1,
+   "appearances": 2,
+   "last4": [
+    0,
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "M.Sarr|CHE": {
+   "player_id": 150,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Acheampong|CHE": {
+   "player_id": 151,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    3,
+    1,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Palestra|CHE": {
+   "player_id": 152,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Palmer|CHE": {
+   "player_id": 154,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    13,
+    7,
+    1
+   ],
+   "ep_next": 7.0
+  },
+  "Neto|CHE": {
+   "player_id": 156,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    1,
+    7,
+    2
+   ],
+   "ep_next": 3.3
+  },
+  "Estêvão|CHE": {
+   "player_id": 157,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Gittens|CHE": {
+   "player_id": 158,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Caicedo|CHE": {
+   "player_id": 159,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.2
+  },
+  "Lavia|CHE": {
+   "player_id": 161,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    7,
+    1
+   ],
+   "ep_next": 3.0
+  },
+  "D.Essugo|CHE": {
+   "player_id": 163,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Quenda|CHE": {
+   "player_id": 164,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "João Pedro|CHE": {
+   "player_id": 165,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    11,
+    9,
+    1
+   ],
+   "ep_next": 7.0
+  },
+  "Marc Guiu|CHE": {
+   "player_id": 168,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mheuka|CHE": {
+   "player_id": 169,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Emegha|CHE": {
+   "player_id": 170,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lacroix|CHE": {
+   "player_id": 200,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    6,
+    1,
+    2
+   ],
+   "ep_next": 3.0
+  },
+  "Penders|CHE": {
+   "player_id": 560,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Anselmino|CHE": {
+   "player_id": 561,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Barco|CHE": {
+   "player_id": 568,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Chavarria|CHE": {
+   "player_id": 583,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Pinnock|COV": {
+   "player_id": 91,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    1,
+    3
+   ],
+   "ep_next": 1.3
+  },
+  "Onyeka|COV": {
+   "player_id": 104,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Rushworth|COV": {
+   "player_id": 110,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "Dovin|COV": {
+   "player_id": 171,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wilson|COV": {
+   "player_id": 172,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Thomas|COV": {
+   "player_id": 173,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    3,
+    8,
+    4
+   ],
+   "ep_next": 5.0
+  },
+  "Kitching|COV": {
+   "player_id": 174,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "van Ewijk|COV": {
+   "player_id": 175,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    3
+   ],
+   "ep_next": 2.0
+  },
+  "Dasilva|COV": {
+   "player_id": 176,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "Kesler-Hayden|COV": {
+   "player_id": 177,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bidwell|COV": {
+   "player_id": 178,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Latibeaudiere|COV": {
+   "player_id": 179,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Woolfenden|COV": {
+   "player_id": 180,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Brau|COV": {
+   "player_id": 181,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Amenda|COV": {
+   "player_id": 182,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Rudoni|COV": {
+   "player_id": 183,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    3,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Grimes|COV": {
+   "player_id": 184,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Sakamoto|COV": {
+   "player_id": 185,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Mason-Clark|COV": {
+   "player_id": 186,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    1,
+    2
+   ],
+   "ep_next": 1.0
+  },
+  "Eccles|COV": {
+   "player_id": 187,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Torp|COV": {
+   "player_id": 188,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Shepherd|COV": {
+   "player_id": 189,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tchaouna|COV": {
+   "player_id": 190,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Borges Rodrigues|COV": {
+   "player_id": 191,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Andrews|COV": {
+   "player_id": 192,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wright|COV": {
+   "player_id": 193,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Thomas-Asante|COV": {
+   "player_id": 194,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Simms|COV": {
+   "player_id": 195,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    2,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Markelo|COV": {
+   "player_id": 196,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bassette|COV": {
+   "player_id": 197,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Awoniyi|COV": {
+   "player_id": 492,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "Yirenkyi|COV": {
+   "player_id": 575,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    3,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Hamer|COV": {
+   "player_id": 584,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Cherif|COV": {
+   "player_id": 599,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bentley|COV": {
+   "player_id": 623,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gboho|COV": {
+   "player_id": 655,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 2.0
+  },
+  "Guessand|CRY": {
+   "player_id": 42,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Disasi|CRY": {
+   "player_id": 153,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    1,
+    3
+   ],
+   "ep_next": 1.3
+  },
+  "Henderson|CRY": {
+   "player_id": 198,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "Benitez|CRY": {
+   "player_id": 199,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Richards|CRY": {
+   "player_id": 202,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    3,
+    0,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Canvot|CRY": {
+   "player_id": 203,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    1,
+    0,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Mitchell|CRY": {
+   "player_id": 204,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    1,
+    0,
+    15
+   ],
+   "ep_next": 5.3
+  },
+  "Sosa|CRY": {
+   "player_id": 205,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Chadi Riad|CRY": {
+   "player_id": 206,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Mingueza|CRY": {
+   "player_id": 207,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Sarr|CRY": {
+   "player_id": 208,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wharton|CRY": {
+   "player_id": 210,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    4,
+    2,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Yeremy|CRY": {
+   "player_id": 211,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    1,
+    5,
+    5
+   ],
+   "ep_next": 3.7
+  },
+  "Hughes|CRY": {
+   "player_id": 212,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Lerma|CRY": {
+   "player_id": 213,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kamada|CRY": {
+   "player_id": 214,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    3,
+    2,
+    5
+   ],
+   "ep_next": 3.3
+  },
+  "Devenny|CRY": {
+   "player_id": 215,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Esse|CRY": {
+   "player_id": 216,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "M.França|CRY": {
+   "player_id": 217,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Doucouré|CRY": {
+   "player_id": 218,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "J.Rak-Sakyi|CRY": {
+   "player_id": 219,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cardines|CRY": {
+   "player_id": 220,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Drakes-Thomas|CRY": {
+   "player_id": 221,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Strand Larsen|CRY": {
+   "player_id": 222,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Mateta|CRY": {
+   "player_id": 223,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.0
+  },
+  "Nketiah|CRY": {
+   "player_id": 224,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    4
+   ],
+   "ep_next": 2.3
+  },
+  "Uche|CRY": {
+   "player_id": 225,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McNeil|CRY": {
+   "player_id": 241,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    2,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Matthews|CRY": {
+   "player_id": 555,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tomiyasu|CRY": {
+   "player_id": 577,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Khalaili|CRY": {
+   "player_id": 588,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    3
+   ],
+   "ep_next": 2.0
+  },
+  "Gozo|CRY": {
+   "player_id": 595,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Ahanor|CRY": {
+   "player_id": 633,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.8
+  },
+  "Chilwell|CRY": {
+   "player_id": 643,
+   "season_points": 7,
+   "appearances": 1,
+   "last4": [
+    7
+   ],
+   "ep_next": 1.8
+  },
+  "Timber|CRY": {
+   "player_id": 644,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 1.5
+  },
+  "Osorio|CRY": {
+   "player_id": 647,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Nørgaard|EVE": {
+   "player_id": 21,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Johnson|EVE": {
+   "player_id": 209,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Pickford|EVE": {
+   "player_id": 226,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    7,
+    3,
+    1
+   ],
+   "ep_next": 3.7
+  },
+  "Travers|EVE": {
+   "player_id": 227,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "King|EVE": {
+   "player_id": 228,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tarkowski|EVE": {
+   "player_id": 229,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    6,
+    12,
+    3
+   ],
+   "ep_next": 7.0
+  },
+  "Branthwaite|EVE": {
+   "player_id": 230,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    6,
+    4,
+    3
+   ],
+   "ep_next": 4.3
+  },
+  "Keane|EVE": {
+   "player_id": 231,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "O'Brien|EVE": {
+   "player_id": 232,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mykolenko|EVE": {
+   "player_id": 233,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    6,
+    4,
+    1
+   ],
+   "ep_next": 3.7
+  },
+  "Patterson|EVE": {
+   "player_id": 234,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Aznou|EVE": {
+   "player_id": 235,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Dewsbury-Hall|EVE": {
+   "player_id": 236,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    11,
+    2,
+    2
+   ],
+   "ep_next": 5.0
+  },
+  "Grealish|EVE": {
+   "player_id": 238,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Garner|EVE": {
+   "player_id": 239,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    2
+   ],
+   "ep_next": 1.0
+  },
+  "George|EVE": {
+   "player_id": 242,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    3,
+    2,
+    10
+   ],
+   "ep_next": 5.0
+  },
+  "Alcaraz|EVE": {
+   "player_id": 243,
+   "season_points": 1,
+   "appearances": 2,
+   "last4": [
+    1,
+    0
+   ],
+   "ep_next": 0.3
+  },
+  "Armstrong|EVE": {
+   "player_id": 244,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    8,
+    2,
+    1
+   ],
+   "ep_next": 3.7
+  },
+  "Dibling|EVE": {
+   "player_id": 245,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Röhl|EVE": {
+   "player_id": 246,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    3,
+    2,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Hackney|EVE": {
+   "player_id": 247,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    3,
+    1,
+    4
+   ],
+   "ep_next": 2.7
+  },
+  "Beto|EVE": {
+   "player_id": 248,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Barry|EVE": {
+   "player_id": 249,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    8,
+    2,
+    2
+   ],
+   "ep_next": 4.0
+  },
+  "Maitland-Niles|EVE": {
+   "player_id": 649,
+   "season_points": 7,
+   "appearances": 1,
+   "last4": [
+    7
+   ],
+   "ep_next": 1.8
+  },
+  "Graham|EVE": {
+   "player_id": 654,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.0
+  },
+  "Leno|FUL": {
+   "player_id": 250,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Lecomte|FUL": {
+   "player_id": 251,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McNally|FUL": {
+   "player_id": 252,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Andersen|FUL": {
+   "player_id": 253,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Robinson|FUL": {
+   "player_id": 254,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "J.Cuenca|FUL": {
+   "player_id": 255,
+   "season_points": 3,
+   "appearances": 1,
+   "last4": [
+    3
+   ],
+   "ep_next": 1.0
+  },
+  "Tete|FUL": {
+   "player_id": 256,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bassey|FUL": {
+   "player_id": 257,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    0,
+    2,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Castagne|FUL": {
+   "player_id": 258,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    6,
+    6,
+    1
+   ],
+   "ep_next": 4.3
+  },
+  "Iwobi|FUL": {
+   "player_id": 261,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Smith Rowe|FUL": {
+   "player_id": 262,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Kevin|FUL": {
+   "player_id": 263,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Bobb|FUL": {
+   "player_id": 264,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    2
+   ],
+   "ep_next": 2.3
+  },
+  "Berge|FUL": {
+   "player_id": 265,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Cairney|FUL": {
+   "player_id": 266,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "King|FUL": {
+   "player_id": 268,
+   "season_points": 19,
+   "appearances": 3,
+   "last4": [
+    7,
+    2,
+    10
+   ],
+   "ep_next": 6.3
+  },
+  "Sessegnon|FUL": {
+   "player_id": 269,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Reed|FUL": {
+   "player_id": 270,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Muniz|FUL": {
+   "player_id": 271,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Kusi-Asare|FUL": {
+   "player_id": 272,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gonzalo|FUL": {
+   "player_id": 569,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    6,
+    2,
+    2
+   ],
+   "ep_next": 3.3
+  },
+  "Palacios|FUL": {
+   "player_id": 570,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    8
+   ],
+   "ep_next": 3.7
+  },
+  "Charles|FUL": {
+   "player_id": 580,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "De Fougerolles|FUL": {
+   "player_id": 610,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Zepa|FUL": {
+   "player_id": 626,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Larsson|FUL": {
+   "player_id": 635,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 1.5
+  },
+  "Ángel|FUL": {
+   "player_id": 636,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.5
+  },
+  "Affengruber|FUL": {
+   "player_id": 650,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.8
+  },
+  "Iroegbunam|HUL": {
+   "player_id": 240,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Phillips|HUL": {
+   "player_id": 273,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Butland|HUL": {
+   "player_id": 274,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cartwright|HUL": {
+   "player_id": 275,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lo-Tutala|HUL": {
+   "player_id": 276,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Egan|HUL": {
+   "player_id": 277,
+   "season_points": 23,
+   "appearances": 3,
+   "last4": [
+    8,
+    9,
+    6
+   ],
+   "ep_next": 7.7
+  },
+  "Hughes|HUL": {
+   "player_id": 278,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ajayi|HUL": {
+   "player_id": 279,
+   "season_points": 25,
+   "appearances": 3,
+   "last4": [
+    14,
+    6,
+    5
+   ],
+   "ep_next": 8.3
+  },
+  "Coyle|HUL": {
+   "player_id": 280,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    6,
+    0,
+    6
+   ],
+   "ep_next": 4.0
+  },
+  "Drameh|HUL": {
+   "player_id": 281,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Giles|HUL": {
+   "player_id": 282,
+   "season_points": 20,
+   "appearances": 3,
+   "last4": [
+    6,
+    6,
+    8
+   ],
+   "ep_next": 6.7
+  },
+  "Jacob|HUL": {
+   "player_id": 283,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McCarthy|HUL": {
+   "player_id": 284,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McNair|HUL": {
+   "player_id": 285,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Belloumi|HUL": {
+   "player_id": 286,
+   "season_points": 14,
+   "appearances": 3,
+   "last4": [
+    3,
+    6,
+    5
+   ],
+   "ep_next": 4.7
+  },
+  "Millar|HUL": {
+   "player_id": 287,
+   "season_points": 6,
+   "appearances": 2,
+   "last4": [
+    0,
+    6
+   ],
+   "ep_next": 0.0
+  },
+  "Dowell|HUL": {
+   "player_id": 288,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Crooks|HUL": {
+   "player_id": 289,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Slater|HUL": {
+   "player_id": 290,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    6,
+    2,
+    3
+   ],
+   "ep_next": 3.7
+  },
+  "Matazo|HUL": {
+   "player_id": 291,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ömür|HUL": {
+   "player_id": 292,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kamara|HUL": {
+   "player_id": 293,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Zambrano|HUL": {
+   "player_id": 294,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McBurnie|HUL": {
+   "player_id": 295,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    5,
+    1,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Akintola|HUL": {
+   "player_id": 296,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gyabi|HUL": {
+   "player_id": 297,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Destan|HUL": {
+   "player_id": 298,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Burstow|HUL": {
+   "player_id": 299,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gelhardt|HUL": {
+   "player_id": 340,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Targett|HUL": {
+   "player_id": 556,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Morita|HUL": {
+   "player_id": 563,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Tzolakis|HUL": {
+   "player_id": 572,
+   "season_points": 26,
+   "appearances": 3,
+   "last4": [
+    10,
+    10,
+    6
+   ],
+   "ep_next": 8.7
+  },
+  "Hjertø-Dahl|HUL": {
+   "player_id": 574,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Stroud|HUL": {
+   "player_id": 576,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    3,
+    0,
+    3
+   ],
+   "ep_next": 2.0
+  },
+  "Herrington|HUL": {
+   "player_id": 585,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Mendy|HUL": {
+   "player_id": 586,
+   "season_points": 24,
+   "appearances": 3,
+   "last4": [
+    15,
+    1,
+    8
+   ],
+   "ep_next": 8.0
+  },
+  "Gourna-Douath|HUL": {
+   "player_id": 589,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    1,
+    2
+   ],
+   "ep_next": 1.0
+  },
+  "Cho|HUL": {
+   "player_id": 617,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Ansah|HUL": {
+   "player_id": 632,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Vaz|HUL": {
+   "player_id": 637,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.4
+  },
+  "Norton-Cuffy|HUL": {
+   "player_id": 638,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Thomas|HUL": {
+   "player_id": 642,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Mouzakitis|HUL": {
+   "player_id": 645,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.5
+  },
+  "Diop|IPS": {
+   "player_id": 259,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Lukić|IPS": {
+   "player_id": 267,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    5,
+    1,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Walton|IPS": {
+   "player_id": 300,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Palmer|IPS": {
+   "player_id": 301,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Button|IPS": {
+   "player_id": 302,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kipré|IPS": {
+   "player_id": 303,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "O'Shea|IPS": {
+   "player_id": 304,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    4,
+    0,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Davis|IPS": {
+   "player_id": 305,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    6,
+    1
+   ],
+   "ep_next": 3.0
+  },
+  "Greaves|IPS": {
+   "player_id": 306,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    2,
+    -1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Johnson|IPS": {
+   "player_id": 307,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Furlong|IPS": {
+   "player_id": 308,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Núñez|IPS": {
+   "player_id": 309,
+   "season_points": 6,
+   "appearances": 2,
+   "last4": [
+    4,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Matusiwa|IPS": {
+   "player_id": 310,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Burns|IPS": {
+   "player_id": 311,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Taylor|IPS": {
+   "player_id": 312,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Clarke|IPS": {
+   "player_id": 313,
+   "season_points": 8,
+   "appearances": 2,
+   "last4": [
+    7,
+    1
+   ],
+   "ep_next": 2.7
+  },
+  "Ogbene|IPS": {
+   "player_id": 314,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fatawu|IPS": {
+   "player_id": 315,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    2,
+    4,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Emersonn|IPS": {
+   "player_id": 316,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    9,
+    1,
+    2
+   ],
+   "ep_next": 4.0
+  },
+  "Hirst|IPS": {
+   "player_id": 317,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Philogene|IPS": {
+   "player_id": 318,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Szmodics|IPS": {
+   "player_id": 319,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Akpom|IPS": {
+   "player_id": 320,
+   "season_points": 6,
+   "appearances": 2,
+   "last4": [
+    1,
+    5
+   ],
+   "ep_next": 2.0
+  },
+  "Walle Egeli|IPS": {
+   "player_id": 321,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Al-Hamadi|IPS": {
+   "player_id": 322,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McAteer|IPS": {
+   "player_id": 323,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Mehmeti|IPS": {
+   "player_id": 324,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Van Oevelen|IPS": {
+   "player_id": 554,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Maeda|IPS": {
+   "player_id": 562,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Scherpen|IPS": {
+   "player_id": 564,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Florentino|IPS": {
+   "player_id": 571,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Enciso|IPS": {
+   "player_id": 591,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    5,
+    5,
+    1
+   ],
+   "ep_next": 3.7
+  },
+  "Ouattara|IPS": {
+   "player_id": 592,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Humphreys|IPS": {
+   "player_id": 602,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Palacios|IPS": {
+   "player_id": 619,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    1,
+    4
+   ],
+   "ep_next": 2.5
+  },
+  "Flemming|IPS": {
+   "player_id": 640,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 1.8
+  },
+  "Wilson|LEE": {
+   "player_id": 260,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    3,
+    1,
+    0
+   ],
+   "ep_next": 1.3
+  },
+  "Perri|LEE": {
+   "player_id": 326,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bijol|LEE": {
+   "player_id": 327,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    10,
+    1,
+    1
+   ],
+   "ep_next": 4.0
+  },
+  "Rodon|LEE": {
+   "player_id": 329,
+   "season_points": 7,
+   "appearances": 2,
+   "last4": [
+    6,
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Bogle|LEE": {
+   "player_id": 330,
+   "season_points": 22,
+   "appearances": 3,
+   "last4": [
+    6,
+    2,
+    14
+   ],
+   "ep_next": 7.3
+  },
+  "Gudmundsson|LEE": {
+   "player_id": 331,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Justin|LEE": {
+   "player_id": 332,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    10,
+    2,
+    4
+   ],
+   "ep_next": 5.3
+  },
+  "Bornauw|LEE": {
+   "player_id": 333,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Muharemović|LEE": {
+   "player_id": 334,
+   "season_points": 14,
+   "appearances": 3,
+   "last4": [
+    6,
+    4,
+    4
+   ],
+   "ep_next": 4.7
+  },
+  "Stach|LEE": {
+   "player_id": 335,
+   "season_points": 19,
+   "appearances": 3,
+   "last4": [
+    13,
+    4,
+    2
+   ],
+   "ep_next": 6.3
+  },
+  "Okafor|LEE": {
+   "player_id": 336,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    3
+   ],
+   "ep_next": 2.0
+  },
+  "Aaronson|LEE": {
+   "player_id": 337,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    3,
+    1,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Ampadu|LEE": {
+   "player_id": 338,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    5,
+    2,
+    2
+   ],
+   "ep_next": 3.0
+  },
+  "Longstaff|LEE": {
+   "player_id": 339,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Gnonto|LEE": {
+   "player_id": 341,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Harrison|LEE": {
+   "player_id": 342,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "James|LEE": {
+   "player_id": 343,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Gruev|LEE": {
+   "player_id": 344,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tanaka|LEE": {
+   "player_id": 345,
+   "season_points": 6,
+   "appearances": 2,
+   "last4": [
+    1,
+    5
+   ],
+   "ep_next": 2.0
+  },
+  "Calvert-Lewin|LEE": {
+   "player_id": 346,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    1,
+    8,
+    1
+   ],
+   "ep_next": 3.3
+  },
+  "Nmecha|LEE": {
+   "player_id": 347,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    4,
+    1
+   ],
+   "ep_next": 1.7
+  },
+  "Piroe|LEE": {
+   "player_id": 348,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mateo Joseph|LEE": {
+   "player_id": 349,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Trafford|LEE": {
+   "player_id": 385,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    9,
+    3,
+    3
+   ],
+   "ep_next": 5.0
+  },
+  "Elvedi|LEE": {
+   "player_id": 598,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    1,
+    4
+   ],
+   "ep_next": 1.7
+  },
+  "Lienou|LEE": {
+   "player_id": 603,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cresswell|LEE": {
+   "player_id": 604,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Cairns|LEE": {
+   "player_id": 625,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Zetterer|LEE": {
+   "player_id": 629,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.0
+  },
+  "Bard|LEE": {
+   "player_id": 641,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.8
+  },
+  "Bahoya|LEE": {
+   "player_id": 648,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.5
+  },
+  "A.Becker|LIV": {
+   "player_id": 350,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    2,
+    0,
+    8
+   ],
+   "ep_next": 3.3
+  },
+  "Mamardashvili|LIV": {
+   "player_id": 351,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Woodman|LIV": {
+   "player_id": 352,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Pecsi|LIV": {
+   "player_id": 353,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Jaros|LIV": {
+   "player_id": 354,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Davies|LIV": {
+   "player_id": 355,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Virgil|LIV": {
+   "player_id": 356,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    6
+   ],
+   "ep_next": 3.0
+  },
+  "Frimpong|LIV": {
+   "player_id": 357,
+   "season_points": 1,
+   "appearances": 2,
+   "last4": [
+    0,
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Kerkez|LIV": {
+   "player_id": 358,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    5
+   ],
+   "ep_next": 2.0
+  },
+  "Gomez|LIV": {
+   "player_id": 359,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bradley|LIV": {
+   "player_id": 360,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lucky|LIV": {
+   "player_id": 361,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Jacquet|LIV": {
+   "player_id": 362,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    3,
+    5
+   ],
+   "ep_next": 3.0
+  },
+  "Leoni|LIV": {
+   "player_id": 363,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tsimikas|LIV": {
+   "player_id": 364,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Ramsay|LIV": {
+   "player_id": 365,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wirtz|LIV": {
+   "player_id": 366,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    4,
+    3
+   ],
+   "ep_next": 3.0
+  },
+  "Gakpo|LIV": {
+   "player_id": 367,
+   "season_points": 28,
+   "appearances": 3,
+   "last4": [
+    12,
+    5,
+    11
+   ],
+   "ep_next": 7.0
+  },
+  "Szoboszlai|LIV": {
+   "player_id": 368,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    8,
+    4,
+    3
+   ],
+   "ep_next": 5.0
+  },
+  "Ngumoha|LIV": {
+   "player_id": 369,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    2,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Chiesa|LIV": {
+   "player_id": 370,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gravenberch|LIV": {
+   "player_id": 371,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    5,
+    1,
+    1
+   ],
+   "ep_next": 2.3
+  },
+  "Mac Allister|LIV": {
+   "player_id": 372,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "C.Jones|LIV": {
+   "player_id": 373,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Endo|LIV": {
+   "player_id": 374,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Nyoni|LIV": {
+   "player_id": 375,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Bajcetic|LIV": {
+   "player_id": 376,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Munoz|LIV": {
+   "player_id": 377,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    4,
+    6,
+    3
+   ],
+   "ep_next": 4.3
+  },
+  "McConnell|LIV": {
+   "player_id": 378,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Isak|LIV": {
+   "player_id": 379,
+   "season_points": 23,
+   "appearances": 3,
+   "last4": [
+    2,
+    8,
+    13
+   ],
+   "ep_next": 7.7
+  },
+  "Ekitiké|LIV": {
+   "player_id": 380,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Koumas|LIV": {
+   "player_id": 381,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Danns|LIV": {
+   "player_id": 382,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Elliott|LIV": {
+   "player_id": 383,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Araujo|LIV": {
+   "player_id": 579,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    0,
+    8
+   ],
+   "ep_next": 3.0
+  },
+  "Barcola|LIV": {
+   "player_id": 627,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 2.8
+  },
+  "Enzo|MCI": {
+   "player_id": 155,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    1,
+    3
+   ],
+   "ep_next": 1.3
+  },
+  "Ndiaye|MCI": {
+   "player_id": 237,
+   "season_points": 16,
+   "appearances": 3,
+   "last4": [
+    9,
+    4,
+    3
+   ],
+   "ep_next": 5.3
+  },
+  "Donnarumma|MCI": {
+   "player_id": 384,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    3,
+    0,
+    7
+   ],
+   "ep_next": 3.3
+  },
+  "Bettinelli|MCI": {
+   "player_id": 386,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "O'Reilly|MCI": {
+   "player_id": 387,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Guéhi|MCI": {
+   "player_id": 388,
+   "season_points": 20,
+   "appearances": 3,
+   "last4": [
+    10,
+    2,
+    8
+   ],
+   "ep_next": 6.7
+  },
+  "Matheus N.|MCI": {
+   "player_id": 389,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Rúben|MCI": {
+   "player_id": 390,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    6
+   ],
+   "ep_next": 3.3
+  },
+  "Gvardiol|MCI": {
+   "player_id": 391,
+   "season_points": 22,
+   "appearances": 3,
+   "last4": [
+    9,
+    5,
+    8
+   ],
+   "ep_next": 7.3
+  },
+  "Aït-Nouri|MCI": {
+   "player_id": 392,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Khusanov|MCI": {
+   "player_id": 393,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    5
+   ],
+   "ep_next": 3.0
+  },
+  "Alleyne|MCI": {
+   "player_id": 394,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lewis|MCI": {
+   "player_id": 395,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Vitor Reis|MCI": {
+   "player_id": 396,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Semenyo|MCI": {
+   "player_id": 397,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    2,
+    5,
+    6
+   ],
+   "ep_next": 4.3
+  },
+  "Foden|MCI": {
+   "player_id": 398,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    1,
+    9,
+    1
+   ],
+   "ep_next": 3.7
+  },
+  "Cherki|MCI": {
+   "player_id": 399,
+   "season_points": 25,
+   "appearances": 3,
+   "last4": [
+    8,
+    14,
+    3
+   ],
+   "ep_next": 8.3
+  },
+  "Doku|MCI": {
+   "player_id": 400,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Rodrigo|MCI": {
+   "player_id": 402,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Reijnders|MCI": {
+   "player_id": 404,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kovačić|MCI": {
+   "player_id": 406,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Echeverri|MCI": {
+   "player_id": 407,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Phillips|MCI": {
+   "player_id": 408,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mukasa|MCI": {
+   "player_id": 409,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Monga|MCI": {
+   "player_id": 410,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Haaland|MCI": {
+   "player_id": 411,
+   "season_points": 24,
+   "appearances": 3,
+   "last4": [
+    2,
+    13,
+    9
+   ],
+   "ep_next": 8.0
+  },
+  "Anderson|MCI": {
+   "player_id": 481,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    3
+   ],
+   "ep_next": 2.7
+  },
+  "Rulli|MCI": {
+   "player_id": 587,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bouaddi|MCI": {
+   "player_id": 616,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "McAidoo|MCI": {
+   "player_id": 621,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Braithwaite|MCI": {
+   "player_id": 622,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.5
+  },
+  "Allan|MCI": {
+   "player_id": 628,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 2.2
+  },
+  "Samba|MCI": {
+   "player_id": 653,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.0
+  },
+  "Tielemans|MUN": {
+   "player_id": 43,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    2,
+    4,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Baleba|MUN": {
+   "player_id": 131,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Andrey Santos|MUN": {
+   "player_id": 162,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Darlow|MUN": {
+   "player_id": 325,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lammens|MUN": {
+   "player_id": 412,
+   "season_points": 5,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    2
+   ],
+   "ep_next": 1.7
+  },
+  "Bayindir|MUN": {
+   "player_id": 413,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Heaton|MUN": {
+   "player_id": 414,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Dorgu|MUN": {
+   "player_id": 415,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "De Ligt|MUN": {
+   "player_id": 416,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Dalot|MUN": {
+   "player_id": 417,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Maguire|MUN": {
+   "player_id": 418,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    2
+   ],
+   "ep_next": 2.3
+  },
+  "Martinez|MUN": {
+   "player_id": 419,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    1,
+    3
+   ],
+   "ep_next": 1.3
+  },
+  "Yoro|MUN": {
+   "player_id": 420,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Heaven|MUN": {
+   "player_id": 421,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Mazraoui|MUN": {
+   "player_id": 422,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Shaw|MUN": {
+   "player_id": 423,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    4
+   ],
+   "ep_next": 2.3
+  },
+  "Amass|MUN": {
+   "player_id": 424,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fredricson|MUN": {
+   "player_id": 425,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "B.Fernandes|MUN": {
+   "player_id": 426,
+   "season_points": 27,
+   "appearances": 3,
+   "last4": [
+    2,
+    23,
+    2
+   ],
+   "ep_next": 9.0
+  },
+  "Mbeumo|MUN": {
+   "player_id": 427,
+   "season_points": 21,
+   "appearances": 3,
+   "last4": [
+    2,
+    11,
+    8
+   ],
+   "ep_next": 7.0
+  },
+  "Cunha|MUN": {
+   "player_id": 428,
+   "season_points": 14,
+   "appearances": 3,
+   "last4": [
+    2,
+    9,
+    3
+   ],
+   "ep_next": 4.7
+  },
+  "Rashford|MUN": {
+   "player_id": 429,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    3
+   ],
+   "ep_next": 2.0
+  },
+  "Mount|MUN": {
+   "player_id": 430,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Amad|MUN": {
+   "player_id": 431,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mainoo|MUN": {
+   "player_id": 432,
+   "season_points": 14,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    9
+   ],
+   "ep_next": 4.7
+  },
+  "Ugarte|MUN": {
+   "player_id": 433,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "J.Fletcher|MUN": {
+   "player_id": 434,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Lacey|MUN": {
+   "player_id": 435,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Collyer|MUN": {
+   "player_id": 436,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bendito Mantato|MUN": {
+   "player_id": 437,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fletcher|MUN": {
+   "player_id": 438,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Šeško|MUN": {
+   "player_id": 439,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    5
+   ],
+   "ep_next": 2.3
+  },
+  "Zirkzee|MUN": {
+   "player_id": 440,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Obi|MUN": {
+   "player_id": 441,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "N.Gonzalez|NEW": {
+   "player_id": 405,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Pope|NEW": {
+   "player_id": 442,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gillespie|NEW": {
+   "player_id": 443,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Jaouen|NEW": {
+   "player_id": 444,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Thiaw|NEW": {
+   "player_id": 445,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    3,
+    6,
+    -1
+   ],
+   "ep_next": 2.7
+  },
+  "Schär|NEW": {
+   "player_id": 446,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Botman|NEW": {
+   "player_id": 447,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    3,
+    5,
+    1
+   ],
+   "ep_next": 3.0
+  },
+  "Burn|NEW": {
+   "player_id": 448,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Hall|NEW": {
+   "player_id": 449,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    3,
+    11,
+    4
+   ],
+   "ep_next": 6.0
+  },
+  "Livramento|NEW": {
+   "player_id": 450,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "A.Murphy|NEW": {
+   "player_id": 451,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Barnes|NEW": {
+   "player_id": 453,
+   "season_points": 17,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    12
+   ],
+   "ep_next": 5.7
+  },
+  "Elanga|NEW": {
+   "player_id": 454,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    9,
+    8,
+    1
+   ],
+   "ep_next": 6.0
+  },
+  "J.Ramsey|NEW": {
+   "player_id": 456,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    6
+   ],
+   "ep_next": 2.3
+  },
+  "J.Murphy|NEW": {
+   "player_id": 457,
+   "season_points": 2,
+   "appearances": 3,
+   "last4": [
+    0,
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Joelinton|NEW": {
+   "player_id": 458,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "L.Miley|NEW": {
+   "player_id": 459,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    3,
+    3,
+    2
+   ],
+   "ep_next": 2.7
+  },
+  "Willock|NEW": {
+   "player_id": 460,
+   "season_points": 11,
+   "appearances": 3,
+   "last4": [
+    6,
+    3,
+    2
+   ],
+   "ep_next": 3.7
+  },
+  "Touré|NEW": {
+   "player_id": 461,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Steur|NEW": {
+   "player_id": 462,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Woltemade|NEW": {
+   "player_id": 463,
+   "season_points": 4,
+   "appearances": 1,
+   "last4": [
+    4
+   ],
+   "ep_next": 0.0
+  },
+  "Wissa|NEW": {
+   "player_id": 464,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    4,
+    8,
+    1
+   ],
+   "ep_next": 4.3
+  },
+  "Osula|NEW": {
+   "player_id": 465,
+   "season_points": 4,
+   "appearances": 1,
+   "last4": [
+    4
+   ],
+   "ep_next": 0.0
+  },
+  "Neave|NEW": {
+   "player_id": 466,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bamba|NEW": {
+   "player_id": 559,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Horníček|NEW": {
+   "player_id": 567,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    1,
+    7,
+    2
+   ],
+   "ep_next": 3.3
+  },
+  "Dedić|NEW": {
+   "player_id": 593,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    1,
+    11,
+    1
+   ],
+   "ep_next": 3.2
+  },
+  "Shahar|NEW": {
+   "player_id": 609,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fernandez-Pardo|NEW": {
+   "player_id": 634,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 2.1
+  },
+  "Delap|NFO": {
+   "player_id": 167,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    1,
+    2
+   ],
+   "ep_next": 1.0
+  },
+  "Muñoz|NFO": {
+   "player_id": 201,
+   "season_points": 1,
+   "appearances": 2,
+   "last4": [
+    0,
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Sels|NFO": {
+   "player_id": 467,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    6
+   ],
+   "ep_next": 3.0
+  },
+  "John|NFO": {
+   "player_id": 468,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "N.Williams|NFO": {
+   "player_id": 469,
+   "season_points": 15,
+   "appearances": 3,
+   "last4": [
+    2,
+    6,
+    7
+   ],
+   "ep_next": 5.0
+  },
+  "Morato|NFO": {
+   "player_id": 470,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Milenković|NFO": {
+   "player_id": 471,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    7
+   ],
+   "ep_next": 4.0
+  },
+  "Murillo|NFO": {
+   "player_id": 472,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    4,
+    1,
+    8
+   ],
+   "ep_next": 4.3
+  },
+  "Aina|NFO": {
+   "player_id": 473,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    5,
+    0,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Jair Cunha|NFO": {
+   "player_id": 474,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    8
+   ],
+   "ep_next": 3.3
+  },
+  "Savona|NFO": {
+   "player_id": 475,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "O.Richards|NFO": {
+   "player_id": 476,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Abbott|NFO": {
+   "player_id": 477,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Netz|NFO": {
+   "player_id": 478,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Bindon|NFO": {
+   "player_id": 479,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gibbs-White|NFO": {
+   "player_id": 480,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    2,
+    13,
+    3
+   ],
+   "ep_next": 6.0
+  },
+  "Hudson-Odoi|NFO": {
+   "player_id": 482,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Ndoye|NFO": {
+   "player_id": 483,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    3,
+    9,
+    1
+   ],
+   "ep_next": 4.3
+  },
+  "Hutchinson|NFO": {
+   "player_id": 484,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Bakwa|NFO": {
+   "player_id": 485,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "McAtee|NFO": {
+   "player_id": 486,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    3,
+    2,
+    2
+   ],
+   "ep_next": 2.3
+  },
+  "Dominguez|NFO": {
+   "player_id": 487,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "I.Sangaré|NFO": {
+   "player_id": 488,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Yates|NFO": {
+   "player_id": 489,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Wood|NFO": {
+   "player_id": 490,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Igor Jesus|NFO": {
+   "player_id": 491,
+   "season_points": 4,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    1
+   ],
+   "ep_next": 1.3
+  },
+  "Kalimuendo|NFO": {
+   "player_id": 493,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Schlager|NFO": {
+   "player_id": 558,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    1,
+    4,
+    3
+   ],
+   "ep_next": 2.7
+  },
+  "Diomande|NFO": {
+   "player_id": 581,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Benda|NFO": {
+   "player_id": 590,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Van Hecke|TOT": {
+   "player_id": 112,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    8
+   ],
+   "ep_next": 3.3
+  },
+  "Tosin|TOT": {
+   "player_id": 147,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Marmoush|TOT": {
+   "player_id": 401,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Sávio|TOT": {
+   "player_id": 403,
+   "season_points": 3,
+   "appearances": 1,
+   "last4": [
+    3
+   ],
+   "ep_next": 1.0
+  },
+  "Tonali|TOT": {
+   "player_id": 455,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    5
+   ],
+   "ep_next": 3.0
+  },
+  "Vicario|TOT": {
+   "player_id": 494,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Austin|TOT": {
+   "player_id": 495,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kinsky|TOT": {
+   "player_id": 496,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    1,
+    6
+   ],
+   "ep_next": 3.0
+  },
+  "Dubravka|TOT": {
+   "player_id": 497,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Senesi|TOT": {
+   "player_id": 498,
+   "season_points": 3,
+   "appearances": 1,
+   "last4": [
+    3
+   ],
+   "ep_next": 1.0
+  },
+  "Pedro Porro|TOT": {
+   "player_id": 499,
+   "season_points": 8,
+   "appearances": 2,
+   "last4": [
+    1,
+    7
+   ],
+   "ep_next": 2.7
+  },
+  "Romero|TOT": {
+   "player_id": 500,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Robertson|TOT": {
+   "player_id": 502,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    3,
+    2,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Van de Ven|TOT": {
+   "player_id": 503,
+   "season_points": 9,
+   "appearances": 2,
+   "last4": [
+    0,
+    9
+   ],
+   "ep_next": 3.0
+  },
+  "Spence|TOT": {
+   "player_id": 505,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Udogie|TOT": {
+   "player_id": 506,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    5
+   ],
+   "ep_next": 2.3
+  },
+  "Phillips|TOT": {
+   "player_id": 507,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Davies|TOT": {
+   "player_id": 508,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Byfield|TOT": {
+   "player_id": 509,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Rowswell|TOT": {
+   "player_id": 510,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Souza|TOT": {
+   "player_id": 511,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Kudus|TOT": {
+   "player_id": 512,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Xavi|TOT": {
+   "player_id": 513,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Tel|TOT": {
+   "player_id": 514,
+   "season_points": 7,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    3
+   ],
+   "ep_next": 2.3
+  },
+  "Maddison|TOT": {
+   "player_id": 515,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.2
+  },
+  "Bentancur|TOT": {
+   "player_id": 516,
+   "season_points": 8,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    5
+   ],
+   "ep_next": 2.7
+  },
+  "Odobert|TOT": {
+   "player_id": 517,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "P.M.Sarr|TOT": {
+   "player_id": 518,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gallagher|TOT": {
+   "player_id": 519,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    0,
+    3
+   ],
+   "ep_next": 1.0
+  },
+  "Bergvall|TOT": {
+   "player_id": 520,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Kulusevski|TOT": {
+   "player_id": 521,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Gray|TOT": {
+   "player_id": 522,
+   "season_points": 4,
+   "appearances": 2,
+   "last4": [
+    2,
+    2
+   ],
+   "ep_next": 1.3
+  },
+  "Moore|TOT": {
+   "player_id": 523,
+   "season_points": 3,
+   "appearances": 2,
+   "last4": [
+    2,
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Olusesi|TOT": {
+   "player_id": 524,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fernandes|TOT": {
+   "player_id": 525,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    2,
+    0
+   ],
+   "ep_next": 1.0
+  },
+  "Solanke|TOT": {
+   "player_id": 526,
+   "season_points": 3,
+   "appearances": 3,
+   "last4": [
+    1,
+    1,
+    1
+   ],
+   "ep_next": 1.0
+  },
+  "Richarlison|TOT": {
+   "player_id": 527,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.0
+  },
+  "Scarlett|TOT": {
+   "player_id": 528,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mudryk|TOT": {
+   "player_id": 578,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Williams-Barnett|TOT": {
+   "player_id": 601,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Danso|SUN": {
+   "player_id": 501,
+   "season_points": 2,
+   "appearances": 1,
+   "last4": [
+    2
+   ],
+   "ep_next": 0.7
+  },
+  "Roefs|SUN": {
+   "player_id": 529,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    6,
+    2
+   ],
+   "ep_next": 3.0
+  },
+  "Patterson|SUN": {
+   "player_id": 530,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ellborg|SUN": {
+   "player_id": 531,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ballard|SUN": {
+   "player_id": 532,
+   "season_points": 12,
+   "appearances": 3,
+   "last4": [
+    0,
+    8,
+    4
+   ],
+   "ep_next": 4.0
+  },
+  "Mukiele|SUN": {
+   "player_id": 533,
+   "season_points": 13,
+   "appearances": 2,
+   "last4": [
+    9,
+    4
+   ],
+   "ep_next": 4.3
+  },
+  "Hume|SUN": {
+   "player_id": 534,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    2,
+    6,
+    1
+   ],
+   "ep_next": 3.0
+  },
+  "Alderete|SUN": {
+   "player_id": 535,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Reinildo|SUN": {
+   "player_id": 536,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    6,
+    2
+   ],
+   "ep_next": 3.0
+  },
+  "Seelt|SUN": {
+   "player_id": 537,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Hjelde|SUN": {
+   "player_id": 538,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "O'Nien|SUN": {
+   "player_id": 539,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Masuaku|SUN": {
+   "player_id": 540,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Meunier|SUN": {
+   "player_id": 541,
+   "season_points": 9,
+   "appearances": 3,
+   "last4": [
+    1,
+    6,
+    2
+   ],
+   "ep_next": 3.0
+  },
+  "E.Le Fée|SUN": {
+   "player_id": 542,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    8
+   ],
+   "ep_next": 4.3
+  },
+  "Diarra|SUN": {
+   "player_id": 543,
+   "season_points": 5,
+   "appearances": 2,
+   "last4": [
+    1,
+    4
+   ],
+   "ep_next": 0.0
+  },
+  "Xhaka|SUN": {
+   "player_id": 544,
+   "season_points": 18,
+   "appearances": 3,
+   "last4": [
+    9,
+    6,
+    3
+   ],
+   "ep_next": 6.0
+  },
+  "Sadiki|SUN": {
+   "player_id": 545,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    3,
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "Adingra|SUN": {
+   "player_id": 546,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Mundle|SUN": {
+   "player_id": 547,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.0
+  },
+  "Rigg|SUN": {
+   "player_id": 548,
+   "season_points": 2,
+   "appearances": 2,
+   "last4": [
+    1,
+    1
+   ],
+   "ep_next": 0.7
+  },
+  "Talbi|SUN": {
+   "player_id": 549,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 0.3
+  },
+  "Jocelin.T|SUN": {
+   "player_id": 550,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "N.Angulo|SUN": {
+   "player_id": 551,
+   "season_points": 10,
+   "appearances": 3,
+   "last4": [
+    5,
+    3,
+    2
+   ],
+   "ep_next": 3.3
+  },
+  "Brobbey|SUN": {
+   "player_id": 552,
+   "season_points": 6,
+   "appearances": 3,
+   "last4": [
+    2,
+    2,
+    2
+   ],
+   "ep_next": 2.0
+  },
+  "Isidor|SUN": {
+   "player_id": 553,
+   "season_points": 13,
+   "appearances": 3,
+   "last4": [
+    1,
+    8,
+    4
+   ],
+   "ep_next": 4.3
+  },
+  "Methalie|SUN": {
+   "player_id": 612,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Ahoka|SUN": {
+   "player_id": 613,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 0.0
+  },
+  "Fofana|SUN": {
+   "player_id": 646,
+   "season_points": 1,
+   "appearances": 1,
+   "last4": [
+    1
+   ],
+   "ep_next": 2.0
+  },
+  "J.Angulo|SUN": {
+   "player_id": 651,
+   "season_points": 0,
+   "appearances": 0,
+   "last4": [],
+   "ep_next": 1.0
+  }
+ }
+}
