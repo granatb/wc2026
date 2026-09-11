@@ -1,0 +1,154 @@
+{
+ "gameweek": 4,
+ "versions": [
+  {
+   "taken_at": "2026-09-11T10:30:45.264554+00:00",
+   "squads": {
+    "ffs_scout_picks": {
+     "label": "Fantasy Football Scout — Scout Squad (final)",
+     "url": "https://www.fantasyfootballscout.co.uk/2026/09/11/the-scout-squad-our-top-picks-for-fpl-gameweek-4-3",
+     "published_at": "2026-09-11",
+     "status": "final",
+     "xi": [
+      [
+       "Raya",
+       "ARS"
+      ],
+      [
+       "Calafiori",
+       "ARS"
+      ],
+      [
+       "Virgil",
+       "LIV"
+      ],
+      [
+       "De Cuyper",
+       "BHA"
+      ],
+      [
+       "Khalaili",
+       "CRY"
+      ],
+      [
+       "Palmer",
+       "CHE"
+      ],
+      [
+       "Rogers",
+       "CHE"
+      ],
+      [
+       "Szoboszlai",
+       "LIV"
+      ],
+      [
+       "Gomez",
+       "BHA"
+      ],
+      [
+       "B.Fernandes",
+       "MUN"
+      ],
+      [
+       "João Pedro",
+       "CHE"
+      ],
+      [
+       "Haaland",
+       "MCI"
+      ]
+     ],
+     "captain": null,
+     "vice": null,
+     "bench": [
+      [
+       "Verbruggen",
+       "BHA"
+      ],
+      [
+       "Isak",
+       "LIV"
+      ],
+      [
+       "Kinsky",
+       "TOT"
+      ]
+     ]
+    },
+    "ffiq_ai_squad": {
+     "label": "Fantasy Football IQ — IQ AI's squad (Free Hit)",
+     "url": "https://fantasyfootballiq.app/fpl-gameweek/",
+     "published_at": "2026-09-10T14:01:00+00:00",
+     "status": "final",
+     "xi": [
+      [
+       "Raya",
+       "ARS"
+      ],
+      [
+       "Gabriel",
+       "ARS"
+      ],
+      [
+       "Mukiele",
+       "SUN"
+      ],
+      [
+       "Tarkowski",
+       "EVE"
+      ],
+      [
+       "B.Fernandes",
+       "MUN"
+      ],
+      [
+       "Rogers",
+       "CHE"
+      ],
+      [
+       "Cherki",
+       "MCI"
+      ],
+      [
+       "Mbeumo",
+       "MUN"
+      ],
+      [
+       "Timber",
+       "CRY"
+      ],
+      [
+       "João Pedro",
+       "CHE"
+      ],
+      [
+       "Isak",
+       "LIV"
+      ]
+     ],
+     "captain": "B.Fernandes",
+     "vice": null,
+     "bench": [
+      [
+       "Dubravka",
+       "TOT"
+      ],
+      [
+       "Shahar",
+       "NEW"
+      ],
+      [
+       "Rowswell",
+       "TOT"
+      ],
+      [
+       "Obi",
+       "MUN"
+      ]
+     ]
+    }
+   }
+  }
+ ]
+}
