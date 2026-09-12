@@ -678,11 +678,17 @@ class TestGameweekBuild(unittest.TestCase):
     def test_squad_articles_publish_the_full_page_family_with_meta(self):
         """The two squad slugs are first-class articles: HTML + JSON envelope
         (with the squad meta block) + .md twin, like the six existing ones."""
-        for slug, captain in (("our-squad", "B.Fernandes"),
+        # The model squad's captain is weekly state content (Palmer from GW4,
+        # owner decision 2026-09-12); the meta must name whoever the entries
+        # say wears it. The consensus template still captains Haaland.
+        for slug, captain in (("our-squad", None),
                               ("consensus-squad", "Haaland")):
             with self.subTest(slug=slug):
                 env = json.loads(self._read(f"/api/fpl/gw1/{slug}.json"))
                 self.assertEqual(len(env["entries"]), 15)
+                armband = [e["name"] for e in env["entries"] if e.get("is_captain")]
+                self.assertEqual(len(armband), 1)
+                captain = captain or armband[0]
                 self.assertEqual(env["squad"]["captain"], captain)
                 # Formation is weekly state content, not a constant: assert it
                 # is well-formed and consistent with the entries themselves.

@@ -97,6 +97,7 @@ def state_from_envelope(envelope):
             entry["player_id"] = 488  # audited GW1 identity amendment; Ibrahim Sangaré
     return {
         "team_name": envelope.get("squad", {}).get("team_name", "Archived squad"),
+        "active_chip": envelope.get("squad", {}).get("active_chip"),
         "squad": [dict(e, is_starter=e["role"] == "XI",
                        is_captain=bool(e.get("is_captain")),
                        is_vice=bool(e.get("is_vice"))) for e in entries],

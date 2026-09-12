@@ -245,6 +245,10 @@ def grade_squad(state: dict, live_stats: dict, fixtures: list,
                 break
 
     # --- Armband ----------------------------------------------------------------
+    # 2x, or 3x under an active Triple Captain (games.fpl.state.active_chip;
+    # the frozen article carries it into the archive for Monday's grade).
+    from games.fpl.state import captain_multiplier
+    armband = captain_multiplier(state)
     captain = next(e for e in xi if e["is_captain"])
     vice = next(e for e in xi if e["is_vice"])
     if not dnp(captain["name"]):
@@ -285,7 +289,9 @@ def grade_squad(state: dict, live_stats: dict, fixtures: list,
                 status, multiplier = "blank", 0
                 note = "no fixture this gameweek" if not i["has_fixture"] else ""
         if captain_effective == name:
-            multiplier *= 2
+            multiplier *= armband
+            if armband == 3:
+                note = (note + " · " if note else "") + "Triple Captain"
             if name != captain["name"]:
                 note = (note + " · " if note else "") + "inherits the armband"
         elif name == captain["name"] and captain_effective != name:

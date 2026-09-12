@@ -137,6 +137,15 @@ state files (squad, captain, `free_transfers`, `bank`, and `bought_at` for
 anyone bought), and mirror the change in the real FPL app before the deadline —
 bench order included (GW1 learning: the app and the published state must match).
 
+**Chips.** A chip in play goes into the state file as
+`"active_chip": {"gameweek": N, "chip": "3xc"}` (names as the bootstrap's
+`chips`: `3xc`, `bboost`, `freehit`, `wildcard`) and its name is appended to
+`chips_used`. The squad article projects the captain tripled under `3xc`, the
+frozen archive carries the chip, and Monday's grade applies it. A chip lasts
+one gameweek: the build ignores one pinned to another gameweek with a
+warning, and the Monday runbook clears it. Owner decision 2026-09-12: no chip
+strategy is written down yet; each chip is the owner's call in the week.
+
 The Consensus XI does NOT take transfers from this table. It is the most-owned
 legal template (`games/fpl/consensus.py`); it changes when the crowd changes,
 via `--reset-consensus`, not when our optimizer prefers something.

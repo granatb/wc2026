@@ -52,6 +52,13 @@ the model got right, one on what it got wrong (name it before commenters do —
 that is the credibility engine), the accuracy line (MAE ours vs ep_next), link
 to the site. No victory laps on a lucky week; no burying a bad one.
 
+## 3b. Clear the chip
+
+If `games/fpl/state.json` carries `active_chip` for the gameweek just graded,
+set it to `null` now (the name stays in `chips_used`). The build ignores a
+stale chip with a warning, but the state file is a published claim and must
+not say a chip is in play when it is not.
+
 ## 4. Transfer preview for the coming week
 
 ```bash

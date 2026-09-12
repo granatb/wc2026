@@ -361,7 +361,7 @@ class TestRealStateFiles(unittest.TestCase):
     def _root(self):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
-    def test_model_state_is_legal_and_captained_by_fernandes(self):
+    def test_model_state_is_legal_with_one_starting_captain_and_vice(self):
         out = fpl_state.load_squad(
             os.path.join(self._root(), "games", "fpl", "state.json"),
             self.players)
@@ -380,9 +380,11 @@ class TestRealStateFiles(unittest.TestCase):
         self.assertIn("squad_value", out)
         cap = next(e for e in out["squad"] if e["is_captain"])
         vice = next(e for e in out["squad"] if e["is_vice"])
-        self.assertEqual(cap["name"], "B.Fernandes")
-        # vice is weekly content — assert existence, not identity
-        self.assertTrue(vice["name"])
+        # The armband is weekly content (Bruno GW1-3, Palmer from GW4 by
+        # owner decision 2026-09-12): assert a starter wears it, not who.
+        self.assertTrue(cap["is_starter"])
+        self.assertTrue(vice["is_starter"])
+        self.assertNotEqual(cap["name"], vice["name"])
         self.assertNotIn("Haaland", [e["name"] for e in out["squad"]])
 
     def test_consensus_state_is_legal_and_captained_by_haaland(self):

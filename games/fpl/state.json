@@ -1,13 +1,33 @@
 {
   "team_name": "The Model XI",
   "strategy": "model",
-  "free_transfers": 2,
-  "chips_used": [],
+  "free_transfers": 0,
+  "chips_used": [
+    "3xc"
+  ],
   "aliases": {},
   "squad": [
     {
       "name": "Raya",
       "position": "GK",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 6.0
+    },
+    {
+      "name": "Sánchez",
+      "position": "GK",
+      "is_starter": false,
+      "bench_order": 1,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 5.0
+    },
+    {
+      "name": "Tarkowski",
+      "position": "DEF",
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
@@ -24,40 +44,31 @@
       "bought_at": 6.5
     },
     {
-      "name": "Senesi",
+      "name": "Shaw",
       "position": "DEF",
       "is_starter": false,
       "bench_order": 4,
       "is_captain": false,
       "is_vice": false,
-      "bought_at": 6.0
+      "bought_at": 4.5
     },
     {
-      "name": "Tarkowski",
+      "name": "N.Williams",
       "position": "DEF",
       "is_starter": true,
       "bench_order": null,
       "is_captain": false,
       "is_vice": false,
-      "bought_at": 6.0
+      "bought_at": 5.0
     },
     {
       "name": "B.Fernandes",
       "position": "MID",
       "is_starter": true,
       "bench_order": null,
-      "is_captain": true,
-      "is_vice": false,
-      "bought_at": 12.0
-    },
-    {
-      "name": "Ndiaye",
-      "position": "MID",
-      "is_starter": true,
-      "bench_order": null,
       "is_captain": false,
       "is_vice": false,
-      "bought_at": 6.0
+      "bought_at": 12.0
     },
     {
       "name": "Gibbs-White",
@@ -69,15 +80,6 @@
       "bought_at": 8.0
     },
     {
-      "name": "E.Le Fée",
-      "position": "MID",
-      "is_starter": false,
-      "bench_order": 2,
-      "is_captain": false,
-      "is_vice": false,
-      "bought_at": 6.0
-    },
-    {
       "name": "Szoboszlai",
       "position": "MID",
       "is_starter": true,
@@ -85,6 +87,15 @@
       "is_captain": false,
       "is_vice": true,
       "bought_at": 7.0
+    },
+    {
+      "name": "E.Le Fée",
+      "position": "MID",
+      "is_starter": false,
+      "bench_order": 2,
+      "is_captain": false,
+      "is_vice": false,
+      "bought_at": 6.0
     },
     {
       "name": "Thiago",
@@ -105,24 +116,6 @@
       "bought_at": 6.0
     },
     {
-      "name": "Sánchez",
-      "position": "GK",
-      "is_starter": false,
-      "bench_order": 1,
-      "is_captain": false,
-      "is_vice": false,
-      "bought_at": 5.0
-    },
-    {
-      "name": "N.Williams",
-      "position": "DEF",
-      "is_starter": true,
-      "bench_order": null,
-      "is_captain": false,
-      "is_vice": false,
-      "bought_at": 5.0
-    },
-    {
       "name": "Calvert-Lewin",
       "position": "FWD",
       "is_starter": true,
@@ -132,14 +125,27 @@
       "bought_at": 6.0
     },
     {
-      "name": "Shaw",
+      "name": "Palmer",
+      "position": "MID",
+      "is_starter": true,
+      "bench_order": null,
+      "is_captain": true,
+      "is_vice": false,
+      "bought_at": 9.7
+    },
+    {
+      "name": "Thomas",
       "position": "DEF",
       "is_starter": false,
       "bench_order": 3,
       "is_captain": false,
       "is_vice": false,
-      "bought_at": 4.5
+      "bought_at": 4.0
     }
   ],
-  "bank": 1.9
+  "bank": 0.0,
+  "active_chip": {
+    "gameweek": 4,
+    "chip": "3xc"
+  }
 }

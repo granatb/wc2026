@@ -503,6 +503,18 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         all_players = fpl_api.parse_players(boot) if boot else []
         warnings += preflight(gameweek, all_players, cold_start)
         states = load_states(all_players)
+        # A chip is bound to one gameweek. A state still carrying last week's
+        # chip must not triple this week's captain: drop it for this build
+        # and say so (a warning, not an abort — the historical rebuilds in the
+        # test suite build GW1 with today's state file).
+        for key, st in states.items():
+            chip = st.get("active_chip")
+            if chip and chip.get("gameweek") != gameweek:
+                st["active_chip"] = None
+                warnings.append(
+                    f"{st.get('team_name', key)}: active_chip {chip} is pinned to "
+                    f"gameweek {chip.get('gameweek')}, not {gameweek} — ignored for "
+                    f"this build; clear it in the state file.")
         dossier_gate(gameweek, states, all_players, priors_by_team, boot)
         artifact, cache_hit = fpl_model.build_artifact(
             priors_by_team, players_by_name, gameweek, sims, use_cache=use_cache)
@@ -874,7 +886,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             # A squad card's number is the team's projected total (captain
             # doubled), not the first table column of its first player.
             stat_value = f"{metas[slug]['projected_total']:.2f}"
-            stat_label = "Projected XI, captain doubled"
+            stat_label = ("Projected XI, captain tripled (Triple Captain)"
+                          if metas[slug].get("captain_multiplier") == 3
+                          else "Projected XI, captain doubled")
         else:
             top = entries[0] if entries else {}
             stat_value = render._fmt(columns[0], top)

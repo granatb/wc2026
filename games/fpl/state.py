@@ -64,6 +64,15 @@ def load_squad(path: str, players: list) -> dict:
     return validate_state(load_state(path), players)
 
 
+CHIPS = {"3xc", "bboost", "freehit", "wildcard"}   # bootstrap-static.chips names
+
+
+def captain_multiplier(state: dict) -> int:
+    """3 under an active Triple Captain, 2 otherwise — the armband's weight."""
+    chip = state.get("active_chip") or {}
+    return 3 if chip.get("chip") == "3xc" else 2
+
+
 def _resolve(entry: dict, by_name: dict, aliases: dict = None) -> dict:
     """The bootstrap player this squad entry names, or raise.
 
@@ -172,6 +181,10 @@ def validate_state(state: dict, players: list) -> dict:
         e = dict(entry)
         e["team"] = player["team"]
         e["price"] = player["price"]
+        # The bootstrap id travels with the entry: the simulated pool renames a
+        # namesake to his full name ("Cole Palmer" beside Ipswich's "Palmer"),
+        # so the article builder matches by id when the web_name misses.
+        e["id"] = player.get("id")
         # `bought_at` is what we actually paid. FPL charges you the price on the
         # day you bought, and prices move every night, so a squad's legality is
         # a fact about the past that today's feed cannot re-litigate. Without it
@@ -243,8 +256,20 @@ def validate_state(state: dict, players: list) -> dict:
         raise ValueError(f"bench_order 1 must be the backup GK, got "
                          f"{first['name']!r} ({first['position']})")
 
+    # The chip in play THIS gameweek (owner decision 2026-09-12: Triple
+    # Captain on Palmer, GW4). {"gameweek": N, "chip": "3xc"|"bboost"|
+    # "freehit"|"wildcard"}; None when no chip is active. The squad article
+    # and the official grading read it; the build refuses a chip pinned to
+    # another gameweek so a stale entry cannot triple next week's captain.
+    chip = state.get("active_chip")
+    if chip is not None:
+        if (not isinstance(chip, dict) or chip.get("chip") not in CHIPS
+                or not isinstance(chip.get("gameweek"), int)):
+            raise ValueError("active_chip must be {'gameweek': int, 'chip': "
+                             f"one of {sorted(CHIPS)}}}, got {chip!r}")
     out = dict(state)
     out["squad"] = enriched
+    out["active_chip"] = dict(chip) if chip else None
     out["total_cost"] = total_cost
     out["squad_value"] = squad_value
     out["free_transfers"] = state.get("free_transfers", 1)

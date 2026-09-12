@@ -913,7 +913,7 @@ _FPL_TEMPLATES = {
             f"captains a {_wc_formation(e)}"),
         "standfirst": lambda e, r, subj: (
             f"The engine's own 15 — a {_wc_formation(e)} projecting "
-            f"{_fmt_pts(_sq_projected(e))} points with the captain doubled, "
+            f"{_fmt_pts(_sq_projected(e))} points with the captain {_sq_armband_word(e)}, "
             f"picked on six-gameweek horizon value, not one-week form."),
         "body": lambda e, r, subj: (
             f"<p>This is the team we actually field, and it stands or falls in "
@@ -964,7 +964,7 @@ _FPL_TEMPLATES = {
             f"actually plays is better.</p></blockquote>\n"
             f"<p>Scored on our numbers, the {_wc_formation(e)} XI projects "
             f"{_fmt_pts(_sq_xi_total(e))} points, "
-            f"{_fmt_pts(_sq_projected(e))} with the captain doubled. Both "
+            f"{_fmt_pts(_sq_projected(e))} with the captain {_sq_armband_word(e)}. Both "
             f"squads are published before every deadline and graded after it — "
             f"the season scoreboard settles the argument.</p>"),
         "bottom_line": lambda e, r, subj: (
@@ -1040,11 +1040,22 @@ def _sq_xi_total(entries):
     return round(sum(e.get("x_points") or 0.0 for e in _sq_xi(entries)), 2)
 
 
+def _sq_multiplier(entries) -> int:
+    """The armband's weight stamped on the entries: 3 under a Triple Captain."""
+    return next((e.get("captain_multiplier") for e in entries
+                 if e.get("captain_multiplier")), 2)
+
+
+def _sq_armband_word(entries) -> str:
+    return "tripled" if _sq_multiplier(entries) == 3 else "doubled"
+
+
 def _sq_projected(entries):
-    """XI total with the captain counted twice — the number the duel strip and
-    both squad articles headline."""
+    """XI total with the captain counted again (twice under a Triple Captain)
+    — the number the duel strip and both squad articles headline."""
     cap = _sq_captain(entries)
-    return round(_sq_xi_total(entries) + (cap.get("x_points") or 0.0), 2)
+    return round(_sq_xi_total(entries)
+                 + (_sq_multiplier(entries) - 1) * (cap.get("x_points") or 0.0), 2)
 
 
 def _sq_bench_sentence(entries) -> str:

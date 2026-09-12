@@ -421,6 +421,11 @@ def squad_article(state: dict, rows: list) -> tuple:
     with a quietly wrong total.
     """
     by_name = {r["name"]: r for r in rows}
+    # A namesake's row carries his disambiguated name (core.fpl_priors.
+    # _disambiguate_names: "Cole Palmer", not "Palmer"); the state keeps the
+    # exact web_name. The bootstrap id, stamped on the entry by validate_state
+    # and on the row by the build, is the bridge.
+    by_id = {r.get("player_id"): r for r in rows if r.get("player_id") is not None}
     source_count = state.get("source_count")
     xi_state = [e for e in state["squad"] if e["is_starter"]]
     bench_state = sorted((e for e in state["squad"] if not e["is_starter"]),
@@ -428,6 +433,8 @@ def squad_article(state: dict, rows: list) -> tuple:
     entries = []
     for rank, s in enumerate(xi_state + bench_state, 1):
         row = by_name.get(s["name"])
+        if row is None and s.get("id") is not None:
+            row = by_id.get(s["id"])
         if row is None:
             raise ValueError(
                 f"squad player {s['name']!r} ({state.get('team_name', '?')}) "
@@ -447,14 +454,23 @@ def squad_article(state: dict, rows: list) -> tuple:
     captain = next(e for e in xi if e["is_captain"])
     vice = next(e for e in xi if e["is_vice"])
     xi_xpoints = round(sum(e["x_points"] for e in xi), 2)
+    # The armband's weight: 2, or 3 under an active Triple Captain. Stamped on
+    # every entry as well so the prose templates (entries only) can say
+    # "tripled" instead of "doubled".
+    from games.fpl.state import captain_multiplier
+    mult = captain_multiplier(state)
+    for e in entries:
+        e["captain_multiplier"] = mult
     meta = {
         "team_name": state["team_name"],
         "strategy": state["strategy"],
         "formation": formation_of(xi),
         "xi_xpoints": xi_xpoints,
-        "projected_total": round(xi_xpoints + captain["x_points"], 2),
+        "projected_total": round(xi_xpoints + (mult - 1) * captain["x_points"], 2),
         "captain": captain["name"],
         "vice": vice["name"],
+        "captain_multiplier": mult,
+        "active_chip": dict(state["active_chip"]) if state.get("active_chip") else None,
         "total_cost": state.get("total_cost"),
         "free_transfers": state.get("free_transfers"),
         "chips_used": list(state.get("chips_used", [])),
