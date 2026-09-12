@@ -57,6 +57,25 @@ Act on the report immediately:
 - **Moved club / status changed / outflow spike** → each becomes a research
   item in step 3.
 
+## 2b. The expert scan (owner decision 2026-09-12)
+
+Read the public sources and write `research/experts/gw{N}.json`: for each
+source its `name`, `url`, `published`, `captain`, `vice`, `transfers_in`,
+`transfers_out`, `chip`, a one-line `note`; plus a `model` block with our own
+transfers once decided. Derived-only: who they picked, linked — never their
+projections or paywalled text. The build renders `/fpl/gw{N}/experts/` and a
+feed card from it; no file, no page.
+
+```bash
+python3 -m core.experts --gw N        # validates the file, prints the table
+```
+
+Sources for v1: the Premier League's Scout Selection and transfer radar,
+Fantasy Football Scout's Scout Squad and chip pieces, Fantasy Football IQ's
+squad, All About FPL's captain metrics, Fantasy Football Fix's popular moves
+(the crowd's counts, labelled as such). A split between the sources and the
+model is the thing to write up in step 3 before kickoff, not after.
+
 ## 3. Research every red and every published player (the Claude step)
 
 For each squad member of BOTH states (`games/fpl/state.json`,

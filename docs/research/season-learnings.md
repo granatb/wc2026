@@ -234,3 +234,30 @@ common-population grades must be versioned, never presented as original grades.
 - Status: closed in code (`core/fpl_priors.py`), tests in
   `tests/test_role_prior.py`. Watch item: promoted-club players with no
   snapshot still start from the generic 0.35 prior.
+
+
+## GW4 pre-deadline — 2026-09-12 (Saturday session; Thursday's did not run)
+
+- Process: the runbook ran on Friday and Saturday, not Thursday. Nothing was
+  lost (all freezes landed 24h+ before the deadline) but the owner's decision
+  came in the last three hours, which is where mistakes happen.
+- Decision (owner): Ndiaye → Palmer, Senesi → Bobby Thomas, two free
+  transfers, Triple Captain on Palmer, 3-4-3, Szoboszlai vice. Model view at
+  the time: +6.7 this week and +12.9 over five weeks versus holding, the best
+  pair on the board. Ndiaye's keep-while-he-starts rule was set aside for the
+  bigger upgrade; recorded here as a deliberate exception, not a drift.
+- The transfer table hid the winning route (Gibbs-White → Palmer, and the
+  Ndiaye route with a 4.0m filler) behind its five-row limit while showing two
+  weaker Shaw rows. Open item: raise the row limit or rank by pair.
+- Chips: no chip strategy existed in writing; the Triple Captain was a
+  same-day owner call. The code recorded chips but never applied one; fixed
+  today (state `active_chip`, tripled projection, tripled official grade).
+  Proposal on the table, not decided: hold first-half chips for the double
+  gameweek schedule and never Triple Captain a same-week signing.
+- Expert scan: never a runbook step; done by hand this week (PL Scout, FFS,
+  FFIQ, Fix, All About FPL). Owner asked for it as a weekly article with links.
+- Bug found on the first real freeze: the forecast archive's checksum failed
+  on integer-keyed distributions; fixed before the snapshot.
+- Watch: Bobby Thomas is a 4.0m defender projected off three starts and the
+  price prior; Palmer's Hull fixture is a one-week spike, the model has him
+  5.1–5.5 a week from GW5.

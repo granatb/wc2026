@@ -568,12 +568,23 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     payloads, unmatched = [], []
     notes = {} if locked else research.load_entries("players", gameweek)
     preview_meta, preview_rows, preview_notes, preview_matches = None, [], {}, []
-    if locked and preview is not False:
+    # While the gameweek is being PLAYED the cards are the frozen ones (the
+    # archive's payloads: what we published before the deadline). Only once
+    # its last match is finished do they roll to next week's preview (owner
+    # decision 2026-09-08, "after the last game"). A legacy locked gameweek
+    # with no archive previews as soon as it is finished; while it is played
+    # it has no cards to show.
+    finished = _gameweek_finished(boot, gameweek)
+    if locked and archive and not finished:
+        payloads = list(archive.get("player_payloads") or [])
+        print(f"  [fpl] gameweek {gameweek} is in play — player cards from the "
+              f"frozen archive ({len(payloads)} players)")
+    elif locked and finished and preview is not False:
         preview_gw = _preview_gameweek(boot)
         if preview_gw:
             (payloads, unmatched, preview_notes, preview_rows, preview_matches,
              preview_meta) = _preview_payloads(preview_gw, sims, use_cache, boot)
-            print(f"  [fpl] gameweek {gameweek} is locked — player cards "
+            print(f"  [fpl] gameweek {gameweek} is finished — player cards "
                   f"preview gameweek {preview_gw} ({len(payloads)} players)")
     if not locked:
         notes = research.load_entries("players", gameweek)
@@ -901,6 +912,25 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
             "stat_label": stat_label,
         })
 
+    # --- The expert scan (owner decision 2026-09-12): what the public sources
+    # recommended this week, linked, beside our own row. Rendered only when
+    # research/experts/gw{N}.json exists; leads the feed when it does.
+    from core import experts as _experts
+    from evmax import experts_page as _experts_page
+    scan = _experts.load(gameweek)
+    if scan:
+        our_meta = metas["our-squad"]
+        our_row = {"captain": our_meta.get("captain"), "vice": our_meta.get("vice"),
+                   "chip": our_meta.get("active_chip"),
+                   "projected_total": our_meta.get("projected_total") or 0.0,
+                   "squad": [e["name"] for e in entries_map["our-squad"]]}
+        w(f"{section.article_path(gameweek, _experts_page.SLUG)}index.html",
+          _experts_page.page_html(scan, gameweek, our_row, date_str=date_str,
+                                  section=section))
+        w(section.json_path(gameweek, _experts_page.SLUG),
+          json.dumps(_experts_page.public_json(scan, our_row), ensure_ascii=False, indent=2))
+        feed.insert(0, _experts_page.feed_entry(scan, our_row))
+
     # The model-vs-consensus duel strip: the two squads' own article meta, no
     # new simulation — plus, mid-gameweek, each side's REALIZED total so far
     # from the live layer, rendered next to (never instead of) the projection.
@@ -942,6 +972,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
     # --- Agent / meta files --------------------------------------------------
     nav = [(slug, ARTICLE_TITLES[slug]) for slug in ARTICLES]
+    if scan:
+        nav.append((_experts_page.SLUG, _experts_page.TITLE))
     w("/api/latest.json", json.dumps(
         {"gameweek": gameweek, "generated_at": generated_at,
          "forecast_artifact_id": archive["artifact_id"] if archive else None,
@@ -1085,6 +1117,14 @@ def _llms_player_lines(gameweek: int, count: int, url: str) -> list:
         "{element_id}.json — element ids and page URLs are in the players "
         "feed below.",
     ]
+
+
+def _gameweek_finished(boot, gameweek: int) -> bool:
+    """True once FPL marks the gameweek finished (every match played and the
+    bonus confirmed) — the moment the cards roll to next week's preview."""
+    event = next((e for e in (boot or {}).get("events", [])
+                  if e.get("id") == gameweek), None)
+    return bool(event and event.get("finished"))
 
 
 def _preview_gameweek(boot, now=None):

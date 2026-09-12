@@ -47,6 +47,15 @@ class PreviewGameweekTest(unittest.TestCase):
         self.assertIsNone(fpl_build._preview_gameweek(None, now))
 
 
+class FinishedGateTest(unittest.TestCase):
+    def test_cards_roll_only_when_the_gameweek_is_finished(self):
+        from evmax import fpl_build
+        boot = {"events": [{"id": 4, "finished": False}, {"id": 3, "finished": True}]}
+        self.assertFalse(fpl_build._gameweek_finished(boot, 4))
+        self.assertTrue(fpl_build._gameweek_finished(boot, 3))
+        self.assertFalse(fpl_build._gameweek_finished(None, 4))
+
+
 class PreviewNoteTest(unittest.TestCase):
     def test_note_names_gameweek_date_and_deadline(self):
         html = fpl_players.preview_note_html(PREVIEW)

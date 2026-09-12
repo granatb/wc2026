@@ -1,0 +1,85 @@
+{
+  "gameweek": 4,
+  "checked_at": "2026-09-12T10:10:00+00:00",
+  "sources": [
+    {
+      "key": "pl_scout",
+      "name": "Premier League — The Scout",
+      "url": "https://www.premierleague.com/en/news/4713402/scout-selection-best-fantasy-team-for-gameweek-4",
+      "published": "2026-09-11",
+      "captain": "Palmer",
+      "vice": "João Pedro",
+      "transfers_in": ["Isak", "Rogers", "Gomez", "Konsa"],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Scout Selection triples up on Chelsea and Liverpool; the transfer radar names Isak, Rogers, Gomez and Konsa.",
+      "extra_urls": ["https://www.premierleague.com/en/news/4713270/the-scouts-fpl-gameweek-4-transfer-radar"]
+    },
+    {
+      "key": "ffs_scout_squad",
+      "name": "Fantasy Football Scout — Scout Squad",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/09/11/the-scout-squad-our-top-picks-for-fpl-gameweek-4-3",
+      "published": "2026-09-11",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Palmer", "Rogers", "João Pedro", "Isak"],
+      "transfers_out": [],
+      "chip": "Triple Captain on Palmer called viable; Haaland in GW7 or GW16 named as the better single-match target",
+      "note": "4-5-2 with a Chelsea triple-up; Isak on the bench under the £83m XI cap.",
+      "extra_urls": ["https://www.fantasyfootballscout.co.uk/2026/09/09/triple-captain-palmer-in-fpl-gameweek-4-the-pros-cons"]
+    },
+    {
+      "key": "fpl_general",
+      "name": "FPL General (via Fantasy Football Scout)",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/09/11/fpl-generals-gameweek-4-team-reveal-triple-captain",
+      "published": "2026-09-11",
+      "captain": "Palmer",
+      "vice": null,
+      "transfers_in": [],
+      "transfers_out": [],
+      "chip": "Triple Captain on Palmer",
+      "note": "Team reveal at 33k overall rank, chip played."
+    },
+    {
+      "key": "ffiq",
+      "name": "Fantasy Football IQ — IQ AI's squad",
+      "url": "https://fantasyfootballiq.app/fpl-gameweek/",
+      "published": "2026-09-10T14:01:00+00:00",
+      "captain": "B.Fernandes",
+      "vice": null,
+      "transfers_in": ["B.Fernandes", "Isak", "Cherki", "Mbeumo"],
+      "transfers_out": [],
+      "chip": "Free Hit",
+      "note": "3-5-2 on a Free Hit; Bruno at Everton projected about 7.8 by their model."
+    },
+    {
+      "key": "allaboutfpl",
+      "name": "All About FPL — captain metrics",
+      "url": "https://allaboutfpl.com/2026/09/top-fpl-gameweek-4-captain-picks-based-on-analysis-metrics/",
+      "published": "2026-09-11",
+      "captain": "João Pedro",
+      "vice": "Palmer",
+      "transfers_in": [],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Ranks João Pedro ahead of Palmer on shots in the box and big chances; Haaland third away at United."
+    },
+    {
+      "key": "fix_popular",
+      "name": "Fantasy Football Fix — popular moves",
+      "url": "https://www.fantasyfootballfix.com/blog-index/fpl-gameweek-4-transfer-tips-2026-27/",
+      "published": "2026-09-11",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Rogers", "Gakpo", "Palmer", "Konsa", "Wissa"],
+      "transfers_out": ["B.Fernandes", "O'Reilly", "Szoboszlai", "Mbeumo", "Calvert-Lewin"],
+      "chip": null,
+      "note": "The crowd's own moves, not a recommendation: Rogers 676k in, Bruno 438k out."
+    }
+  ],
+  "model": {
+    "transfers_in": ["Palmer", "Thomas"],
+    "transfers_out": ["Ndiaye", "Senesi"],
+    "hold_against_the_crowd": ["B.Fernandes", "Szoboszlai", "Calvert-Lewin"]
+  }
+}
