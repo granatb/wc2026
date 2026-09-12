@@ -3,7 +3,7 @@
   "gameweek": 4,
   "article": "consensus-squad",
   "title": "The consensus XI — Gameweek 4",
-  "generated_at": "2026-09-12T10:34:28.039344+00:00",
+  "generated_at": "2026-09-12T10:47:57.593494+00:00",
   "sims": 50000,
   "methodology": "Market odds (de-vigged) → Dixon-Coles scorelines → 50k Monte-Carlo simulations, scored on the official Fantasy Premier League points table.",
   "entries": [
