@@ -1119,12 +1119,23 @@ def _llms_player_lines(gameweek: int, count: int, url: str) -> list:
     ]
 
 
-def _gameweek_finished(boot, gameweek: int) -> bool:
-    """True once FPL marks the gameweek finished (every match played and the
-    bonus confirmed) — the moment the cards roll to next week's preview."""
+def _gameweek_finished(boot, gameweek: int, fixtures=None) -> bool:
+    """True once every match of the gameweek is finished — the moment the
+    cards roll to next week's preview.
+
+    Two signals, either suffices: the event's own `finished` flag, which FPL
+    flips only after its data check (about eleven hours after GW4's last
+    whistle), or every fixture of the gameweek carrying `finished` (bonus
+    confirmed), which is the finality the grader itself requires. Reads the
+    fixtures cache when no list is passed."""
     event = next((e for e in (boot or {}).get("events", [])
                   if e.get("id") == gameweek), None)
-    return bool(event and event.get("finished"))
+    if event and event.get("finished"):
+        return True
+    if fixtures is None:
+        fixtures = fpl_api.read_cache("fixtures") or []
+    mine = [f for f in fixtures if f.get("event") == gameweek]
+    return bool(mine) and all(f.get("finished") for f in mine)
 
 
 def _preview_gameweek(boot, now=None):

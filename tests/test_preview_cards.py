@@ -51,9 +51,16 @@ class FinishedGateTest(unittest.TestCase):
     def test_cards_roll_only_when_the_gameweek_is_finished(self):
         from evmax import fpl_build
         boot = {"events": [{"id": 4, "finished": False}, {"id": 3, "finished": True}]}
-        self.assertFalse(fpl_build._gameweek_finished(boot, 4))
-        self.assertTrue(fpl_build._gameweek_finished(boot, 3))
-        self.assertFalse(fpl_build._gameweek_finished(None, 4))
+        none = []
+        self.assertFalse(fpl_build._gameweek_finished(boot, 4, none))
+        self.assertTrue(fpl_build._gameweek_finished(boot, 3, none))
+        self.assertFalse(fpl_build._gameweek_finished(None, 4, none))
+        # FPL flips the event flag hours after the last whistle; every fixture
+        # finished (bonus confirmed) is the grader's finality and enough here.
+        played = [{"event": 4, "finished": True}, {"event": 4, "finished": True}]
+        one_left = [{"event": 4, "finished": True}, {"event": 4, "finished": False}]
+        self.assertTrue(fpl_build._gameweek_finished(boot, 4, played))
+        self.assertFalse(fpl_build._gameweek_finished(boot, 4, one_left))
 
 
 class PreviewNoteTest(unittest.TestCase):
