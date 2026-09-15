@@ -1,7 +1,7 @@
 {
   "team_name": "The Model XI",
   "strategy": "model",
-  "free_transfers": 0,
+  "free_transfers": 1,
   "chips_used": [
     "3xc"
   ],
@@ -144,8 +144,5 @@
     }
   ],
   "bank": 0.0,
-  "active_chip": {
-    "gameweek": 4,
-    "chip": "3xc"
-  }
+  "active_chip": null
 }
