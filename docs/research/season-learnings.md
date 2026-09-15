@@ -261,3 +261,34 @@ common-population grades must be versioned, never presented as original grades.
 - Watch: Bobby Thomas is a 4.0m defender projected off three starts and the
   price prior; Palmer's Hull fixture is a one-week spike, the model has him
   5.1–5.5 a week from GW5.
+
+
+## GW4 graded — 2026-09-15
+
+- Result: Model 76 (Palmer 5, tripled to 15), Consensus 83 (Guéhi autosub 6
+  for Shaw's blank, Haaland 9 doubled). Duel 1-3, season 250-279. GW average
+  67 (provisional at grading: FPL had confirmed bonus but not flipped the
+  event flag).
+- Players: MAE 1.207 vs ep_next 1.243 on the full 655-player archived board,
+  three measured wins in three. Open benchmark, common population of 194 who
+  played 60+: FFIQ 2.491, evmax 2.576, ep_next 2.686. FFIQ leads us for the
+  second week running by a small margin; the gap is in defenders (Groß 17,
+  Bogle 15, Davis 14, Schade 15 were our four worst misses, all attacking
+  returns from defenders or cheap midfielders).
+- The chip: Triple Captain on Palmer returned +5 over a normal captaincy.
+  Our model had the fixture right (Chelsea 2.7 expected goals, Hull 8% clean
+  sheet) and the player wrong: João Pedro 12 in the same match. The
+  captaincy article ranked Palmer first on captain EV; no lesson about the
+  chip beyond the one already written (hold for a double gameweek).
+- Held against the crowd: Bruno 2, Szoboszlai 3, Calvert-Lewin 10. Two blanks
+  and one return. The holds were right on the evidence (90 minutes each, no
+  news) and wrong on points for the second week; the model still projects
+  both above 5 a week. Recorded, not acted on.
+- Gibbs-White 8, kept instead of being sold for Palmer: the owner's instinct
+  beat the transfer table's first offer.
+- Process: FPL flipped the fixtures' finished flags about 11 hours after the
+  last whistle (04:32 UTC still 0/10; 08:16 UTC 10/10). The finality gate held
+  the grade until then, which is correct; the runbook's "Monday" is really
+  Tuesday morning when the last match is on Monday night.
+- Grader output still headlines the naive XI sum ("realized 71") above the
+  official 76. Cosmetic, confusing; fix in the next grader pass.
