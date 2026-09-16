@@ -267,8 +267,8 @@ common-population grades must be versioned, never presented as original grades.
 
 - Result: Model 76 (Palmer 5, tripled to 15), Consensus 83 (Guéhi autosub 6
   for Shaw's blank, Haaland 9 doubled). Duel 1-3, season 250-279. GW average
-  67 (provisional at grading: FPL had confirmed bonus but not flipped the
-  event flag).
+  69 final (67 provisional at grading; FPL flipped the event flag on
+  2026-09-16, about 34 hours after the last whistle).
 - Players: MAE 1.207 vs ep_next 1.243 on the full 655-player archived board,
   three measured wins in three. Open benchmark, common population of 194 who
   played 60+: FFIQ 2.491, evmax 2.576, ep_next 2.686. FFIQ leads us for the
