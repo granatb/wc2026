@@ -1755,6 +1755,22 @@ class TestDuelLedger(unittest.TestCase):
         self.assertNotIn("so far", html.split("dl-note")[0])
         self.assertIn("1–2", html)
 
+    def test_preview_row_follows_a_graded_current_gameweek(self):
+        history = self._history() + [{
+            "gw": 3, "model_projected": 59.5, "model_realized": 37,
+            "consensus_projected": 53.7, "consensus_realized": 59,
+            "duel_model": 1, "duel_consensus": 2, "duel_label": "crowd leads"}]
+        preview = {"gameweek": 4, "deadline": "2026-09-12T12:30:00Z",
+                   "model": {"projected_total": 61.2, "formation": "3-4-3", "captain": "Cole Palmer"},
+                   "consensus": {"projected_total": 54.0, "formation": "3-4-3", "captain": "Haaland"}}
+        html = render._duel_table_html(self._duel(), history, 3, section=render.FPL,
+                                       preview=preview)
+        self.assertIn('GW4<span class="dl-now">preview</span>', html)
+        self.assertIn("61.2", html); self.assertIn("54.0", html)
+        self.assertIn("frozen Thursday", html)
+        self.assertEqual(html.count('class="dl-live"'), 0)
+        self.assertIn('href="/fpl/players/"', html)
+
     def test_official_points_and_winner_marked_per_row(self):
         html = render._duel_table_html(self._duel(), self._history(), 3,
                                        section=render.FPL)

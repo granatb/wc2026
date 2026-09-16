@@ -2213,6 +2213,8 @@ _DUEL_CSS = (
     ".duel-ledger .dl-proj{display:block;font-size:11px;font-weight:500;color:var(--ink3)}"
     ".duel-ledger .dl-score{font-weight:800;color:var(--ink2);white-space:nowrap;text-align:right}"
     ".duel-ledger tr.dl-live td,.duel-ledger tr.dl-graded-now td{background:#eef6f0}"
+    ".duel-ledger tr.dl-preview td{background:#fbfaf7}"
+    ".duel-ledger tr.dl-preview .dl-now{background:var(--chipbg);color:var(--ink3)}"
     ".duel-ledger .dl-now{display:inline-block;margin-left:8px;font-size:9.5px;font-weight:800;"
     "letter-spacing:1px;text-transform:uppercase;color:#fff;background:var(--acc);"
     "border-radius:5px;padding:2px 6px;vertical-align:2px}"
@@ -2258,7 +2260,8 @@ def _duel_side_live_html(side_live: dict) -> str:
 
 
 
-def _duel_table_html(duel: dict, history: list, round_no: int, section=WC) -> str:
+def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
+                     preview: dict = None) -> str:
     """The duel as a compact ledger: one row per gameweek that has happened
     (official points, from the graded accuracy files) and the current one
     highlighted (frozen projection, realized so far). Owner, 2026-09-03: "row
@@ -2318,6 +2321,25 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC) -> st
         rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
                     f'<span class="dl-now">live</span></td>'
                     f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
+                    f'<td class="dl-score dl-score-now">{score}</td></tr>')
+    # Next week's row, the moment this week is graded (owner, 2026-09-16:
+    # "people will look for stuff the whole week"): both squads as they
+    # stand today, projected on the preview simulation, no result yet.
+    if preview:
+        def _pcell(key):
+            meta = preview.get(key) or {}
+            if not meta:
+                return '<td class="dl-num dl-live-cell">—</td>'
+            return (f'<td class="dl-num dl-live-cell">'
+                    f'<a href="/fpl/players/">'
+                    f'<span class="dl-projnow">{meta["projected_total"]:.1f}'
+                    f'<span class="du">proj</span></span>'
+                    f'<span class="dl-sofar">preview · frozen Thursday</span>'
+                    f'<span class="dl-meta">{_html.escape(meta["formation"])} · '
+                    f'{_html.escape(meta["captain"])} (c)</span></a></td>')
+        rows.append(f'<tr class="dl-preview"><td class="dl-gw">GW{preview["gameweek"]}'
+                    f'<span class="dl-now">preview</span></td>'
+                    f'{_pcell("model")}{_pcell("consensus")}'
                     f'<td class="dl-score dl-score-now">{score}</td></tr>')
     return (f'<table class="duel-ledger"><thead><tr><th></th>'
             f'<th>Model XI</th><th>Consensus XI</th><th>Duel</th></tr></thead>'
@@ -2446,7 +2468,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
                  available_rounds=None, live_xi=None, duel=None, section=WC,
                  pre_feed_html="", extra_style="", pre_content_html="",
                  cards_html="", deadline_iso=None, duel_history=None,
-                 rail_label=None, rail_link=True):
+                 rail_label=None, rail_link=True, preview=None):
     """v2 landing page — featured block + feed grid, with an optional right-hand
     odds rail ("This round's ties").
 
@@ -2511,15 +2533,22 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
     # which gameweek, when it locks, the duel score, and one line on what this
     # site is. Then the cards, in the main column with the ties rail beside
     # them, which is where "games to the right" always meant.
+    # Once this gameweek is graded the page looks forward: the label names
+    # both weeks and the deadline is next week's (owner, 2026-09-16).
+    kicker = section.kicker(round_no)
+    if preview:
+        kicker = (f"{section.kicker(round_no)} graded · "
+                  f"{section.kicker(preview['gameweek'])} preview")
+        deadline_iso = preview.get("deadline") or deadline_iso
     deadline_html = ""
     if deadline_iso:
         deadline_html = (f'<span class="hs-deadline">deadline '
                          f'{_html.escape(_format_deadline(deadline_iso))}</span>')
     header_strip = f"""<div class="header-strip">
-<div class="hs-top"><div class="pagelabel" style="margin:0">{section.label} · {section.kicker(round_no)}</div>{deadline_html}</div>
+<div class="hs-top"><div class="pagelabel" style="margin:0">{section.label} · {kicker}</div>{deadline_html}</div>
 <p class="hs-what">Two squads, picked before every deadline and graded after: one by a 50,000-run simulation, one by the crowd's template. Every number on this page is a projection you can check next week.</p>
 {hero_actions}
-{_live_xi_html(live_xi, round_no, section=section)}{_duel_table_html(duel, duel_history, round_no, section=section) if duel_history is not None else _duel_strip_html(duel, round_no, section=section)}
+{_live_xi_html(live_xi, round_no, section=section)}{_duel_table_html(duel, duel_history, round_no, section=section, preview=preview) if duel_history is not None else _duel_strip_html(duel, round_no, section=section)}
 </div>"""
     feat_content = f"""{cards_html}
 <section class="feat">

@@ -568,6 +568,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     payloads, unmatched = [], []
     notes = {} if locked else research.load_entries("players", gameweek)
     preview_meta, preview_rows, preview_notes, preview_matches = None, [], {}, []
+    preview_states, preview_duel = {}, None
     # While the gameweek is being PLAYED the cards are the frozen ones (the
     # archive's payloads: what we published before the deadline). Only once
     # its last match is finished do they roll to next week's preview (owner
@@ -583,9 +584,19 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         preview_gw = _preview_gameweek(boot)
         if preview_gw:
             (payloads, unmatched, preview_notes, preview_rows, preview_matches,
-             preview_meta) = _preview_payloads(preview_gw, sims, use_cache, boot)
+             preview_states, preview_meta) = _preview_payloads(preview_gw, sims, use_cache, boot)
             print(f"  [fpl] gameweek {gameweek} is finished — player cards "
                   f"preview gameweek {preview_gw} ({len(payloads)} players)")
+            # Both squads as they stand today, on the preview simulation: the
+            # ledger's next-week row. A squad the preview board cannot score
+            # (a name without a row) drops the row rather than the build.
+            preview_duel = {"gameweek": preview_gw, "deadline": preview_meta["deadline"]}
+            for slug in ("model", "consensus"):
+                try:
+                    _entries, pmeta = fpl_articles.squad_article(preview_states[slug], preview_rows)
+                    preview_duel[slug] = pmeta
+                except (ValueError, KeyError, StopIteration) as exc:
+                    warnings.append(f"preview row for {slug}: {exc}")
     if not locked:
         notes = research.load_entries("players", gameweek)
         # Name -> "XI"/"Bench" for both published squads. The card's stance line
@@ -951,6 +962,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     landing = render.landing_page(gameweek, featured, feed, date_str=date_str,
                                   fixtures=rail_fixtures, available_rounds=available,
                                   rail_label=rail_label, rail_link=not preview_meta,
+                                  preview=preview_duel,
                                   duel=duel, section=section,
                                   cards_html=fpl_players.top_cards_html(payloads),
                                   deadline_iso=deadline_iso,
@@ -1154,11 +1166,25 @@ def _preview_gameweek(boot, now=None):
     return None
 
 
+def _squad_roles(states: dict, rows: list) -> dict:
+    """{"model"|"consensus": {row name: "XI"|"Bench"}} for the card's stance
+    line. The state keeps exact web_names ("Palmer"); the rows carry the
+    disambiguated pool name ("Cole Palmer"). The bootstrap id, stamped on the
+    state entry by validate_state and on the row by the build, bridges them;
+    a row without an id falls back to the name (2026-09-16: Palmer's preview
+    card read "we do not own him" the week we bought him)."""
+    by_id = {r.get("player_id"): r["name"] for r in rows if r.get("player_id") is not None}
+    return {
+        key: {by_id.get(e.get("id"), e["name"]): ("XI" if e.get("is_starter") else "Bench")
+              for e in states[key]["squad"]}
+        for key in SQUAD_LIVE_KEYS.values() if key in states}
+
+
 def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
     """Preview cards for `preview_gw`: the normal card pipeline run on the
     next open gameweek from today's caches.
 
-    Returns (payloads, unmatched, notes, rows, matches, meta). Every payload carries
+    Returns (payloads, unmatched, notes, rows, matches, states, meta). Every payload carries
     `preview = meta` ({gameweek, as_of, deadline}) so each renderer labels
     itself. Squad roles come from the two CURRENT state files — "we own him,
     in our XI" reads as the squad stands today; Thursday's transfers land
@@ -1182,10 +1208,7 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
                  ep_next=(players_by_name.get(r["name"]) or {}).get("ep_next"))
             for r in rows]
     notes = research.load_entries("players", preview_gw)
-    squad_roles = {
-        key: {e["name"]: ("XI" if e.get("is_starter") else "Bench")
-              for e in states[key]["squad"]}
-        for key in SQUAD_LIVE_KEYS.values() if key in states}
+    squad_roles = _squad_roles(states, rows)
     fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
                                          fpl_api.parse_teams(boot or {}))
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -1203,7 +1226,7 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
             "deadline": deadline_iso}
     for p in payloads:
         p["preview"] = meta
-    return payloads, unmatched, notes, rows, artifact["matches"], meta
+    return payloads, unmatched, notes, rows, artifact["matches"], states, meta
 
 
 def _load_horizon_matrix():

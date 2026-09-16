@@ -63,6 +63,19 @@ class FinishedGateTest(unittest.TestCase):
         self.assertFalse(fpl_build._gameweek_finished(boot, 4, one_left))
 
 
+class SquadRolesTest(unittest.TestCase):
+    def test_roles_follow_the_player_id_across_a_namesake(self):
+        from evmax import fpl_build
+        states = {"model": {"squad": [
+            {"name": "Palmer", "id": 154, "is_starter": True},
+            {"name": "Raya", "id": 1, "is_starter": False},
+            {"name": "NoId", "is_starter": True}]}}
+        rows = [{"name": "Cole Palmer", "player_id": 154}, {"name": "Raya", "player_id": 1},
+                {"name": "NoId"}]
+        roles = fpl_build._squad_roles(states, rows)
+        self.assertEqual(roles["model"], {"Cole Palmer": "XI", "Raya": "Bench", "NoId": "XI"})
+
+
 class PreviewNoteTest(unittest.TestCase):
     def test_note_names_gameweek_date_and_deadline(self):
         html = fpl_players.preview_note_html(PREVIEW)
@@ -130,7 +143,7 @@ class LockedBuildPreviewTest(unittest.TestCase):
                     "exp_away_goals": 1.1, "exp_total": 2.6, "top_scoreline": "1-1",
                     "p_home": 0.44, "p_draw": 0.27, "p_away": 0.29,
                     "p_cs_home": 0.32, "p_cs_away": 0.23, "market": True}]
-        fake = (payloads, [], {}, rows, matches, dict(PREVIEW))
+        fake = (payloads, [], {}, rows, matches, {}, dict(PREVIEW))
         site_url = render.SITE_URL
         try:
             with tempfile.TemporaryDirectory() as tmp, \
@@ -148,6 +161,9 @@ class LockedBuildPreviewTest(unittest.TestCase):
                 # The ties rail follows the cards: next week's fixtures, no
                 # link to a fixture article that does not exist yet.
                 self.assertIn("Gameweek 4 ties · preview", landing)
+                # the page looks forward: header names both weeks and next week's deadline
+                self.assertIn("Gameweek 1 graded · Gameweek 4 preview", landing)
+                self.assertIn("Fri 11 Sep, 18:30 UK", landing)
                 self.assertIn("AVL", landing.split('class="rail-content"')[1][:3000])
                 self.assertNotIn("All match predictions", landing)
                 index = (out / "fpl/players/index.html").read_text()
