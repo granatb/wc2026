@@ -295,7 +295,11 @@ class TestFrozenArticlesUnderLive(unittest.TestCase):
         cls.base = tempfile.TemporaryDirectory()
         cls.live = tempfile.TemporaryDirectory()
         cls.prose = tempfile.TemporaryDirectory()
-        with mock.patch.object(fpl_build, "datetime", _FrozenDatetime):
+        # GW1 is graded in the real assets; a graded gameweek renders its
+        # official ledger row and no live row (2026-09-16). This class tests
+        # the live MECHANISM, so it builds GW1 as if it were still open.
+        with mock.patch.object(fpl_build, "datetime", _FrozenDatetime), \
+             mock.patch.object(fpl_build, "fpl_track_ledger", return_value=[]):
             fpl_build.build(gameweek=1, sims=200, out=cls.base.name,
                             url="https://example.test", use_llm=False,
                             cache_dir=cls.prose.name, live=False)

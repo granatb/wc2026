@@ -665,7 +665,8 @@ class TestGameweekBuild(unittest.TestCase):
         self.assertIn('class="duel-ledger"', html)
         self.assertIn(">Model XI<", html)
         self.assertIn(">Consensus XI<", html)
-        self.assertIn('class="dl-live"', html)
+        # GW1 is graded, so its row is the official one (no live row).
+        self.assertIn('class="dl-past dl-graded-now"', html)
 
     def test_duel_totals_match_the_squad_articles_own_meta(self):
         """The strip's numbers are the two articles' projected_total — the
@@ -1738,6 +1739,21 @@ class TestDuelLedger(unittest.TestCase):
         self.assertEqual(html.count('class="dl-live"'), 1)
         self.assertIn(">GW1</a>", html); self.assertIn(">GW2</a>", html)
         self.assertIn("GW3<span class=\"dl-now\">live</span>", html)
+
+    def test_a_graded_current_gameweek_is_an_official_row_not_a_live_one(self):
+        # Monday's rebuild after the last whistle: GW3 is graded and being
+        # built. Its official points show, highlighted; no "so far" row.
+        history = self._history() + [{
+            "gw": 3, "model_projected": 59.5, "model_realized": 37,
+            "consensus_projected": 53.7, "consensus_realized": 59,
+            "duel_model": 1, "duel_consensus": 2, "duel_label": "crowd leads"}]
+        html = render._duel_table_html(self._duel(), history, 3, section=render.FPL)
+        self.assertEqual(html.count('class="dl-live"'), 0)
+        self.assertIn('class="dl-past dl-graded-now"', html)
+        self.assertIn('GW3<span class="dl-now">graded</span>', html)
+        self.assertIn('class="dl-num dl-win">59', html)
+        self.assertNotIn("so far", html.split("dl-note")[0])
+        self.assertIn("1–2", html)
 
     def test_official_points_and_winner_marked_per_row(self):
         html = render._duel_table_html(self._duel(), self._history(), 3,

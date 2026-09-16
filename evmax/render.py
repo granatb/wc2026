@@ -2212,7 +2212,7 @@ _DUEL_CSS = (
     ".duel-ledger .dl-win::after{content:' \\2713';font-size:12px}"
     ".duel-ledger .dl-proj{display:block;font-size:11px;font-weight:500;color:var(--ink3)}"
     ".duel-ledger .dl-score{font-weight:800;color:var(--ink2);white-space:nowrap;text-align:right}"
-    ".duel-ledger tr.dl-live td{background:#eef6f0}"
+    ".duel-ledger tr.dl-live td,.duel-ledger tr.dl-graded-now td{background:#eef6f0}"
     ".duel-ledger .dl-now{display:inline-block;margin-left:8px;font-size:9.5px;font-weight:800;"
     "letter-spacing:1px;text-transform:uppercase;color:#fff;background:var(--acc);"
     "border-radius:5px;padding:2px 6px;vertical-align:2px}"
@@ -2271,17 +2271,25 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC) -> st
         return ""
     live = duel.get("live") or {}
     rows = []
+    graded_now = False
     for r in history or []:
-        if r["gw"] >= round_no:
+        if r["gw"] > round_no:
             continue
         m, c = r.get("model_realized"), r.get("consensus_realized")
         if m is None or c is None:
             continue
+        # The gameweek being built can already be graded (Monday's rebuild
+        # after the last whistle): it renders as an official row, highlighted,
+        # and no live row follows it. Until 2026-09-16 it stayed "live" with
+        # "so far" totals until the next gameweek's Thursday build.
+        current = r["gw"] == round_no
+        graded_now = graded_now or current
         win = "model" if m > c else ("consensus" if c > m else "")
+        label = (f'GW{r["gw"]}<span class="dl-now">graded</span>' if current
+                 else f'<a href="{section.landing_path(r["gw"])}">GW{r["gw"]}</a>')
         rows.append(
-            f'<tr class="dl-past"><td class="dl-gw">'
-            f'<a href="{section.landing_path(r["gw"])}">'
-            f'GW{r["gw"]}</a></td>'
+            f'<tr class="dl-past{" dl-graded-now" if current else ""}"><td class="dl-gw">'
+            f'{label}</td>'
             f'<td class="dl-num{" dl-win" if win == "model" else ""}">{m}'
             f'<span class="dl-proj">proj {r["model_projected"]:.1f}</span></td>'
             f'<td class="dl-num{" dl-win" if win == "consensus" else ""}">{c}'
@@ -2306,10 +2314,11 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC) -> st
     last = (history or [{}])[-1] if history else {}
     score = (f'{last.get("duel_model", 0)}–{last.get("duel_consensus", 0)}'
              if history else "0–0")
-    rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
-                f'<span class="dl-now">live</span></td>'
-                f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
-                f'<td class="dl-score dl-score-now">{score}</td></tr>')
+    if not graded_now:
+        rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
+                    f'<span class="dl-now">live</span></td>'
+                    f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
+                    f'<td class="dl-score dl-score-now">{score}</td></tr>')
     return (f'<table class="duel-ledger"><thead><tr><th></th>'
             f'<th>Model XI</th><th>Consensus XI</th><th>Duel</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>'
