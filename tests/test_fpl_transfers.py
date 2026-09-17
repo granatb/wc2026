@@ -121,6 +121,25 @@ class TestRecommend(unittest.TestCase):
         self.assertTrue(any("flag" in reason.lower()
                             for reason in recs[0]["reasons"]))
 
+    def test_flagged_sale_rows_do_not_crowd_out_the_best_value_swap(self):
+        """Two flagged bench players with two rows each must not leave one
+        slot for the rest of the squad: the top `top` value swaps follow."""
+        squad = [_entry("Sub1", "GK", "CHE", 4.9), _entry("Sub2", "DEF", "MUN", 4.4),
+                 _entry("Out", "FWD", "BOU", 6.0)]
+        extra = {"Sub1": ("CHE", "GK", 4.9, [0.0, 0.0, 0.0]),
+                 "Sub2": ("MUN", "DEF", 4.4, [1.0, 1.0, 1.0]),
+                 "Out": ("BOU", "FWD", 6.0, [3.0, 3.0, 3.0]),
+                 "Barry": ("EVE", "FWD", 5.6, [7.0, 7.0, 7.0])}
+        for i in range(3):
+            extra[f"GK{i}"] = ("HUL", "GK", 4.5, [0.2 + i / 10, 0.2, 0.2])
+            extra[f"DEF{i}"] = ("IPS", "DEF", 4.0, [1.2 + i / 10, 1.2, 1.2])
+        recs = transfers.recommend(_state(squad), self._rows(extra=extra),
+                                   free_transfers=1, bank=0.0,
+                                   flagged={"Sub1", "Sub2"}, top=1)
+        outs = [r["out"] for r in recs]
+        self.assertEqual(outs[:4].count("Sub1") + outs[:4].count("Sub2"), 4)
+        self.assertIn(("Out", "Barry"), [(r["out"], r["in"]) for r in recs])
+
     def test_hit_adjustment_applies_only_at_zero_free_transfers(self):
         with_ft = transfers.recommend(_state(self._SQUAD), self._rows(),
                                       free_transfers=1, bank=1.5)

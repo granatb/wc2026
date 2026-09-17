@@ -167,7 +167,13 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
             continue
         seen[swap["out"]] = n + 1
         spread.append(swap)
-    return spread[:top]
+    # Unresolved sale candidates lead the table AND the best `top` swaps by
+    # value follow them. Two flagged bench players with two rows each used to
+    # leave one slot for everyone else, and on GW5 Thursday that hid the
+    # board's best move (Evanilson → Barry, +7.5) behind a 0.19 keeper swap.
+    sale_rows = [s for s in spread if s["out"] in for_sale]
+    value_rows = [s for s in spread if s["out"] not in for_sale]
+    return sale_rows + value_rows[:top]
 
 
 def format_table(recs: list, team_name: str, free_transfers: int,

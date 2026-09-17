@@ -213,8 +213,9 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     for key in ("state", "state_consensus"):
         path = os.path.join(HERE, "games", "fpl", f"{key}.json")
         state = fpl_state.load_squad(path, players)
-        for entry in state["squad"]:
-            entry["name"] = row_name_by_id.get(entry.get("id"), entry["name"])
+        # The dossier and the notes speak web_names; the matrix rows speak the
+        # disambiguated pool names. Flag and clear on web_names first, then
+        # translate squad and flag sets to row names for the optimiser.
         dossiers = dossier.assemble(state, players, start_probs, notes,
                                     captured_teams=captured_teams,
                                     outflow_ids=outflow_ids)
@@ -233,6 +234,12 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
             if override is not None and override < transfers.START_FLOOR:
                 continue
             cleared.add(name)
+        to_row = {e["name"]: row_name_by_id.get(e.get("id"), e["name"])
+                  for e in state["squad"]}
+        for entry in state["squad"]:
+            entry["name"] = to_row[entry["name"]]
+        flagged = {to_row.get(n, n) for n in flagged}
+        cleared = {to_row.get(n, n) for n in cleared}
         recs = transfers.recommend(state, rows_by_gw,
                                    state.get("free_transfers", 1), bank,
                                    flagged=flagged, notes=note_names,
