@@ -188,9 +188,14 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     # optimizer's candidate filter.
     finished = sum(1 for e in fpl_api.parse_events(boot).values()
                    if e.get("finished"))
+    pool = fpl_api.parse_players(boot)
     priors_by_team, _flags = fpl_priors.build_with_flags(
-        fpl_api.parse_players(boot), finished,
+        pool, finished,
         form_history=fpl_api.read_cache(fpl_api.FORM_CACHE_NAME))
+    # The pool's names are now the disambiguated ones the matrix rows carry
+    # ("Cole Palmer"); the state keeps exact web_names ("Palmer"). Bridge by
+    # bootstrap id so a namesake is valued, and recognised as owned.
+    row_name_by_id = {p["id"]: p["name"] for p in pool}
     start_probs = {p.name: p.start_prob
                    for squad in priors_by_team.values() for p in squad}
     for gw_rows in rows_by_gw.values():
@@ -208,6 +213,8 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
     for key in ("state", "state_consensus"):
         path = os.path.join(HERE, "games", "fpl", f"{key}.json")
         state = fpl_state.load_squad(path, players)
+        for entry in state["squad"]:
+            entry["name"] = row_name_by_id.get(entry.get("id"), entry["name"])
         dossiers = dossier.assemble(state, players, start_probs, notes,
                                     captured_teams=captured_teams,
                                     outflow_ids=outflow_ids)

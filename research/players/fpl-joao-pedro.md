@@ -1,12 +1,12 @@
 ---
 entity: player
-name: Shaw
+name: João Pedro
 status: doubtful
-start_prob_override: 0.5
+start_prob_override: 0.6
 lambda_multiplier: 1.0
 round: 5
 sources:
-  - official FPL feed 2026-09-17: status 'd', "Unspecified injury - 75% chance of playing"; 0 minutes GW4; bench player, no presser yet (Amorim speaks 2026-09-17 afternoon)
+  - official FPL feed 2026-09-17: status 'd', "Unspecified injury - 75% chance of playing"; withdrew from the Brazil squad (FFS GW5 hub 2026-09-17); Maresca presser due 2026-09-18
 updated: 2026-09-17
 ---
 

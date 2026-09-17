@@ -1146,7 +1146,19 @@ def run(state: dict, fantasy_round: int, sims: int = 50_000) -> None:
               f"{r['position']:<4} {price}")
 
     if state.get("squad") and not state["squad"][0].get("_example"):
-        _print_squad_view(state, {r["name"]: r for r in rows})
+        # Rows carry disambiguated names ("Cole Palmer"); the state keeps
+        # exact web_names. Resolve each entry to its bootstrap id, then to
+        # the row name, so a namesake is not reported as unmodelled.
+        from core import fpl_api as _api, fpl_live as _live
+        boot = _api.read_cache("bootstrap") or {}
+        try:
+            ids = {n: p["id"] for n, p in _live.resolve_squad(state, boot).items()}
+        except Exception:  # noqa: BLE001 -- the view is a courtesy, never a gate
+            ids = {}
+        name_by_id = {p["id"]: n for n, p in players_by_name.items()}
+        view = dict(state, squad=[dict(e, name=name_by_id.get(ids.get(e["name"]), e["name"]))
+                                  for e in state["squad"]])
+        _print_squad_view(view, {r["name"]: r for r in rows})
     else:
         print("\n  [fpl] state.json not populated — add your 15 to see the squad view.")
 

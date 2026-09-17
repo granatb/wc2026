@@ -4,13 +4,13 @@ name: Mbeumo
 status: nailed
 start_prob_override: 0.95
 lambda_multiplier: 1.0
-round: 4
+round: 5
 sources:
-  - official FPL feed 2026-09-11: status 'a', no news; 90/90/90, 11 and 8 pts in GW2-3; 326k sold with the United exodus; no presser mention (FFS live 2026-09-11)
-updated: 2026-09-11
+  - official FPL feed 2026-09-17: status 'a', no news; 90 in all four GWs; 173k sold with the United exodus after 2 pts
+updated: 2026-09-17
 ---
 
-Owner lineup note for gameweek 4, written with scripts/fpl_notes.py.
+Owner lineup note for gameweek 5, written with scripts/fpl_notes.py.
 
 Hand-filtered team news (Discord / Fantasy Football Scout / press conferences), not scraped.
 

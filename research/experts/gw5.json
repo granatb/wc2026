@@ -1,0 +1,49 @@
+{
+  "gameweek": 5,
+  "checked_at": "2026-09-17T13:10:00+00:00",
+  "sources": [
+    {
+      "key": "ffs_early_picks",
+      "name": "Fantasy Football Scout — early Scout Picks",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/09/14/fpl-gameweek-5-early-scout-picks-forest-triple-up",
+      "published": "2026-09-14",
+      "captain": "Haaland",
+      "vice": null,
+      "transfers_in": ["Gibbs-White", "N.Williams", "Tarkowski", "B.Fernandes", "Calvert-Lewin", "Haaland", "Delap", "Dewsbury-Hall", "Stach"],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Early 'bus team', Forest triple-up at home to Coventry; the final Scout Squad publishes after Friday's pressers.",
+      "extra_urls": ["https://www.fantasyfootballscout.co.uk/fpl-gameweek-5-tips-best-players-predicted-line-ups-team-news-more-4"]
+    },
+    {
+      "key": "fix_popular",
+      "name": "Fantasy Football Fix — popular moves",
+      "url": "https://www.fantasyfootballfix.com/blog-index/fpl-gw5-transfer-tips-2026-27/",
+      "published": "2026-09-15",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Rogers", "Groß", "Gvardiol", "Gibbs-White", "Schade", "João Pedro", "Wissa", "Barry", "Havertz", "Tavernier", "Konsa", "Tarkowski", "Mykolenko", "De Cuyper"],
+      "transfers_out": ["Szoboszlai", "Shaw", "Elanga", "Cherki", "Tzolis", "Thiago", "Gakpo", "Wirtz", "Foden", "White", "O'Reilly"],
+      "chip": null,
+      "note": "The crowd's own moves, not a recommendation: Rogers 300k+ in, Szoboszlai 200k+ out; Isak to Haaland the most common swap."
+    },
+    {
+      "key": "allaboutfpl",
+      "name": "All About FPL — buy, avoid, sell, hold",
+      "url": "https://allaboutfpl.com/2026/09/fpl-gameweek-5-transfer-tips-players-to-buy-avoid-sell-hold/",
+      "published": "2026-09-16",
+      "captain": "Haaland",
+      "vice": null,
+      "transfers_in": ["Gibbs-White", "Dewsbury-Hall", "Barry", "Garner", "Muñoz", "N.Williams", "Murillo"],
+      "transfers_out": ["Isak", "Wirtz", "Thiago", "O'Reilly"],
+      "chip": null,
+      "note": "Hold Bruno and Cherki; avoid Groß and De Cuyper away at Arsenal. Captain poll: Haaland at home to Sunderland, Gibbs-White and Bruno the alternatives."
+    }
+  ],
+  "pending": ["Premier League Scout Selection GW5 (publishes Thursday/Friday)", "Fantasy Football Scout final Scout Squad GW5 (Friday)", "Fantasy Football IQ GW5 squad (publishes when team news lands)"],
+  "model": {
+    "transfers_in": [],
+    "transfers_out": [],
+    "hold_against_the_crowd": ["Szoboszlai", "Thiago", "B.Fernandes"]
+  }
+}
