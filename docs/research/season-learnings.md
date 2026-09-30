@@ -292,3 +292,48 @@ common-population grades must be versioned, never presented as original grades.
   Tuesday morning when the last match is on Monday night.
 - Grader output still headlines the naive XI sum ("realized 71") above the
   official 76. Cosmetic, confusing; fix in the next grader pass.
+
+
+## GW5 graded — 2026-09-30 (twelve days late)
+
+- Result: Model 44 (Palmer captain 2, doubled to 4), Consensus 31 (Guéhi
+  autosub 4 for João Pedro's 0; naive XI sum 27). Duel 2-3, season 294-310.
+  GW average 48 final, highest 126. Both squads landed below the average
+  manager. The model won the duel week for the first time since GW2.
+- Players: MAE 1.148 vs ep_next 1.166 on the full 659-player archived board,
+  four measured wins in four. Open benchmark, common population of 207 who
+  played 60+: evmax 2.589, FFIQ 2.639, ep_next 2.716. First week evmax leads
+  FFIQ on the 60+ population. The worst misses are long-tail returns (Brobbey
+  17, Semenyo 17, Jay Dasilva 15, Schuster 14, Manzambi 13). Tarkowski 14
+  was ours at 4.66 and ep_next at 7.20: FPL's own number beat us on our own
+  starter for the second defender week running (Groß 14 again, ours 3.48,
+  ep_next 8.20). The defender gap from the GW4 entry is still open.
+- Chip: none. `active_chip` was already null at grading, nothing to clear.
+- Bench: 16 points sat unused (Bobby Thomas 9, Le Fée 5, Shaw 2) behind six
+  starters on 2 (N.Williams, B.Fernandes, Gibbs-White, Szoboszlai, Evanilson,
+  Calvert-Lewin). The starters were the right call on the pre-deadline
+  evidence. Recorded, no rule.
+- Holds: Bruno 2, Szoboszlai 2, Calvert-Lewin 2. Third blank week in a row
+  for all three. The GW4 entry said "recorded, not acted on" with the model
+  still above 5 a week for each. At GW6 the transfer table lists all three
+  as unresolved red dossiers (their notes are pinned to GW3 and expired), so
+  the Thursday research decides them on evidence, and the hold pattern gets
+  its first real test.
+- Process: the grade ran on 2026-09-30, twelve days after the GW5 deadline
+  and eight days after the last whistle, because the owner was away from
+  19 to 30 September and automation is parked (owner decision D3). Cost:
+  evmax.ai showed GW5 as "live" with the frozen projection for twelve days,
+  and the GW6 preview cards went up twelve days later than the cadence rule
+  says. The international break means the GW6 deadline (Sat 2026-10-10)
+  was never at risk. Open: a two-week absence needs either the parked
+  scheduled grade or a hand-off, decided by the owner.
+- Real app: the Granat65 squad matched `state.json` for GW5 (captain, vice,
+  formation, bench order). Owner confirmed on 2026-09-30.
+- Feed at grading, both GW6 research items: Sánchez (Chelsea, our bench GK)
+  loaned to Como for the season, status `u`. Palmer, our captain, listed at
+  75% with a muscular injury.
+- Build warning on the GW5 live rebuild: 8 players joined the feed after the
+  GW5 freeze (Fredrick, Balcombe, Nicoll-Jazuli, Pivas, Salia, Mills,
+  Thompson, Wright, all 4.0m to 4.5m fillers) and trip the artifact-match
+  warning, so they have no page or JSON in the GW5 tree. Cosmetic for the
+  frozen week. Status: open, confirm the GW6 Thursday build gives them pages.
