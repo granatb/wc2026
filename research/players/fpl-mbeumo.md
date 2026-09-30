@@ -2,16 +2,14 @@
 entity: player
 name: Mbeumo
 status: nailed
-start_prob_override: 0.95
+start_prob_override: 0.9
 lambda_multiplier: 1.0
-round: 5
+round: 6
 sources:
-  - official FPL feed 2026-09-17: status 'a', no news; 90 in all four GWs; 173k sold with the United exodus after 2 pts
-updated: 2026-09-17
+  - feed 'a' 2026-09-30, no news; 90 min in all five; crowd sold 128k after two blanks
+updated: 2026-09-30
 ---
 
-Owner lineup note for gameweek 5, written with scripts/fpl_notes.py.
-
-Hand-filtered team news (Discord / Fantasy Football Scout / press conferences), not scraped.
-
-Pinned to this gameweek, so it expires on its own rather than leaking into a later round.
+Feed clean, 90 minutes in all five, second on penalties. The crowd sold 128k
+after two blanks (2, 2); no source reports an injury or a role change.
+Consensus XI player, so no transfer decision follows from this note.

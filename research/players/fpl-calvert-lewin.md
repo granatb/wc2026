@@ -4,14 +4,15 @@ name: Calvert-Lewin
 status: nailed
 start_prob_override: 0.9
 lambda_multiplier: 1.0
-round: 4
+round: 6
 sources:
-  - official FPL feed 2026-09-11: status 'a', no news; 90/90/72; 320k sold after 1 pt; no presser mention (FFS live 2026-09-11)
-updated: 2026-09-11
+  - feed 'a' 2026-09-30, no news; started all five, 90 min GW5; crowd sold 166k after two blanks
+  - https://www.fantasyfootballfix.com/blog-index/fpl-gw6-transfer-tips-2026-27/ (popular moves, 2026-09-21)
+updated: 2026-09-30
 ---
 
-Owner lineup note for gameweek 4, written with scripts/fpl_notes.py.
-
-Hand-filtered team news (Discord / Fantasy Football Scout / press conferences), not scraped.
-
-Pinned to this gameweek, so it expires on its own rather than leaking into a later round.
+Feed clean, started all five, 90 minutes in GW5, penalties his. The crowd
+sold 166k after 1 and 2; Fantasy Football Fix lists Calvert-Lewin to Delap as
+the only forward swap over 10%. No injury or role change in any source. Leeds
+go to Arsenal in GW6, the week's hardest fixture for him, which is a fixture
+read, not a minutes read. Hold on minutes; the Thursday session decides.

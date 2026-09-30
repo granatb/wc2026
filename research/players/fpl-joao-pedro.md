@@ -2,16 +2,18 @@
 entity: player
 name: João Pedro
 status: doubtful
-start_prob_override: 0.6
+start_prob_override: 0.75
 lambda_multiplier: 1.0
-round: 5
+round: 6
 sources:
-  - official FPL feed 2026-09-17: status 'd', "Unspecified injury - 75% chance of playing"; withdrew from the Brazil squad (FFS GW5 hub 2026-09-17); Maresca presser due 2026-09-18
-updated: 2026-09-17
+  - feed 'd' 75% knee 2026-09-30; missed GW5, dropped by Brazil; Chelsea expect him for BOU 10 Oct (Yahoo 2026-09-28)
+  - https://uk.sports.yahoo.com/news/chelsea-injury-cole-palmer-joao-210014080.html (Chelsea injury update, 2026-09-28)
+updated: 2026-09-30
 ---
 
-Owner lineup note for gameweek 5, written with scripts/fpl_notes.py.
-
-Hand-filtered team news (Discord / Fantasy Football Scout / press conferences), not scraped.
-
-Pinned to this gameweek, so it expires on its own rather than leaking into a later round.
+Knee injury from the 2-2 at Hull, missed GW5 (0 minutes), dropped from the
+Brazil squad for the break. The Chelsea injury round-up expects him back for
+Bournemouth on 10 October after three weeks of rest. The feed's 75% is the
+number used here. Consensus XI forward; 389k managers sold him in the break,
+the largest outflow on the board. What invalidates it: Maresca's Friday
+presser, or the feed dropping below 75%.

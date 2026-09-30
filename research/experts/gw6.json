@@ -1,0 +1,54 @@
+{
+  "gameweek": 6,
+  "checked_at": "2026-09-30T15:30:00+00:00",
+  "sources": [
+    {
+      "key": "ffs_early_picks",
+      "name": "Fantasy Football Scout — early Scout Picks",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/09/26/fpl-gameweek-6-early-scout-picks-three-double-ups",
+      "published": "2026-09-26",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Raya", "Tarkowski", "Calafiori", "Hall", "Groß", "Cole Palmer", "B.Fernandes", "Barnes", "Gonzalo", "Haaland", "Barry"],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Early 4-3-3 with three double-ups (Arsenal, Everton, Newcastle); no captain named yet. Palmer kept despite the England withdrawal, João Pedro left out on the knee flag. Final Scout Squad follows the Friday pressers.",
+      "extra_urls": ["https://www.fantasyfootballscout.co.uk/fpl-gameweek-6-tips-best-players-predicted-line-ups-team-news-more-3"]
+    },
+    {
+      "key": "pl_scout_wildcard",
+      "name": "Premier League Scout — Gameweek 6 Wildcard squad",
+      "url": "https://www.premierleague.com/en/news/4726681",
+      "published": "2026-09-28",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Raya", "Konsa", "Vuskovic", "Affengruber", "Saka", "Groß", "Schade", "Tavernier", "Gonzalo", "Cole Palmer", "Rogers", "João Pedro", "Haaland", "Isak"],
+      "transfers_out": ["Gyökeres"],
+      "chip": "wildcard",
+      "note": "The Scout's wildcard draft for the break; carries both flagged Chelsea forwards (Palmer, João Pedro) and Isak. Fourteen of fifteen names visible; formation and captain not given."
+    },
+    {
+      "key": "fix_popular",
+      "name": "Fantasy Football Fix — popular moves",
+      "url": "https://www.fantasyfootballfix.com/blog-index/fpl-gw6-transfer-tips-2026-27/",
+      "published": "2026-09-21",
+      "captain": null,
+      "vice": null,
+      "transfers_in": ["Groß", "Schade", "Kostoulas", "De Cuyper", "King", "Barnes", "Iwobi", "Manzambi"],
+      "transfers_out": ["João Pedro", "Szoboszlai", "B.Fernandes", "M.Sangaré", "Tzolis", "Shaw", "Maguire", "White", "Gibbs-White"],
+      "chip": null,
+      "note": "The crowd's own moves, not a recommendation: Groß 500k+ in, João Pedro 200k+ out. The article's own buys are Iwobi and Manzambi on xFPL; it marks Gibbs-White down (six attempted assists, no shot)."
+    }
+  ],
+  "pending": [
+    "Fantasy Football IQ GW6 squad (page still shows GW5 on 2026-09-30; publishes when team news lands)",
+    "All About FPL GW6 transfer tips (2026/27 article not indexed on 2026-09-30; category page shows last season)",
+    "Fantasy Football Scout final Scout Squad GW6 (Friday 9 Oct)",
+    "Premier League Scout Selection GW6 (Thursday/Friday)"
+  ],
+  "model": {
+    "transfers_in": [],
+    "transfers_out": [],
+    "hold_against_the_crowd": ["Szoboszlai", "B.Fernandes", "Calvert-Lewin"]
+  }
+}
