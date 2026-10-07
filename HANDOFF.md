@@ -33,6 +33,15 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
   (`_preview_gameweek`, `_preview_payloads`), `tests/test_preview_cards.py`
   and `docs/runbooks/monday-post-gw.md`.
 
+- **2026-10-07 — the private `data/` directory is gone.** It was not in the
+  2026-10-02 Mac migration backup. Caches are refetched; the experiment
+  contexts, research CSV snapshots and cached article prose are not
+  recoverable. `dist/` is a mirror of the live site taken on 2026-10-07; never
+  deploy from an empty `dist/`, the build does not regenerate past gameweeks.
+- **2026-10-07 — unenrolled experiment weeks become dated gap records**
+  (`fpl_season.py gap`). GW5 is recorded as a gap; GW4 is graded. The chain
+  continues from GW6.
+
 ## Immediate next actions
 
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.
