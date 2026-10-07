@@ -1,17 +1,20 @@
 ---
 entity: player
 name: Tzolis
-status: nailed
-start_prob_override: 0.85
+status: out
+start_prob_override: 0.0
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - feed 'a' 2026-09-30, no news; started all five, subbed at 45, 80 and 72; crowd sold 138k
-  - https://www.fantasyfootballscout.co.uk/2026/09/01/fpl-notes-mosquera-injury-latest-tzolis-off-at-half-time
-updated: 2026-09-30
+  - official FPL feed 2026-10-07: status 'd', "Hamstring injury - 75% chance of playing" (the feed lags the club reports)
+  - https://arseblog.news/2026/10/tzolis-heads-home-after-hamstring-scare/ (Arseblog, 2026-10-02: left the Greece camp, hamstring)
+  - https://www.rotowire.com/soccer/headlines/christos-tzolis-injury-sidelined-with-hamstring-injury-536706 (RotoWire: grade 1 strain, two to three weeks)
+updated: 2026-10-07
 ---
 
-Feed clean, started all five for Arsenal, subbed at 45 (Villa), 80 and 72.
-The crowd sold 138k after 3 and 2; Fantasy Football Scout noted the half-time
-withdrawal on 1 September and nothing since. A starter who gets hooked is a
-minutes discount, not a bench risk: 0.85 here. Consensus XI player.
+Right hamstring strain 18 minutes into Greece against the Netherlands on
+1 October, grade 1 on the early reports, two to three weeks out, back for the
+Liverpool match in November at the earliest. The feed still shows 75%, which
+is the lag the gate warns about, so the club reports win here: 0.0 for GW6.
+Consensus XI player. What invalidates it: Arteta naming him in the Leeds
+squad on Friday.

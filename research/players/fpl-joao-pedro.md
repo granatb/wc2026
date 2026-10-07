@@ -2,18 +2,20 @@
 entity: player
 name: João Pedro
 status: doubtful
-start_prob_override: 0.75
+start_prob_override: 0.4
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - feed 'd' 75% knee 2026-09-30; missed GW5, dropped by Brazil; Chelsea expect him for BOU 10 Oct (Yahoo 2026-09-28)
-  - https://uk.sports.yahoo.com/news/chelsea-injury-cole-palmer-joao-210014080.html (Chelsea injury update, 2026-09-28)
-updated: 2026-09-30
+  - official FPL feed 2026-10-07: status 'd', "Knee injury - 75% chance of playing"; 443k sold since GW5
+  - https://www.rotowire.com/soccer/headlines/joao-pedro-injury-return-date-remains-uncertain-537079 (RotoWire, 2026-10-06: saw a specialist, no decision for Bournemouth, up to four weeks reported)
+  - https://www.rotowire.com/soccer/headlines/cole-palmer-injury-could-be-available-vs-bournemouth-537080 (same report: likely to miss Saturday)
+updated: 2026-10-07
 ---
 
-Knee injury from the 2-2 at Hull, missed GW5 (0 minutes), dropped from the
-Brazil squad for the break. The Chelsea injury round-up expects him back for
-Bournemouth on 10 October after three weeks of rest. The feed's 75% is the
-number used here. Consensus XI forward; 389k managers sold him in the break,
-the largest outflow on the board. What invalidates it: Maresca's Friday
-presser, or the feed dropping below 75%.
+Knee edema from the Hull match, missed GW5, dropped by Brazil, saw a
+specialist in the break. The 6 October reports say he is likely to miss
+Bournemouth and could be out for up to four weeks, while the feed still says
+75%. 0.40 here: the feed number discounted by the club-side reports, written
+as a range rather than a word (hard rule 2). Consensus XI forward and the
+board's largest outflow. What invalidates it: Maresca's Friday presser either
+way.

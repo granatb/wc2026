@@ -6,8 +6,8 @@ start_prob_override: 0.0
 lambda_multiplier: 1.0
 from_round: 6
 sources:
-  - official FPL feed 2026-09-30: status 'u', "Has joined Como on loan for the rest of the season"
-updated: 2026-09-30
+  - official FPL feed 2026-10-07: status 'u', "Has joined Como on loan for the rest of the season"
+updated: 2026-10-07
 ---
 
 On loan at Como for the season. Held as the fifteenth man by owner decision;

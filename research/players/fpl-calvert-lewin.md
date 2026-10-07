@@ -6,9 +6,9 @@ start_prob_override: 0.9
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - feed 'a' 2026-09-30, no news; started all five, 90 min GW5; crowd sold 166k after two blanks
+  - official FPL feed 2026-10-07: status 'a', no news; started all five, 90 min GW5; 195k sold since GW5
   - https://www.fantasyfootballfix.com/blog-index/fpl-gw6-transfer-tips-2026-27/ (popular moves, 2026-09-21)
-updated: 2026-09-30
+updated: 2026-10-07
 ---
 
 Feed clean, started all five, 90 minutes in GW5, penalties his. The crowd

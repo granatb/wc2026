@@ -6,9 +6,9 @@ start_prob_override: 0.95
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - feed 'a' 2026-09-30; every PL minute this season (Forbes 2026-09-30); crowd sold 109k before MUN away
+  - official FPL feed 2026-10-07: status 'a', no news; every PL minute this season; 128k sold since GW5
   - https://www.forbes.com/sites/grahamruthven/2026/09/30/does-tottenham-hotspur-need-a-new-goalkeeper/
-updated: 2026-09-30
+updated: 2026-10-07
 ---
 
 Every Premier League minute for Tottenham this season (five starts, 450
