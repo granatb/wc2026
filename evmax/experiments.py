@@ -69,6 +69,8 @@ def page(data):
                     ''.join('<td>'+html.escape(c)+'</td>' for c in cells)+'</tr>')
     weeks = ', '.join(map(str, data['gameweeks'])) or 'None yet'
     pending = ', '.join(map(str, data['pending_gameweeks'])) or 'None'
+    gaps = ', '.join('GW'+str(g['gameweek'])+' ('+html.escape(g['reason'])+')'
+                     for g in data.get('gap_gameweeks', [])) or 'None'
     receipts = ''.join('<li>GW'+str(r['gameweek'])+': <code>'+html.escape(r['forecast_artifact_id'])+
                        '</code> — captured '+html.escape(r['captured_at'])+'</li>'
                        for r in data.get('receipts', []))
@@ -200,7 +202,7 @@ forecasts together, then track their decisions and outcomes.</p>
 <div class="scroll"><table><thead><tr><th>Approach / versions</th><th>Points after hits</th>
 <th>Forecast RMSE</th><th>Forecast MAE</th><th>Human interventions</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table></div>
-<p>Graded gameweeks: {weeks}. Frozen weeks awaiting grades: {pending}.</p>
+<p>Graded gameweeks: {weeks}. Frozen weeks awaiting grades: {pending}. Weeks not enrolled, recorded as dated gaps: {gaps}.</p>
 {receipt_section}
 <p>Lower forecast error is better; more squad points is better. Forecast losses are averaged
 with equal weight per gameweek on identical player populations. A lucky captain can win a

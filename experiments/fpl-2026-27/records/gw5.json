@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "record_type": "gap",
+  "experiment_id": "fpl-2026-27-shadow-v1",
+  "protocol": {
+    "experiment_id": "fpl-2026-27-shadow-v1",
+    "season": "2026-27",
+    "arms": {
+      "market": "Market model without editorial overrides",
+      "statistical": "Odds-free early-season ridge",
+      "hybrid": "Prespecified 50/50 market-statistical blend",
+      "consensus": "FPL + FFIQ forecast reference"
+    },
+    "starting_budget_tenths": 1000,
+    "initial_free_transfers": 1,
+    "max_free_transfers": 5,
+    "hit_cost": 4,
+    "chips": "disabled_for_all_arms_v1",
+    "initial_roster": "identical_across_arms",
+    "decision_policy": "single_swap_xi_mean_v1",
+    "forecast_window_minutes": 30,
+    "provider_policy": {
+      "market": "Corrected event engine, fresh real match odds required for every fixture, no editorial overrides or FC27 ratings",
+      "statistical": "Fixed ridge penalty 100, train 2023/24 with at least one prior GW, evaluate 2024/25 without tuning; current lagged points/minutes/xG/xA and official availability",
+      "hybrid": "0.5 market + 0.5 statistical, prespecified without fitting; do not describe as optimized",
+      "consensus": "0.5 official ep_next + 0.5 FFIQ where matched; official alone otherwise, with coverage disclosed. External training/data lineage unknown",
+      "source_max_age_hours": 24,
+      "blanks_and_doubles": "Known blanks are zero; statistical values scale with upcoming fixture count (approximation)"
+    },
+    "primary_forecast_metric": "rmse_all_common_players",
+    "evaluation_policy": {
+      "version": "paired-cohorts-v1",
+      "cohorts": [
+        "all_players",
+        "prior_60plus",
+        "selected_by_any_arm"
+      ],
+      "prior_60plus": "Frozen season minutes divided by completed prior gameweeks >= 60; not per-match minutes",
+      "paired_metric": "left minus right MSE, averaged equally across eligible gameweeks",
+      "uncertainty": "Exploratory percentile moving-block bootstrap; 2000 draws, block length 3, fixed seed 20260907",
+      "minimum_interval_weeks": 12,
+      "interval_eligibility": "Consecutive eligible gameweeks and one unchanged model label and code/parameter fingerprint per arm; undisclosed revisions suppress intervals",
+      "limitations": "Unadjusted multiple comparisons; stationarity not established; thresholds are operational choices, not a power calculation"
+    },
+    "secondary_metrics": [
+      "mae",
+      "bias",
+      "official_squad_points_after_hits",
+      "captain_points"
+    ],
+    "human_interventions": "allowed_only_with_predeadline_reason_and_source",
+    "promotion": "No automatic winner selection; assess paired forecast loss, decisions, uncertainty and model versions",
+    "scope": "Virtual prospective squads. No official FPL accounts are created or operated. Existing published squads are a separate historical record."
+  },
+  "protocol_sha256": "b70d3af1ce9105e1ee277c18763ac77e25dc2b08be3cc7da37a0d32997b4bcbb",
+  "gameweek": 5,
+  "recorded_at": "2026-10-07T13:39:19.832977+00:00",
+  "deadline": "2026-09-18T17:30:00+00:00",
+  "previous_artifact_id": "e59f4913c3c2e7c0def8d477518946b758b85cefe3ddab08d2bd684b267b2d8c",
+  "reason": "owner away 19 to 30 September 2026; no rehearsal or freeze was run for GW5",
+  "source": "docs/research/season-learnings.md, GW5 entry dated 2026-09-30",
+  "arms": {
+    "consensus": {
+      "squad_ids": [
+        1,
+        356,
+        498,
+        229,
+        426,
+        237,
+        480,
+        542,
+        368,
+        106,
+        79,
+        140,
+        469,
+        346,
+        423
+      ],
+      "portfolio": {
+        "bank_tenths": 27,
+        "purchase_prices": {
+          "1": 60,
+          "356": 65,
+          "498": 59,
+          "229": 60,
+          "426": 120,
+          "237": 59,
+          "480": 79,
+          "542": 59,
+          "368": 70,
+          "106": 79,
+          "79": 60,
+          "140": 49,
+          "469": 50,
+          "346": 60,
+          "423": 44
+        },
+        "transfers_in": [],
+        "transfers_out": [],
+        "hit_points": 0,
+        "free_transfers_before": 1,
+        "free_transfers_next": 2
+      }
+    },
+    "hybrid": {
+      "squad_ids": [
+        1,
+        356,
+        498,
+        229,
+        426,
+        237,
+        480,
+        542,
+        368,
+        106,
+        79,
+        140,
+        469,
+        346,
+        423
+      ],
+      "portfolio": {
+        "bank_tenths": 27,
+        "purchase_prices": {
+          "1": 60,
+          "356": 65,
+          "498": 59,
+          "229": 60,
+          "426": 120,
+          "237": 59,
+          "480": 79,
+          "542": 59,
+          "368": 70,
+          "106": 79,
+          "79": 60,
+          "140": 49,
+          "469": 50,
+          "346": 60,
+          "423": 44
+        },
+        "transfers_in": [],
+        "transfers_out": [],
+        "hit_points": 0,
+        "free_transfers_before": 1,
+        "free_transfers_next": 2
+      }
+    },
+    "market": {
+      "squad_ids": [
+        1,
+        356,
+        498,
+        229,
+        426,
+        237,
+        480,
+        542,
+        368,
+        106,
+        79,
+        140,
+        469,
+        346,
+        423
+      ],
+      "portfolio": {
+        "bank_tenths": 27,
+        "purchase_prices": {
+          "1": 60,
+          "356": 65,
+          "498": 59,
+          "229": 60,
+          "426": 120,
+          "237": 59,
+          "480": 79,
+          "542": 59,
+          "368": 70,
+          "106": 79,
+          "79": 60,
+          "140": 49,
+          "469": 50,
+          "346": 60,
+          "423": 44
+        },
+        "transfers_in": [],
+        "transfers_out": [],
+        "hit_points": 0,
+        "free_transfers_before": 1,
+        "free_transfers_next": 2
+      }
+    },
+    "statistical": {
+      "squad_ids": [
+        1,
+        356,
+        498,
+        229,
+        426,
+        237,
+        480,
+        542,
+        368,
+        106,
+        79,
+        140,
+        469,
+        346,
+        423
+      ],
+      "portfolio": {
+        "bank_tenths": 27,
+        "purchase_prices": {
+          "1": 60,
+          "356": 65,
+          "498": 59,
+          "229": 60,
+          "426": 120,
+          "237": 59,
+          "480": 79,
+          "542": 59,
+          "368": 70,
+          "106": 79,
+          "79": 60,
+          "140": 49,
+          "469": 50,
+          "346": 60,
+          "423": 44
+        },
+        "transfers_in": [],
+        "transfers_out": [],
+        "hit_points": 0,
+        "free_transfers_before": 1,
+        "free_transfers_next": 2
+      }
+    }
+  },
+  "artifact_id": "9c2971aef4b5f2f2df8a72b26ec0149b0f7fc2cc6e74a02246db0227b881c24f"
+}

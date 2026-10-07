@@ -42,7 +42,9 @@ def status(protocol, bootstrap, root, gw, now=None):
     lock = evidence.deadline(bootstrap, gw)
     opens = lock-timedelta(hours=24)
     frozen = next((r for r in records if r['gameweek'] == gw), None)
-    if frozen:
+    if frozen and ledger.is_gap(frozen):
+        state = 'gap_recorded'
+    elif frozen:
         state = 'graded' if gw in report['gameweeks'] else 'awaiting_final_results'
     elif records and gw != records[-1]['gameweek']+1:
         state = 'history_gap'
@@ -54,7 +56,7 @@ def status(protocol, bootstrap, root, gw, now=None):
         state = 'ready_to_refresh_and_freeze'
     return dict(gameweek=gw, state=state, observed_at=now.isoformat(),
                 deadline=lock.isoformat(), freeze_window_opens=opens.isoformat(),
-                forecast_artifact_id=frozen['artifact_id'] if frozen else None,
+                forecast_artifact_id=frozen['artifact_id'] if frozen and not ledger.is_gap(frozen) else None,
                 note='Read-only status from supplied bootstrap; refresh official data before freezing.')
 
 

@@ -53,6 +53,20 @@ backs up and freezes together **only within the final 24 hours**. Outside that
 window it returns `rehearsal_only`; missed deadlines and history gaps fail. It
 never schedules itself or submits changes to an official FPL account.
 
+A week that was never enrolled is closed with a dated gap record, after its
+official deadline has passed:
+
+```sh
+python3 scripts/fpl_season.py gap --gw 5 --reason "owner away 19 to 30 September" \
+    --source "docs/research/season-learnings.md, GW5 entry"
+```
+
+The gap record sits in the chain like a frozen week: it carries every arm's
+squad, bank and purchase prices forward unchanged and accrues one free transfer
+under the protocol cap. It holds no forecast, is never graded, and the report
+lists it under `gap_gameweeks` with its reason. `status` reports `gap_recorded`
+for that week, and the next week rehearses from the carried portfolio.
+
 To freeze a reviewed run still inside its 30-minute forecast window:
 
 ```sh

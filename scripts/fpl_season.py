@@ -14,7 +14,7 @@ from scripts import fpl_providers
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('command', choices=['status', 'rehearse', 'freeze', 'run', 'grade', 'verify-backup'])
+    ap.add_argument('command', choices=['status', 'rehearse', 'freeze', 'run', 'grade', 'gap', 'verify-backup'])
     ap.add_argument('--gw', type=int)
     ap.add_argument('--protocol', type=Path, default=REPO/'experiments/fpl-2026-27/protocol.json')
     ap.add_argument('--root', type=Path, default=REPO/'experiments/fpl-2026-27/records')
@@ -25,6 +25,8 @@ def main(argv=None):
     ap.add_argument('--run-file', type=Path)
     ap.add_argument('--backup', type=Path)
     ap.add_argument('--sims', type=int, default=5000)
+    ap.add_argument('--reason', help='gap: why the week was not enrolled')
+    ap.add_argument('--source', help='gap: where the reason is documented')
     args = ap.parse_args(argv)
     if args.command == 'verify-backup':
         if not args.backup: ap.error('--backup is required')
@@ -38,6 +40,14 @@ def main(argv=None):
         if not args.gw or not 1 <= args.gw <= 38: ap.error('--gw must be 1–38')
         if args.command == 'status':
             result = ops.status(protocol, fpl_api.read_cache('bootstrap') or fpl_api.fetch_bootstrap(), args.root, args.gw)
+        elif args.command == 'gap':
+            if not args.reason or not args.source: ap.error('--reason and --source are required')
+            with ops.operation_lock(args.root):
+                record = ledger.record_gap(protocol, args.root, args.gw, fpl_api.fetch_bootstrap(),
+                                           reason=args.reason, source=args.source)
+            result = dict(state='gap_recorded', gameweek=args.gw, artifact_id=record['artifact_id'],
+                          free_transfers_next={arm: sub['portfolio']['free_transfers_next']
+                                               for arm, sub in record['arms'].items()})
         else:
             with ops.operation_lock(args.root):
                 if args.command == 'grade':

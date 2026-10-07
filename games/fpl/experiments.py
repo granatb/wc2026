@@ -185,6 +185,11 @@ def write_week(root, record, now=None):
     now = evidence.utc(now or datetime.now(timezone.utc))
     if not evidence.utc(record['captured_at']) <= now < evidence.utc(record['deadline']):
         raise ValueError('capture is in the future or deadline passed before writing')
+    return _publish(root, record)
+
+
+def _publish(root, record):
+    """Atomic, exclusive publication of one ledger record. A crash cannot leave a half-written claim."""
     root = Path(root)
     path = root / f"gw{record['gameweek']}.json"
     if path.exists():
@@ -201,7 +206,6 @@ def write_week(root, record, now=None):
             tmp = Path(fh.name)
             json.dump(body, fh, ensure_ascii=False, indent=2, allow_nan=False)
             fh.write('\n')
-        # Atomic, exclusive publication. A crash cannot leave a half-written claim.
         os.link(tmp, path)
     finally:
         if tmp is not None:
@@ -209,17 +213,68 @@ def write_week(root, record, now=None):
     return body
 
 
+def is_gap(record):
+    """True for a dated gap record: a week the experiment did not enrol."""
+    return record.get('record_type') == 'gap'
+
+
+def record_gap(protocol, root, gw, bootstrap, reason, source, now=None):
+    """Record a week that was never enrolled, after its deadline, so the chain continues.
+
+    The gap carries every arm's squad and purchase prices forward unchanged,
+    accrues one free transfer under the protocol cap, and holds no forecast.
+    It is written only once the official deadline has passed: a gap is a dated
+    admission that the week was lost, never an early opt-out.
+    """
+    now = evidence.utc(now or datetime.now(timezone.utc))
+    if not isinstance(reason, str) or not reason.strip() or not isinstance(source, str) or not source.strip():
+        raise ValueError('a gap record requires a reason and a source')
+    records = load_history(root)
+    if not records:
+        raise ValueError('no enrolled history to continue; a gap needs a prior frozen week')
+    previous = records[-1]
+    if gw != previous['gameweek'] + 1:
+        raise ValueError('gap must be the gameweek consecutive to the last record')
+    if previous['protocol_sha256'] != evidence.digest(protocol):
+        raise ValueError('registered protocol disagrees with frozen history')
+    lock = evidence.deadline(bootstrap, gw)
+    if now < lock:
+        raise ValueError('a gap is recorded only after the official deadline has passed')
+    arms = {}
+    for arm, old in previous['arms'].items():
+        held = old['portfolio']
+        available = held['free_transfers_next']
+        arms[arm] = dict(squad_ids=list(old['squad_ids']),
+                         portfolio=dict(bank_tenths=held['bank_tenths'],
+                                        purchase_prices=dict(held['purchase_prices']),
+                                        transfers_in=[], transfers_out=[], hit_points=0,
+                                        free_transfers_before=available,
+                                        free_transfers_next=min(protocol['max_free_transfers'], available + 1)))
+    record = dict(schema_version=1, record_type='gap', experiment_id=protocol['experiment_id'],
+                  protocol=protocol, protocol_sha256=evidence.digest(protocol), gameweek=gw,
+                  recorded_at=now.isoformat(), deadline=lock.isoformat(),
+                  previous_artifact_id=previous['artifact_id'], reason=reason.strip(),
+                  source=source.strip(), arms=arms)
+    return _publish(root, record)
+
+
 def read_week(path):
     record = json.loads(Path(path).read_text())
     body = {k:v for k,v in record.items() if k != 'artifact_id'}
     if evidence.digest(body) != record['artifact_id']:
         raise ValueError('experiment record checksum mismatch')
+    if is_gap(record):
+        if evidence.utc(record['recorded_at']) < evidence.utc(record['deadline']):
+            raise ValueError('gap record dated before its deadline')
+        return record
     if evidence.utc(record['captured_at']) >= evidence.utc(record['deadline']):
         raise ValueError('ineligible late experiment record')
     return record
 
 
 def grade_week(record, results):
+    if is_gap(record):
+        raise ValueError('gap week holds no forecast to grade')
     evidence.require_final(results)
     if evidence.utc(results['fetched_at']) < evidence.utc(record['deadline']):
         raise ValueError('results fetched before the forecast deadline')
@@ -368,10 +423,13 @@ def load_history(root):
 
 def report_from_directory(protocol, root):
     records = load_history(root)
-    grades, pending = [], []
+    grades, pending, gaps = [], [], []
     for record in records:
         if record['protocol_sha256'] != evidence.digest(protocol):
             raise ValueError('registered protocol disagrees with frozen history')
+        if is_gap(record):
+            gaps.append(dict(gameweek=record['gameweek'], reason=record['reason']))
+            continue
         path = Path(root)/'grades'/f"gw{record['gameweek']}.json"
         if not path.exists():
             pending.append(record['gameweek']); continue
@@ -386,11 +444,13 @@ def report_from_directory(protocol, root):
             raise ValueError('grade differs from retained official outcomes')
         grades.append(grade)
     report = season_report(grades)
+    forecasts = [r for r in records if not is_gap(r)]
     report.update(registered_arms=dict(protocol['arms']), pending_gameweeks=pending,
-                  frozen_gameweeks=[r['gameweek'] for r in records],
-                  receipts=[public_receipt(r) for r in records],
+                  gap_gameweeks=gaps,
+                  frozen_gameweeks=[r['gameweek'] for r in forecasts],
+                  receipts=[public_receipt(r) for r in forecasts],
                   experiment_id=protocol['experiment_id'], protocol_sha256=evidence.digest(protocol))
-    if records and not grades:
+    if forecasts and not grades:
         report['status'] = 'forecasts_frozen_awaiting_results'
     return report
 

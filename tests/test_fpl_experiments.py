@@ -11,6 +11,7 @@ from scripts import fpl_experiment, validate_site
 PROTOCOL = json.loads((Path(__file__).resolve().parents[1]/'experiments/fpl-2026-27/protocol.json').read_text())
 NOW = '2026-09-10T12:00:00Z'
 LATER = '2026-09-17T12:00:00Z'
+GAP_NOW = '2026-09-20T12:00:00Z'
 
 
 def bootstrap():
@@ -178,3 +179,71 @@ class MergeGateTests(unittest.TestCase):
             record['artifact_id'] = 'b'*64
             path.write_text(json.dumps(record))
             with self.assertRaises(ValueError): evidence.load(4)
+
+
+class GapRecordTests(unittest.TestCase):
+    """A week that was never enrolled is recorded as a dated gap, after its deadline.
+
+    The gap keeps the chain intact: squads and purchase prices carry forward,
+    one free transfer accrues, nothing is forecast and nothing is graded.
+    """
+    def _frozen(self, tmp):
+        record = first()
+        body = {k: v for k, v in record.items() if k != 'artifact_id'}
+        return lab.write_week(tmp, body, now=NOW)
+
+    def test_gap_carries_portfolio_and_keeps_the_chain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            frozen = self._frozen(tmp)
+            gap = lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='owner away',
+                                 source='docs/research/season-learnings.md 2026-09-30', now=GAP_NOW)
+            self.assertEqual(gap['record_type'], 'gap')
+            self.assertEqual(gap['previous_artifact_id'], frozen['artifact_id'])
+            for arm, sub in gap['arms'].items():
+                old = frozen['arms'][arm]
+                self.assertEqual(sub['squad_ids'], old['squad_ids'])
+                self.assertEqual(sub['portfolio']['purchase_prices'], old['portfolio']['purchase_prices'])
+                self.assertEqual(sub['portfolio']['bank_tenths'], old['portfolio']['bank_tenths'])
+                self.assertEqual(sub['portfolio']['free_transfers_before'], 1)
+                self.assertEqual(sub['portfolio']['free_transfers_next'], 2)
+                self.assertEqual(sub['portfolio']['transfers_in'], [])
+            history = lab.load_history(tmp)
+            self.assertEqual([r['gameweek'] for r in history], [4, 5])
+            self.assertEqual(lab.read_week(Path(tmp)/'gw5.json'), gap)
+            # The next enrolled week continues from the gap's carried portfolio.
+            boot = bootstrap()
+            boot['events'].append({'id': 6, 'deadline_time': '2026-09-26T12:30:00Z'})
+            subs = submissions(boot, GAP_NOW, gap)
+            for sub in subs.values():
+                sub['fixtures_sha256'] = evidence.digest(fixtures(6))
+            week = lab.prepare_week(PROTOCOL, 6, boot, subs, previous=gap, now=GAP_NOW, fixtures=fixtures(6))
+            self.assertEqual(week['previous_artifact_id'], gap['artifact_id'])
+            self.assertEqual(week['arms']['market']['portfolio']['free_transfers_before'], 2)
+
+    def test_gap_is_refused_before_its_deadline_out_of_sequence_or_twice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._frozen(tmp)
+            with self.assertRaisesRegex(ValueError, 'deadline'):
+                lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='r', source='s', now=NOW)
+            with self.assertRaisesRegex(ValueError, 'consecutive'):
+                lab.record_gap(PROTOCOL, tmp, 6, bootstrap(), reason='r', source='s', now=GAP_NOW)
+            with self.assertRaisesRegex(ValueError, 'reason'):
+                lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='', source='s', now=GAP_NOW)
+            lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='r', source='s', now=GAP_NOW)
+            with self.assertRaises(ValueError):
+                lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='r', source='s', now=GAP_NOW)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, 'no enrolled history'):
+                lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='r', source='s', now=GAP_NOW)
+
+    def test_gap_is_never_graded_and_the_report_names_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._frozen(tmp)
+            gap = lab.record_gap(PROTOCOL, tmp, 5, bootstrap(), reason='owner away', source='s', now=GAP_NOW)
+            with self.assertRaisesRegex(ValueError, 'gap'):
+                lab.grade_week(gap, {})
+            report = lab.report_from_directory(PROTOCOL, tmp)
+            self.assertEqual(report['frozen_gameweeks'], [4])
+            self.assertEqual(report['pending_gameweeks'], [4])
+            self.assertEqual(report['gap_gameweeks'], [{'gameweek': 5, 'reason': 'owner away'}])
+            self.assertEqual([r['gameweek'] for r in report['receipts']], [4])

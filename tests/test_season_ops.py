@@ -120,3 +120,23 @@ class SeasonOpsTests(unittest.TestCase):
                 with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                     ledger.bank_grade(root, record, value, now=AFTER)
             self.assertFalse((root/'grades/gw4.json').exists())
+
+
+class GapStatusTests(unittest.TestCase):
+    def test_status_after_a_recorded_gap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, work = Path(tmp)/'records', Path(tmp)/'work'
+            draft = rehearsal(root, work)
+            ops.freeze_run(PROTOCOL, draft['run'], root, work, now=NOW)
+            boot = current()['bootstrap']
+            boot['events'] += [dict(id=5, deadline_time='2026-09-19T12:30:00Z'),
+                               dict(id=6, deadline_time='2026-09-26T12:30:00Z')]
+            self.assertEqual(ops.status(PROTOCOL, boot, root, 5, now='2026-09-20T12:00:00Z')['state'],
+                             'missed_deadline')
+            self.assertEqual(ops.status(PROTOCOL, boot, root, 6, now='2026-09-20T12:00:00Z')['state'],
+                             'history_gap')
+            ledger.record_gap(PROTOCOL, root, 5, boot, reason='owner away', source='s', now='2026-09-20T12:00:00Z')
+            self.assertEqual(ops.status(PROTOCOL, boot, root, 5, now='2026-09-20T12:00:00Z')['state'],
+                             'gap_recorded')
+            self.assertEqual(ops.status(PROTOCOL, boot, root, 6, now='2026-09-20T12:00:00Z')['state'],
+                             'rehearsal_only')
