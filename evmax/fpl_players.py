@@ -419,6 +419,9 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
     letters = verdict_letters(rows)
     xp_rank, own_rank = rank_maps(rows)
     from evmax.articles import player_flag, price_tier
+    from core import research
+
+    notes = research.bind_entries(notes, players_by_name)
 
     form_by_id = {int(k): v for k, v in (form_history or {}).items()}
 
@@ -503,7 +506,7 @@ def assemble_payloads(rows: list, players_by_name: dict, elements_by_id: dict,
                 "model_role": model_role,
                 "consensus_role": consensus_role,
             },
-            "notes": [name] if name in notes else [],
+            "notes": [notes[name].name] if name in notes else [],
             "distribution": distribution_block(r),
             "page": page_path(slug),
             "slug": slug,

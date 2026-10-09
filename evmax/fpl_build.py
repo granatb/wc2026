@@ -523,10 +523,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         if not rows:
             raise SystemExit("empty projection board; refusing publication")
         start_probs = {p.name: p.start_prob for squad in priors_by_team.values() for p in squad}
-        rows = [dict(r, start_prob=start_probs.get(r["name"]),
+        rows = [dict(r, start_prob=r.get("start_prob", start_probs.get(r["name"])),
                      player_id=players_by_name[r["name"]]["id"],
                      ep_next=players_by_name[r["name"]].get("ep_next")) for r in rows]
-        note_names = {name for name, e in research.load_entries("players", gameweek).items() if e.sources}
+        bound_notes = research.bind_entries(research.load_entries("players", gameweek),
+                                            players_by_name)
+        note_names = {name for name, entry in bound_notes.items() if entry.sources}
         clubs = sorted({p["team"] for p in all_players}) or sorted(priors_by_team)
         entries_map, metas = entries_or_abort(rows, matches, clubs, states, note_names)
         # Stable IDs travel with the exact ordered squad and all article rows.
@@ -598,7 +600,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                 except (ValueError, KeyError, StopIteration) as exc:
                     warnings.append(f"preview row for {slug}: {exc}")
     if not locked:
-        notes = research.load_entries("players", gameweek)
+        notes = research.bind_entries(research.load_entries("players", gameweek),
+                                     players_by_name)
         # Name -> "XI"/"Bench" for both published squads. The card's stance line
         # says which, so membership alone is not enough.
         squad_roles = {key: {e["name"]: e.get("role") for e in entries_map[slug]}
@@ -1203,11 +1206,12 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
                          f"for gameweek {preview_gw}; refresh the caches.")
     start_probs = {p.name: p.start_prob
                    for squad in priors_by_team.values() for p in squad}
-    rows = [dict(r, start_prob=start_probs.get(r["name"]),
+    rows = [dict(r, start_prob=r.get("start_prob", start_probs.get(r["name"])),
                  player_id=(players_by_name.get(r["name"]) or {}).get("id"),
                  ep_next=(players_by_name.get(r["name"]) or {}).get("ep_next"))
             for r in rows]
-    notes = research.load_entries("players", preview_gw)
+    notes = research.bind_entries(research.load_entries("players", preview_gw),
+                                 players_by_name)
     squad_roles = _squad_roles(states, rows)
     fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
                                          fpl_api.parse_teams(boot or {}))

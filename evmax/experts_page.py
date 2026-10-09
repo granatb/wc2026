@@ -103,6 +103,15 @@ def page_html(data: dict, gameweek: int, our: dict, date_str: str = None,
     model = data.get("model") or {}
     rows = "".join(_row(s) for s in data["sources"])
     items = "".join(f"<li>{_html.escape(i)}</li>" for i in summary_items(data, our))
+    review = ""
+    for heading, sentences in (
+        ("Options for owner review", model.get("review_options") or []),
+        ("Sources still pending", data.get("pending") or []),
+    ):
+        if sentences:
+            review += (f"<h2>{heading}</h2><ul class=\"xp-sum\">"
+                       + "".join(f"<li>{_html.escape(i)}</li>" for i in sentences)
+                       + "</ul>")
     title = f"{TITLE}: FPL Gameweek {gameweek}"
     description = (f"Captain, transfers and chip calls from {len(data['sources'])} public "
                    f"FPL sources for Gameweek {gameweek}, each linked, next to the "
@@ -119,6 +128,7 @@ def page_html(data: dict, gameweek: int, our: dict, date_str: str = None,
 </tr></thead><tbody>{rows}{_our_row(our, model, gameweek, section)}</tbody></table></div>
 <h2>Where they agree, where they split</h2>
 <ul class="xp-sum">{items}</ul>
+{review}
 <p class="xp-foot">Each row is that source's own published call, linked. We record who they
 picked and nothing else: no projections, no paywalled text. Fantasy Football Fix's row is the
 crowd's transfer counts, not a recommendation. Our row is the squad frozen before the deadline

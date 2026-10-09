@@ -1,21 +1,20 @@
 ---
 entity: player
 name: João Pedro
+player_id: 165
 status: doubtful
-start_prob_override: 0.4
+start_prob_override: 0.75
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - official FPL feed 2026-10-07: status 'd', "Knee injury - 75% chance of playing"; 443k sold since GW5
-  - https://www.rotowire.com/soccer/headlines/joao-pedro-injury-return-date-remains-uncertain-537079 (RotoWire, 2026-10-06: saw a specialist, no decision for Bournemouth, up to four weeks reported)
-  - https://www.rotowire.com/soccer/headlines/cole-palmer-injury-could-be-available-vs-bournemouth-537080 (same report: likely to miss Saturday)
-updated: 2026-10-07
+  - official FPL feed 2026-10-09: status 'd', Knee injury - 75% chance of playing; 4 starts, 360 minutes through GW5; 565861 sold in GW6
+  - https://www.chelseafc.com/en/news/article/xabi-alonso-confirms-chelsea-team-news-for-bournemouth
+updated: 2026-10-09
 ---
 
-Knee edema from the Hull match, missed GW5, dropped by Brazil, saw a
-specialist in the break. The 6 October reports say he is likely to miss
-Bournemouth and could be out for up to four weeks, while the feed still says
-75%. 0.40 here: the feed number discounted by the club-side reports, written
-as a range rather than a word (hard rule 2). Consensus XI forward and the
-board's largest outflow. What invalidates it: Maresca's Friday presser either
-way.
+Xabi Alonso confirms Joao Pedro trained well and is available against
+Bournemouth. The official statement gives no start or full-match minutes
+promise. The feed remains at 75%. Use a provisional 0.75 start probability,
+with the historical model estimate for conditional minutes. Sensitivity
+from 0.60 to 0.90 is necessary after the knee issue. A setback or the
+announced XI can change this view.

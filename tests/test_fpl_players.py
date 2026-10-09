@@ -298,6 +298,25 @@ class TestAssembly(unittest.TestCase):
         self.assertEqual(beta["notes"], ["Beta"])
         self.assertEqual(beta["flag"], "doubtful")
 
+    def test_id_bound_research_labels_only_the_correct_namesake_card(self):
+        from core.research import ResearchEntry
+
+        rows, by_name, by_id, notes, squads, six_week = _assembly_inputs()
+        rows[0]["name"], rows[1]["name"] = "Alex Palmer", "Cole Palmer"
+        by_name = {"Alex Palmer": dict(by_name["Alpha"], name="Alex Palmer"),
+                   "Cole Palmer": dict(by_name["Beta"], name="Cole Palmer")}
+        by_id[11]["web_name"] = by_id[22]["web_name"] = "Palmer"
+        notes = {"Palmer": ResearchEntry(name="Palmer", player_id=22,
+                                        status="doubtful", sources=["https://example.test"])}
+        payloads, _ = fpl_players.assemble_payloads(
+            rows, by_name, by_id, notes, {}, None, _FX_ROWS,
+            _ODDS_BY_GW, 1, "2026-08-24T12:00:00Z")
+        by_id = {p["id"]: p for p in payloads}
+        self.assertEqual(by_id[22]["flag"], "doubtful")
+        self.assertEqual(by_id[22]["notes"], ["Palmer"])
+        self.assertIsNone(by_id[11]["flag"])
+        self.assertEqual(by_id[11]["notes"], [])
+
     def test_unmatched_row_is_reported_not_guessed(self):
         rows, by_name, by_id, notes, squads, six_week = _assembly_inputs()
         rows.append(dict(rows[0], name="Ghost"))

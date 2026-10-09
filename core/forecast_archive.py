@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "evmax/assets/forecasts"
-MODEL_VERSION = "2026-09-07.1"
+MODEL_VERSION = "2026-10-09.1"
 
 
 def utc(value):

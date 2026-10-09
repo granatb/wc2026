@@ -61,6 +61,18 @@ class TalliesTest(unittest.TestCase):
 
 
 class PageTest(unittest.TestCase):
+    def test_review_options_and_pending_sources_are_visible_and_escaped(self):
+        data = json.loads(json.dumps(SCAN))
+        data['model']['review_options'] = ['Palmer → Saka: +13.03 xPts <provisional>']
+        data['pending'] = ['Final Scout Picks <unverified>']
+        page = experts_page.page_html(data, 4, OUR)
+        self.assertIn('Options for owner review', page)
+        self.assertIn('Palmer → Saka: +13.03 xPts &lt;provisional&gt;', page)
+        self.assertIn('Final Scout Picks &lt;unverified&gt;', page)
+        self.assertNotIn('<unverified>', page)
+        self.assertEqual(experts_page.public_json(data, OUR)['model']['review_options'],
+                         data['model']['review_options'])
+
     def test_every_source_is_linked_and_our_row_is_present(self):
         from evmax import render
         html = experts_page.page_html(SCAN, 4, OUR, date_str="12 September 2026", section=render.FPL)

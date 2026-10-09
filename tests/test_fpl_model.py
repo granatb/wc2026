@@ -36,6 +36,7 @@ class TestResearchIdentity(unittest.TestCase):
                                                    906, 100, use_cache=False)
         rows = {r["name"]: r for r in artifact["rows"]}
         self.assertEqual(rows["Cole Palmer"]["x_points"], 0.0)
+        self.assertEqual(rows["Cole Palmer"].get("start_prob"), 0.0)
         self.assertGreater(rows["Alex Palmer"]["x_points"], 0.0)
 
     def test_exact_name_note_works_without_optional_player_metadata(self):

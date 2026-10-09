@@ -203,7 +203,8 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
             row["start_prob"] = start_probs.get(name)
 
     notes = research.load_entries("players", fantasy_round)
-    note_names = {name for name, e in notes.items() if e.sources}
+    bound_notes = research.bind_entries(notes, {p["name"]: p for p in pool})
+    note_names = {name for name, entry in bound_notes.items() if entry.sources}
     prev = fpl_diff.load_previous()
     captured_teams = ({pid: row["team_short"] for pid, row in prev.items()
                        if pid != "taken_at"} if prev else None)
@@ -225,7 +226,8 @@ def fpl_transfers(fantasy_round: int, bank: float = 0.0) -> None:
         # override below the minutes floor) makes the flag a sell signal.
         cleared = set()
         for name in flagged:
-            entry = notes.get(name)
+            held = next(e for e in state["squad"] if e["name"] == name)
+            entry = research.find_entry(notes, (name,), held.get("id"))
             if entry is None or not entry.sources:
                 continue
             if entry.status in blend.HARD_OUT_STATUSES:

@@ -1,18 +1,19 @@
 ---
 entity: player
 name: Kinsky
+player_id: 496
 status: nailed
 start_prob_override: 0.95
 lambda_multiplier: 1.0
 round: 6
 sources:
-  - official FPL feed 2026-10-07: status 'a', no news; every PL minute this season; 128k sold since GW5
+  - official FPL feed 2026-10-09: status 'a', no news; 5 starts, 450 minutes through GW5; 177665 sold in GW6
   - https://www.forbes.com/sites/grahamruthven/2026/09/30/does-tottenham-hotspur-need-a-new-goalkeeper/
-updated: 2026-10-07
+updated: 2026-10-09
 ---
 
-Every Premier League minute for Tottenham this season (five starts, 450
-minutes). Vicario is on loan at Juventus, so there is no competition for the
-shirt. The crowd sold 109k before Manchester United away; Forbes on
-30 September rates his save percentage 17th of the league's keepers, which is
-a quality read, not a minutes read. Consensus XI keeper.
+The official feed lists Kinsky as available with five starts and 450
+minutes through GW5. Retain the existing 0.95 start assumption. The dated
+Forbes assessment concerns performance. It supplies no current confirmed
+change of goalkeeper. A club update or the announced XI can change this
+view.

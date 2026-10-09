@@ -1001,13 +1001,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     match_projection = _match_projection(fx)
     if research_entries is None:
         research_entries = research.load_entries("players", gameweek)
-    resolved_research = {name: entry for name, entry in research_entries.items()
-                         if entry.player_id is None}
-    for name, player in players_by_name.items():
-        entry = research.find_entry(research_entries, (name,), player.get("id"))
-        if entry is not None:
-            resolved_research[name] = entry
-    research_entries = resolved_research
+    research_entries = research.bind_entries(research_entries, players_by_name)
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
         for name, e in research_entries.items()
@@ -1022,6 +1016,12 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         "bps_baselines": _bps_baselines(players_by_name),
     }
     research_weight = config.weight("fpl")
+    start_probs = {
+        p.name: engine_events.effective_goal_weight(
+            p.goal_share, None, research_entries.get(p.name), research_weight,
+            base_start=p.start_prob)[1]
+        for squad in priors_by_team.values() for p in squad
+    }
     sim_config = {
         "GOAL_CONCENTRATION": config.GOAL_CONCENTRATION,
         "PEN_TAKER_GOAL_BONUS": config.PEN_TAKER_GOAL_BONUS,
@@ -1093,7 +1093,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
         # appearing, which would show a rotation player as if he started every
         # week. See appearance_probability's docstring.
         p_defcon = defcon_probability(m["position"], ps.defcon_samples) * p_played
-        rows.append(_derive_row(
+        rows.append(dict(_derive_row(
             name=name, means=m, x_points=pts, ceiling=points.tail_mean(name),
             bonus=player_bonus, defcon_pts=p_defcon * DEFCON_PTS,
             p_defcon=p_defcon, price=meta.get("price"),
@@ -1104,7 +1104,7 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
             # source, so adding the column invalidated every artifact written
             # before it existed — a stale hit cannot serve a row that silently
             # lacks a distribution.
-            distribution=points.histogram(name)))
+            distribution=points.histogram(name)), start_prob=start_probs.get(name)))
     rows.sort(key=lambda r: -r["x_points"])
 
     artifact = {"rows": rows, "matches": match_summaries(match_samples, fx)}

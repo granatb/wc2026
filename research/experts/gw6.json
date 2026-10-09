@@ -1,6 +1,6 @@
 {
   "gameweek": 6,
-  "checked_at": "2026-09-30T15:30:00+00:00",
+  "checked_at": "2026-10-09T14:11:57.074048+00:00",
   "sources": [
     {
       "key": "ffs_early_picks",
@@ -9,11 +9,25 @@
       "published": "2026-09-26",
       "captain": null,
       "vice": null,
-      "transfers_in": ["Raya", "Tarkowski", "Calafiori", "Hall", "Groß", "Cole Palmer", "B.Fernandes", "Barnes", "Gonzalo", "Haaland", "Barry"],
+      "transfers_in": [
+        "Raya",
+        "Tarkowski",
+        "Calafiori",
+        "Hall",
+        "Groß",
+        "Cole Palmer",
+        "B.Fernandes",
+        "Barnes",
+        "Gonzalo",
+        "Haaland",
+        "Barry"
+      ],
       "transfers_out": [],
       "chip": null,
       "note": "Early 4-3-3 with three double-ups (Arsenal, Everton, Newcastle); no captain named yet. Palmer kept despite the England withdrawal, João Pedro left out on the knee flag. Final Scout Squad follows the Friday pressers.",
-      "extra_urls": ["https://www.fantasyfootballscout.co.uk/fpl-gameweek-6-tips-best-players-predicted-line-ups-team-news-more-3"]
+      "extra_urls": [
+        "https://www.fantasyfootballscout.co.uk/fpl-gameweek-6-tips-best-players-predicted-line-ups-team-news-more-3"
+      ]
     },
     {
       "key": "pl_scout_wildcard",
@@ -22,8 +36,25 @@
       "published": "2026-09-28",
       "captain": null,
       "vice": null,
-      "transfers_in": ["Raya", "Konsa", "Vuskovic", "Affengruber", "Saka", "Groß", "Schade", "Tavernier", "Gonzalo", "Cole Palmer", "Rogers", "João Pedro", "Haaland", "Isak"],
-      "transfers_out": ["Gyökeres"],
+      "transfers_in": [
+        "Raya",
+        "Konsa",
+        "Vuskovic",
+        "Affengruber",
+        "Saka",
+        "Groß",
+        "Schade",
+        "Tavernier",
+        "Gonzalo",
+        "Cole Palmer",
+        "Rogers",
+        "João Pedro",
+        "Haaland",
+        "Isak"
+      ],
+      "transfers_out": [
+        "Gyökeres"
+      ],
       "chip": "wildcard",
       "note": "The Scout's wildcard draft for the break; carries both flagged Chelsea forwards (Palmer, João Pedro) and Isak. Fourteen of fifteen names visible; formation and captain not given."
     },
@@ -34,21 +65,114 @@
       "published": "2026-09-21",
       "captain": null,
       "vice": null,
-      "transfers_in": ["Groß", "Schade", "Kostoulas", "De Cuyper", "King", "Barnes", "Iwobi", "Manzambi"],
-      "transfers_out": ["João Pedro", "Szoboszlai", "B.Fernandes", "M.Sangaré", "Tzolis", "Shaw", "Maguire", "White", "Gibbs-White"],
+      "transfers_in": [
+        "Groß",
+        "Schade",
+        "Kostoulas",
+        "De Cuyper",
+        "King",
+        "Barnes",
+        "Iwobi",
+        "Manzambi"
+      ],
+      "transfers_out": [
+        "João Pedro",
+        "Szoboszlai",
+        "B.Fernandes",
+        "M.Sangaré",
+        "Tzolis",
+        "Shaw",
+        "Maguire",
+        "White",
+        "Gibbs-White"
+      ],
       "chip": null,
       "note": "The crowd's own moves, not a recommendation: Groß 500k+ in, João Pedro 200k+ out. The article's own buys are Iwobi and Manzambi on xFPL; it marks Gibbs-White down (six attempted assists, no shot)."
+    },
+    {
+      "key": "pl_scout_selection",
+      "name": "Premier League Scout — GW6 Selection",
+      "url": "https://www.premierleague.com/en/news/4730172/scout-selection-best-fantasy-team-for-gameweek-6",
+      "published": "2026-10-09",
+      "captain": "Saka",
+      "vice": "Haaland",
+      "transfers_in": [
+        "Raya",
+        "Tarkowski",
+        "Murillo",
+        "Hall",
+        "Saka",
+        "Gibbs-White",
+        "Mbeumo",
+        "Barnes",
+        "Groß",
+        "Haaland",
+        "Gonzalo"
+      ],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Published 3-5-2 selection. Saka captain and Haaland vice. This is a source recommendation."
+    },
+    {
+      "key": "ffs_scout_squad",
+      "name": "Fantasy Football Scout — GW6 Scout Squad nominations",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/10/09/the-scout-squad-our-top-picks-for-fpl-gameweek-6-3",
+      "published": "2026-10-09",
+      "captain": null,
+      "vice": null,
+      "transfers_in": [
+        "Raya",
+        "Pickford",
+        "Verbruggen",
+        "Sels",
+        "Leno",
+        "Gabriel",
+        "Calafiori",
+        "Tarkowski",
+        "Hall",
+        "Branthwaite",
+        "Vuskovic",
+        "De Cuyper",
+        "Murillo",
+        "N.Williams",
+        "Davis",
+        "Richards",
+        "Gibbs-White",
+        "Rogers",
+        "B.Fernandes",
+        "Tavernier",
+        "King",
+        "Cole Palmer",
+        "Saka",
+        "Barnes",
+        "Enciso",
+        "Groß",
+        "Haaland"
+      ],
+      "transfers_out": [],
+      "chip": null,
+      "note": "Verified subset of four writers’ nominations. Final Scout Picks remain unverified. The earlier Isak nomination is superseded by Liverpool’s official injury update."
     }
   ],
   "pending": [
-    "Fantasy Football IQ GW6 squad (page still shows GW5 on 2026-09-30; publishes when team news lands)",
-    "All About FPL GW6 transfer tips (2026/27 article not indexed on 2026-09-30; category page shows last season)",
-    "Fantasy Football Scout final Scout Squad GW6 (Friday 9 Oct)",
-    "Premier League Scout Selection GW6 (Thursday/Friday)"
+    "Fantasy Football Scout final GW6 Scout Picks: Scout Squad nominations available, final XI not yet verified at this check.",
+    "Fantasy Football IQ GW6 squad and All About FPL GW6 recommendations: current source selections not verified in this publication."
   ],
   "model": {
     "transfers_in": [],
     "transfers_out": [],
-    "hold_against_the_crowd": ["Szoboszlai", "B.Fernandes", "Calvert-Lewin"]
+    "hold_against_the_crowd": [
+      "Szoboszlai",
+      "B.Fernandes",
+      "Calvert-Lewin"
+    ],
+    "review_options": [
+      "The registered squads and armbands remain the owner’s decisions. These options are independent single swaps. Their gains cannot be added together.",
+      "Model squad, 2 free transfers and 0.0 bank: Sánchez → Leno repairs the unavailable reserve goalkeeper, sale 4.9 funds purchase 4.5, projected gain +0.59 over GW6–10. Palmer → Saka is the strongest value option, sale 9.7 funds purchase 9.6, projected gain +13.03.",
+      "Captain review: Saka leads the full board at 7.96 xPts. Among the registered model squad, B.Fernandes has 7.16 versus Palmer’s 5.22. The registered Palmer armband awaits owner review.",
+      "Consensus squad analysis, 1 free transfer and assumed 0.0 bank: Tzolis → Tavernier is +13.65 and O’Reilly → De Cuyper is +7.86 over GW6–10. Consensus membership follows its crowd-selection policy. These swaps do not update that team.",
+      "Chelsea confirm Palmer and João Pedro are available, with no promise of a start or 90 minutes. Both use a provisional 0.75 start probability. At 10,000 simulations per scenario, varying starts from 0.60 to 0.90 and conditional minutes from 60 to 90 puts Palmer at 3.27–6.32 xPts and João Pedro at 2.52–4.92. Saka remains first for captaincy in all three scenarios.",
+      "All transfer deltas use the best legal weekly XI plus captain mean, discounted 0.95 per week, and exclude autosub and vice option value. GW6–7 use market prices. GW8–10 use strength estimates. Current feed availability carries into future weeks, so the horizon does not predict injury recovery. These are model estimates without demonstrated prospective superiority."
+    ]
   }
 }

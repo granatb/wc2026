@@ -158,6 +158,19 @@ def find_entry(entries: dict, names: tuple[str | None, ...],
     return None
 
 
+def bind_entries(entries: dict, players_by_name: dict) -> dict:
+    """Key ID-bound notes by the current pool's canonical player names.
+
+    Name-only notes retain their keys for callers with partial player metadata.
+    """
+    bound = {name: entry for name, entry in entries.items() if entry.player_id is None}
+    for name, player in players_by_name.items():
+        entry = find_entry(entries, (name,), player.get("id"))
+        if entry is not None:
+            bound[name] = entry
+    return bound
+
+
 def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dict:
     """Load research/<kind>/*.md keyed by `name`. Skips files starting with `_`.
 
