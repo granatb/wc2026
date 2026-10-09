@@ -30,6 +30,8 @@ question the operator must answer, not a row to sort away.
 
 from __future__ import annotations
 
+from games.fpl.state import selling_price
+
 DISCOUNT = 0.95
 HIT_COST = 4.0
 TOP_N = 5
@@ -73,9 +75,9 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
               top: int = TOP_N) -> list:
     """Top `top` legal single swaps for one squad state.
 
-    state:       a games/fpl state dict, entries enriched with team + price
-                 (games.fpl.state.validate_state output — prices are selling
-                 prices for v1; the sell-on-fee ledger is future work).
+    state:       a games/fpl state dict, entries enriched with team, market
+                 price and bought_at (games.fpl.state.validate_state output).
+                 Missing bought_at means a fresh purchase at the market price.
     rows_by_gw:  {gameweek: {name: {"team", "position", "price", "x_points",
                  optional "start_prob"}}} — the horizon matrix.
     flagged:     names whose dossier is red — a red dossier means "we owe this
@@ -110,7 +112,10 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
 
     swaps = []
     for out_e in squad:
-        sell_budget = round(bank + (out_e.get("price") or 0.0), 1)
+        current = round((out_e.get("price") or 0.0) * 10)
+        paid = round(out_e.get("bought_at", current / 10) * 10)
+        sale = selling_price(current, paid)
+        sell_budget = (round(bank * 10) + sale) / 10
         for name, cand in pool.items():
             if name in squad_names or cand.get("position") != out_e["position"]:
                 continue
@@ -148,7 +153,7 @@ def recommend(state: dict, rows_by_gw: dict, free_transfers: int,
                 reasons.append(f"-{HIT_COST:.0f} hit applies "
                                f"(0 free transfers)")
             reasons.append(f"funds: {sell_budget:.1f} "
-                           f"(sale {out_e.get('price', 0):.1f} + bank "
+                           f"(sale {sale / 10:.1f} + bank "
                            f"{bank:.1f}) covers {price:.1f}")
             swaps.append({"out": out_e["name"], "in": name,
                           "position": out_e["position"], "delta": delta,

@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from core import forecast_archive as evidence, fpl_live
+from games.fpl.state import selling_price
 
 QUOTA = {'GK': 2, 'DEF': 5, 'MID': 5, 'FWD': 3}
 POSITIONS = {1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD'}
@@ -89,8 +90,7 @@ def _portfolio(protocol, squad, elements, previous):
             if pid not in elements:
                 raise ValueError('sale price unavailable for removed player')
             current, paid = elements[pid]['now_cost'], purchases.pop(str(pid))
-            # FPL: keep half of the increase, rounded down to a whole 0.1m.
-            bank += paid + (current - paid) // 2 if current > paid else current
+            bank += selling_price(current, paid)
         for pid in bought:
             bank -= prices[str(pid)]
             purchases[str(pid)] = prices[str(pid)]
@@ -378,9 +378,7 @@ def choose_decision(squad_ids, prediction_rows, bootstrap, portfolio=None):
         state = {'squad': []}
         for pid in squad_ids:
             entry = dict(rows[str(pid)])
-            paid, current = portfolio['purchase_prices'][str(pid)], elements[pid]['now_cost']
-            sale = paid + (current-paid)//2 if current > paid else current
-            entry['price'] = sale/10
+            entry['bought_at'] = portfolio['purchase_prices'][str(pid)] / 10
             state['squad'].append(entry)
         options = transfers.recommend(state, {1: rows}, portfolio['free_transfers_next'],
                                       portfolio['bank_tenths']/10, top=1)

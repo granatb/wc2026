@@ -7,6 +7,53 @@ from games.fpl import model
 from games.fpl import model as fpl_model
 
 
+class TestResearchIdentity(unittest.TestCase):
+    def test_loaded_note_reaches_only_its_player_after_name_collision(self):
+        import tempfile
+        from pathlib import Path
+        from core import fpl_priors, research
+        from tests.test_fpl_priors import _player
+
+        players = [
+            _player(id=154, name="Palmer", full_name="Cole Palmer", team="CHE"),
+            _player(id=301, name="Palmer", full_name="Alex Palmer", team="IPS", position="GK"),
+        ]
+        with fpl_priors.preseason_rates_override({}):
+            priors, _ = fpl_priors.build_with_flags(players, team_matches=30)
+        fx = fixtures.Fixture("IDENTITY", "CHE", "IPS",
+                              kickoff=datetime(2026, 10, 10, tzinfo=timezone.utc),
+                              stage="GW", fantasy_round=906, neutral=False,
+                              lam_home=1.6, lam_away=1.1)
+        with tempfile.TemporaryDirectory() as directory:
+            notes_dir = Path(directory) / "players"
+            notes_dir.mkdir()
+            note = notes_dir / "palmer.md"
+            note.write_text("---\nname: Palmer\nplayer_id: 154\nround: 906\n"
+                            "start_prob_override: 0.0\n---\n")
+            with mock.patch.object(research, "RESEARCH_DIR", directory), \
+                    mock.patch.object(fixtures, "SCHEDULE", [fx]):
+                artifact, _ = model.build_artifact(priors, {p["name"]: p for p in players},
+                                                   906, 100, use_cache=False)
+        rows = {r["name"]: r for r in artifact["rows"]}
+        self.assertEqual(rows["Cole Palmer"]["x_points"], 0.0)
+        self.assertGreater(rows["Alex Palmer"]["x_points"], 0.0)
+
+    def test_exact_name_note_works_without_optional_player_metadata(self):
+        from core import research
+
+        prior = ratings.PlayerPrior("Player", "CHE", "MID", start_prob=1.0)
+        note = research.ResearchEntry("Player", start_prob_override=0.0)
+        fx = fixtures.Fixture("EXACT", "CHE", "IPS",
+                              kickoff=datetime(2026, 10, 10, tzinfo=timezone.utc),
+                              stage="GW", fantasy_round=906, neutral=False,
+                              lam_home=1.6, lam_away=1.1)
+        with mock.patch.object(fixtures, "SCHEDULE", [fx]):
+            artifact, _ = model.build_artifact({"CHE": [prior]}, {}, 906, 20,
+                                               use_cache=False,
+                                               research_entries={"Player": note})
+        self.assertEqual(artifact["rows"][0]["x_points"], 0.0)
+
+
 def _ev(**kw):
     base = {
         "team": "LIV", "position": "MID", "goals": 0.0, "assists": 0.0,

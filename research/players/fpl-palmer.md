@@ -1,6 +1,7 @@
 ---
 entity: player
 name: Palmer
+player_id: 154
 status: doubtful
 start_prob_override: 0.75
 lambda_multiplier: 1.0

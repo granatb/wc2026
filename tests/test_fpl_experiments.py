@@ -107,6 +107,24 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(p['hit_points'], 4)
         self.assertEqual(p['free_transfers_next'], 1)
 
+    def test_policy_and_ledger_agree_at_sale_price_boundary(self):
+        boot = bootstrap()
+        boot['elements'][2]['now_cost'] = 62
+        boot['elements'][15]['now_cost'] = 61
+        boot['elements'][16]['now_cost'] = 62
+        portfolio = dict(bank_tenths=0, free_transfers_next=1,
+                         purchase_prices={str(pid): 50 for pid in range(1, 16)})
+        portfolio['purchase_prices']['3'] = 60
+        predictions = [dict(player_id=e['id'], x_points=20 if e['id'] == 17 else
+                            10 if e['id'] == 16 else 1) for e in boot['elements']]
+        decision = lab.choose_decision(range(1, 16), predictions, boot, portfolio)
+        self.assertIn(16, decision['squad_ids'])
+        self.assertNotIn(17, decision['squad_ids'])
+        previous = dict(squad_ids=list(range(1, 16)), portfolio=portfolio)
+        result = lab._portfolio(PROTOCOL, decision['squad_ids'],
+                                {e['id']: e for e in boot['elements']}, previous)
+        self.assertEqual(result['bank_tenths'], 0)
+
     def test_continuation_and_protocol_changes(self):
         previous = first(); boot = bootstrap(); subs = submissions(boot, LATER, previous)
         week = lab.prepare_week(PROTOCOL, 5, boot, subs, previous, now=LATER, fixtures=fixtures(5))

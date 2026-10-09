@@ -59,6 +59,12 @@ def load_state(path: str) -> dict:
         return json.load(fh)
 
 
+def selling_price(current_tenths: int, paid_tenths: int) -> int:
+    """FPL sale proceeds in tenths: full losses, half profits rounded down."""
+    return (paid_tenths + (current_tenths - paid_tenths) // 2
+            if current_tenths > paid_tenths else current_tenths)
+
+
 def load_squad(path: str, players: list) -> dict:
     """Load + validate + enrich in one step. Raises ValueError on any problem."""
     return validate_state(load_state(path), players)

@@ -150,6 +150,21 @@ class TestGate(unittest.TestCase):
 
 
 class TestAssemble(unittest.TestCase):
+    def test_id_bound_note_cannot_clear_a_namesake(self):
+        note = ResearchEntry.from_meta({"name": "Palmer", "player_id": 154,
+                                      "start_prob_override": 0.75,
+                                      "sources": ["https://example.test/report"],
+                                      "updated": "2026-10-07"})
+        players = [_player("Palmer", "CHE", "MID", "d", 154),
+                   _player("Palmer", "IPS", "GK", "d", 301)]
+        notes = {"Palmer": note}
+        for position, source, clears in [("MID", "note", True), ("GK", "proxy", False)]:
+            with self.subTest(position=position):
+                ds = dossier.assemble({"squad": [_entry("Palmer", position)]},
+                                      players, {}, notes)
+                self.assertEqual(ds[0]["start_source"], source)
+                self.assertEqual(dossier.gate(ds, notes)[0], clears)
+
     _STATE = {
         "team_name": "The Model XI",
         "aliases": {"Sangaré": "I.Sangaré"},

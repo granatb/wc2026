@@ -28,6 +28,8 @@ feed snapshot's date. Refusal, not warning — there is deliberately no
 
 from __future__ import annotations
 
+from core import research
+
 # The XI minutes floor (spec D6) — shared with the optimizer via
 # evmax/fpl_articles.XI_START_FLOOR so the optimizer can never propose what
 # this gate would refuse. Pinned here because games/ must not import the site
@@ -103,6 +105,7 @@ def build_dossier(entry: dict, prior: dict, bootstrap_player: dict | None,
                        "find out what it knows")
 
     return {"name": name, "web_name": web_name, "status": status,
+            "player_id": bootstrap_player.get("id"),
             "start_prob": start_prob, "start_source": start_source,
             "club_changed": club_changed, "name_drift": name_drift,
             "outflow_flag": bool(outflow), "red": bool(reasons),
@@ -119,10 +122,9 @@ def assemble(state: dict, players: list, start_probs: dict, notes: dict,
                     names (core.fpl_priors._disambiguate_names), so the lookup
                     escalates the same way: web_name, full_name,
                     "web_name (team)".
-    notes:          {name: ResearchEntry} from core.research.load_entries —
-                    looked up under the state name first, the current
-                    web_name second (a note may be filed under either side of
-                    a rename).
+    notes:          {name: ResearchEntry} from core.research.load_entries.
+                    ID-bound notes resolve by bootstrap ID. Other notes use
+                    the state name, then the current web_name.
     captured_teams: {element id as str: team_short} from the previous feed
                     snapshot, or None when no snapshot exists.
     outflow_ids:    element ids (str) flagged by core/fpl_diff.outflow_spikes.
@@ -160,9 +162,8 @@ def assemble(state: dict, players: list, start_probs: dict, notes: dict,
     dossiers = []
     for entry in state.get("squad", []):
         player = resolve(entry)
-        note = notes.get(entry["name"])
-        if note is None and player is not None:
-            note = notes.get(player["name"])
+        note = research.find_entry(notes, (entry["name"], player["name"]),
+                                   player.get("id")) if player is not None else None
         pid = str(player["id"]) if player is not None and "id" in player \
             else None
         dossiers.append(build_dossier(
@@ -187,8 +188,8 @@ def gate(dossiers: list, notes: dict,
          snapshot_date: str | None = None) -> tuple:
     """(ok, failures) — the publish gate over one squad's dossiers.
 
-    A red dossier passes ONLY when a note exists for that player (under the
-    state name or the current web_name) whose `sources` list is non-empty and
+    A red dossier passes ONLY when a note resolves by player ID or, for notes
+    without an ID, state name or web_name, whose `sources` list is non-empty and
     whose `updated` date is on/after `snapshot_date` (ISO date string, from
     the feed snapshot's taken_at). With no snapshot (first ever run) the date
     requirement is waived — sources are still mandatory.
@@ -200,9 +201,8 @@ def gate(dossiers: list, notes: dict,
     for d in dossiers:
         if not d["red"]:
             continue
-        note = notes.get(d["name"])
-        if note is None and d.get("web_name"):
-            note = notes.get(d["web_name"])
+        note = research.find_entry(notes, (d["name"], d.get("web_name")),
+                                   d.get("player_id"))
         sources = _note_field(note, "sources") or []
         updated = _note_field(note, "updated")
         if note is not None and sources and (

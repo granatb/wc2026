@@ -1001,6 +1001,13 @@ def build_artifact(priors_by_team: dict, players_by_name: dict, gameweek: int,
     match_projection = _match_projection(fx)
     if research_entries is None:
         research_entries = research.load_entries("players", gameweek)
+    resolved_research = {name: entry for name, entry in research_entries.items()
+                         if entry.player_id is None}
+    for name, player in players_by_name.items():
+        entry = research.find_entry(research_entries, (name,), player.get("id"))
+        if entry is not None:
+            resolved_research[name] = entry
+    research_entries = resolved_research
     research_projection = {
         name: (e.status, e.start_prob_override, e.lambda_multiplier)
         for name, e in research_entries.items()

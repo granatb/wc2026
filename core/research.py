@@ -86,6 +86,7 @@ class ResearchEntry:
     # normal Villa striker, which understated the sale by roughly 19 points and
     # sent the optimizer after the wrong replacement.
     from_round: int | None = None
+    player_id: int | None = None  # Optional FPL identity, stable across name collisions.
 
     @classmethod
     def from_meta(cls, meta: dict) -> "ResearchEntry":
@@ -101,6 +102,8 @@ class ResearchEntry:
             round=int(rnd) if rnd is not None else None,
             from_round=(int(meta["from_round"])
                         if meta.get("from_round") is not None else None),
+            player_id=(int(meta["player_id"])
+                       if meta.get("player_id") is not None else None),
         )
 
     def applies_to(self, fantasy_round: int) -> bool:
@@ -129,6 +132,30 @@ class ResearchEntry:
         # Soft attack nudge scales with w.
         rate = blend.blend_lambda(rate, multiplier=self.lambda_multiplier, w=w)
         return rate, start
+
+
+def find_entry(entries: dict, names: tuple[str | None, ...],
+               player_id: int | None = None) -> ResearchEntry | dict | None:
+    """Resolve a note by FPL ID, then exact names for notes without an ID.
+
+    An ID-bound note cannot fall back to a different player's matching name.
+    Plain dictionaries are accepted for the dossier gate's analysis callers.
+    """
+    def identity(entry: ResearchEntry | dict) -> int | None:
+        return entry.get("player_id") if isinstance(entry, dict) else entry.player_id
+
+    if player_id is not None:
+        matches = [entry for entry in entries.values()
+                   if identity(entry) is not None and str(identity(entry)) == str(player_id)]
+        if len(matches) > 1:
+            raise ValueError(f"multiple research notes for player ID {player_id}")
+        if matches:
+            return matches[0]
+    for name in names:
+        entry = entries.get(name)
+        if entry is not None and identity(entry) is None:
+            return entry
+    return None
 
 
 def load_entries(kind: str = "players", fantasy_round: int | None = None) -> dict:

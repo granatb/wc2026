@@ -90,6 +90,42 @@ class TestRecommend(unittest.TestCase):
                                    free_transfers=1, bank=0.0)
         self.assertNotIn("Gyokeres", [r["in"] for r in recs])
 
+    def test_purchase_basis_controls_affordable_boundary(self):
+        # Literal sale proceeds cover even/odd profits, losses and fresh buys.
+        cases = [(6.2, 6.0, 0.0, 6.1), (6.1, 6.0, 0.0, 6.0),
+                 (6.3, 6.0, 0.1, 6.2), (5.9, 6.0, 0.0, 5.9),
+                 (6.0, 6.0, 0.0, 6.0), (6.2, None, 0.0, 6.2)]
+        for market, paid, bank, funds in cases:
+            with self.subTest(market=market, paid=paid, bank=bank):
+                outgoing = _entry("Out", "DEF", "EVE", market)
+                if paid is not None:
+                    outgoing["bought_at"] = paid
+                rows = _horizon({
+                    "Out": ("EVE", "DEF", market, [1.0]),
+                    "AtLimit": ("ARS", "DEF", funds, [5.0]),
+                    "OverLimit": ("ARS", "DEF", round(funds + 0.1, 1), [6.0]),
+                })
+                recs = transfers.recommend(_state([outgoing]), rows, 1, bank)
+                self.assertEqual([r["in"] for r in recs], ["AtLimit"])
+                self.assertIn(f"sale {funds - bank:.1f}", " ".join(recs[0]["reasons"]))
+
+    def test_validated_squad_keeps_market_price_but_spends_sale_proceeds(self):
+        from games.fpl import state as fpl_state
+        from tests.test_fpl_state import _players, _valid_state
+
+        players, raw = _players(), _valid_state()
+        next(p for p in players if p["name"] == "Def1")["price"] = 6.2
+        next(e for e in raw["squad"] if e["name"] == "Def1")["bought_at"] = 6.0
+        state = fpl_state.validate_state(raw, players)
+        held = next(e for e in state["squad"] if e["name"] == "Def1")
+        self.assertEqual((held["price"], held["bought_at"]), (6.2, 6.0))
+        pool = {e["name"]: (e["team"], e["position"], e["price"], [1.0])
+                for e in state["squad"]}
+        pool.update({"AtLimit": ("NEW", "DEF", 6.1, [10.0]),
+                     "OverLimit": ("NEW", "DEF", 6.2, [12.0])})
+        recs = transfers.recommend(state, _horizon(pool), 1, 0.0)
+        self.assertEqual([(r["out"], r["in"]) for r in recs], [("Def1", "AtLimit")])
+
     def test_swapping_within_the_same_club_frees_a_slot(self):
         squad = [_entry("A1", "MID", "ARS", 5.0),
                  _entry("A2", "MID", "ARS", 5.0),
