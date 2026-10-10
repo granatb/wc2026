@@ -12,6 +12,35 @@ ENTRIES = [{"rank": 1, "name": "Kane", "team": "England", "position": "FWD", "x_
 
 
 class WriterTest(unittest.TestCase):
+    def test_fpl_vice_explanation_has_no_kickoff_order_advantage(self):
+        for first, second in ((1, 2), (2, 1), (1, 1), (None, None)):
+            with self.subTest(first=first, second=second):
+                explanation = writer._captain_vice_kickoff_sentence(
+                    [dict(kickoff_order=first), dict(kickoff_order=second)])
+                self.assertIn('automatically', explanation)
+                self.assertIn('captain plays no minutes', explanation)
+                self.assertIn('regardless of kickoff order', explanation)
+                self.assertNotIn('safer', explanation)
+
+    def test_registered_armband_is_not_assumed_to_lead_refreshed_projections(self):
+        entries = [
+            dict(name='Cole Palmer', position='MID', role='XI', x_points=5.22,
+                 captain_ev=10.44, is_captain=True),
+            dict(name='B.Fernandes', position='MID', role='XI', x_points=7.16,
+                 captain_ev=14.31),
+            dict(name='Szoboszlai', position='MID', role='XI', x_points=4.68,
+                 captain_ev=9.36, is_vice=True),
+        ]
+        prose = writer.article_prose('our-squad', 6, entries, ['x_points'],
+                                     cache_dir='/nonexistent', use_llm=False,
+                                     unit='Gameweek')
+        self.assertIn('Registered captain: Cole Palmer', prose['body_html'])
+        self.assertIn('Registered vice: Szoboszlai', prose['body_html'])
+        self.assertIn('B.Fernandes at 14.31', prose['body_html'])
+        self.assertNotIn('because he tops', prose['body_html'])
+        self.assertNotIn('next-best number', prose['body_html'])
+        self.assertTrue(entries[0]['is_captain'])
+
     def test_template_fallback_is_grounded_and_safe(self):
         p = writer.article_prose("captains", 3, ENTRIES, ["captain_ev", "x_points", "ownership_pct"],
                                  cache_dir="/nonexistent", use_llm=False, subject="Kane")

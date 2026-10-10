@@ -1,0 +1,23 @@
+{
+  "gameweek": 6,
+  "forecast_artifact_id": "a8a8df5f59f3f68008f2c761d90a01536efd257dd02311182ccb720efddedebf",
+  "corrected_at": "2026-10-10T20:54:51.454573+00:00",
+  "reason": "Correct captain ranking copy and clarify the pre-deadline club update without altering the frozen forecast.",
+  "articles": [
+    "our-squad",
+    "captains"
+  ],
+  "players": {
+    "154": {
+      "source_date": "2026-10-09",
+      "source": "https://www.chelseafc.com/en/news/article/xabi-alonso-confirms-chelsea-team-news-for-bournemouth",
+      "summary": "Chelsea confirmed Cole Palmer available against Bournemouth. The report promises no starting place or 90 minutes. The frozen forecast retains a provisional 0.75 start assumption."
+    },
+    "165": {
+      "source_date": "2026-10-09",
+      "source": "https://www.chelseafc.com/en/news/article/xabi-alonso-confirms-chelsea-team-news-for-bournemouth",
+      "summary": "Chelsea confirmed João Pedro available against Bournemouth. The report promises no starting place or 90 minutes. The frozen forecast retains a provisional 0.75 start assumption."
+    }
+  },
+  "rule_source": "https://www.premierleague.com/en/news/4661029"
+}

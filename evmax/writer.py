@@ -776,22 +776,9 @@ def _is_double_gameweek(entry) -> bool:
 
 
 def _captain_vice_kickoff_sentence(e: list) -> str:
-    """The vice-timing sentence for the captains template.
-
-    kickoff_order is a dense rank over distinct kickoff instants (see
-    fpl_articles.captains), so equality means the two candidates genuinely
-    kick off together — usually the same match — and neither "first" nor
-    "later" is a true claim. Missing orders compare equal on purpose: with no
-    kickoff data the prose must not invent a timing edge either way.
-    """
-    first, second = e[0].get("kickoff_order"), e[1].get("kickoff_order")
-    if first is None or second is None or first == second:
-        return ("He kicks off at the same time, so as vice he is pure "
-                "insurance against a late scratch.")
-    if second < first:
-        return "He kicks off first, so he is the safer vice."
-    return ("He kicks off later, so he works as a vice only if your "
-            "captain's match is already done.")
+    """Explain automatic FPL vice captaincy under the official rules."""
+    return ("The vice-captain takes over automatically if the captain plays "
+            "no minutes in the gameweek, regardless of kickoff order.")
 
 
 # FPL slug templates, keyed separately from _TEMPLATES because four FPL slugs
@@ -925,13 +912,7 @@ _FPL_TEMPLATES = {
             f"{html.escape(_sq_captain(e).get('name', '?'))} doubled that "
             f"becomes {_fmt_pts(_sq_projected(e))}.</p>\n"
             + _sq_no_haaland_quote(e)
-            + f"<p>{html.escape(_sq_captain(e).get('name', '?'))} wears the "
-            f"armband because he tops this squad's doubled projection at "
-            f"{_fmt_pts(_sq_captain(e).get('captain_ev', 0))} — captaincy here "
-            f"is expected value, never narrative. "
-            f"{html.escape(_sq_vice(e).get('name', '?'))} is vice: if the "
-            f"captain's match falls through, the armband moves to the "
-            f"next-best number, not to a hunch.</p>\n"
+            + squad_captain_paragraph(e)
             + _sq_bench_sentence(e)),
         "bottom_line": lambda e, r, subj: (
             f"{_wc_formation(e)}, {_sq_captain(e).get('name', '?')} (c), "
@@ -1034,6 +1015,57 @@ def _sq_captain(entries):
 def _sq_vice(entries):
     xi = _sq_xi(entries)
     return next((e for e in xi if e.get("is_vice")), {})
+
+
+def squad_captain_paragraph(entries: list) -> str:
+    """Describe registered armbands and the actual highest XI projection."""
+    captain, vice = _sq_captain(entries), _sq_vice(entries)
+    leader = max(_sq_xi(entries), key=lambda e: e.get('captain_ev') or 0)
+    return (
+        f"<p>Registered captain: {html.escape(captain.get('name', '?'))}, "
+        f"with {_fmt_pts(captain.get('captain_ev', 0))} projected points doubled. "
+        f"Registered vice: {html.escape(vice.get('name', '?'))}, "
+        f"with {_fmt_pts(vice.get('captain_ev', 0))} projected points doubled. "
+        f"The highest captain projection in this registered XI is "
+        f"{html.escape(leader.get('name', '?'))} at "
+        f"{_fmt_pts(leader.get('captain_ev', 0))}. "
+        f"Registered roles and projection rankings are shown separately.</p>\n"
+    )
+
+
+def correct_squad_captain_prose(prose: dict, entries: list,
+                                corrected_at: str) -> dict:
+    """Apply a dated copy correction without changing the forecast or roles."""
+    paragraph = squad_captain_paragraph(entries)
+    body, count = re.subn(
+        r"<p>[^<]*wears the armband because he tops this squad[^<]*</p>",
+        lambda _match: paragraph.rstrip(), prose['body_html'])
+    if count != 1:
+        raise ValueError('captain copy correction requires one original paragraph')
+    body += (f'<p class="copy-correction">Copy correction recorded '
+             f'{html.escape(corrected_at[:10])}: the captain explanation uses '
+             f'the frozen projection table. Forecast values, capture time and '
+             f'registered choices are unchanged.</p>')
+    return dict(prose, body_html=body, body_md=_html_to_md(body))
+
+
+def correct_vice_rule_prose(prose: dict, corrected_at: str) -> dict:
+    """Clarify the vice rule in retained prose while preserving its forecasts."""
+    original_sentences = (
+        "He kicks off at the same time, so as vice he is pure insurance against a late scratch.",
+        "He kicks off first, so he is the safer vice.",
+        "He kicks off later, so he works as a vice only if your captain's match is already done.",
+    )
+    body = prose['body_html']
+    matches = [sentence for sentence in original_sentences if sentence in body]
+    if len(matches) != 1:
+        raise ValueError('vice copy correction requires one original rule explanation')
+    body = body.replace(matches[0], _captain_vice_kickoff_sentence([]))
+    body += (f'<p class="copy-correction">Copy correction recorded '
+             f'{html.escape(corrected_at[:10])}: clarified automatic vice captaincy '
+             f'under the <a href="https://www.premierleague.com/en/news/4661029">'
+             f'official FPL rules</a>. Frozen projections and capture time are unchanged.</p>')
+    return dict(prose, body_html=body, body_md=_html_to_md(body))
 
 
 def _sq_xi_total(entries):

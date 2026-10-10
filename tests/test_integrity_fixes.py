@@ -56,6 +56,92 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(fpl_bench.latest_squads(frozen, '2026-09-11T17:00:00Z'), {})
 
 
+class CopyCorrectionTests(unittest.TestCase):
+    def test_locked_gw6_build_preserves_archive_numbers_and_applies_dated_copy(self):
+        from evmax import fpl_build, render
+        record = archive.load(6)
+        if record is None:
+            self.skipTest('GW6 archive unavailable')
+        original = json.dumps(record, sort_keys=True)
+        selected = dict(record, player_payloads=[p for p in record['player_payloads']
+                                              if p['id'] in (154, 165, 301)])
+        real_load = archive.load
+        site_url = render.SITE_URL
+        try:
+            with tempfile.TemporaryDirectory() as tmp, \
+                 patch.object(archive, 'load', side_effect=lambda gw: selected if gw == 6 else real_load(gw)), \
+                 patch.object(fpl_build.fpl_model, 'load_gameweek', side_effect=AssertionError('post-deadline reload')), \
+                 patch.object(fpl_build.fpl_model, 'build_artifact', side_effect=AssertionError('post-deadline simulation')):
+                fpl_build.build(6, out=tmp, use_llm=False, live=False, preview=False)
+                output = Path(tmp)
+                page = (output/'fpl/gw6/our-squad/index.html').read_text()
+                self.assertIn('Registered captain: Cole Palmer', page)
+                self.assertIn('B.Fernandes at 14.31', page)
+                self.assertNotIn('because he tops', page)
+                captains = (output/'fpl/gw6/captains/index.html').read_text()
+                self.assertIn('regardless of kickoff order', captains)
+                self.assertNotIn("captain's match is already done", captains)
+                for pid in (154, 165, 301):
+                    published = json.loads((output/f'api/fpl/gw6/players/{pid}.json').read_text())
+                    frozen = next(p for p in record['player_payloads'] if p['id'] == pid)
+                    self.assertEqual({k:published[k] for k in frozen if k != 'slug'},
+                                     {k:v for k,v in frozen.items() if k != 'slug'})
+                    self.assertEqual('copy_correction' in published, pid in (154, 165))
+                index = json.loads((output/'api/fpl/gw6/players.json').read_text())
+                flags = {p['name']:p['flag'] for p in index['players']}
+                for frozen in selected['player_payloads']:
+                    self.assertEqual(flags[frozen['name']], frozen['flag'])
+                squad = json.loads((output/'api/fpl/gw6/our-squad.json').read_text())
+                self.assertEqual(squad, record['envelopes']['our-squad'])
+                self.assertEqual(json.dumps(record, sort_keys=True), original)
+        finally:
+            render.SITE_URL = site_url
+
+    def test_correction_is_bound_to_the_forecast_and_predeadline_source(self):
+        from evmax import fpl_build
+        record = dict(artifact_id='a'*64, deadline='2026-10-10T10:00:00Z',
+                      research={'Cole Palmer': dict(player_id=154, updated='2026-10-09',
+                                                   sources=['https://club.example/news'])})
+        correction = dict(gameweek=6, forecast_artifact_id='a'*64,
+                          corrected_at='2026-10-10T20:00:00Z',
+                          players={'154': dict(source_date='2026-10-09',
+                                               source='https://club.example/news',
+                                               summary='Available, no start guarantee.')})
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(fpl_build, '_COPY_CORRECTIONS_ROOT', Path(tmp)):
+            path = Path(tmp)/'fpl-gw6.json'
+            path.write_text(json.dumps(correction))
+            self.assertEqual(fpl_build._load_copy_correction(6, record), correction)
+            for changed in (
+                dict(correction, forecast_artifact_id='b'*64),
+                dict(correction, players={'154': dict(correction['players']['154'],
+                                                     source_date='2026-10-10')}),
+                dict(correction, players={'154': dict(correction['players']['154'],
+                                                     source='https://other.example/news')}),
+            ):
+                path.write_text(json.dumps(changed))
+                with self.assertRaises(ValueError):
+                    fpl_build._load_copy_correction(6, record)
+
+    def test_article_copy_changes_without_mutating_archived_prose_or_choices(self):
+        from evmax import writer
+        prose = dict(headline='Palmer captains', body_html=(
+            '<p>Opening forecast.</p><p>Cole Palmer wears the armband because '
+            'he tops this squad at 10.44. Szoboszlai is next-best number.</p>'
+            '<p>Original bench.</p>'), body_md='Original copy.', source='template')
+        entries = [dict(name='Cole Palmer', role='XI', is_captain=True, captain_ev=10.44),
+                   dict(name='B.Fernandes', role='XI', captain_ev=14.31),
+                   dict(name='Szoboszlai', role='XI', is_vice=True, captain_ev=9.36)]
+        before = json.dumps(dict(prose=prose, entries=entries), sort_keys=True)
+        corrected = writer.correct_squad_captain_prose(prose, entries, '2026-10-10T20:00:00Z')
+        self.assertEqual(json.dumps(dict(prose=prose, entries=entries), sort_keys=True), before)
+        self.assertEqual(corrected['headline'], prose['headline'])
+        for text in ('Opening forecast.', 'Original bench.', 'B.Fernandes at 14.31',
+                     'Registered captain: Cole Palmer', 'Copy correction recorded 2026-10-10'):
+            self.assertIn(text, corrected['body_html'])
+        self.assertIn('Registered vice: Szoboszlai', corrected['body_md'])
+
+
 class EventTests(unittest.TestCase):
     def player(self, name, pos='MID', **kw):
         return ratings.PlayerPrior(name, 'A', pos, 1, 90, 1, 1, 0, False, **kw)

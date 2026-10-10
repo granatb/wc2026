@@ -506,6 +506,26 @@ class TestCardHtml(unittest.TestCase):
         alpha_html = fpl_players.card_html(payloads[0])
         self.assertNotIn("pc-news", alpha_html)
 
+    def test_raw_availability_and_sourced_update_are_distinct_from_start_estimate(self):
+        payloads, _ = _payloads()
+        payload = payloads[1]
+        payload['projection']['start_prob'] = 0.75
+        payload['copy_correction'] = {
+            'corrected_at': '2026-10-10T20:00:00Z',
+            'source_date': '2026-10-09',
+            'source': 'https://club.example/team-news',
+            'summary': 'Manager confirms availability <without a start promise>.',
+        }
+        page = fpl_players.player_page_html(payload, 2)
+        self.assertIn('Official FPL feed at forecast capture', page)
+        self.assertIn('Knock - 75% chance of playing', page)
+        self.assertIn('Club update dated 2026-10-09', page)
+        self.assertIn('&lt;without a start promise&gt;', page)
+        self.assertIn('Model start probability: 0.75', page)
+        self.assertIn('a separate estimate', page)
+        self.assertIn('Copy clarification recorded 2026-10-10', page)
+        self.assertIn('href="https://club.example/team-news"', page)
+
     def test_heading_level_is_configurable(self):
         payloads, _ = _payloads()
         html = fpl_players.card_html(payloads[0], heading="h2")

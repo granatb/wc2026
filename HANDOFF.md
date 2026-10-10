@@ -140,6 +140,39 @@ Both squad state files retain the exact bytes from `dd87a3e`.
 - A subsequent documentation-only commit records these completed checks.
   It changes no published bytes and needs no rebuild or redeployment.
 
+### Locked-GW6 copy correction, 10 October 2026
+
+The user authorized publication of the QA corrections after GW6's deadline.
+This is a dated presentation correction. The eligible forecast remains artifact
+`a8a8df5f59f3f68008f2c761d90a01536efd257dd02311182ccb720efddedebf`, captured
+9 October at 14:27:19 UTC under model `2026-10-09.1`.
+
+- Squad prose names the registered captain Palmer (10.44 captain EV) and vice
+  Szoboszlai (9.36), and identifies Fernandes (14.31) as the highest projection
+  in that registered XI. The generator does not infer rank from an armband.
+- Raw FPL availability has an explicit forecast-capture label. Palmer and João
+  Pedro cards show the archived 9 October Chelsea source and its availability
+  clarification. Playing availability and the provisional 0.75 start assumption
+  are separate concepts. The club report promises neither a start nor 90 minutes.
+- The adjacent captain article explains automatic vice captaincy independent of
+  kickoff order, under https://www.premierleague.com/en/news/4661029. Projection
+  ranking and all numeric rows are unchanged.
+- `evmax/assets/corrections/fpl-gw6.json` binds the dated correction to that
+  artifact. Club sources and source dates must match its archived research.
+  HTML and Markdown carry a 10 October copy-correction notice. Original archive
+  prose remains intact. The locked player index reads archived injury flags.
+- The production rebuild ran with socket/DNS access blocked and both data reload
+  and simulation calls forbidden. No new forecast, outcome input, account action
+  or squad decision enters this correction. No model-version bump is needed.
+- Verification: 1,415 offline tests, OK, five missing-history skips. The focused
+  suite passed 310 tests. The site evidence validator passed. All 137 protected
+  files retain their hashes, including forecasts, evaluation baselines, experiment
+  records and both squad states. Every existing public API byte is preserved
+  except the dated clarification field on player 154 and 165 JSON responses.
+- Evidence and the prior site backup are at
+  `/tmp/wc2026-gw6-qa-20261010/`. Those temporary files are not a durable backup.
+  Commit, push, deployment and exact live verification are the remaining gate.
+
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.
    Preserve unrelated user changes. Read the plan before selecting another feature.
 2. Check current season status. At this checkpoint GW4's freeze window is

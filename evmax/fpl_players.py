@@ -1320,8 +1320,23 @@ def card_html(payload: dict, heading: str = "h1") -> str:
 
     news_html = ""
     if payload.get("news"):
-        news_html = (f'<p class="pc-news">{_html.escape(payload["news"])}'
+        news_html = (f'<p class="pc-news"><b>Official FPL feed at forecast capture:</b> '
+                     f'{_html.escape(payload["news"])}'
                      f' <small>(status: {_html.escape(payload["status"])})</small></p>')
+        if 'chance of playing' in payload['news']:
+            news_html += (
+                f'<p class="pc-provenance">Model start probability: '
+                f'{_fmt(proj.get("start_prob"), 2)}. The FPL percentage concerns '
+                f'playing. The model probability of starting is a separate estimate.</p>')
+    clarification = payload.get('copy_correction')
+    if clarification:
+        news_html += (
+            f'<p class="pc-provenance"><b>Club update dated '
+            f'{_html.escape(clarification["source_date"])}:</b> '
+            f'{_html.escape(clarification["summary"])} '
+            f'<a href="{_html.escape(clarification["source"])}" rel="noopener">'
+            f'Club report</a>. Copy clarification recorded '
+            f'{_html.escape(clarification["corrected_at"][:10])}.</p>')
 
     club_cls = f" club-{team}" if team in CLUB_COLORS else ""
     head_html = (

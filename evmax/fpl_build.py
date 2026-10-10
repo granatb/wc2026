@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 
 from core import fixtures, fpl_api, fpl_live, research, simcache
 from evmax import dataset, fpl_articles, fpl_players, render, writer
@@ -24,6 +25,33 @@ from games.fpl import model as fpl_model
 # some — injuries, suspensions, doubts — so an all-clear feed means a stale cache,
 # not a miraculously healthy league.
 _STALE_IF_NO_FLAGS = True
+_COPY_CORRECTIONS_ROOT = Path(__file__).parent / 'assets' / 'corrections'
+
+
+def _load_copy_correction(gameweek: int, archive: dict) -> dict | None:
+    """Read a dated presentation correction bound to immutable source evidence."""
+    from core import forecast_archive
+
+    path = _COPY_CORRECTIONS_ROOT / f'fpl-gw{gameweek}.json'
+    if not path.exists():
+        return None
+    correction = json.loads(path.read_text(encoding='utf-8'))
+    if (correction['gameweek'] != gameweek
+            or correction['forecast_artifact_id'] != archive['artifact_id']):
+        raise ValueError('copy correction differs from the frozen forecast identity')
+    deadline = forecast_archive.utc(archive['deadline'])
+    if forecast_archive.utc(correction['corrected_at']) < deadline:
+        raise ValueError('locked copy correction must record its post-deadline date')
+    if set(correction.get('articles') or []) - {'our-squad', 'captains'}:
+        raise ValueError('unsupported article copy correction')
+    for player_id, update in (correction.get('players') or {}).items():
+        note = next((note for note in archive.get('research', {}).values()
+                     if str(note.get('player_id')) == player_id), None)
+        if (note is None or update['source'] not in note.get('sources', [])
+                or update['source_date'] != note.get('updated')
+                or forecast_archive.utc(update['source_date'] + 'T00:00:00Z') >= deadline):
+            raise ValueError('club copy clarification requires its frozen pre-deadline source')
+    return correction
 
 
 def preflight(gameweek: int, players: list, cold_start: list) -> list:
@@ -460,6 +488,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     boot = archive["bootstrap"] if archive else boot
     lock = forecast_archive.deadline(boot or {}, gameweek)
     locked = datetime.now(timezone.utc) >= lock
+    copy_correction = _load_copy_correction(gameweek, archive) if locked and archive else None
     frozen_envelopes = {}
     warnings = []
     if locked:
@@ -580,6 +609,11 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     finished = _gameweek_finished(boot, gameweek)
     if locked and archive and not finished:
         payloads = list(archive.get("player_payloads") or [])
+        if copy_correction:
+            updates = copy_correction.get('players') or {}
+            payloads = [dict(p, copy_correction=dict(updates[str(p['id'])],
+                            corrected_at=copy_correction['corrected_at']))
+                        if str(p['id']) in updates else p for p in payloads]
         print(f"  [fpl] gameweek {gameweek} is in play — player cards from the "
               f"frozen archive ({len(payloads)} players)")
     elif locked and finished and preview is not False:
@@ -626,6 +660,8 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     if player_pages_cap is not None:
         payloads = payloads[:player_pages_cap]
     page_by_name = {p["name"]: p["page"] for p in payloads}
+    frozen_flags = ({p['name']:p.get('flag') for p in archive.get('player_payloads', [])}
+                    if locked and archive else {})
 
     # --- Bulk players feed. Same guardrail as the World Cup's: derived model
     # outputs and name/team/position ONLY. No price, no ownership — those stay
@@ -642,7 +678,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
              "position": r.get("position"), "x_points": r["x_points"],
              "captain_ev": r["captain_ev"], "ceiling": r["ceiling"],
              "kickoff": r.get("kickoff"),
-             "flag": _player_flag(r["name"], notes),
+             "flag": frozen_flags.get(r["name"], _player_flag(r["name"], notes)),
              "page": page_by_name.get(r["name"])}
             for r in rows
         ],
@@ -766,6 +802,12 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
 
         if locked and archive and slug in archive.get("prose", {}):
             prose = archive["prose"][slug]
+            if copy_correction and slug in copy_correction.get('articles', []):
+                if slug == 'our-squad':
+                    prose = writer.correct_squad_captain_prose(
+                        prose, entries, copy_correction['corrected_at'])
+                elif slug == 'captains':
+                    prose = writer.correct_vice_rule_prose(prose, copy_correction['corrected_at'])
         else:
             prose = writer.article_prose(slug, gameweek, entries, columns,
                                          cache_dir=cache_dir, use_llm=use_llm and not locked,

@@ -212,12 +212,13 @@ class TestFplTemplates(unittest.TestCase):
         self.assertNotIn("kicks off later", prose["body_html"])
         self.assertNotIn("kicks off first", prose["body_html"])
 
-    def test_captains_prose_flags_a_genuinely_later_kickoff(self):
+    def test_later_kickoff_does_not_change_the_automatic_vice_rule(self):
         first = dict(_ENTRIES[0], captain_ev=12.0, ceiling=10.0, team="ARS",
                      position="FWD", kickoff_order=1)
         second = dict(first, name="B", captain_ev=11.0, kickoff_order=2)
         prose = self._prose("captains", [first, second])
-        self.assertIn("kicks off later", prose["body_html"])
+        self.assertIn("regardless of kickoff order", prose["body_html"])
+        self.assertNotIn("only if your captain's match is already done", prose["body_html"])
 
     def test_defenders_component_framing_needs_a_single_fixture(self):
         """Review finding 7 (minimum fix): cs_points/defcon/bonus are
