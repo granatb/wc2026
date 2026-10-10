@@ -171,7 +171,20 @@ This is a dated presentation correction. The eligible forecast remains artifact
   except the dated clarification field on player 154 and 165 JSON responses.
 - Evidence and the prior site backup are at
   `/tmp/wc2026-gw6-qa-20261010/`. Those temporary files are not a durable backup.
-  Commit, push, deployment and exact live verification are the remaining gate.
+  Code commit `a3929502112e872eeefc93cb939f78d588b822b7` is pushed to `main`
+  and `chore/gw6-thursday`. Its CI passed:
+  https://github.com/granatb/wc2026/actions/runs/38085885606.
+- Cloudflare production deployment `47abb0ba-f163-445f-92fc-84072f8a7c03`
+  identifies source `a392950` on `main`:
+  https://47abb0ba.evmax.pages.dev. IndexNow accepted 746 URLs with HTTP 200.
+- At 2026-10-10T21:01:06.970403+00:00, all 22 checked live responses
+  returned HTTP 200 and matched the validated export byte for byte. Checks
+  include the corrected squad/captain HTML and Markdown, both full player pages,
+  the card APIs, frozen player index and dataset, experiment page/API, latest
+  feed and a historical captain API. The experiment API equals the retained
+  report. These are HTTP checks, with no claim of browser-rendered QA.
+- A subsequent documentation-only commit records the verified delivery. It
+  changes no website bytes and needs no redeployment.
 
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.
    Preserve unrelated user changes. Read the plan before selecting another feature.
