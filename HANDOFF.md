@@ -186,6 +186,32 @@ This is a dated presentation correction. The eligible forecast remains artifact
 - A subsequent documentation-only commit records the verified delivery. It
   changes no website bytes and needs no redeployment.
 
+### Provisional GW6 review, 12 October 2026
+
+Current authorization is local draft/review work. No push, publication or
+account action is authorized for this review. Official snapshots at 11:00:34
+UTC show Coventry v Newcastle still scheduled for 12 October at 19:00 UTC.
+Nine matches are provisionally finished. GW6 `finished` and `data_checked`
+remain false. The final-grading gate rejects this snapshot.
+
+The [local retrospective draft](docs/reviews/2026-10-12-gw6-provisional-review.md)
+reconciles provisional registered-squad scores: Model 41, Consensus 71.
+These are website squad scores, with autosubs, and no verified user-account
+reconciliation. The draft separates failed captain rankings, the Szoboszlai
+appearance miss, publication inconsistencies and the unconfirmed timing of
+his injury warning. It also identifies the consensus ownership-template
+method being described incorrectly as an expert mention tally. No code or
+methodology is changed in this review.
+
+Timestamped official data, raw-byte hashes, the reproducible analysis and
+outputs are retained privately in
+`data/reviews/gw6/2026-10-12-provisional/`. The draft includes the GW7 checklist
+and verified deadline of 17 October at 10:00 UTC. Before any final report:
+refresh after the last game, require final fixtures/data checks, grade the
+existing artifact, reconcile official autosubs/captain fallback and the final
+field average, then obtain the parent's publication decision. Do not silently
+promote today's partial metrics or create a retrospective benchmark freeze.
+
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.
    Preserve unrelated user changes. Read the plan before selecting another feature.
 2. Check current season status. At this checkpoint GW4's freeze window is
