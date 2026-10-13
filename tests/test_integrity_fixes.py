@@ -1,3 +1,4 @@
+from test_fpl_finality_contract import checked_result
 """Regression cases for the September review: evidence and event invariants."""
 import json
 import random
@@ -48,7 +49,8 @@ class ArchiveTests(unittest.TestCase):
                         {'fixtures': [{'finished': True}], 'live': {}}]:
             with self.assertRaises(ValueError):
                 archive.require_final(payload)
-        archive.require_final({'fixtures': [{'finished': True}], 'live': {'elements': [{'id': 1}]}})
+        archive.require_final(checked_result({'gameweek': 1, 'fetched_at': '2026-09-01T00:00:00Z',
+            'fixtures': [{'finished': True}], 'live': {'elements': [{'id': 1}]}}))
 
     def test_late_only_squads_do_not_fall_back(self):
         # Use the actual version schema, with timezone-normalized comparisons.

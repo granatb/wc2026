@@ -49,9 +49,18 @@ def fetch_event_fixtures(gameweek: int) -> list:
     return fpl_api._get_json(EVENT_FIXTURES_URL.format(gw=gameweek))
 
 
+def fetch_event(gameweek: int) -> dict:
+    """Read finality directly without overwriting the forecast bootstrap cache."""
+    event = next((e for e in fpl_api.fetch_bootstrap().get("events", [])
+                  if e.get("id") == gameweek), None)
+    if event is None:
+        raise ValueError(f"GW{gameweek}: official event unavailable")
+    return event
+
+
 def refresh_live(gameweek: int, fetch_live_fn=None, fetch_fixtures_fn=None,
-                 now=None) -> dict:
-    """Fetch both live feeds and OVERWRITE data/fpl/live_gw{N}.json.
+                 now=None, fetch_event_fn=None) -> dict:
+    """Fetch live feeds and event finality; overwrite only live_gw{N}.json.
 
     Unlike the bootstrap cache (a build input worth preserving), this cache is
     only ever a snapshot of "now" — keeping an old copy would mean quietly
@@ -60,12 +69,17 @@ def refresh_live(gameweek: int, fetch_live_fn=None, fetch_fixtures_fn=None,
     """
     fetch_live_fn = fetch_live_fn or fetch_live
     fetch_fixtures_fn = fetch_fixtures_fn or fetch_event_fixtures
+    from core import forecast_archive
+    event = (fetch_event_fn or fetch_event)(gameweek)
     payload = {
         "gameweek": gameweek,
         "fetched_at": (now or datetime.now(timezone.utc)).isoformat(),
         "live": fetch_live_fn(gameweek),
         "fixtures": fetch_fixtures_fn(gameweek),
     }
+    payload["event"] = event
+    payload["event_receipt"] = dict(source=fpl_api.BOOTSTRAP,
+        recorded_at=payload["fetched_at"], payload_sha256=forecast_archive.digest(event))
     fpl_api.write_cache(cache_name(gameweek), payload)
     return payload
 

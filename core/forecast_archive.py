@@ -105,12 +105,37 @@ def state_from_envelope(envelope):
     }
 
 
-def require_final(payload):
+def require_fixture_results(payload):
+    """Fixture-level completeness only; insufficient to bank a new final grade."""
     fixtures = payload.get("fixtures") or []
     if not fixtures or not all(f.get("finished") for f in fixtures):
         raise ValueError("all gameweek fixtures must be final before banking grades")
     if not (payload.get("live") or {}).get("elements"):
         raise ValueError("final player results are missing")
+
+
+def require_final(payload):
+    """Bank only results whose matching official event is finished AND checked.
+
+    Retain the observed event separately from forecast bootstrap inputs. The
+    receipt detects accidental mismatches; it is not an external attestation.
+    """
+    from core import fpl_api
+    require_fixture_results(payload)
+    event = payload.get("event") or {}
+    if event.get("id") != payload.get("gameweek") or not event:
+        raise ValueError("official event evidence missing or wrong gameweek")
+    if event.get("finished") is not True or event.get("data_checked") is not True:
+        raise ValueError("official event is not finished and data_checked; results remain provisional")
+    receipt = payload.get("event_receipt") or {}
+    if (receipt.get("source") != fpl_api.BOOTSTRAP or
+            receipt.get("payload_sha256") != digest(event)):
+        raise ValueError("official event receipt missing or mismatched")
+    try:
+        if utc(receipt.get("recorded_at")) > utc(payload.get("fetched_at")):
+            raise ValueError("future event receipt")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid official event receipt timestamp") from exc
 
 
 def require_fresh(payload, metadata, now=None, max_age_hours=24):

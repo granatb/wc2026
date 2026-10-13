@@ -1,3 +1,4 @@
+from test_fpl_finality_contract import checked_result
 import copy
 import hashlib
 import unittest
@@ -11,7 +12,7 @@ from test_fpl_experiments import bootstrap, fixtures, NOW
 
 def context():
     boot = bootstrap()
-    boot['events'] = [dict(id=g, finished=g < 4, is_next=g == 4,
+    boot['events'] = [dict(id=g, finished=g < 4, data_checked=g < 4, is_next=g == 4,
                           deadline_time=f'2026-09-{g:02d}T12:30:00Z') for g in range(1, 5)]
     boot['events'][-1]['deadline_time'] = '2026-09-12T12:30:00Z'
     for p in boot['elements']:
@@ -22,6 +23,7 @@ def context():
                     live=dict(elements=[dict(id=p['id'], stats=dict(minutes=90, total_points=2,
                         expected_goals='0.1', expected_assists='0.05')) for p in boot['elements']]))
                for g in range(1,4)]
+    history = [checked_result(r) for r in history]
     return dict(gameweek=4, captured_at=NOW, bootstrap=boot, all_fixtures=fx, fixtures=fx,
         receipts={key:dict(recorded_at=NOW, payload_sha256=evidence.digest(value))
                   for key,value in [('bootstrap',boot),('all_fixtures',fx)]},

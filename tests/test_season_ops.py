@@ -1,3 +1,4 @@
+from test_fpl_finality_contract import checked_result
 import copy
 import json
 import tempfile
@@ -34,8 +35,8 @@ def rehearsal(root, work):
 
 def results():
     c = current()
-    return dict(gameweek=4, fetched_at=AFTER, fixtures=[dict(f, finished=True) for f in c['fixtures']],
-        live=dict(elements=[dict(id=p['id'], stats=dict(minutes=90, total_points=2)) for p in c['bootstrap']['elements']]))
+    return checked_result(dict(gameweek=4, fetched_at=AFTER, fixtures=[dict(f, finished=True) for f in c['fixtures']],
+        live=dict(elements=[dict(id=p['id'], stats=dict(minutes=90, total_points=2)) for p in c['bootstrap']['elements']])))
 
 
 class SeasonOpsTests(unittest.TestCase):

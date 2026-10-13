@@ -1,3 +1,4 @@
+from test_fpl_finality_contract import checked_result
 import copy
 import json
 import tempfile
@@ -137,6 +138,7 @@ class ExperimentTests(unittest.TestCase):
         record = first()
         results = {'gameweek': 4, 'fetched_at': '2026-09-13T20:00:00Z', 'fixtures': [dict(f, finished=True) for f in fixtures()],
                    'live': {'elements': [{'id': i, 'stats': {'minutes': 90, 'total_points': 2}} for i in range(1,21)]}}
+        results = checked_result(results)
         grade = lab.grade_week(record, results)
         for arm in grade['arms'].values():
             self.assertEqual(arm['net_points'], 24)  # 11 players + doubled captain

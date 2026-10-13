@@ -3,6 +3,7 @@ import unittest
 
 from games.fpl import experiments as ledger, experiment_analysis as analysis
 from test_fpl_experiments import first, fixtures
+from test_fpl_finality_contract import checked_result
 
 
 def grade():
@@ -15,6 +16,7 @@ def grade():
     results = dict(gameweek=4, fetched_at='2026-09-14T12:00:00Z',
         fixtures=[dict(f, finished=True) for f in fixtures()],
         live=dict(elements=[dict(id=i, stats=dict(minutes=90, total_points=2)) for i in range(1,21)]))
+    results = checked_result(results)
     return record, results, ledger.grade_week(record, results)
 
 

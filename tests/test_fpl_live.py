@@ -459,11 +459,13 @@ class TestLiveCache(unittest.TestCase):
                     1,
                     fetch_live_fn=lambda gw: _live({1: (10, 1)}),
                     fetch_fixtures_fn=lambda gw: _fixtures(squad),
+                    fetch_event_fn=lambda gw: dict(id=gw, finished=False, data_checked=False),
                     now=datetime(2026, 8, 22, 13, 0, tzinfo=timezone.utc))
                 second = fpl_live.refresh_live(
                     1,
                     fetch_live_fn=lambda gw: _live({1: (90, 7)}),
                     fetch_fixtures_fn=lambda gw: _fixtures(squad),
+                    fetch_event_fn=lambda gw: dict(id=gw, finished=False, data_checked=False),
                     now=datetime(2026, 8, 22, 17, 0, tzinfo=timezone.utc))
                 cached = fpl_live.read_live_cache(1)
                 self.assertEqual(cached, second)

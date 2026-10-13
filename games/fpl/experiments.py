@@ -276,6 +276,17 @@ def grade_week(record, results):
     if is_gap(record):
         raise ValueError('gap week holds no forecast to grade')
     evidence.require_final(results)
+    return dict(_replay_grade(record, results), finality_policy='event-checked-v1')
+
+
+def _replay_grade(record, results):
+    """Pure numerical replay, also used for existing hash-bound legacy grades.
+
+    New grades must enter through grade_week; this cannot establish finality.
+    """
+    if is_gap(record):
+        raise ValueError('gap week holds no forecast to grade')
+    evidence.require_fixture_results(results)
     if evidence.utc(results['fetched_at']) < evidence.utc(record['deadline']):
         raise ValueError('results fetched before the forecast deadline')
     if results.get('gameweek') != record['gameweek']:
@@ -421,7 +432,7 @@ def load_history(root):
 
 def report_from_directory(protocol, root):
     records = load_history(root)
-    grades, pending, gaps = [], [], []
+    grades, pending, gaps, legacy_finality = [], [], [], []
     for record in records:
         if record['protocol_sha256'] != evidence.digest(protocol):
             raise ValueError('registered protocol disagrees with frozen history')
@@ -438,13 +449,19 @@ def report_from_directory(protocol, root):
         if len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
             raise ValueError('invalid result evidence ID')
         results = json.loads((Path(root)/'results'/f'{key}.json').read_text())
-        if evidence.digest(results) != key or grade_week(record, results) != grade:
+        policy = grade.get('finality_policy')
+        if policy not in (None, 'event-checked-v1'):
+            raise ValueError('unknown finality policy')
+        replay = grade_week if policy else _replay_grade
+        if evidence.digest(results) != key or replay(record, results) != grade:
             raise ValueError('grade differs from retained official outcomes')
         grades.append(grade)
+        if not policy:
+            legacy_finality.append(record['gameweek'])
     report = season_report(grades)
     forecasts = [r for r in records if not is_gap(r)]
     report.update(registered_arms=dict(protocol['arms']), pending_gameweeks=pending,
-                  gap_gameweeks=gaps,
+                  gap_gameweeks=gaps, legacy_finality_gameweeks=legacy_finality,
                   frozen_gameweeks=[r['gameweek'] for r in forecasts],
                   receipts=[public_receipt(r) for r in forecasts],
                   experiment_id=protocol['experiment_id'], protocol_sha256=evidence.digest(protocol))

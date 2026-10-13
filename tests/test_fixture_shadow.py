@@ -1,3 +1,4 @@
+from test_fpl_finality_contract import checked_result
 import copy
 import hashlib
 import tempfile
@@ -27,6 +28,7 @@ def inputs():
         history.append(dict(gameweek=g,fetched_at=NOW,fixtures=[fixtures[g-1]],live=dict(elements=[
             dict(id=i,stats=dict(total_points=0 if i==3 else 2,minutes=0 if i==3 else 90,
                                 expected_goals=0 if i==3 else .1,expected_assists=0)) for i in range(1,5)])))
+    history = [checked_result(r) for r in history]
     ctx = dict(bootstrap=boot,gameweek=4,all_fixtures=fixtures,fixtures=fixtures[-1:],history=history,
         captured_at=NOW,receipts={k:dict(recorded_at=NOW,payload_sha256=evidence.digest(v))
             for k,v in [('bootstrap',boot),('all_fixtures',fixtures)]})
@@ -135,6 +137,7 @@ class FixtureShadowTests(unittest.TestCase):
         results=dict(gameweek=4,fetched_at='2026-09-13T20:00:00Z',
             fixtures=[dict(args[0]['fixtures'][0],finished=True)],
             live=dict(elements=[dict(id=i,stats=dict(total_points=2,minutes=90)) for i in range(1,5)]))
+        results = checked_result(results)
         with self.assertRaises(ValueError): shadow.grade(record,results,now=results['fetched_at'])
         with tempfile.TemporaryDirectory() as root:
             shadow.freeze(record,root,now=NOW)
