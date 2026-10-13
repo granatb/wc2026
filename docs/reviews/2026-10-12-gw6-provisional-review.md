@@ -1,9 +1,14 @@
-# GW6 retrospective draft, 12 October 2026
+# GW6 retrospective draft, updated 13 October 2026
 
-**Provisional. Publication is paused.** Coventry City v Newcastle is scheduled
-for **12 October, 19:00 UTC / 20:00 UK time**. At the official snapshot captured
-at 11:00:34 UTC, nine fixtures were provisionally finished. GW6 `finished` and
-`data_checked` were false. No final grade or field-average comparison is banked.
+**All matches played. Official FPL finalization is pending. Publication is paused.**
+Coventry beat Newcastle 4–1 on 12 October. Both clubs record full time.
+[Coventry match report](https://www.ccfc.co.uk/news/2026/october/12/coventry-city-4-1-newcastle-united-/),
+[Newcastle match centre](https://www.newcastleunited.com/en/matches/mens-team/coventry-city-v-newcastle-united-english-premier-league-20261012).
+
+Official FPL captures at 08:48 and 08:50 UTC on 13 October agree: all ten
+fixtures have `finished_provisional=true`, zero have `finished=true`, and
+GW6 `finished=false` and `data_checked=false`. The second capture uses
+cache-busting URLs and returns `Age: 0`. Final grading remains blocked.
 Sources: [official fixtures](https://fantasy.premierleague.com/api/fixtures/?event=6),
 [official points](https://fantasy.premierleague.com/api/event/6/live/), and
 [official gameweek status](https://fantasy.premierleague.com/api/bootstrap-static/).
@@ -19,13 +24,15 @@ results do not rewrite the predictions, research notes or capture timestamps.
 |---|---:|---:|
 | Model XI | 56.74 | 41 |
 | Consensus XI | 48.36 | 71 |
+| FPL displayed field average, unfinalized | — | 55 |
 
 These are scores reconstructed from the published squads. They exclude any
 unrecorded account transfers, hits or chips. The user account was not accessed.
-Neither published starting XI has a player left to play. Coventry's Bobby
-Thomas remains an unused pending model substitute. Official point revisions
-and the unfinished gameweek still prevent final grading. The forecast column
-excludes autosub and conditional vice option value.
+Every player has completed his fixtures, and both reconstructed squads have
+zero pending players. Bobby Thomas played as an unused model substitute.
+The totals remain 41 and 71, with the same autosubs. The field average shown
+by FPL is provisional. No settled comparison against it is banked. The
+forecast column excludes autosub and conditional vice option value.
 
 The 30-point gap is a portfolio failure in this snapshot. Its accounting is:
 Consensus gained 13 points in the differing defenders, 6 in the differing
@@ -59,13 +66,13 @@ that the earlier forecast knew it.
 
 ## Model quality and process are separate checks
 
-On the 596 frozen player rows from provisionally completed clubs, paired MAE
-is 1.084 for evmax and 1.153 for frozen official `ep_next`. Among the 283 who
-played, it is 1.959 versus 2.217. For the descriptive 187-player 60+ cohort,
-it is 2.320 versus 2.603. The first cohort contains 313 zero-minute players.
-These partial, single-week metrics establish no prospective superiority and
-do not excuse the squad result. The 71 Coventry/Newcastle rows are excluded
-until their fixture is played. No current `ep_next` values enter the comparison.
+On all 667 frozen player rows, provisional paired MAE is 1.103 for evmax
+and 1.176 for frozen official `ep_next`. Among the 315 who played, it is
+2.010 versus 2.268. For the descriptive 206-player 60+ cohort, it is 2.383
+versus 2.676. The first cohort contains 352 zero-minute players. These
+unfinalized, single-week metrics establish no prospective superiority and
+do not excuse the squad result. Coventry/Newcastle rows now contribute.
+No current `ep_next` values enter the comparison.
 
 The publication had concrete process failures. Its registered armbands
 and refreshed ranking differed, while template copy asserted that they agreed.
@@ -92,14 +99,14 @@ None can be manufactured after the results.
 
 ## Reset checklist for GW7
 
-1. After Coventry v Newcastle, capture the final official points and fixtures.
-   Require completed fixture flags and completed gameweek data checks before
-   banking the grade or quoting the field average. Reconcile autosubs and
-   captain fallback against the frozen squads.
+1. Recheck final official FPL fixture and event flags. Require all fixtures
+   `finished=true`, GW6 `finished=true` and `data_checked=true` before banking
+   a final grade or settled field-average comparison. Recapture points and
+   reconcile autosubs/captain fallback against the frozen squads.
 2. Confirm the actual user portfolio, XI, bench order, captain/vice, bank,
    free transfers, hits and chips through the user. Keep it distinct from the
    website roster. No account access or transfers are authorized in this task.
-3. Refresh GW7 inputs and histories after all GW6 results are available.
+3. Refresh GW7 inputs and histories after GW6 data is finalized.
    Recheck each availability override and the dated club news. GW6 round-only
    notes expire. Review Szoboszlai, the unavailable reserve keeper and the
    rotation/injury flags. Do not rebuild the old forecasts on new information.
@@ -119,16 +126,19 @@ None can be manufactured after the results.
 ## Evidence and current readiness
 
 Timestamped official snapshots, the reproducible analysis and provisional
-outputs are local at `data/reviews/gw6/2026-10-12-provisional/` (Git-ignored).
+outputs are local at `data/reviews/gw6/2026-10-13-all-played-provisional/`
+(Git-ignored). The 12 October pre-last-match snapshot is retained separately
+in `data/reviews/gw6/2026-10-12-provisional/`.
 Reproduce the captured analysis from the repo root:
 
 ```sh
-UV_CACHE_DIR=/tmp/wc2026-uv-cache uv run python data/reviews/gw6/2026-10-12-provisional/analyze.py
-``` Temporary capture logs also remain under
-`/tmp/wc2026-gw6-review-20261012/`.
+UV_CACHE_DIR=/tmp/wc2026-uv-cache uv run python data/reviews/gw6/2026-10-13-all-played-provisional/analyze.py
+```
+
+Capture logs also remain under `/tmp/wc2026-gw6-review-20261013/`.
 
 The 46 relevant live/grading/archive tests passed. Both squad totals reconcile
-to their individual rows. The final-grade gate rejects the pending GW6 snapshot.
+to their individual rows. The final-grade gate rejects the all-played but unfinalized GW6 snapshot.
 The frozen artifacts, baselines, states and forecast-input caches are protected
-by a SHA256 manifest. This is a local report draft. Final totals, publication,
-a next-week roster decision and any account changes remain pending.
+by a SHA256 manifest. This is a local report draft. Final FPL grading and the field-average comparison, publication, a next-week
+roster decision and any account changes remain pending.

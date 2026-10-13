@@ -212,6 +212,30 @@ existing artifact, reconcile official autosubs/captain fallback and the final
 field average, then obtain the parent's publication decision. Do not silently
 promote today's partial metrics or create a retrospective benchmark freeze.
 
+### All-played GW6 review, 13 October 2026
+
+The Mac tools are functional. Local review scope remains in force: no push,
+publication, account access or transfers. The 12 October draft is updated at
+its existing path, [GW6 review](docs/reviews/2026-10-12-gw6-provisional-review.md).
+
+Coventry v Newcastle finished 4–1. Official club reports confirm full time.
+FPL captures at 08:48 and 08:50 UTC, including cache-busting requests with
+`Age: 0`, still report all ten fixtures provisionally finished and zero final.
+GW6 `finished` and `data_checked` remain false. This is the precise blocker
+for final grading. Do not set those flags manually or bypass the guard.
+
+Registered website totals remain Model 41 and Consensus 71, including autosubs.
+FPL's displayed average is 55, still provisional. The user account is unverified.
+The all-played draft now covers all 667 forecast rows. Source snapshots,
+receipts, hashes and analysis are private at
+`data/reviews/gw6/2026-10-13-all-played-provisional/`. The prior snapshot is
+retained. No pre-deadline artifact, note, roster or forecast cache is changed.
+
+Next: obtain final FPL flags, recapture actuals, grade the existing artifact,
+reconcile the final field average, and get the parent's publication decision.
+The GW7 reset checklist remains ready on the verified 17 October 10:00 UTC
+deadline. No actual squad decision or model change is made by this review.
+
 1. Inspect `git status --short`, `git log -8 --oneline`, and the records directory.
    Preserve unrelated user changes. Read the plan before selecting another feature.
 2. Check current season status. At this checkpoint GW4's freeze window is
