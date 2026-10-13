@@ -322,3 +322,26 @@ For code changes run relevant regressions and the full suite. For deployment,
 verify the production experiment page and API against `evmax.experiments.report()`;
 use a cache-busting query if the domain briefly serves the prior deployment.
 Update this handoff and the priority plan after substantive future checkpoints.
+
+
+## Local audit fixes — 13 October 2026
+
+Current scope is local diagnosis and bounded fixes on `chore/gw6-thursday`;
+no push, deployment, account access or transfers. Historical permissions above
+are not authorization to publish this batch.
+
+- See `docs/reviews/2026-10-13-independent-fpl-audit.md` for ranked findings and contrary evidence;
+  `docs/reviews/2026-10-13-fpl-audit-fixes.md` for delivered fixes, tests and the GW7 operator procedure.
+- New final grades require matching event `finished` and `data_checked` flags
+  plus retained event evidence. The 12:01 UTC GW6 capture still fails finality;
+  published roster totals remain provisional, not verified user-account totals.
+- Start values are now labeled as input priors before lineup constraints.
+  Sampling and point forecasts are unchanged. Comparator copy identifies the
+  held ownership template and shared model; historical corrections are dated.
+- GW7+ production builds require an explicitly reviewed immutable publication
+  decision. A dry build writes `fpl-decision-gw7.json`; acceptance is a separate
+  operator CLI step. No real GW7 decision has been accepted. Account submission
+  stays unverified and separate. Changed forecasts or squads require review again.
+- All 1,430 tests pass (five existing skips), GW1–6 local site validation passes,
+  independent review is resolved, and all 335 protected files match their original
+  hashes. No forecasting retuning, history overwrite or dependency installation.
