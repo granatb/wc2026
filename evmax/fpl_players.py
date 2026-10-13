@@ -1325,9 +1325,9 @@ def card_html(payload: dict, heading: str = "h1") -> str:
                      f' <small>(status: {_html.escape(payload["status"])})</small></p>')
         if 'chance of playing' in payload['news']:
             news_html += (
-                f'<p class="pc-provenance">Model start probability: '
+                f'<p class="pc-provenance">Model start prior (before lineup constraints): '
                 f'{_fmt(proj.get("start_prob"), 2)}. The FPL percentage concerns '
-                f'playing. The model probability of starting is a separate estimate.</p>')
+                f'playing. The model start prior is a separate estimate.</p>')
     clarification = payload.get('copy_correction')
     if clarification:
         news_html += (
@@ -1719,7 +1719,7 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
         ("DefCon points (per match)", _fmt(proj.get("defcon"))),
         ("P(DefCon threshold)", _fmt(proj.get("p_defcon"), 3)),
         ("Clean-sheet points (per match)", _fmt(proj.get("cs_points"))),
-        ("Start probability", _fmt(proj.get("start_prob"), 2)),
+        ("Start prior (before lineup constraints)", _fmt(proj.get("start_prob"), 2)),
         ("Price", f'£{_fmt(payload["price"], 1)}m'),
         ("Ownership", f'{_fmt(payload.get("ownership_pct"), 1)}%'),
         ("xPts rank / ownership rank",
@@ -1778,6 +1778,9 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
 <div class="prose">
 <h2>The data</h2>
 {table_html}
+<p class="pc-provenance">The start prior is the input to lineup sampling, before
+one-goalkeeper and ten-outfield-player constraints; the resulting simulated start frequency can be lower.
+It is not a calibrated probability of starting. Label clarified 2026-10-13; archived values are unchanged.</p>
 {provenance}
 {squad_line}
 <p class="method"><b>How we get these numbers.</b> {methodology}

@@ -29,6 +29,22 @@ def validate(out):
     for gw in sorted(gameweeks):
         path = out / 'api/fpl' / f'gw{gw}' / 'captains.json'
         archive = forecast_archive.load(gw)
+        if gw >= 7:
+            from games.fpl import publication_decision as decision
+            receipt_path = out/'api/fpl'/f'gw{gw}'/'decision.json'
+            receipt = archive.get('publication_decision') if archive else None
+            try:
+                if not receipt or not receipt_path.exists() or json.loads(receipt_path.read_text()) != receipt:
+                    raise ValueError('accepted publication decision missing or differs from archive')
+                decision.verify_forecast(receipt, archive)
+                proposal = receipt['proposal']
+                decision.require_accepted(receipt, proposal, now=archive['captured_at'])
+                if proposal['gameweek'] != gw or proposal['states'] != archive['states']:
+                    raise ValueError('accepted decision disagrees with archived squad')
+                decision.verify_entries(proposal['states'], {key:archive['envelopes'][slug]['entries']
+                    for key,slug in [('model','our-squad'),('consensus','consensus-squad')]})
+            except (ValueError,KeyError,TypeError,OSError) as exc:
+                errors.append(f'GW{gw}: invalid publication decision: {exc}')
         evidence = archive['envelopes'] if archive else load_snapshots(gw)
         for slug, expected in evidence.items():
             actual_path = path.parent / (slug + '.json')

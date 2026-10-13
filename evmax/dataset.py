@@ -92,8 +92,8 @@ COLUMN_GLOSSARY = {
     "p_defcon": ("float", "Probability of hitting the defensive-contribution "
                           "threshold, per match (defcon = 2 x p_defcon)."),
     "cs_points": ("float", "Expected clean-sheet points, per match."),
-    "start_prob": ("float", "Probability the player starts, from the priors "
-                            "(research notes can override it)."),
+    "start_prob": ("float", "Start prior input before lineup constraints; simulated start frequency "
+                            "can be lower. Research notes can override the input."),
     "kickoff": ("string", "ISO-8601 UTC kickoff of the player's fixture."),
     "verdict_tier": ("string", "S / A / B / C / D — the player's band this "
                                "gameweek by projected points."),

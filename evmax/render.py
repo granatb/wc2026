@@ -230,7 +230,7 @@ def summary_sentence(article, entries):
         cap = next((e for e in xi if e.get("is_captain")), xi[0])
         total = round(sum(e.get("x_points") or 0.0 for e in xi)
                       + (cap.get("x_points") or 0.0), 2)
-        whose = "Our" if article == "our-squad" else "The expert-consensus"
+        whose = "Our" if article == "our-squad" else "The comparator"
         return (f"{whose} {formation_of(xi)} this gameweek: "
                 f"{cap.get('name', '?')} captains, {total} projected points "
                 f"with the armband doubled.")

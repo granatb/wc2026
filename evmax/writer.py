@@ -920,37 +920,20 @@ _FPL_TEMPLATES = {
             f"{_fmt_pts(_sq_projected(e))} projected with the armband applied."),
     },
     "consensus-squad": {
-        # Squad-framed (subject=None). Method statement only: mention-tally
-        # across the expert corpus, majority captain, minutes from sourced
-        # research notes. Never names a bookmaker, never reproduces expert text.
-        "headline": lambda e, r, subj: (
-            f"The consensus XI: the experts' gameweek {r} team"),
+        "headline": lambda e, r, subj: f"The Consensus XI: gameweek {r} comparator",
         "standfirst": lambda e, r, subj: (
-            f"A mention-tally across {_sq_sources_noun(e)}, assembled into a "
-            f"legal 15 — {_sq_captain(e).get('name', '?')} carries the "
-            f"majority armband."),
+            f"The recorded comparator squad — {_sq_captain(e).get('name', '?')} "
+            f"captains, {_sq_vice(e).get('name', '?')} is vice."),
         "body": lambda e, r, subj: (
-            f"<p>This squad follows the crowd on purpose. We tally which "
-            f"players the expert consensus sources keep "
-            f"naming{_sq_source_count_clause(e)} keep the names most lists "
-            f"agree on, and assemble "
-            f"them into a quota-, budget- and club-legal 15. The captain is "
-            f"the majority call, not ours: "
-            f"{html.escape(_sq_captain(e).get('name', '?'))}, with "
-            f"{html.escape(_sq_vice(e).get('name', '?'))} as vice.</p>\n"
-            f"<blockquote><p>Its minutes come from sourced research notes "
-            f"rather than our engine — where the experts assert a starter, "
-            f"this squad believes them. The weekly gap between this team and "
-            f"our own squad measures exactly whose information about who "
-            f"actually plays is better.</p></blockquote>\n"
-            f"<p>Scored on our numbers, the {_wc_formation(e)} XI projects "
-            f"{_fmt_pts(_sq_xi_total(e))} points, "
-            f"{_fmt_pts(_sq_projected(e))} with the captain {_sq_armband_word(e)}. Both "
-            f"squads are published before every deadline and graded after it — "
-            f"the season scoreboard settles the argument.</p>"),
+            f"<p>{html.escape(e[0].get('method_note') or 'The construction method was not retained in this article. Read the original squad record before treating it as a current ownership or expert consensus.')}</p>"
+            f"<p>This is the held comparator roster, not a fresh poll of expert teams. "
+            f"Both squads use the same forecast model for expected points and minutes. "
+            f"Their realized score gap combines player selection, captaincy, chips "
+            f"and football variance; it does not isolate information quality.</p>"
+            f"<p>The {_wc_formation(e)} XI projects {_fmt_pts(_sq_xi_total(e))} points, "
+            f"{_fmt_pts(_sq_projected(e))} with the captain {_sq_armband_word(e)}.</p>"),
         "bottom_line": lambda e, r, subj: (
-            f"The crowd's 15: {_wc_formation(e)}, "
-            f"{_sq_captain(e).get('name', '?')} (c) — "
+            f"Comparator: {_wc_formation(e)}, {_sq_captain(e).get('name', '?')} (c) — "
             f"{_fmt_pts(_sq_projected(e))} projected on our model's numbers."),
     },
     "defcon": {
@@ -1402,6 +1385,9 @@ def article_prose(
     -------
     dict with keys: headline, standfirst, body_html, body_md, bottom_line, source
     """
+    # Method claims must come from the retained state, never an old draft or LLM.
+    if unit == "Gameweek" and article == "consensus-squad":
+        return _template_prose(article, entries, columns, round_no=round_no, unit=unit)
     cache_name = cache_name or f"round-{round_no}"
     # Tier 1: cache
     cache_path = os.path.join(cache_dir, cache_name, f"{article}.md")

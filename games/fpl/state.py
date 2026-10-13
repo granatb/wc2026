@@ -3,7 +3,7 @@
 The site fields two real teams under real rules (owner decisions 2026-08-19):
 `games/fpl/state.json` (strategy "model" — pure engine EV over the discounted
 horizon) and `games/fpl/state_consensus.json` (strategy "consensus" — the
-best-follower squad tallied from the expert research corpus). Both are frozen
+held ownership-template comparator (GW1 used an expert mention tally)). Both are frozen
 published claims once a gameweek locks, so an illegal or misspelled state must
 kill the build, never degrade it.
 

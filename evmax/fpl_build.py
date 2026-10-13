@@ -571,6 +571,21 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                 if entry.get("name") in players_by_name:
                     entry["player_id"] = players_by_name[entry["name"]]["id"]
 
+    # Accept a concrete decision before writing any production site/snapshot.
+    # Historical weeks retain their original evidence and are never backfilled.
+    from games.fpl import publication_decision
+    decision_proposal = None
+    accepted_decision = archive.get('publication_decision') if archive else None
+    if not locked and gameweek >= publication_decision.START_GAMEWEEK:
+        forecast_context = publication_decision.forecast_context(rows, matches, sims, boot,
+            fpl_api.read_cache('fixtures'), fpl_api.read_cache(f'odds_gw{gameweek}'),
+            simcache.source_fingerprint())
+        decision_proposal = publication_decision.prepare(gameweek, states,
+            {key:entries_map[slug] for slug,key in SQUAD_LIVE_KEYS.items()},
+            forecast_context, boot)
+        if os.path.basename(os.path.normpath(out)) == 'dist':
+            accepted_decision = publication_decision.load_accepted(decision_proposal)
+
     live_on = live if live is not None else _live_default(gameweek, boot)
     live_data = None
     if live_on:
@@ -592,6 +607,11 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "w", encoding="utf-8") as fh:
             fh.write(text)
+
+    if decision_proposal:
+        w(f'/fpl-decision-gw{gameweek}.json', json.dumps(decision_proposal, ensure_ascii=False, indent=2))
+    if accepted_decision:
+        w(f'/api/fpl/gw{gameweek}/decision.json', json.dumps(accepted_decision, ensure_ascii=False, indent=2))
 
     # --- Player cards (STRATEGY §12 phase 1): assemble every player's payload
     # from the artifact + bootstrap + notes + horizon matrix + odds caches.
@@ -813,6 +833,14 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                          cache_dir=cache_dir, use_llm=use_llm and not locked,
                                          subject=subject,
                                          cache_name=f"fpl-gw{gameweek}", unit="Gameweek")
+        if locked and 2 <= gameweek <= 6 and slug == 'consensus-squad':
+            corrected_entries = [dict(e, method_note=(states.get('consensus', {}).get('method_note')
+                or 'Rebuilt for gameweek 2 as the most-owned legal template from official ownership, greedily legalised under budget, position quotas and club cap; captain was the highest-owned premium. The GW1 expert mention-tally method was retired. Later weeks carry the held roster.')) for e in entries]
+            prose = writer._template_prose(slug, corrected_entries, columns,
+                                          round_no=gameweek, unit='Gameweek')
+            notice = '<p>Method description corrected 2026-10-13. Original forecast numbers, squad and archived prose remain unchanged.</p>'
+            prose = dict(prose, body_html=prose['body_html'] + notice,
+                         body_md=prose['body_md'] + '\n\n' + writer._html_to_md(notice))
         prose_map[slug] = prose
 
         if slug == "wildcard" or slug in SQUAD_SLUGS:
@@ -885,6 +913,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
         import config
         archive = forecast_archive.freeze(gameweek, {
             "rows": rows, "matches": matches, "states": states,
+            "publication_decision": accepted_decision,
             "bootstrap": boot, "envelopes": published_envelopes,
             "player_payloads": payloads, "prose": prose_map, "sims": sims, "seed": fpl_model._SEED,
             "source_fingerprint": simcache.source_fingerprint(),
@@ -1183,8 +1212,9 @@ def _gameweek_finished(boot, gameweek: int, fixtures=None) -> bool:
     Two signals, either suffices: the event's own `finished` flag, which FPL
     flips only after its data check (about eleven hours after GW4's last
     whistle), or every fixture of the gameweek carrying `finished` (bonus
-    confirmed), which is the finality the grader itself requires. Reads the
-    fixtures cache when no list is passed."""
+    allocated). This is only a preview-rollover condition. Banking final grades
+    additionally requires event.finished AND event.data_checked and their retained
+    receipt. Reads the fixtures cache when no list is passed."""
     event = next((e for e in (boot or {}).get("events", [])
                   if e.get("id") == gameweek), None)
     if event and event.get("finished"):

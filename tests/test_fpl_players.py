@@ -521,7 +521,7 @@ class TestCardHtml(unittest.TestCase):
         self.assertIn('Knock - 75% chance of playing', page)
         self.assertIn('Club update dated 2026-10-09', page)
         self.assertIn('&lt;without a start promise&gt;', page)
-        self.assertIn('Model start probability: 0.75', page)
+        self.assertIn('Model start prior (before lineup constraints): 0.75', page)
         self.assertIn('a separate estimate', page)
         self.assertIn('Copy clarification recorded 2026-10-10', page)
         self.assertIn('href="https://club.example/team-news"', page)

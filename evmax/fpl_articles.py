@@ -446,6 +446,8 @@ def squad_article(state: dict, rows: list) -> tuple:
         e["is_captain"] = s["is_captain"]
         e["is_vice"] = s["is_vice"]
         e["bench_order"] = s["bench_order"]
+        if state.get("method_note"):
+            e["method_note"] = state["method_note"]
         if source_count is not None:
             e["source_count"] = source_count
         entries.append(e)
@@ -475,6 +477,8 @@ def squad_article(state: dict, rows: list) -> tuple:
         "free_transfers": state.get("free_transfers"),
         "chips_used": list(state.get("chips_used", [])),
     }
+    if state.get("method_note"):
+        meta["method_note"] = state["method_note"]
     if source_count is not None:
         meta["source_count"] = source_count
     return entries, meta

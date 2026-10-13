@@ -1211,24 +1211,22 @@ class TestSquadSlugTemplates(unittest.TestCase):
             self.assertNotIn("consensus XI", prose["body_html"])
             self.assertIn("No Haaland", prose["body_html"])   # conviction stays
 
-    def test_consensus_squad_states_the_method_not_a_model_claim(self):
-        prose = self._prose("consensus-squad",
-                            _squad_entries(captain="Haaland", source_count=7))
+    def test_consensus_squad_states_the_recorded_method_and_shared_model(self):
+        entries = _squad_entries(captain="Haaland", source_count=7)
+        for entry in entries:
+            entry['method_note'] = 'Held ownership template, created in GW2.'
+        prose = self._prose("consensus-squad", entries)
         text = prose["standfirst"] + prose["body_html"]
-        self.assertIn("seven", text)                # the 7-source corpus
-        self.assertIn("expert consensus", text)     # named in prose as such
-        self.assertIn("majority", text)             # majority captain
-        self.assertIn("research notes", text)       # minutes provenance
+        self.assertIn("Held ownership template", text)
+        self.assertIn("Both squads use the same forecast model", text)
+        self.assertNotIn("majority armband", text)
         self.assertIn("Haaland", prose["standfirst"])
 
-    def test_consensus_source_count_derives_from_the_data(self):
-        """Review finding 5: 'seven expert sources' was hardcoded — a GW2 tally
-        over nine sources would have published a false seven."""
-        prose = self._prose("consensus-squad",
-                            _squad_entries(captain="Haaland", source_count=9))
+    def test_source_count_alone_cannot_establish_current_comparator_method(self):
+        prose = self._prose("consensus-squad", _squad_entries(captain="Haaland", source_count=9))
         text = prose["standfirst"] + prose["body_html"]
-        self.assertIn("nine", text)
-        self.assertNotIn("seven", text)
+        self.assertIn("construction method was not retained", text)
+        self.assertNotIn("nine expert", text)
 
     def test_consensus_prose_claims_no_count_when_the_data_has_none(self):
         prose = self._prose("consensus-squad",
@@ -1288,7 +1286,7 @@ class TestSquadRenderPieces(unittest.TestCase):
         self.assertIn("69.0", s)
         s2 = render.summary_sentence("consensus-squad",
                                      _squad_entries(captain="Haaland"))
-        self.assertIn("consensus", s2)
+        self.assertIn("comparator", s2)
         self.assertIn("Haaland", s2)
 
     def test_squad_fig_caption_does_not_claim_optimality(self):
