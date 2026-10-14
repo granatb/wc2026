@@ -44,6 +44,103 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
+### Website release prepared; environment blocks shipping — 14 October 2026
+
+The user now explicitly authorizes publication, commit, push and deployment;
+this supersedes the earlier local-only scope below. Actual transfers remain
+the user's Friday action. [Release status and exact commands](docs/reviews/2026-10-14-provisional-release-status.md).
+
+The cumulative production export is built and validated: final GW6 41/71 versus
+field average 58; provisional GW7 667-player projections, article/expert updates,
+joint transfer comparisons and captain reasoning. Receipt `553cfb64…` accepts
+held website rosters only; account submission is unverified. New GW7 forecast
+artifact is `91272d7db80451db2ddac544b124f2e3aba423f43b66a0e105877e15edd41b10`.
+1,430 tests pass (five existing skips), GW1–7 content/evidence validation passes,
+and all 372 protected pre-existing files retain their hashes.
+
+Deployment stopped at `scripts/deploy.sh: line 16: npx: command not found`.
+Bundled Node also cannot read the system OpenSSL configuration (`Operation not
+permitted`). The previous Git write denial was respected; no permissions or
+security settings changed. No commit, push, deployment or live verification
+completed. Branch remains `chore/gw6-thursday`, HEAD `0ddb44b`, ahead five.
+Run `bash scripts/ship_gw7_provisional.sh` from an ordinary authorized Mac
+terminal to finish the exact prepared release, then record its real identities.
+
+### Provisional GW7 research — 14 October 2026
+
+- [Conditional recommendation and complete portfolio comparisons](docs/reviews/2026-10-14-gw7-provisional-recommendation.md)
+  use the user-confirmed **three free transfers**. Actual account roster, bank,
+  displayed sale prices, chips and any already-made GW7 moves remain unverified.
+  Website Model/Consensus states are separate and unchanged; Consensus bank is missing.
+- Conditional Model shortlist: Bruno → Saka first; Evanilson → Gonzalo if injury
+  cover is adequate, or Szoboszlai → Tavernier if recovery remains unclear;
+  Shaw → De Cuyper is an optional third move after workload/fitness checks.
+  Holding/using 1/2/3 FTs leaves 4/3/2/1 next week; FT option value is unpriced.
+- Research evidence is private at `data/reviews/gw7/2026-10-14-provisional/`:
+  official capture 14:05 UTC, 436/436 fresh player histories, isolated 10,000-draw
+  simulations GW7–11 and full joint portfolio comparisons. GW7 odds are market;
+  GW8 is 4 market/6 strength fallback, GW9–11 all strength fallback.
+  No model retuning. All 372 protected pre-existing hashes match after simulation;
+  61 focused tests passed on Python 3.12 with networking blocked.
+- `research/experts/gw7.json` is explicitly provisional, derived-only research.
+  Final Scout selections/captain metrics and Friday press conferences remain open.
+  Wednesday/Thursday European workload matters; GW7 is not the immediate first
+  round after the international break. Deadline **17 October, 10:00 UTC**.
+- No production build, accepted publication decision, account action, push or
+  deployment. The rehearsal excludes stale editorial/World Cup round-seven
+  research; that namespace collision remains an unmodified follow-up risk.
+- **Reconnection verification completed:** independent recomputation passes for
+  65 saved portfolio records, all 15 sale values, 88 news sensitivities, 44 recovery
+  records and 18 price sensitivities, including the £0.3m-short Haaland/Saka route.
+  Joint XI/captain utility, budgets, position/club limits, bench and FT accounting
+  agree. All 372 protected hashes still match; six-source expert JSON validates.
+  See private `verification-resumed.json` and `expert-validation-resumed.log`.
+  Simulations and the full search were not rerun. Saka captain is conditional on
+  the proposed roster lacking Haaland; the base board still ranks Haaland 8.63
+  above Saka 7.02, and a legal Haaland acquisition was evaluated.
+- Git is `chore/gw6-thursday` at `0ddb44b`, ahead five of the locally recorded
+  upstream (no fetch). GW7 report/expert JSON are untracked; these HANDOFF/plan
+  edits are unstaged; private evidence is ignored. No GW7 artifact is committed.
+  Verification needed no permission change or Git write. Actual account inputs
+  and final pre-deadline news remain the outstanding decision gates.
+
+### Final GW6 reconciliation — 14 October 2026
+
+Latest local checkpoint supersedes the provisional finality blocker below.
+Official capture at **11:35:28–11:35:37 UTC** returned HTTP 200 / `Age: 0`:
+all ten GW6 fixtures final, event `finished=true`, `data_checked=true`, final
+field average **58**. The existing guard passed without changing any flags.
+
+- `evmax/assets/accuracy/gw6.json` is now banked through the existing grading
+  command using retained official inputs. Frozen artifact remains
+  `a8a8df5f59f3f68008f2c761d90a01536efd257dd02311182ccb720efddedebf`.
+  Results payload digest:
+  `2a87accc591ed2b1071e81ab9beda6c12602bd23a4e6f44f871efdc08be2f4bc`.
+- Website Model **41**, Consensus **71**, including autosubs, versus field
+  average **58**. Published-XI-only lines are **39/63**; these exclude autosubs.
+  Actual user-account results, transfers, hits and chips remain unverified.
+- Full frozen board: 667 players, MAE **1.103** versus archived official
+  `ep_next` **1.176**. Single-week results do not establish model superiority.
+  No missing four-arm or external GW6 benchmark was manufactured.
+- Raw official snapshots, headers, receipts, replay and preservation evidence
+  are private at `data/reviews/gw6/2026-10-14-final/`. Prior evidence and all
+  forecast/live caches remain unchanged. All **353** protected pre-existing
+  files retain their hashes. This local evidence is not an off-device backup.
+- **59 focused tests pass on Python 3.12**, network blocked. System Python
+  3.9.6 fails the retained GW4 exact-float replay on last-digit reduction
+  differences; no historical receipt or model code was changed to accommodate it.
+  The new GW6 banked player metrics also match Python 3.12 replay exactly.
+- [Final review and GW7 checklist](docs/reviews/2026-10-12-gw6-provisional-review.md)
+  are current. Verified next deadline: **17 October 2026, 10:00 UTC**.
+  Confirm actual portfolio and finances, refresh GW7 news/history/horizon,
+  then review and accept the exact dry-build publication proposal. No GW7
+  acceptance, squad decision, account action or prospective comparator freeze
+  has been performed here.
+
+Current delivery is local evidence, documentation and commit only. No push,
+deployment or public build is authorized. Publication remains a separate decision.
+Do not use the historical operational permissions below to publish this batch.
+
 ### Local code checkpoint, 9 October 2026, before publication authorization
 
 - Branch `chore/gw6-thursday`, starting from `6346666`, with a clean checkout

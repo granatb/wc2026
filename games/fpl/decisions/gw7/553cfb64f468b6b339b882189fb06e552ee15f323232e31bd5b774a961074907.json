@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "status": "accepted_for_publication",
+  "proposal": {
+    "schema_version": 1,
+    "gameweek": 7,
+    "deadline": "2026-10-17T10:00:00+00:00",
+    "states": {
+      "model": {
+        "team_name": "The Model XI",
+        "strategy": "model",
+        "free_transfers": 3,
+        "chips_used": [
+          "3xc"
+        ],
+        "aliases": {},
+        "squad": [
+          {
+            "name": "Raya",
+            "position": "GK",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "ARS",
+            "price": 6.1,
+            "id": 1,
+            "player_id": 1
+          },
+          {
+            "name": "Sánchez",
+            "position": "GK",
+            "is_starter": false,
+            "bench_order": 1,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 5.0,
+            "team": "CHE",
+            "price": 4.9,
+            "id": 140,
+            "player_id": 140
+          },
+          {
+            "name": "Tarkowski",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "EVE",
+            "price": 6.2,
+            "id": 229,
+            "player_id": 229
+          },
+          {
+            "name": "Virgil",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.5,
+            "team": "LIV",
+            "price": 6.5,
+            "id": 356,
+            "player_id": 356
+          },
+          {
+            "name": "Shaw",
+            "position": "DEF",
+            "is_starter": false,
+            "bench_order": 4,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.5,
+            "team": "MUN",
+            "price": 4.3,
+            "id": 423,
+            "player_id": 423
+          },
+          {
+            "name": "N.Williams",
+            "position": "DEF",
+            "is_starter": false,
+            "bench_order": 3,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 5.0,
+            "team": "NFO",
+            "price": 5.0,
+            "id": 469,
+            "player_id": 469
+          },
+          {
+            "name": "B.Fernandes",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 12.0,
+            "team": "MUN",
+            "price": 11.9,
+            "id": 426,
+            "player_id": 426
+          },
+          {
+            "name": "Gibbs-White",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 8.0,
+            "team": "NFO",
+            "price": 8.0,
+            "id": 480,
+            "player_id": 480
+          },
+          {
+            "name": "Szoboszlai",
+            "position": "MID",
+            "is_starter": false,
+            "bench_order": 2,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 7.0,
+            "team": "LIV",
+            "price": 6.9,
+            "id": 368,
+            "player_id": 368
+          },
+          {
+            "name": "E.Le Fée",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "SUN",
+            "price": 5.7,
+            "id": 542,
+            "player_id": 542
+          },
+          {
+            "name": "Thiago",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": true,
+            "is_vice": false,
+            "bought_at": 8.0,
+            "team": "BRE",
+            "price": 7.8,
+            "id": 106,
+            "player_id": 106
+          },
+          {
+            "name": "Evanilson",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "BOU",
+            "price": 6.0,
+            "id": 79,
+            "player_id": 79
+          },
+          {
+            "name": "Calvert-Lewin",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": true,
+            "bought_at": 6.0,
+            "team": "LEE",
+            "price": 6.0,
+            "id": 346,
+            "player_id": 346
+          },
+          {
+            "name": "Palmer",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 9.7,
+            "team": "CHE",
+            "price": 9.7,
+            "id": 154,
+            "player_id": 154
+          },
+          {
+            "name": "Thomas",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.0,
+            "team": "COV",
+            "price": 4.0,
+            "id": 173,
+            "player_id": 173
+          }
+        ],
+        "bank": 0.0,
+        "active_chip": null,
+        "publication_status": "provisional_held_website_roster_not_verified_account",
+        "account_submission": "unverified",
+        "total_cost": 99.7,
+        "squad_value": 99.0
+      },
+      "consensus": {
+        "team_name": "The Consensus XI",
+        "strategy": "consensus",
+        "free_transfers": 1,
+        "chips_used": [
+          "wildcard"
+        ],
+        "method_note": "Rebuilt for gameweek 2 as the most-owned legal template: top selected_by_percent per position from the official bootstrap, greedily legalised under budget, quota and club cap; captain = highest-owned premium (>= 10.0m), vice next. This rebuild is the squad's declared Wildcard; the GW1 expert mention-tally method is retired. GW1 is graded as published.",
+        "squad": [
+          {
+            "name": "Raya",
+            "position": "GK",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "ARS",
+            "price": 6.1,
+            "id": 1,
+            "player_id": 1
+          },
+          {
+            "name": "Calafiori",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 5.5,
+            "team": "ARS",
+            "price": 5.9,
+            "id": 8,
+            "player_id": 8
+          },
+          {
+            "name": "O'Reilly",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.5,
+            "team": "MCI",
+            "price": 6.3,
+            "id": 387,
+            "player_id": 387
+          },
+          {
+            "name": "Shaw",
+            "position": "DEF",
+            "is_starter": false,
+            "bench_order": 2,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.5,
+            "team": "MUN",
+            "price": 4.3,
+            "id": 423,
+            "player_id": 423
+          },
+          {
+            "name": "Szoboszlai",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 7.0,
+            "team": "LIV",
+            "price": 6.9,
+            "id": 368,
+            "player_id": 368
+          },
+          {
+            "name": "Mbeumo",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 8.0,
+            "team": "MUN",
+            "price": 7.9,
+            "id": 427,
+            "player_id": 427
+          },
+          {
+            "name": "Tzolis",
+            "position": "MID",
+            "is_starter": false,
+            "bench_order": 4,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.5,
+            "team": "ARS",
+            "price": 6.3,
+            "id": 557,
+            "player_id": 557
+          },
+          {
+            "name": "Rogers",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 7.5,
+            "team": "CHE",
+            "price": 7.9,
+            "id": 40,
+            "player_id": 40
+          },
+          {
+            "name": "Haaland",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": true,
+            "is_vice": false,
+            "bought_at": 15.5,
+            "team": "MCI",
+            "price": 15.6,
+            "id": 411,
+            "player_id": 411
+          },
+          {
+            "name": "João Pedro",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 7.5,
+            "team": "CHE",
+            "price": 7.8,
+            "id": 165,
+            "player_id": 165
+          },
+          {
+            "name": "Calvert-Lewin",
+            "position": "FWD",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": true,
+            "bought_at": 6.0,
+            "team": "LEE",
+            "price": 6.0,
+            "id": 346,
+            "player_id": 346
+          },
+          {
+            "name": "Kinsky",
+            "position": "GK",
+            "is_starter": false,
+            "bench_order": 1,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.5,
+            "team": "TOT",
+            "price": 4.5,
+            "id": 496,
+            "player_id": 496
+          },
+          {
+            "name": "Guéhi",
+            "position": "DEF",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 6.0,
+            "team": "MCI",
+            "price": 6.0,
+            "id": 388,
+            "player_id": 388
+          },
+          {
+            "name": "Diop",
+            "position": "DEF",
+            "is_starter": false,
+            "bench_order": 3,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.0,
+            "team": "IPS",
+            "price": 4.0,
+            "id": 259,
+            "player_id": 259
+          },
+          {
+            "name": "Slater",
+            "position": "MID",
+            "is_starter": true,
+            "bench_order": null,
+            "is_captain": false,
+            "is_vice": false,
+            "bought_at": 4.5,
+            "team": "HUL",
+            "price": 4.5,
+            "id": 290,
+            "player_id": 290
+          }
+        ],
+        "aliases": {},
+        "active_chip": null,
+        "publication_status": "provisional_held_website_roster_not_verified_account",
+        "account_submission": "unverified",
+        "total_cost": 99.5,
+        "squad_value": 100.0
+      }
+    },
+    "forecast_sha256": "9a8bb4fb4b487681b51f2ff62ecfa62b378dec35ac2dbe89e8af06b0306f359b",
+    "review": {
+      "model": {
+        "scope": "One gameweek, best legal XI plus ordinary captain; excludes autosubs, vice option value, future weeks and chips.",
+        "selected_points": 57.28,
+        "current_squad_best_xi_points": 57.28,
+        "selection_gap": 0.0,
+        "affordable_single_swap_options": [
+          {
+            "out": "Cole Palmer",
+            "in": "Saka",
+            "position": "MID",
+            "delta": 2.25,
+            "hit_adjusted_delta": 2.25,
+            "reasons": [
+              "Legal weekly XI + captain mean; autosub and vice option value excluded",
+              "+2.25 xPts over the 1-GW horizon (discounted 0.95/week)",
+              "funds: 9.7 (sale 9.7 + bank 0.0) covers 9.6"
+            ]
+          },
+          {
+            "out": "B.Fernandes",
+            "in": "Saka",
+            "position": "MID",
+            "delta": 2.23,
+            "hit_adjusted_delta": 2.23,
+            "reasons": [
+              "Legal weekly XI + captain mean; autosub and vice option value excluded",
+              "+2.23 xPts over the 1-GW horizon (discounted 0.95/week)",
+              "funds: 11.9 (sale 11.9 + bank 0.0) covers 9.6"
+            ]
+          },
+          {
+            "out": "N.Williams",
+            "in": "Van Hecke",
+            "position": "DEF",
+            "delta": 2.02,
+            "hit_adjusted_delta": 2.02,
+            "reasons": [
+              "Legal weekly XI + captain mean; autosub and vice option value excluded",
+              "+2.02 xPts over the 1-GW horizon (discounted 0.95/week)",
+              "funds: 5.0 (sale 5.0 + bank 0.0) covers 4.9"
+            ]
+          },
+          {
+            "out": "Virgil",
+            "in": "De Cuyper",
+            "position": "DEF",
+            "delta": 1.7,
+            "hit_adjusted_delta": 1.7,
+            "reasons": [
+              "Legal weekly XI + captain mean; autosub and vice option value excluded",
+              "+1.70 xPts over the 1-GW horizon (discounted 0.95/week)",
+              "funds: 6.5 (sale 6.5 + bank 0.0) covers 5.1"
+            ]
+          },
+          {
+            "out": "N.Williams",
+            "in": "Silva",
+            "position": "DEF",
+            "delta": 1.67,
+            "hit_adjusted_delta": 1.67,
+            "reasons": [
+              "Legal weekly XI + captain mean; autosub and vice option value excluded",
+              "+1.67 xPts over the 1-GW horizon (discounted 0.95/week)",
+              "funds: 5.0 (sale 5.0 + bank 0.0) covers 5.0"
+            ]
+          }
+        ],
+        "funds_note": "Uses recorded bank, purchase and market prices; options compare best XI before and after, not the selected XI."
+      },
+      "consensus": {
+        "scope": "One gameweek, best legal XI plus ordinary captain; excludes autosubs, vice option value, future weeks and chips.",
+        "selected_points": 56.71,
+        "current_squad_best_xi_points": 56.71,
+        "selection_gap": 0.0,
+        "affordable_single_swap_options": [],
+        "funds_note": "Bank not recorded: affordable transfer alternatives unavailable."
+      }
+    },
+    "account_submission": "unverified",
+    "proposal_id": "553cfb64f468b6b339b882189fb06e552ee15f323232e31bd5b774a961074907"
+  },
+  "accepted_at": "2026-10-14T15:08:15.385892+00:00",
+  "accepted_by": "Codex under explicit 14 October website publication authorization",
+  "rationale": "Publish provisional projections from the reviewed 14 October evidence. Retain both website holdings and use their best legal XI: Model Thiago captain, Consensus Haaland captain. The Saka transfer plans remain conditional analysis, not executed transfers. Only three account free transfers are confirmed; actual account roster, bank, sale prices and chips remain unknown. User plans Friday transfers after news. No chip or account submission is claimed.",
+  "account_submission": "unverified"
+}

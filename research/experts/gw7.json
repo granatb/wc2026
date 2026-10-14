@@ -1,0 +1,82 @@
+{
+  "gameweek": 7,
+  "checked_at": "2026-10-14T14:14:00Z",
+  "status": "provisional_research_only",
+  "sources": [
+    {
+      "key": "ffs_early_picks",
+      "name": "Fantasy Football Scout — early Scout Picks",
+      "url": "https://www.fantasyfootballscout.co.uk/2026/10/13/fpl-gameweek-7-early-scout-picks-man-city-triple-up",
+      "published": "2026-10-13",
+      "captain": null, "vice": null, "chip": null,
+      "transfers_in": ["Donnarumma", "Calafiori", "De Cuyper", "Van Hecke", "Groß", "Cherki", "Tavernier", "Manzambi", "Calvert-Lewin", "Haaland", "João Pedro"],
+      "transfers_out": [],
+      "note": "Provisional one-week XI, not a long-term transfer plan. Final Friday Scout Picks and Scout Squad not yet verified. Captain not verified."
+    },
+    {
+      "key": "ffiq_squad",
+      "name": "Fantasy Football IQ — GW7 squad",
+      "url": "https://fantasyfootballiq.app/archive/gw7/fpl-gameweek/",
+      "published": "2026-10-12",
+      "captain": "Haaland", "vice": null, "chip": null,
+      "transfers_in": ["Kinsky", "De Cuyper", "Guéhi", "Van Hecke", "Hall", "Groß", "Cherki", "Rogers", "Saka", "Haaland", "João Pedro"],
+      "transfers_out": [],
+      "note": "Published starting XI and captain, derived names only. This is a fresh squad selection, not an affordable transfer plan for the user's unverified account. Source projections are not reproduced."
+    },
+    {
+      "key": "fix_top_five",
+      "name": "Fantasy Football Fix — top five picks",
+      "url": "https://www.fantasyfootballfix.com/blog-index/fpl-gw7-top-5-players-2026-27/",
+      "published": "2026-10-14",
+      "captain": null, "vice": null, "chip": null,
+      "transfers_in": ["Saka", "Haaland", "Groß", "Gonzalo", "De Cuyper"],
+      "transfers_out": [],
+      "note": "Five selected players; no captain or vice inferred from ordering. These are picks, distinct from the provider's popular-transfer counts."
+    },
+    {
+      "key": "pl_buy_keep_sell",
+      "name": "Premier League Scout — buy, keep or sell",
+      "url": "https://www.premierleague.com/en/news/4736972/buy-keep-or-sell-what-to-do-with-these-10-players-in-fpl",
+      "published": "2026-10-14",
+      "captain": null, "vice": null, "chip": null,
+      "transfers_in": ["Gvardiol", "Kinsky"],
+      "transfers_out": ["B.Fernandes"],
+      "note": "Verified search-indexed excerpts; direct page body unavailable. Bruno sale is a value/fixture opinion, not a confirmed injury absence. Gibbs-White hold; Cherki keep rather than buy; Szoboszlai hold only if fit. No complete Scout Selection inferred."
+    },
+    {
+      "key": "pl_chip_options",
+      "name": "Premier League Scout — chip options",
+      "url": "https://www.premierleague.com/en/news/4362085/triple-captain-haaland-in-gameweek-7-how-and-when-to-use-your-fpl-chips",
+      "published": "2026-10-11",
+      "captain": null, "vice": null, "chip": null,
+      "transfers_in": [], "transfers_out": [],
+      "note": "Discusses Haaland Triple Captain against Ipswich as an option, not a universal instruction. Actual chip availability is unverified; website Model records Triple Captain used."
+    },
+    {
+      "key": "fix_popular_moves",
+      "name": "Fantasy Football Fix — popular transfers and alternatives",
+      "url": "https://www.fantasyfootballfix.com/blog-index/fpl-gw7-transfer-tips-2026-27/",
+      "published": "2026-10-13",
+      "captain": null, "vice": null, "chip": null,
+      "transfers_in": [], "transfers_out": [],
+      "note": "Crowd flows are not expert votes and are deliberately excluded from pick tallies. The article discusses Tavernier, Dewsbury-Hall and King as Szoboszlai alternatives; no move is assumed executed."
+    }
+  ],
+  "pending": [
+    "Official Premier League GW7 Scout Selection and final transfer radar: final selection not verified at this check.",
+    "Fantasy Football Scout final GW7 Scout Picks and Scout Squad: hub marked coming soon; refresh after Friday press conferences.",
+    "All About FPL GW7 captain metrics and final picks: hub and reader poll found, final recommendations not verified. Do not count a reader poll as an expert selection.",
+    "Wednesday and Thursday European minutes and Friday injury updates remain outstanding."
+  ],
+  "model": {
+    "status": "provisional_held_roster_publication_review",
+    "transfers_in": [],
+    "transfers_out": [],
+    "review_options": [
+      "Publication retains the website holdings with a provisional legal XI. No actual-account transfer decision has been accepted. Three free transfers are user-confirmed; current account roster, bank, displayed sale prices and chip history are unverified.",
+      "Conditional website Model scenario: Bruno to Saka is the first shortlist option. Gonzalo for Evanilson is a second option if injury cover is adequate; Tavernier for Szoboszlai is the injury-repair alternative. Shaw to De Cuyper is an optional third move after workload and fitness checks.",
+      "Keep the free-transfer option: holding or using one, two, or three of today's three free transfers leaves four, three, two, or one next week, assuming no other moves or chip.",
+      "Read the linked joint transfer plan for complete portfolios, captain and bench choices, sensitivities and limitations. Website publication is authorized separately; proposed account transfers remain the user's Friday action."
+    ]
+  }
+}
