@@ -44,7 +44,41 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
-### Website release prepared; environment blocks shipping — 14 October 2026
+### Confirmed pair and conditional XI — 16 October 2026
+
+Owner confirmed Bruno → Saka and Shaw → De Cuyper at 11:45 UTC. One FT remains
+assuming no other moves. Full actual roster/bank/chips remain unverified; do not
+replace the website state with an asserted account state. [Exact fifteen, lineup,
+news and delivery status](docs/reviews/2026-10-16-gw7-confirmed-pair.md).
+Conditional 3-4-3: Raya; De Cuyper, Tarkowski, Virgil; Saka (C), Palmer, Le Fée,
+Gibbs-White; Thiago (VC), Calvert-Lewin, Evanilson. Bench: Bobby Thomas,
+N. Williams, Szoboszlai; reserve keeper Sánchez. Exact-pair saved-board result:
+61.80 GW7 mean, +4.52/+8.358/+10.197 over 1/3/5 weeks. Injury-aware bench uses
+the saved cautious scenario; no fresh forecast or confirmed Szoboszlai recovery.
+
+Dated website correction is prepared locally via
+`scripts/publish_gw7_confirmed_pair.py`; forecasts/accepted rosters remain frozen.
+Git read of user configuration is denied; npx is unavailable. No commit, push or
+deploy occurred. Run `bash scripts/ship_gw7_confirmed_pair.sh` in the normal
+authorized terminal before the deadline to use the established release route,
+then retain actual live verification. Do not rerun the old 14 October script.
+
+### Website release deployed and verified — 14 October 2026
+
+Release commit **`5e581006e0eee1d49007cfdb2c1b8feca7b1a83d`** is on
+`chore/gw6-thursday`, matching the locally recorded upstream. The user's normal
+terminal completed the release after a trailing blank line in the staged report
+was removed. Cloudflare deployment: https://d6c1a84d.evmax.pages.dev;
+production: https://evmax.ai/. IndexNow accepted **759 URLs**, HTTP 200.
+All **17 live page/API responses match `dist/` byte for byte**, including the
+GW7 transfer plan, captain reasoning, expert review, GW6 final review and grades.
+Normal `/robots.txt` and `/sitemap.xml` also return HTTP 200 and match the build.
+The sitemap includes both new posts; robots permits crawlers. An earlier
+query-string robots/sitemap probe returned 403; ordinary URLs verified afterward.
+Receipt: `data/releases/2026-10-14-gw7/live-check-confirmed.json`.
+No account actions occurred. Friday account confirmation and news remain open.
+The environment blockers below describe the agent's earlier attempt, not the
+current live release. These post-release handoff edits are documentation only.
 
 The user now explicitly authorizes publication, commit, push and deployment;
 this supersedes the earlier local-only scope below. Actual transfers remain
