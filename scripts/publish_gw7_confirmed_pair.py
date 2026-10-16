@@ -22,10 +22,8 @@ EVIDENCE = REPO / 'data/reviews/gw7/2026-10-14-provisional'
 RELEASE = REPO / 'data/releases/2026-10-16-gw7'
 STAMP = '2026-10-16T11:45:00Z'
 SLUG = 'confirmed-pair'
-TITLE = 'GW7: Saka and De Cuyper confirmed; conditional starting XI'
-NOTICE = ('16 October owner update: Bruno → Saka and Shaw → De Cuyper confirmed. '
-          '1 FT remains assuming no other moves. Full account squad and bank are '
-          'unverified. Forecast inputs remain 14 October; Friday fitness news is incomplete.')
+TITLE = 'GW7: Saka and De Cuyper — lineup and captaincy'
+NOTICE = 'Saka captains the model lineup after the two transfers, with Thiago vice-captain.'
 
 
 def read(path):
@@ -111,30 +109,28 @@ def main():
     md = out / render.FPL.md_path(7, SLUG).lstrip('/')
     md.parent.mkdir(parents=True, exist_ok=True)
     md.write_text(render.article_md(7, SLUG, TITLE, prose, [], [], STAMP, '16 October 2026', canonical_path=render.FPL.article_path(7, SLUG), section=render.FPL))
-    write(out / f'api/fpl/gw7/{SLUG}.json', {**result, 'body_html': body, 'body_md': prose['body_md']})
+    public = {key: value for key, value in result.items()
+              if key not in {'account_roster_verified', 'account_bank', 'owner_reported_at'}}
+    public['status'] = 'model_lineup_after_confirmed_pair'
+    write(out / f'api/fpl/gw7/{SLUG}.json', {**public, 'body_html': body, 'body_md': prose['body_md']})
     latest = read(out / 'api/latest.json')
     latest['articles'][SLUG] = f'/api/fpl/gw7/{SLUG}.json'
-    latest['owner_update'] = {'reported_at': STAMP, 'url': f'/api/fpl/gw7/{SLUG}.json', 'account_roster_verified': False}
+    latest.pop('owner_update', None)
     write(out / 'api/latest.json', latest)
-    banner = '<aside id="gw7-provisional" class="wrap" style="padding:18px;border:1px solid #d0d9cc"><strong>' + NOTICE + '</strong><p><a href="/fpl/gw7/confirmed-pair/">Confirmed transfers, starting XI, bench and captain</a></p></aside>'
     pages = [out / 'index.html', *(out / 'fpl/gw7').rglob('index.html'), *(out / 'fpl/players').rglob('index.html')]
     for path in pages:
         text = path.read_text()
         if 'id="gw7-provisional"' in text:
-            text, count = re.subn(r'<aside id="gw7-provisional".*?</aside>', lambda _: banner, text, flags=re.S)
+            text, count = re.subn(r'<aside id="gw7-provisional".*?</aside>', '', text, flags=re.S)
             assert count == 1
-        else:
-            if '</header>' not in text:
-                assert 'GW2: incomplete player archive' in text or 'http-equiv="refresh"' in text.lower(), str(path)
-                continue  # Retain historical unavailable cards and redirects.
-            text = text.replace('</header>', '</header>' + banner, 1)
         path.write_text(text)
     sitemap = out / 'sitemap.xml'
     text = sitemap.read_text()
     url = f'https://evmax.ai/fpl/gw7/{SLUG}/'
     if url not in text:
         sitemap.write_text(text.replace('</urlset>', f'<url><loc>{url}</loc></url></urlset>'))
-    allowed = {str(p.relative_to(out)) for p in pages} | {'api/latest.json', 'sitemap.xml'}
+    allowed = {str(p.relative_to(out)) for p in pages} | {'api/latest.json', 'sitemap.xml',
+        f'api/fpl/gw7/{SLUG}.json', str(md.relative_to(out))}
     changed = [name for name, digest in before.items() if hashlib.sha256((out/name).read_bytes()).hexdigest() != digest]
     assert set(changed) <= allowed, changed
     errors = validate(out)

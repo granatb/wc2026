@@ -44,6 +44,25 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
+### Public-copy correction requested — 16 October 2026
+
+The user rejected the added owner-update banner, its indistinct link and the
+public account-verification caveats. Remove the banner entirely; do not replace
+it with another unsolicited UI element. Keep operational/account-verification
+notes in private working evidence, not public copy. The confirmed-pair article
+now describes the model lineup without publishing account/bank uncertainty.
+The local publisher removes its former banner from landing, GW7 and player
+pages; no forecast or accepted squad is changed. The requested played/to-play
+counter is still pending; no counter or renderer change has been made.
+
+The previous confirmed-pair update is now live: direct HTTP checks matched the
+homepage, confirmed-pair page and latest API to local output at about 12:02 UTC.
+Local branch ref is `6dda962c4c76c5748bc6352912197bd97aa5b9a3`; publication was
+external to this agent. The cleanup is a subsequent local change, not yet live.
+Git configuration access and missing npx still block this environment's release.
+The existing `scripts/ship_gw7_confirmed_pair.sh` now targets that HEAD and ships
+only the cleanup; do not use the 14 October provisional shipping script.
+
 ### Confirmed pair and conditional XI — 16 October 2026
 
 Owner confirmed Bruno → Saka and Shaw → De Cuyper at 11:45 UTC. One FT remains

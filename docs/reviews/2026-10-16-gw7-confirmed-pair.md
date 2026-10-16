@@ -1,5 +1,20 @@
 # GW7 owner confirmation and conditional lineup — 16 October 2026
 
+## Subsequent delivery and user correction
+
+Direct HTTP reads at about 12:02 UTC confirmed the homepage, confirmed-pair page
+and latest API matched the prepared update byte-for-byte. Local branch ref is
+now `6dda962c4c76c5748bc6352912197bd97aa5b9a3`; the agent did not perform that
+deployment. The earlier delivery blocker below is historical for that version.
+
+The user then rejected the added banner, its indistinct link and public
+account-verification caveats. The subsequent cleanup removes the entire banner
+and keeps operational account context out of the new article. No replacement UI
+element was added. The publisher now removes, rather than installs, that banner.
+The cleanup remains local; missing npx and denied Git config access still block
+agent delivery. The shipping script is updated for the new HEAD and cleanup.
+Played/to-play counts and the pre-kickoff “live” label remain pending.
+
 The owner reported at 11:45 UTC: “ok saka and de cuyper are in”, following the
 choice of Bruno Fernandes → Saka and Shaw → De Cuyper. These two transfers are
 confirmed by the owner; the complete actual squad, bank, sale prices, chips and
