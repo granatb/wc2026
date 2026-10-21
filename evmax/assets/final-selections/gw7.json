@@ -1,0 +1,558 @@
+{
+  "schema_version": 1,
+  "gameweek": 7,
+  "recorded_at": "2026-10-21T13:59:45.528199+00:00",
+  "published_at": "2026-10-16T12:10:15+00:00",
+  "source_path": "evmax/assets/editorial/fpl-gw7/confirmed-pair.html",
+  "source_url": "/fpl/gw7/confirmed-pair/",
+  "source_commit": "40febcd0ae5e92045ceddf1111b5d14a31a64946",
+  "source_sha256": "b2b674f99467c49b9132dd5ac1e8c7853a7500545dff3cb88315355cffcbc7d0",
+  "forecast_sha256": "91272d7db80451db2ddac544b124f2e3aba423f43b66a0e105877e15edd41b10",
+  "baseline_grade_sha256": "42e2ec48719e0140a6684ac9317cee2f53cc8c8c46c364738cd05a370e5257d2",
+  "baseline_url": "/api/fpl/accuracy/gw7.json",
+  "results_sha256": "0c3a3c3021faceaccbf5fee0b78bd080c3c0885723937d3c0a7538b0e02178ee",
+  "results_extract_sha256": "b53dcd390a11a7aeb239d6962b275212494090143c4b16ab37f7806540d4cead",
+  "results": {
+    "gameweek": 7,
+    "fetched_at": "2026-10-21T11:39:13.096001+00:00",
+    "live": {
+      "elements": [
+        {
+          "id": 1,
+          "stats": {
+            "minutes": 90,
+            "total_points": 9
+          }
+        },
+        {
+          "id": 12,
+          "stats": {
+            "minutes": 90,
+            "total_points": 3
+          }
+        },
+        {
+          "id": 79,
+          "stats": {
+            "minutes": 78,
+            "total_points": 12
+          }
+        },
+        {
+          "id": 106,
+          "stats": {
+            "minutes": 90,
+            "total_points": 4
+          }
+        },
+        {
+          "id": 115,
+          "stats": {
+            "minutes": 90,
+            "total_points": 6
+          }
+        },
+        {
+          "id": 140,
+          "stats": {
+            "minutes": 0,
+            "total_points": 0
+          }
+        },
+        {
+          "id": 154,
+          "stats": {
+            "minutes": 90,
+            "total_points": 2
+          }
+        },
+        {
+          "id": 173,
+          "stats": {
+            "minutes": 90,
+            "total_points": 3
+          }
+        },
+        {
+          "id": 229,
+          "stats": {
+            "minutes": 90,
+            "total_points": 0
+          }
+        },
+        {
+          "id": 346,
+          "stats": {
+            "minutes": 90,
+            "total_points": 9
+          }
+        },
+        {
+          "id": 356,
+          "stats": {
+            "minutes": 90,
+            "total_points": 4
+          }
+        },
+        {
+          "id": 368,
+          "stats": {
+            "minutes": 31,
+            "total_points": 1
+          }
+        },
+        {
+          "id": 469,
+          "stats": {
+            "minutes": 90,
+            "total_points": 3
+          }
+        },
+        {
+          "id": 480,
+          "stats": {
+            "minutes": 0,
+            "total_points": 0
+          }
+        },
+        {
+          "id": 542,
+          "stats": {
+            "minutes": 90,
+            "total_points": 4
+          }
+        }
+      ]
+    },
+    "fixtures": [
+      {
+        "id": 64,
+        "event": 7,
+        "team_h": 9,
+        "team_a": 6,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-17T11:30:00Z"
+      },
+      {
+        "id": 62,
+        "event": 7,
+        "team_h": 4,
+        "team_a": 14,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-17T14:00:00Z"
+      },
+      {
+        "id": 65,
+        "event": 7,
+        "team_h": 10,
+        "team_a": 11,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-17T14:00:00Z"
+      },
+      {
+        "id": 67,
+        "event": 7,
+        "team_h": 15,
+        "team_a": 12,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-17T14:00:00Z"
+      },
+      {
+        "id": 68,
+        "event": 7,
+        "team_h": 17,
+        "team_a": 2,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-17T16:30:00Z"
+      },
+      {
+        "id": 61,
+        "event": 7,
+        "team_h": 3,
+        "team_a": 20,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-18T13:00:00Z"
+      },
+      {
+        "id": 63,
+        "event": 7,
+        "team_h": 5,
+        "team_a": 8,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-18T13:00:00Z"
+      },
+      {
+        "id": 66,
+        "event": 7,
+        "team_h": 13,
+        "team_a": 16,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-18T13:00:00Z"
+      },
+      {
+        "id": 69,
+        "event": 7,
+        "team_h": 18,
+        "team_a": 1,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-18T15:30:00Z"
+      },
+      {
+        "id": 70,
+        "event": 7,
+        "team_h": 19,
+        "team_a": 7,
+        "finished": true,
+        "finished_provisional": true,
+        "kickoff_time": "2026-10-19T19:00:00Z"
+      }
+    ],
+    "event": {
+      "id": 7,
+      "name": "Gameweek 7",
+      "deadline_time": "2026-10-17T10:00:00Z",
+      "release_time": null,
+      "average_entry_score": 59,
+      "finished": true,
+      "data_checked": true,
+      "highest_scoring_entry": 504619,
+      "deadline_time_epoch": 1792231200,
+      "deadline_time_game_offset": 0,
+      "highest_score": 122,
+      "is_previous": false,
+      "is_current": true,
+      "is_next": false,
+      "cup_leagues_created": true,
+      "h2h_ko_matches_created": true,
+      "can_enter": false,
+      "can_manage": false,
+      "released": true,
+      "ranked_count": 11063261,
+      "overrides": {
+        "rules": {},
+        "scoring": {},
+        "element_types": [],
+        "pick_multiplier": null
+      },
+      "chip_plays": [
+        {
+          "chip_name": "bboost",
+          "num_played": 179094
+        },
+        {
+          "chip_name": "freehit",
+          "num_played": 93126
+        },
+        {
+          "chip_name": "wildcard",
+          "num_played": 335228
+        },
+        {
+          "chip_name": "3xc",
+          "num_played": 724286
+        }
+      ],
+      "most_selected": 411,
+      "most_transferred_in": 399,
+      "top_element": 156,
+      "top_element_info": {
+        "id": 156,
+        "points": 15
+      },
+      "transfers_made": 12547022,
+      "most_captained": 411,
+      "most_vice_captained": 165
+    },
+    "event_receipt": {
+      "source": "https://fantasy.premierleague.com/api/bootstrap-static/",
+      "recorded_at": "2026-10-21T11:39:13.096001+00:00",
+      "payload_sha256": "5d0f5897452d3beaeb4f2c9c43e756d8faf7652954480bb0c8c065a26145ece6"
+    }
+  },
+  "state": {
+    "team_name": "Model XI: final GW7 selection",
+    "active_chip": null,
+    "squad": [
+      {
+        "name": "Thomas",
+        "player_id": 173,
+        "position": "DEF",
+        "is_starter": false,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": 2
+      },
+      {
+        "name": "Calvert-Lewin",
+        "player_id": 346,
+        "position": "FWD",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Palmer",
+        "player_id": 154,
+        "position": "MID",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "De Cuyper",
+        "player_id": 115,
+        "position": "DEF",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "E.Le Fée",
+        "player_id": 542,
+        "position": "MID",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Evanilson",
+        "player_id": 79,
+        "position": "FWD",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Gibbs-White",
+        "player_id": 480,
+        "position": "MID",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "N.Williams",
+        "player_id": 469,
+        "position": "DEF",
+        "is_starter": false,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": 3
+      },
+      {
+        "name": "Raya",
+        "player_id": 1,
+        "position": "GK",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Saka",
+        "player_id": 12,
+        "position": "MID",
+        "is_starter": true,
+        "is_captain": true,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Szoboszlai",
+        "player_id": 368,
+        "position": "MID",
+        "is_starter": false,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": 4
+      },
+      {
+        "name": "Sánchez",
+        "player_id": 140,
+        "position": "GK",
+        "is_starter": false,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": 1
+      },
+      {
+        "name": "Tarkowski",
+        "player_id": 229,
+        "position": "DEF",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      },
+      {
+        "name": "Thiago",
+        "player_id": 106,
+        "position": "FWD",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": true,
+        "bench_order": null
+      },
+      {
+        "name": "Virgil",
+        "player_id": 356,
+        "position": "DEF",
+        "is_starter": true,
+        "is_captain": false,
+        "is_vice": false,
+        "bench_order": null
+      }
+    ]
+  },
+  "projected": 61.8,
+  "realized_official": 59,
+  "scoring": {
+    "rows": [
+      {
+        "name": "Calvert-Lewin",
+        "club": "LEE",
+        "points": 9,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Palmer",
+        "club": "CHE",
+        "points": 2,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "De Cuyper",
+        "club": "BHA",
+        "points": 6,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "E.Le Fée",
+        "club": "SUN",
+        "points": 4,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Evanilson",
+        "club": "BOU",
+        "points": 12,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Gibbs-White",
+        "club": "NFO",
+        "points": 0,
+        "multiplier": 0,
+        "status": "blank",
+        "note": "0 minutes — Thomas comes in"
+      },
+      {
+        "name": "Raya",
+        "club": "ARS",
+        "points": 9,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Saka",
+        "club": "ARS",
+        "points": 3,
+        "multiplier": 2,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Tarkowski",
+        "club": "EVE",
+        "points": 0,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Thiago",
+        "club": "BRE",
+        "points": 4,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Virgil",
+        "club": "LIV",
+        "points": 4,
+        "multiplier": 1,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Sánchez",
+        "club": "CHE",
+        "points": 0,
+        "multiplier": 0,
+        "status": "blank",
+        "note": ""
+      },
+      {
+        "name": "Thomas",
+        "club": "COV",
+        "points": 3,
+        "multiplier": 1,
+        "status": "autosub_in",
+        "note": "in for Gibbs-White"
+      },
+      {
+        "name": "N.Williams",
+        "club": "NFO",
+        "points": 3,
+        "multiplier": 0,
+        "status": "played",
+        "note": ""
+      },
+      {
+        "name": "Szoboszlai",
+        "club": "LIV",
+        "points": 1,
+        "multiplier": 0,
+        "status": "played",
+        "note": ""
+      }
+    ],
+    "total_so_far": 59,
+    "players_pending": 0,
+    "autosubs_applied": [
+      {
+        "out": "Gibbs-White",
+        "in": "Thomas"
+      }
+    ],
+    "captain_effective": "Saka"
+  },
+  "reason": "The Model XI scoreboard follows the final pre-deadline recommendation published on 16 October after Saka and De Cuyper joined the squad. The 14 October pre-transfer forecast and its 53-point result remain archived. This result correction was recorded on 21 October. Player forecasts and accuracy metrics are unchanged."
+}

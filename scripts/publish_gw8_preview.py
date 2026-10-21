@@ -22,7 +22,7 @@ args = parser.parse_args()
 sys.path.insert(0, str(REPO))
 from core import fpl_api, fpl_live, forecast_archive, research, simcache
 from evmax import fpl_build, fpl_articles, render, writer
-from games.fpl import model, state
+from games.fpl import final_selection, model, state
 from scripts.validate_site import validate
 
 def read(path):
@@ -88,9 +88,12 @@ def saved_artifact(priors, player_meta, gameweek, sims, **kwargs):
 
 original_preview=fpl_build._preview_payloads
 original_next_week=fpl_build._preview_gameweek
+published_preview=read(REPO/'dist/api/fpl/preview/players.json')
+assert published_preview['gameweek']==8
 def fresh_preview(gw,sims,use_cache,archived_boot):
     # Current cards need the current player metadata as well as current model inputs.
-    return original_preview(gw,sims,use_cache,boot)
+    return original_preview(gw,sims,use_cache,boot,
+                            generated_at=published_preview['generated_at'])
 
 out=pathlib.Path(args.out).resolve()
 if not out.exists():shutil.copytree(REPO/'dist',out)
@@ -103,6 +106,43 @@ with patch.object(socket,'create_connection',blocked), patch.object(socket,'geta
      patch.object(fpl_build,'_accuracy_dir',lambda: str(grades)), \
      patch.object(fpl_build,'_load_horizon_matrix',lambda: horizon):
     fpl_build.build(7,sims=50000,out=str(out),use_llm=False,use_cache=False,live=True,preview=True)
+
+# The later selection has its own dated result; the forecast archive stays intact.
+selected=final_selection.load(7,read(REPO/'evmax/assets/accuracy/gw7.json'))
+if selected:
+    result_note=('<h2>GW7 result, recorded 21 October</h2>'
+        '<p>The final Model XI scored <strong>59 points</strong> against a '
+        '<strong>61.80</strong> projection. Saka captained the side. Thomas '
+        'replaced Gibbs-White for three points. The 14 October pre-transfer '
+        'selection remains archived at 53 points against 57.28 projected. '
+        '<a style="text-decoration:underline" href="/api/fpl/gw7/final-selection.json">'
+        'Final selection and scoring record</a> · '
+        '<a style="text-decoration:underline" href="/api/fpl/accuracy/gw7.json">'
+        'Original forecast grades</a>.</p>')
+    pair_body=(REPO/'evmax/assets/editorial/fpl-gw7/confirmed-pair.html').read_text()
+    pair_title='GW7: Saka and De Cuyper — lineup and captaincy'
+    pair_prose={'headline':pair_title,
+        'standfirst':'Saka captains the model lineup after the two transfers, with Thiago vice-captain.',
+        'body_html':pair_body+result_note,'body_md':writer._html_to_md(pair_body+result_note)}
+    score_panel=render.squad_live_panel_html(selected['scoring'],selected['results']['fetched_at'])
+    score_panel=score_panel.replace('>Live</span>','>Final</span>').replace('pts so far','pts').replace('live — updates on rebuild · as of','official results · as of')
+    pair_html=render.article_page(7,'confirmed-pair',pair_title,pair_prose,[],[],
+        '/api/fpl/gw7/final-selection.json','',generated_at='2026-10-16T11:45:00Z',
+        date_str='16 October 2026',show_table=False,available_rounds=list(range(1,9)),
+        section=render.FPL,live_html=score_panel)
+    pair_html=re.sub(r'<figure class="fig">\s*<figcaption>.*?</figcaption>\s*</figure>','',pair_html,count=1,flags=re.S)
+    pair_html=re.sub(r'<h2>Bottom line</h2>\s*<p>\s*</p>','',pair_html,count=1)
+    (out/'fpl/gw7/confirmed-pair/index.html').write_text(pair_html)
+    (out/render.FPL.md_path(7,'confirmed-pair').lstrip('/')).write_text(render.article_md(
+        7,'confirmed-pair',pair_title,pair_prose,[],[],'2026-10-16T11:45:00Z',
+        '16 October 2026','/fpl/gw7/confirmed-pair/',section=render.FPL))
+    baseline=out/'fpl/gw7/our-squad/index.html'
+    baseline.write_text(baseline.read_text().replace('<div class="live-panel">',
+        '<p>14 October pre-transfer selection: 53 points. '
+        '<a style="text-decoration:underline" href="/fpl/gw7/confirmed-pair/">'
+        'The final 16 October selection scored 59</a>. '
+        'Result record corrected 21 October; original forecasts preserved.</p>'
+        '<div class="live-panel">',1))
 
 # Use the existing article and hero layout for the new research preview.
 body=(REPO/'evmax/assets/editorial/fpl-gw8/preview.html').read_text()
@@ -154,6 +194,8 @@ for page in out.rglob('*.html'):
         page.write_text(re.sub(r'<aside id="gw7-provisional".*?</aside>','',text,flags=re.S))
 latest=read(out/'api/latest.json')
 latest['preview']={'gameweek':8,'generated_at':stamp,'players':'/api/fpl/preview/players.json','review':'/api/fpl/preview/review.json','plan':'/api/fpl/preview/plan.json'}
+if selected:
+    latest['final_selection_result']='/api/fpl/gw7/final-selection.json'
 write(out/'api/latest.json',latest)
 sitemap=out/'sitemap.xml'
 text=sitemap.read_text()

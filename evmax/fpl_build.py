@@ -1255,7 +1255,8 @@ def _squad_roles(states: dict, rows: list) -> dict:
         for key in SQUAD_LIVE_KEYS.values() if key in states}
 
 
-def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
+def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot,
+                      generated_at: str | None = None):
     """Preview cards for `preview_gw`: the normal card pipeline run on the
     next open gameweek from today's caches.
 
@@ -1265,7 +1266,8 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
     in our XI" reads as the squad stands today; Thursday's transfers land
     with Thursday's cards. Nothing here touches the locked gameweek's frozen
     surfaces, and nothing here reaches the network: a missing odds cache
-    prices the strip as unpriced, exactly as a Thursday build would."""
+    prices the strip as unpriced, exactly as a Thursday build would.
+    Retained simulation replays can preserve their original generated_at."""
     from core import forecast_archive
     priors_by_team, players_by_name, _cold = fpl_model.load_gameweek(preview_gw)
     all_players = fpl_api.parse_players(boot) if boot else []
@@ -1287,7 +1289,7 @@ def _preview_payloads(preview_gw: int, sims: int, use_cache: bool, boot):
     squad_roles = _squad_roles(states, rows)
     fx_rows_all = fpl_api.parse_fixtures(fpl_api.read_cache("fixtures") or [],
                                          fpl_api.parse_teams(boot or {}))
-    generated_at = datetime.now(timezone.utc).isoformat()
+    generated_at = generated_at or datetime.now(timezone.utc).isoformat()
     payloads, unmatched = fpl_players.assemble_payloads(
         rows, players_by_name,
         {e["id"]: e for e in (boot or {}).get("elements", [])},
@@ -1359,7 +1361,8 @@ def fpl_track_ledger() -> list:
     realized OFFICIAL points, and the running model-vs-crowd duel score (a
     gameweek goes to whichever squad realized more official points; a tie
     moves neither column). Rows also carry the public JSON path each grading
-    file is published at (_publish_accuracy)."""
+    file is published at (_publish_accuracy). A validated final-selection record
+    supplies the current team result and links the unchanged earlier grade."""
     acc_dir = _accuracy_dir()
     if not os.path.isdir(acc_dir):
         return []
@@ -1374,10 +1377,12 @@ def fpl_track_ledger() -> list:
 
     rows, model_wins, cons_wins = [], 0, 0
     for gw, acc in graded:
+        from games.fpl import final_selection
+        selected = final_selection.load(gw, acc)
         squads = acc.get("squads", {})
         ours = squads.get("our-squad", {})
         cons = squads.get("consensus-squad", {})
-        our_real = ours.get("realized_official")
+        our_real = selected['realized_official'] if selected else ours.get("realized_official")
         cons_real = cons.get("realized_official")
         if our_real is not None and cons_real is not None:
             if our_real > cons_real:
@@ -1400,7 +1405,7 @@ def fpl_track_ledger() -> list:
             "mae_ours": acc.get("mae_ours_paired") if acc.get("mae_ours_paired") is not None else acc.get("mae_ours"),
             "mae_ours_all": acc.get("mae_ours"),
             "mae_ep_next": acc.get("mae_ep_next"),
-            "model_projected": ours.get("projected"),
+            "model_projected": selected['projected'] if selected else ours.get("projected"),
             "model_realized": our_real,
             "consensus_projected": cons.get("projected"),
             "consensus_realized": cons_real,
@@ -1409,6 +1414,14 @@ def fpl_track_ledger() -> list:
             "duel_label": label,
             "json_path": f"/api/fpl/accuracy/gw{gw}.json",
         })
+        if selected:
+            rows[-1].update(
+                baseline_model_projected=ours.get('projected'),
+                baseline_model_realized=ours.get('realized_official'),
+                selection_published_at=selected['published_at'],
+                result_recorded_at=selected['recorded_at'],
+                baseline_json_path=rows[-1]['json_path'],
+                json_path=f'/api/fpl/gw{gw}/final-selection.json')
     return rows
 
 
@@ -1513,7 +1526,8 @@ def _llms_dataset_lines(gameweeks: list, url: str) -> list:
 def _publish_accuracy(w) -> None:
     """Publish the committed grading JSONs verbatim — the ledger's method note
     says "grading JSONs public", so the FPL build ships every gw{N}.json at
-    /api/fpl/accuracy/gw{N}.json, byte-for-byte what the repo grades against."""
+    /api/fpl/accuracy/gw{N}.json, byte-for-byte what the repo grades against.
+    Final-selection corrections have a separate API record."""
     acc_dir = _accuracy_dir()
     if not os.path.isdir(acc_dir):
         return
@@ -1522,7 +1536,13 @@ def _publish_accuracy(w) -> None:
                 and fname[2:-5].isdigit()):
             continue
         with open(os.path.join(acc_dir, fname), encoding="utf-8") as fh:
-            w(f"/api/fpl/accuracy/{fname}", fh.read())
+            content = fh.read()
+            w(f"/api/fpl/accuracy/{fname}", content)
+        from games.fpl import final_selection
+        selected = final_selection.load(int(fname[2:-5]), json.loads(content))
+        if selected:
+            w(f"/api/fpl/gw{selected['gameweek']}/final-selection.json",
+              json.dumps(selected, ensure_ascii=False, indent=2) + '\n')
 
 
 def _copy_assets(out: str) -> None:
