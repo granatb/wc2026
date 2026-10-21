@@ -44,6 +44,31 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
+### GW8 one-transfer plan and authorized release, 21 October 2026
+
+Owner chose **Szoboszlai → Mbeumo, retain Evanilson, save the second FT**, and
+explicitly authorized publication at 12:09 UTC. This is a chosen plan. Account
+execution is not confirmed. Two FT are available before that move. See
+[the full GW8 report](docs/reviews/2026-10-21-gw8-preview.md) for numbers, XI,
+bench, armbands, exact input times and private evidence.
+
+- Hold 61.79, chosen plan 64.10, discounted five-week gain 7.42. Saka C, Palmer VC.
+  The Mbeumo/Gonzalo route remains an alternative. No invented account balance.
+- Official deadline Friday 23 October, 17:30 UTC / 19:30 Denmark. Fresh inputs
+  captured 11:39 UTC. GW8–9 use market odds. GW10–12 use the strength fallback.
+- GW7 finality passes. Frozen website Model 53, Consensus 67, average 59.
+  Post-pair saved-selection reconstruction 59 under either Thomas/MGW variant.
+- Reproduce with `python3 scripts/publish_gw8_preview.py`, using private evidence
+  in `data/reviews/gw8/2026-10-21-preview/`. Editorial and plan are versioned under
+  `evmax/assets/editorial/fpl-gw8/`. Final grade is in `evmax/assets/accuracy/gw7.json`.
+- Current Git/Node/npx access works. HEAD at preparation: `40febcd`, branch
+  `chore/gw6-thursday`. The earlier banner cleanup is live. Preserve the two
+  existing 14 October release-document edits and `.restriction-test-20261013-a91c/`.
+- No canonical account state change, FPL action, new frozen GW8 forecast or
+  unrequested banner. Recheck European workload and Gibbs-White by Friday.
+
+Release commit, deployment and live checks are recorded after execution.
+
 ### Public-copy correction requested — 16 October 2026
 
 The user rejected the added owner-update banner, its indistinct link and the

@@ -1,0 +1,46 @@
+{
+  "gameweek": 8,
+  "status": "chosen_plan",
+  "chosen_at": "2026-10-21T12:09:00Z",
+  "transfer": {
+    "out": "Szoboszlai",
+    "in": "Mbeumo"
+  },
+  "transfers_available": 2,
+  "planned_transfers": 1,
+  "retain": "Evanilson",
+  "save_free_transfers": 1,
+  "next_gameweek_free_transfers": 2,
+  "lineup": {
+    "xi": [
+      "Raya",
+      "Bobby Thomas",
+      "Virgil",
+      "N.Williams",
+      "Saka",
+      "Cole Palmer",
+      "Mbeumo",
+      "E.Le Fée",
+      "Thiago",
+      "Calvert-Lewin",
+      "Evanilson"
+    ],
+    "captain": "Saka",
+    "vice": "Cole Palmer",
+    "mean_xi_captain": 64.1,
+    "outfield_bench_order": [
+      "De Cuyper",
+      "Gibbs-White",
+      "Tarkowski"
+    ],
+    "reserve_goalkeeper": "Sánchez"
+  },
+  "expected_points": 64.1,
+  "hold_expected_points": 61.79,
+  "discounted_gain_vs_hold": {
+    "1": 2.31,
+    "3": 5.062,
+    "5": 7.418
+  },
+  "method": "Legal XI plus captain mean. 0.95 weekly discount. No autosubs, conditional vice or future-transfer option value."
+}
