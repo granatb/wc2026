@@ -59,11 +59,22 @@ selection. The current ledger uses the final selection and links its separate
 scoring record. The earlier grade remains available at its existing API path.
 The GW8 Mbeumo plan and all forecast values remain unchanged.
 
-Local validation passes: 1,435 tests (five existing skips), site validation,
-15-player scoring replay and all 393 protected-file hashes. Only 12 export files
-change. The GW8 plan and player forecast APIs are byte-identical, including
-their original publication timestamps. Publication verification is pending.
-Receipts: `data/reviews/gw8/2026-10-21-preview/score-correction-*`.
+Published and verified at **14:08:34 UTC on 21 October**. Content commit
+`f9f51ba` is pushed to `granatb/wc2026`, branch `chore/gw6-thursday`.
+Deployment: https://cf62801f.evmax.pages.dev . All **26 live HTTP checks** match
+local output, including the 59-point homepage, final selection and original
+53-point grade. Five new regression tests cover pre-deadline selection,
+captain/autosub replay, vice fallback, provenance guards and archive retention.
+All 1,435 tests pass, with five existing skips. All 393 protected hashes match.
+Only 12 export files changed. GW8 plan/player APIs retain identical bytes and
+timestamps. No CI run is configured for this branch push. Local browser QA
+is unavailable; the parent has a separate cloud browser. No FPL account action.
+
+Deployment used the existing script with the installed Homebrew executables
+in its command PATH and bounded cache approval. No permissions, ownership or
+cache configuration changed. IndexNow submitted 759 URLs, HTTP 200.
+Receipts: `data/reviews/gw8/2026-10-21-preview/score-correction-live-check.json`
+and `score-correction-validation.json`.
 
 ### GW8 one-transfer plan and authorized release, 21 October 2026
 
