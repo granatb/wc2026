@@ -67,7 +67,19 @@ bench, armbands, exact input times and private evidence.
 - No canonical account state change, FPL action, new frozen GW8 forecast or
   unrequested banner. Recheck European workload and Gibbs-White by Friday.
 
-Release commit, deployment and live checks are recorded after execution.
+Release status: local content commit `e9a4f15`. All 1,430 tests pass (five
+existing skips), site validation passes and 392 protected files are unchanged.
+GitHub push was rejected by automatic approval review because repository upload
+permission was not recognized. The destination is public `granatb/wc2026`.
+Remote branch remains `40febcd`. Explicit repository-push approval is pending.
+Website deployment failed before upload: npm returned EPERM while opening
+`/Users/bartlomiej.granat/.npm/_cacache/tmp/`. No permissions were widened and no
+alternate cache or deployment route was attempted. The reviewed output is ready
+in `dist/`; live HTTP still shows the prior GW7 release. Browser visual review
+is blocked by an empty browser inventory and the earlier local-server restriction.
+Exact receipts: `data/reviews/gw8/2026-10-21-preview/release-status.json` and
+`deploy.log`. The standard release command remains `bash scripts/deploy.sh` in
+a permitted execution environment. Verify live output after a successful upload.
 
 ### Public-copy correction requested — 16 October 2026
 
