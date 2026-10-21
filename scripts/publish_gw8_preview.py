@@ -35,6 +35,14 @@ def write(path, value):
 def blocked(*args, **kwargs):
     raise RuntimeError('The prepared preview build uses retained inputs only')
 
+def preview_navigation(page):
+    """Select the current preview while keeping historical gameweeks reachable."""
+    switcher=render._round_switcher_html(list(range(1,9)),8,
+        base_path=render.FPL.switcher_base(),abbr=render.FPL.unit_abbr)
+    switcher=switcher.replace('href="/fpl/gw8/"','href="/fpl/gw8/preview/"')
+    return re.sub(r'<div class="round-switcher">.*?</div>',lambda _:switcher,
+                  page,count=1,flags=re.S)
+
 boot = read(ROOT/'inputs/bootstrap.json')
 manifest = read(ROOT/'simulation-manifest.json')
 comparison = read(ROOT/'comparison.json')
@@ -104,8 +112,10 @@ prose={'headline':title,'standfirst':summary,'body_html':body,'body_md':writer._
 stamp=manifest['captured_at']
 article=out/'fpl/gw8/preview/index.html'
 article.parent.mkdir(parents=True,exist_ok=True)
-article.write_text(render.article_page(8,'preview',title,prose,[],[],'/api/fpl/preview/review.json','',generated_at=stamp,date_str='21 October 2026',show_table=False,available_rounds=list(range(1,8)),section=render.FPL))
-article.write_text(article.read_text().replace('No data available this round.',summary))
+article_html=render.article_page(8,'preview',title,prose,[],[],'/api/fpl/preview/review.json','',generated_at=stamp,date_str='21 October 2026',show_table=False,available_rounds=list(range(1,9)),section=render.FPL)
+article_html=re.sub(r'<figure class="fig">\s*<figcaption>.*?</figcaption>\s*</figure>','',article_html,count=1,flags=re.S)
+article_html=re.sub(r'<h2>Bottom line</h2>\s*<p>\s*</p>','',article_html,count=1)
+article.write_text(preview_navigation(article_html.replace('No data available this round.',summary)))
 md=out/render.FPL.md_path(8,'preview').lstrip('/')
 md.parent.mkdir(parents=True,exist_ok=True)
 md.write_text(render.article_md(8,'preview',title,prose,[],[],stamp,'21 October 2026','/fpl/gw8/preview/',section=render.FPL))
@@ -137,7 +147,7 @@ root=root.replace('<title>Fantasy Premier League Gameweek 7 picks &amp; captains
 head,tail=root.split('</head>',1)
 root=head.replace('Gameweek 7','Gameweek 8')+'</head>'+tail
 root=re.sub(r'<tr class="dl-preview">.*?</tr>',lambda match: match.group(0).replace('preview · frozen Thursday','before planned move',1).replace('preview · frozen Thursday','Wednesday preview'),root,flags=re.S)
-(out/'index.html').write_text(root)
+(out/'index.html').write_text(preview_navigation(root))
 for page in out.rglob('*.html'):
     text=page.read_text()
     if 'id="gw7-provisional"' in text:
