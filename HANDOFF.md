@@ -44,6 +44,35 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
+### Current status publication, 2 November 2026
+
+Official inputs refreshed **2026-11-02T10:58:51.482751+00:00**. GW9 has nine matches
+played, with Newcastle v Everton still scheduled for 20:00 UTC on 2 November.
+The event is neither finished nor data checked. All GW9 results are provisional.
+GW8 is finished and checked, with all ten fixtures final and an official average
+of 45 points. There is no frozen GW8 or GW9 model forecast to grade. The last
+graded Model XI remains GW7 at 59. Historical forecasts and grades stay intact.
+
+The current homepage and `/fpl/gw9/update/` use the established site layout for
+an official-results update. `/api/fpl/status.json` contains the dated source
+snapshot. `/api/latest.json` identifies GW9 as the current status publication
+and carries the GW7 forecast under `last_frozen_forecast`. Existing player-card
+preview labels identify the 21 October GW8 archive; prediction values and API
+bytes are unchanged. No account roster, execution or performance claim is added.
+
+User agreed to target the first GW10 preview for **Tuesday morning, 3 November**.
+Before that publication, capture final GW9 data, refresh histories, availability
+and market inputs, and complete the model run. GW10 deadline is **6 November,
+18:30 UTC / 19:30 Denmark**. The 23 October refresh finished 449 histories, then its market refresh failed
+with a tunnel HTTP 403. Its simulations never ran. Those inputs are historical.
+No new forecast or automatic schedule was created in this status task.
+
+Local tests: **1,440 passed, five existing skips**. Site validation passes.
+Private evidence: `data/releases/2026-11-02-status/`. Publisher:
+`python3 scripts/publish_fpl_status.py`. Delivery verification is pending.
+Browser inventory was empty; a native Chrome observation stalled for 13 minutes.
+Use direct live-response checks and separate cloud-browser review for delivery.
+
 ### GW7 final-selection score correction, 21 October 2026
 
 User reported 59 and asked for Model XI to show the final recommended team.

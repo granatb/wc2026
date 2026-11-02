@@ -23,9 +23,30 @@ def validate(out):
                      if p.stem[2:].isdigit())
     latest_file = out / 'api/latest.json'
     if latest_file.exists():
-        current = json.loads(latest_file.read_text()).get('gameweek')
-        if current is not None:
+        latest = json.loads(latest_file.read_text())
+        current = latest.get('gameweek')
+        if current is not None and latest.get('publication_type') != 'status_update':
             gameweeks.add(int(current))
+        if latest.get('publication_type') == 'status_update':
+            try:
+                status = json.loads((out/'api/fpl/status.json').read_text())
+                if (status['publication_type'] != 'status_update' or
+                        status['current']['gameweek'] != current or
+                        status['captured_at'] != latest['generated_at']):
+                    raise ValueError('status feed identity or timestamp differs from latest')
+                for key in ('current', 'previous'):
+                    week = status[key]
+                    final = (bool(week['fixtures']) and week['event']['finished'] is True
+                             and week['event']['data_checked'] is True
+                             and all(f['finished'] for f in week['fixtures']))
+                    if (week['status'] == 'final') != final:
+                        raise ValueError('status publication disagrees with official finality evidence')
+                prior = latest['last_frozen_forecast']
+                archived = forecast_archive.load(prior['gameweek'])
+                if not archived or prior['forecast_artifact_id'] != archived['artifact_id']:
+                    raise ValueError('last frozen forecast pointer differs from archive')
+            except (KeyError, ValueError, OSError, TypeError) as exc:
+                errors.append(f'invalid status publication: {exc}')
     for gw in sorted(gameweeks):
         path = out / 'api/fpl' / f'gw{gw}' / 'captains.json'
         archive = forecast_archive.load(gw)

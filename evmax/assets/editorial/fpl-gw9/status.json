@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "publication_type": "status_update",
+  "captured_at": "2026-11-02T10:58:51.482751+00:00",
+  "current": {
+    "gameweek": 9,
+    "status": "provisional",
+    "event": {
+      "id": 9,
+      "finished": false,
+      "data_checked": false,
+      "average_entry_score": 42
+    },
+    "played": 9,
+    "fixtures": [
+      {
+        "id": 84,
+        "event": 9,
+        "kickoff_time": "2026-10-31T12:30:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 6,
+        "team_a": 16,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Chelsea",
+        "away": "Man Utd"
+      },
+      {
+        "id": 82,
+        "event": 9,
+        "kickoff_time": "2026-10-31T15:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 3,
+        "team_a": 13,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Bournemouth",
+        "away": "Leeds"
+      },
+      {
+        "id": 83,
+        "event": 9,
+        "kickoff_time": "2026-10-31T15:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 4,
+        "team_a": 18,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Brentford",
+        "away": "Nott'm Forest"
+      },
+      {
+        "id": 85,
+        "event": 9,
+        "kickoff_time": "2026-10-31T15:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 7,
+        "team_a": 20,
+        "team_h_score": 3,
+        "team_a_score": 1,
+        "home": "Coventry City",
+        "away": "Sunderland"
+      },
+      {
+        "id": 86,
+        "event": 9,
+        "kickoff_time": "2026-10-31T15:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 11,
+        "team_a": 12,
+        "team_h_score": 2,
+        "team_a_score": 2,
+        "home": "Hull City",
+        "away": "Ipswich Town"
+      },
+      {
+        "id": 88,
+        "event": 9,
+        "kickoff_time": "2026-10-31T15:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 15,
+        "team_a": 5,
+        "team_h_score": 0,
+        "team_a_score": 1,
+        "home": "Man City",
+        "away": "Brighton"
+      },
+      {
+        "id": 90,
+        "event": 9,
+        "kickoff_time": "2026-10-31T17:30:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 19,
+        "team_a": 8,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Spurs",
+        "away": "Crystal Palace"
+      },
+      {
+        "id": 81,
+        "event": 9,
+        "kickoff_time": "2026-10-31T20:00:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 2,
+        "team_a": 10,
+        "team_h_score": 1,
+        "team_a_score": 1,
+        "home": "Aston Villa",
+        "away": "Fulham"
+      },
+      {
+        "id": 87,
+        "event": 9,
+        "kickoff_time": "2026-11-01T16:30:00Z",
+        "finished": false,
+        "finished_provisional": true,
+        "team_h": 14,
+        "team_a": 1,
+        "team_h_score": 0,
+        "team_a_score": 1,
+        "home": "Liverpool",
+        "away": "Arsenal"
+      },
+      {
+        "id": 89,
+        "event": 9,
+        "kickoff_time": "2026-11-02T20:00:00Z",
+        "finished": false,
+        "finished_provisional": false,
+        "team_h": 17,
+        "team_a": 9,
+        "team_h_score": null,
+        "team_a_score": null,
+        "home": "Newcastle",
+        "away": "Everton"
+      }
+    ]
+  },
+  "previous": {
+    "gameweek": 8,
+    "status": "final",
+    "event": {
+      "id": 8,
+      "finished": true,
+      "data_checked": true,
+      "average_entry_score": 45
+    },
+    "played": 10,
+    "fixtures": [
+      {
+        "id": 77,
+        "event": 8,
+        "kickoff_time": "2026-10-23T19:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 12,
+        "team_a": 18,
+        "team_h_score": 1,
+        "team_a_score": 1,
+        "home": "Ipswich Town",
+        "away": "Nott'm Forest"
+      },
+      {
+        "id": 72,
+        "event": 8,
+        "kickoff_time": "2026-10-24T11:30:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 2,
+        "team_a": 15,
+        "team_h_score": 2,
+        "team_a_score": 1,
+        "home": "Aston Villa",
+        "away": "Man City"
+      },
+      {
+        "id": 71,
+        "event": 8,
+        "kickoff_time": "2026-10-24T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 1,
+        "team_a": 9,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Arsenal",
+        "away": "Everton"
+      },
+      {
+        "id": 74,
+        "event": 8,
+        "kickoff_time": "2026-10-24T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 7,
+        "team_a": 10,
+        "team_h_score": 0,
+        "team_a_score": 1,
+        "home": "Coventry City",
+        "away": "Fulham"
+      },
+      {
+        "id": 73,
+        "event": 8,
+        "kickoff_time": "2026-10-24T16:30:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 6,
+        "team_a": 19,
+        "team_h_score": 0,
+        "team_a_score": 2,
+        "home": "Chelsea",
+        "away": "Spurs"
+      },
+      {
+        "id": 75,
+        "event": 8,
+        "kickoff_time": "2026-10-25T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 8,
+        "team_a": 17,
+        "team_h_score": 0,
+        "team_a_score": 2,
+        "home": "Crystal Palace",
+        "away": "Newcastle"
+      },
+      {
+        "id": 76,
+        "event": 8,
+        "kickoff_time": "2026-10-25T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 11,
+        "team_a": 4,
+        "team_h_score": 1,
+        "team_a_score": 1,
+        "home": "Hull City",
+        "away": "Brentford"
+      },
+      {
+        "id": 78,
+        "event": 8,
+        "kickoff_time": "2026-10-25T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 14,
+        "team_a": 5,
+        "team_h_score": 2,
+        "team_a_score": 0,
+        "home": "Liverpool",
+        "away": "Brighton"
+      },
+      {
+        "id": 79,
+        "event": 8,
+        "kickoff_time": "2026-10-25T14:00:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 16,
+        "team_a": 3,
+        "team_h_score": 0,
+        "team_a_score": 3,
+        "home": "Man Utd",
+        "away": "Bournemouth"
+      },
+      {
+        "id": 80,
+        "event": 8,
+        "kickoff_time": "2026-10-25T16:30:00Z",
+        "finished": true,
+        "finished_provisional": true,
+        "team_h": 20,
+        "team_a": 13,
+        "team_h_score": 0,
+        "team_a_score": 0,
+        "home": "Sunderland",
+        "away": "Leeds"
+      }
+    ]
+  },
+  "next": {
+    "gameweek": 10,
+    "deadline_time": "2026-11-06T18:30:00Z",
+    "preview_target": "Tuesday morning, 3 November",
+    "forecast_status": "not_published"
+  },
+  "sources": [
+    "https://fantasy.premierleague.com/api/bootstrap-static/",
+    "https://fantasy.premierleague.com/api/fixtures/"
+  ],
+  "source_receipts": {
+    "bootstrap": {
+      "url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+      "captured_at": "2026-11-02T10:58:51.482751+00:00",
+      "status": 200,
+      "sha256": "839087c87aa82c09d341270e1b24f8a2d83560f95d404c122b7d08f2b99a49f9"
+    },
+    "fixtures": {
+      "url": "https://fantasy.premierleague.com/api/fixtures/",
+      "captured_at": "2026-11-02T10:58:51.417425+00:00",
+      "status": 200,
+      "sha256": "f456eaa3ef145ee6e3d7078493bf62cd0fc0f8050baaabcceaca038e9c364472"
+    }
+  }
+}
