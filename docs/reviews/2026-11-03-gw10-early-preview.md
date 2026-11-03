@@ -30,12 +30,21 @@ only changes data links to that archive. The current cards show GW10, with no
 stale future-week projections or inferred owner squad. Current status points to
 the new preview rather than a future publication target.
 
-Validation: 1,444 tests passed, five existing skips; local article is distinct
-from the homepage; key local links resolve; original historical evidence is
-unchanged (397 protected files; only the intentionally mutable GW9 status source
-changed). Publication is pending in this checkpoint; see the release review for
-remote/deployment and live verification evidence. No security configuration or
-FPL account action is involved.
+Validation: **1,444 tests passed, five existing skips**. Publication validation
+passes. The article is distinct from the homepage, and key links resolve. All
+397 protected historical/input/model files are unchanged; only the intentionally
+mutable GW9 status source changed. No security configuration or FPL account action.
+
+Published and verified **3 November, 10:32:51 UTC**. Content commit `f0657bd`
+(`f0657bd68fb22aff1447e91624e12182872ab22b`) is pushed and remote-confirmed on
+`chore/gw6-thursday`. Deployment: https://a65858e7.evmax.pages.dev . All **27 live
+checks** match the reviewed local bytes, including production and deployment
+URLs, current cards, archived GW8 data and preserved GW7 53/59 records.
+Live: https://evmax.ai/ and https://evmax.ai/fpl/gw10/preview/ .
+Updated results: https://evmax.ai/fpl/gw9/update/ .
+No CI run is configured for this branch push (workflow triggers main/PR only).
+IndexNow accepted 763 URLs, HTTP 200. Browser visual QA is not claimed; semantic,
+link, exact-byte and retained-evidence checks passed. No delivery blocker remains.
 
 Private inputs, run logs, simulation manifest and QA receipts:
 `data/reviews/gw10/2026-11-03-preview/`. Build command:
@@ -54,5 +63,7 @@ Private inputs, run logs, simulation manifest and QA receipts:
 
 ## Release evidence
 
-Pending push, deployment and live verification. Visual browser QA has not been
-completed; local semantic, link, artifact and history checks passed.
+Content commit and deployment are verified above. Private `live-check.json`
+contains all 27 URL hashes, response statuses and exact-byte comparisons.
+`tests-final.log`, `preservation.json`, `build-final.log` and the raw input receipts
+retain the validation trail. Visual browser QA was not completed.
