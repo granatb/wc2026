@@ -66,15 +66,20 @@ def render_pages(record: dict) -> tuple[str, str]:
     deadline = datetime.fromisoformat(upcoming['deadline_time'].replace('Z', '+00:00'))
     deadline_text = f'{deadline:%A} {deadline.day} {deadline:%B}, {deadline:%H:%M} UTC'
     pending = [f for f in current['fixtures'] if not (f['finished'] or f['finished_provisional'])]
-    title = f'GW{gw}: {current["played"]} matches played, {len(pending)} still to come'
-    summary = (f'GW{gw} results remain provisional. The GW{upcoming["gameweek"]} deadline is '
-               f'{deadline_text}. Our first preview is targeted for {upcoming["preview_target"]}.')
+    title = (f'GW{gw}: {current["played"]} matches played, {len(pending)} still to come'
+             if pending else f'GW{gw}: All {current["played"]} matches played')
+    final = current['status'] == 'final'
+    preview_path = upcoming.get('preview_path')
+    preview_copy = (f'The early GW{upcoming["gameweek"]} preview is now published.'
+                    if preview_path else f'Our first preview is targeted for {upcoming["preview_target"]}.')
+    summary = (f'GW{gw} results are final and checked. ' if final else f'GW{gw} results remain provisional. ')
+    summary += f'The GW{upcoming["gameweek"]} deadline is {deadline_text}. {preview_copy}'
     rows = []
     for fixture in current['fixtures']:
         played = fixture['finished'] or fixture['finished_provisional']
         score = f'{fixture["team_h_score"]}–{fixture["team_a_score"]}' if played else 'To play'
         kickoff = datetime.fromisoformat(fixture['kickoff_time'].replace('Z', '+00:00'))
-        detail = 'Played; FPL checks pending' if played else f'{kickoff.day} {kickoff:%B, %H:%M} UTC'
+        detail = ('Final' if final else 'Played; FPL checks pending') if played else f'{kickoff.day} {kickoff:%B, %H:%M} UTC'
         rows.append(f'<tr><td>{html.escape(fixture["home"])}</td><td>{score}</td>'
                     f'<td>{html.escape(fixture["away"])}</td><td>{detail}</td></tr>')
     table = ('<div class="table-wrap" style="overflow-x:auto"><table class="rank">'
@@ -83,24 +88,30 @@ def render_pages(record: dict) -> tuple[str, str]:
     previous_copy = (f'GW{previous["gameweek"]} is final and checked. The official average was '
                      f'{previous["event"]["average_entry_score"]} points.'
                      if previous['status'] == 'final' else f'GW{previous["gameweek"]} is awaiting final checks.')
+    preview_body = (f'<p><a style="text-decoration:underline" href="{html.escape(preview_path, quote=True)}">'
+                    f'Read the early GW{upcoming["gameweek"]} preview</a>: refreshed player forecasts and '
+                    'captain rankings, provisional ahead of the European fixtures.</p>' if preview_path else
+                    f'<p>Target: <strong>{upcoming["preview_target"]}</strong>, after the remaining '
+                    'GW9 result and finality checks. The preview needs a completed refresh of '
+                    'player data, minutes, injury news and market odds, followed by a new model run. '
+                    'This update contains official match results and the deadline; no new expected-points forecast is published.</p>')
+    finality_body = ('All fixtures are finished and FPL marks the event finished and data checked.' if final else
+                    'Played matches and bonus points remain subject to the official FPL checks. '
+                    'We will treat the gameweek as final only when all fixtures are finished '
+                    'and FPL marks the event finished and data checked.')
     body = (f'<p><strong>Updated {date} at {stamp:%H:%M} UTC.</strong> '
             f'{html.escape(summary)}</p><h2>GW{gw} results so far</h2>{table}'
-            '<p>Played matches and bonus points remain subject to the official FPL checks. '
-            'We will treat the gameweek as final only when all fixtures are finished '
-            'and FPL marks the event finished and data checked.</p>'
+            f'<p>{finality_body}</p>'
             f'<h2>Completed gameweek</h2><p>{previous_copy} '
             'The latest graded Model XI is GW7, which scored 59. '
             'There is no frozen GW8 or GW9 model forecast to add to that ledger. '
             '<a style="text-decoration:underline" href="/track-record/">See the graded record</a>.</p>'
             f'<h2>First GW{upcoming["gameweek"]} preview</h2>'
-            f'<p>Target: <strong>{upcoming["preview_target"]}</strong>, after the remaining '
-            'GW9 result and finality checks. The preview needs a completed refresh of '
-            'player data, minutes, injury news and market odds, followed by a new model run. '
-            'This update contains official match results and the deadline; no new expected-points forecast is published.</p>'
+            f'{preview_body}'
             f'<p><strong>Deadline: {deadline_text}</strong> (19:30 Denmark time).</p>'
             '<h2>Earlier analysis</h2><p>'
             '<a style="text-decoration:underline" href="/fpl/gw8/preview/">GW8 preview, 21 October</a> · '
-            '<a style="text-decoration:underline" href="/fpl/players/">Archived GW8 player projections</a> · '
+            '<a style="text-decoration:underline" href="/fpl/players/">Player projections</a> · '
             '<a style="text-decoration:underline" href="/fpl/gw7/confirmed-pair/">GW7 final selection and result</a>.</p>'
             '<h2>Sources</h2><p><a style="text-decoration:underline" '
             'href="https://fantasy.premierleague.com/api/bootstrap-static/">Official FPL events and deadline</a> · '
@@ -111,15 +122,15 @@ def render_pages(record: dict) -> tuple[str, str]:
              'body_md': writer._html_to_md(body)}
     article = render.article_page(gw, 'update', title, prose, [], [], API, '',
         generated_at=record['captured_at'], date_str=date, show_table=False,
-        available_rounds=list(range(1, gw + 1)), section=render.FPL)
+        available_rounds=list(range(1, upcoming['gameweek'] + 1 if preview_path else gw + 1)), section=render.FPL)
     article = re.sub(r'<figure class="fig">\s*<figcaption>.*?</figcaption>\s*</figure>', '', article, flags=re.S)
     article = re.sub(r'<h2>Bottom line</h2>\s*<p>\s*</p>', '', article)
     article = article.replace('By the evmax model', 'By evmax')
     home = render.landing_page(gw, {'slug': 'update', 'prose': prose,
         'viz_html': table}, [], date_str=date, section=render.FPL,
-        available_rounds=list(range(1, gw + 1)), pre_feed_html=body[body.index('<h2>Completed gameweek'):])
+        available_rounds=list(range(1, upcoming['gameweek'] + 1 if preview_path else gw + 1)), pre_feed_html=body[body.index('<h2>Completed gameweek'):])
     home = re.sub(r'<p class="hs-what">.*?</p>',
-        f'<p class="hs-what">Official results updated {date}, {stamp:%H:%M} UTC. GW{gw} remains provisional.</p>', home, flags=re.S)
+        f'<p class="hs-what">Official results updated {date}, {stamp:%H:%M} UTC. GW{gw} is {current["status"]}.</p>', home, flags=re.S)
     home = home.replace('<div class="pagelabel">Latest analysis</div>\n<div class="feed"></div>', '')
     home = home.replace('Read the full analysis', 'Read the current update').replace('By the evmax model', 'By evmax')
     home = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)} | evmax</title>', home, count=1)

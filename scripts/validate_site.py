@@ -11,6 +11,12 @@ from scripts.grade_gw import load_snapshots
 from evmax import dataset as datasets
 
 
+def validate_preview_week(out, gameweek):
+    for path in (Path(out)/'api/fpl/preview').rglob('*.json'):
+        if json.loads(path.read_text()).get('gameweek') != gameweek:
+            raise ValueError(f'stale current-preview file: {path.name}')
+
+
 def validate(out):
     out = Path(out)
     errors = []
@@ -25,14 +31,39 @@ def validate(out):
     if latest_file.exists():
         latest = json.loads(latest_file.read_text())
         current = latest.get('gameweek')
-        if current is not None and latest.get('publication_type') != 'status_update':
+        early = latest.get('publication_type') == 'early_preview'
+        if current is not None and latest.get('publication_type') not in ('status_update', 'early_preview'):
             gameweeks.add(int(current))
-        if latest.get('publication_type') == 'status_update':
+        if early:
+            try:
+                from scripts.publish_fpl_preview import validate_preview_record
+                expected_path = Path(__file__).resolve().parents[1]/f'evmax/assets/previews/gw{current}/2026-11-03.json'
+                if latest['preview_evidence'] != str(expected_path.relative_to(Path(__file__).resolve().parents[1])):
+                    raise ValueError('unexpected early-preview evidence path')
+                evidence = json.loads(expected_path.read_text())
+                public = json.loads((out/latest['articles']['preview'].lstrip('/')).read_text())
+                validate_preview_record(public, evidence)
+                if public['gameweek'] != current or public['generated_at'] != latest['generated_at']:
+                    raise ValueError('early-preview identity or timestamp differs from latest')
+                cards = json.loads((out/'api/fpl/preview/players.json').read_text())
+                if cards['players'] != public['players'] or cards['preview'] != public['preview']:
+                    raise ValueError('current player board differs from early-preview evidence')
+                validate_preview_week(out, current)
+                for player in public['players']:
+                    card = json.loads((out/f'api/fpl/preview/players/{player["player_id"]}.json').read_text())
+                    if (card['name'] != player['name'] or card['preview'] != public['preview'] or
+                            any(card['projection'][key] != player[key] for key in ('x_points','captain_ev','ceiling'))):
+                        raise ValueError('player card differs from early-preview evidence')
+                    if not (out/player['page'].lstrip('/')/'index.html').is_file():
+                        raise ValueError('player card page missing')
+            except (KeyError, ValueError, OSError, TypeError) as exc:
+                errors.append(f'invalid early preview: {exc}')
+        if latest.get('publication_type') == 'status_update' or early:
             try:
                 status = json.loads((out/'api/fpl/status.json').read_text())
                 if (status['publication_type'] != 'status_update' or
-                        status['current']['gameweek'] != current or
-                        status['captured_at'] != latest['generated_at']):
+                        (not early and (status['current']['gameweek'] != current or
+                         status['captured_at'] != latest['generated_at']))):
                     raise ValueError('status feed identity or timestamp differs from latest')
                 for key in ('current', 'previous'):
                     week = status[key]

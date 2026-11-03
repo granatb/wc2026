@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "publication_type": "status_update",
-  "captured_at": "2026-11-02T10:58:51.482751+00:00",
+  "captured_at": "2026-11-03T10:25:38.712883+00:00",
   "current": {
     "gameweek": 9,
     "status": "provisional",
@@ -9,15 +9,15 @@
       "id": 9,
       "finished": false,
       "data_checked": false,
-      "average_entry_score": 42
+      "average_entry_score": 44
     },
-    "played": 9,
+    "played": 10,
     "fixtures": [
       {
         "id": 84,
         "event": 9,
         "kickoff_time": "2026-10-31T12:30:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 6,
         "team_a": 16,
@@ -30,7 +30,7 @@
         "id": 82,
         "event": 9,
         "kickoff_time": "2026-10-31T15:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 3,
         "team_a": 13,
@@ -43,7 +43,7 @@
         "id": 83,
         "event": 9,
         "kickoff_time": "2026-10-31T15:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 4,
         "team_a": 18,
@@ -56,7 +56,7 @@
         "id": 85,
         "event": 9,
         "kickoff_time": "2026-10-31T15:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 7,
         "team_a": 20,
@@ -69,7 +69,7 @@
         "id": 86,
         "event": 9,
         "kickoff_time": "2026-10-31T15:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 11,
         "team_a": 12,
@@ -82,7 +82,7 @@
         "id": 88,
         "event": 9,
         "kickoff_time": "2026-10-31T15:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 15,
         "team_a": 5,
@@ -95,7 +95,7 @@
         "id": 90,
         "event": 9,
         "kickoff_time": "2026-10-31T17:30:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 19,
         "team_a": 8,
@@ -108,7 +108,7 @@
         "id": 81,
         "event": 9,
         "kickoff_time": "2026-10-31T20:00:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 2,
         "team_a": 10,
@@ -121,7 +121,7 @@
         "id": 87,
         "event": 9,
         "kickoff_time": "2026-11-01T16:30:00Z",
-        "finished": false,
+        "finished": true,
         "finished_provisional": true,
         "team_h": 14,
         "team_a": 1,
@@ -134,12 +134,12 @@
         "id": 89,
         "event": 9,
         "kickoff_time": "2026-11-02T20:00:00Z",
-        "finished": false,
-        "finished_provisional": false,
+        "finished": true,
+        "finished_provisional": true,
         "team_h": 17,
         "team_a": 9,
-        "team_h_score": null,
-        "team_a_score": null,
+        "team_h_score": 0,
+        "team_a_score": 1,
         "home": "Newcastle",
         "away": "Everton"
       }
@@ -292,24 +292,11 @@
     "gameweek": 10,
     "deadline_time": "2026-11-06T18:30:00Z",
     "preview_target": "Tuesday morning, 3 November",
-    "forecast_status": "not_published"
+    "forecast_status": "early_preview",
+    "preview_path": "/fpl/gw10/preview/"
   },
   "sources": [
     "https://fantasy.premierleague.com/api/bootstrap-static/",
     "https://fantasy.premierleague.com/api/fixtures/"
-  ],
-  "source_receipts": {
-    "bootstrap": {
-      "url": "https://fantasy.premierleague.com/api/bootstrap-static/",
-      "captured_at": "2026-11-02T10:58:51.482751+00:00",
-      "status": 200,
-      "sha256": "839087c87aa82c09d341270e1b24f8a2d83560f95d404c122b7d08f2b99a49f9"
-    },
-    "fixtures": {
-      "url": "https://fantasy.premierleague.com/api/fixtures/",
-      "captured_at": "2026-11-02T10:58:51.417425+00:00",
-      "status": 200,
-      "sha256": "f456eaa3ef145ee6e3d7078493bf62cd0fc0f8050baaabcceaca038e9c364472"
-    }
-  }
+  ]
 }
