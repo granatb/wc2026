@@ -112,9 +112,9 @@ def preview_note_html(preview: dict, cls: str = "tcf-preview") -> str:
     gw = preview.get("gameweek")
     when = _short_date(preview.get("as_of") or "")
     deadline = preview.get("deadline")
-    tail = (f" We refresh these cards on Thursday, before the "
-            f"{render._format_deadline(deadline)} deadline." if deadline
-            else " We refresh these cards on Thursday, before the deadline.")
+    tail = " Provisional: availability and expected minutes may change."
+    if deadline:
+        tail += f" Deadline: {render._format_deadline(deadline)}."
     return (f'<p class="{cls}"><b>Preview</b> Gameweek {gw} cards, simulated '
             f'{_html.escape(when)} from today\'s prices, odds and team news.'
             f'{_html.escape(tail)}</p>')
@@ -1623,8 +1623,8 @@ def top_cards_html(payloads: list, count: int = 3) -> str:
     if ours:
         blocks.append(_card_row(
             f"Our picks {gw_word}" + (" · preview" if preview else ""),
-            ("The players we field as the squad stands today. Any transfer "
-             "we make lands with Thursday's final cards." if preview else
+            ("The players we field as the squad stands today. Team news and "
+             "transfers can change the final selection." if preview else
              "The players we actually field, from the squad we publish and "
              "grade in public every week."),
             [_card_cell(p) for p in ours], lead=True))
@@ -1774,7 +1774,7 @@ def player_page_html(payload: dict, gameweek: int, date_str: str = None,
 <div class="kick">Player card · {gw_label}</div>
 {preview_note_html(preview, cls="pc-preview")}
 {card_html(payload)}
-<div class="meta"><span class="av">e</span><span>By the evmax model{byline_date} · {"preview, replaced by Thursday's final card" if preview else "regenerated every gameweek"}</span></div>
+<div class="meta"><span class="av">e</span><span>By the evmax model{byline_date} · {"provisional preview" if preview else "regenerated every gameweek"}</span></div>
 <div class="prose">
 <h2>The data</h2>
 {table_html}

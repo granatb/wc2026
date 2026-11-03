@@ -81,8 +81,15 @@ class PreviewNoteTest(unittest.TestCase):
         html = fpl_players.preview_note_html(PREVIEW)
         self.assertIn("Gameweek 4", html)
         self.assertIn("8 September", html)
-        self.assertIn("Thursday", html)
+        self.assertNotIn("Thursday", html)
+        self.assertIn("Provisional", html)
         self.assertIn("Fri 11 Sep, 18:30 UK", html)
+
+    def test_note_without_deadline_makes_no_refresh_promise(self):
+        html = fpl_players.preview_note_html({k:v for k,v in PREVIEW.items() if k != 'deadline'})
+        self.assertIn('Provisional', html)
+        self.assertNotIn('Thursday', html)
+        self.assertNotIn('We refresh', html)
 
     def test_no_preview_no_note(self):
         self.assertEqual(fpl_players.preview_note_html(None), "")
@@ -97,6 +104,7 @@ class PreviewSurfacesTest(unittest.TestCase):
         # omitted (as designed); what matters is that no row still says
         # "this gameweek" about a week that is over.
         self.assertNotIn("this gameweek", html)
+        self.assertNotIn("Thursday", html)
 
     def test_top_cards_without_preview_are_unchanged(self):
         payloads, _ = _payloads()
@@ -111,6 +119,8 @@ class PreviewSurfacesTest(unittest.TestCase):
         self.assertNotIn("/api/fpl/gw4/players/", html)
         self.assertIn("Gameweek 4 preview", html)
         self.assertIn('class="pc-preview"', html)
+        self.assertNotIn("Thursday", html)
+        self.assertIn("provisional preview", html)
 
     def test_player_page_without_preview_keeps_the_gameweek_json(self):
         payloads, _ = _payloads()
