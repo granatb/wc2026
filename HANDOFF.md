@@ -44,6 +44,28 @@ before acting. Do not assume GW4 is still the next gameweek when returning later
 
 ## Immediate next actions
 
+### Preview wording correction, 3 November 2026
+
+Direct live checks at 13:46 UTC confirmed that the GW10 cards promised a
+Thursday refresh/final card. No such publication was scheduled. The shared
+preview note now says availability and expected minutes may change and retains
+the actual FPL deadline; the byline says “provisional preview”. The optional
+squad-row copy no longer promises Thursday either. No update was scheduled.
+
+Focused command: `python3 -m unittest tests.test_preview_cards tests.test_fpl_players tests.test_fpl_early_preview` — **131 tests passed**. Site evidence
+validation passes. All **2,908 JSON data/evidence files are byte-identical**;
+**677 HTML files differ only in the requested wording**. Forecast values and
+capture/model timestamps remain unchanged.
+
+Content commit `00bf2cc` is pushed and remote-confirmed. Deployed via the existing
+script to https://a0d64443.evmax.pages.dev . **14 live exact-content checks passed
+at 13:49:10 UTC**, including Palmer, Bobby Thomas, the player index, MID tiers,
+homepage, GW10 preview and their data. The initial restricted fetch returned
+HTTP 403; bounded read-only release verification succeeded. No remaining blocker,
+FPL account action, new schedule or security configuration change.
+Evidence: `data/reviews/gw10/2026-11-03-preview/wording-*.json` and
+`wording-tests.log`. The original preview release receipts are retained.
+
 ### First GW10 preview, 3 November 2026
 
 The authorized Tuesday preview uses a completed fresh input refresh and unchanged
