@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "publication_type": "status_update",
-  "captured_at": "2026-11-03T10:25:38.712883+00:00",
+  "captured_at": "2026-11-04T09:51:00.178994+00:00",
   "current": {
     "gameweek": 9,
-    "status": "provisional",
+    "status": "final",
     "event": {
       "id": 9,
-      "finished": false,
-      "data_checked": false,
-      "average_entry_score": 44
+      "finished": true,
+      "data_checked": true,
+      "average_entry_score": 47
     },
     "played": 10,
     "fixtures": [

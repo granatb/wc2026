@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 from scripts import publish_fpl_status as status
 from scripts.validate_site import validate
@@ -41,6 +42,35 @@ class StatusUpdateTests(unittest.TestCase):
         r = status.make_status(self.boot, self.fixtures, self.record['captured_at'])
         self.assertEqual(r['current']['played'], 1)
         self.assertEqual(r['current']['status'], 'provisional')
+
+    def test_final_results_show_checked_average_without_pending_copy(self):
+        self.boot['events'][1].update(finished=True, data_checked=True, average_entry_score=47)
+        self.fixtures[1].update(finished=True, team_h_score=0, team_a_score=1)
+        record=status.make_status(self.boot,self.fixtures,self.record['captured_at'])
+        record['next']['preview_path']='/fpl/gw10/preview/'
+        for page in status.render_pages(record):
+            self.assertIn('GW9 results are final and checked',page)
+            self.assertIn('official average was 47 points',page)
+            self.assertNotIn('FPL checks pending',page)
+            self.assertNotIn('GW9 results remain provisional',page)
+            self.assertNotIn('GW9 results so far',page)
+
+    def test_results_only_publication_preserves_homepage_preview_and_latest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            sentinels={'index.html':'GW10 home','api/latest.json':'GW10 metadata',
+                       'api/fpl/preview/players.json':'GW10 board',
+                       'fpl/players/154-palmer/index.html':'GW10 player card'}
+            for name,content in sentinels.items():
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
+            record=copy.deepcopy(self.record)
+            record['captured_at']=datetime.now(timezone.utc).isoformat()
+            with patch('scripts.publish_fpl_status.validate',return_value=[]):
+                status.publish(root,record,results_only=True)
+            for name,content in sentinels.items():
+                self.assertEqual((root/name).read_text(),content)
+            self.assertTrue((root/'fpl/gw9/update/index.html').is_file())
+            self.assertEqual(json.loads((root/'api/fpl/status.json').read_text()),record)
 
     def test_current_page_is_a_status_article(self):
         page, article = status.render_pages(self.record)

@@ -73,6 +73,8 @@ def render_pages(record: dict) -> tuple[str, str]:
     preview_copy = (f'The early GW{upcoming["gameweek"]} preview is now published.'
                     if preview_path else f'Our first preview is targeted for {upcoming["preview_target"]}.')
     summary = (f'GW{gw} results are final and checked. ' if final else f'GW{gw} results remain provisional. ')
+    if final:
+        summary += f'The official average was {current["event"]["average_entry_score"]} points. '
     summary += f'The GW{upcoming["gameweek"]} deadline is {deadline_text}. {preview_copy}'
     rows = []
     for fixture in current['fixtures']:
@@ -100,7 +102,7 @@ def render_pages(record: dict) -> tuple[str, str]:
                     'We will treat the gameweek as final only when all fixtures are finished '
                     'and FPL marks the event finished and data checked.')
     body = (f'<p><strong>Updated {date} at {stamp:%H:%M} UTC.</strong> '
-            f'{html.escape(summary)}</p><h2>GW{gw} results so far</h2>{table}'
+            f'{html.escape(summary)}</p><h2>GW{gw} {"final results" if final else "results so far"}</h2>{table}'
             f'<p>{finality_body}</p>'
             f'<h2>Completed gameweek</h2><p>{previous_copy} '
             'The latest graded Model XI is GW7, which scored 59. '
@@ -144,13 +146,29 @@ def render_pages(record: dict) -> tuple[str, str]:
     return home, article
 
 
-def publish(out: Path, record: dict) -> None:
+def publish(out: Path, record: dict, *, results_only: bool = False) -> None:
     """Update current surfaces in the cumulative export and retain forecast files."""
     stamp = datetime.fromisoformat(record['captured_at'].replace('Z', '+00:00'))
     if not 0 <= (datetime.now(timezone.utc) - stamp).total_seconds() <= 86400:
         raise ValueError('Status inputs need a fresh official capture before publication')
     if not out.exists():
         shutil.copytree(REPO/'dist', out)
+    if results_only:
+        # A results correction must not roll back the current preview homepage,
+        # player cards or its original forecast-generation timestamp.
+        home, article = render_pages(record)
+        gw = record['current']['gameweek']
+        for name, content in {
+                f'fpl/gw{gw}/index.html': home,
+                f'fpl/gw{gw}/update/index.html': article,
+                API.lstrip('/'): json.dumps(record, indent=2, ensure_ascii=False)+'\n'}.items():
+            target = out/name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+        errors = validate(out)
+        if errors:
+            raise ValueError(errors)
+        return
     previous_latest = json.loads((out/'api/latest.json').read_text())
     archived_preview = previous_latest.get('preview') or previous_latest.get('archived_preview')
     prior = previous_latest.get('last_frozen_forecast') or previous_latest
@@ -192,6 +210,7 @@ def publish(out: Path, record: dict) -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, default=REPO/'data/releases/2026-11-02-status/site-preview')
+    parser.add_argument('--results-only', action='store_true', help='Update results pages/feed while retaining the current forecast surfaces')
     args = parser.parse_args()
-    publish(args.out, json.loads(SOURCE.read_text()))
+    publish(args.out, json.loads(SOURCE.read_text()), results_only=args.results_only)
     print(f'Validated official-status publication: {args.out}')
