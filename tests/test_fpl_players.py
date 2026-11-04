@@ -464,11 +464,12 @@ class TestCardHtml(unittest.TestCase):
         # GW2 and GW3 — both projected, none played (nothing is cached).
         self.assertIn("GW2 6.5 projected", html)
         self.assertIn("<span>GW2</span>", html)
-        # no player without a horizon vector and without history draws one
+        # The current-week estimate survives even without a multiweek vector.
         payloads, _ = _payloads(with_six_week=False)
         bare = fpl_players.card_html(payloads[0])
-        self.assertIn("pc-dots-empty", bare)
-        self.assertNotIn("<svg", bare.split("pc-dist")[0])
+        self.assertNotIn("pc-dots-empty", bare)
+        self.assertIn("GW2 8.0 projected", bare)
+        self.assertNotIn("GW3", fpl_players.dots_title(fpl_players.form_dots(payloads[0])))
 
     def test_form_art_is_deterministic(self):
         """No RNG in the site layer: identical inputs, identical bytes."""
@@ -1032,7 +1033,7 @@ class TestCardConsistency(unittest.TestCase):
     def test_card_without_history_keeps_the_form_band(self):
         html = fpl_players.card_html(self._payload(None))
         self.assertIn("pc-form", html)
-        self.assertIn("no gameweek history yet", html)
+        self.assertIn("GW2 5.0 projected", html)
 
     def test_card_with_history_draws_the_chart_in_the_same_band(self):
         html = fpl_players.card_html(self._payload({"1": 5.0, "2": 4.0, "3": 6.0, "4": 5.5, "5": 4.5, "6": 5.0}))

@@ -372,12 +372,18 @@ def form_dots(payload: dict, gameweek: int = None) -> list:
 
     sw = payload.get("six_week_xpts") or {}
     horizon = []
+    cutoff = 0
     try:
         cutoff = int(gameweek if gameweek is not None
                      else payload.get("gameweek") or 0)
         horizon = sorted((int(k), float(v)) for k, v in sw.items())
     except (TypeError, ValueError):
         horizon = []
+    # A current-week forecast is valid even when no multiweek run exists.
+    # Keep its dot/opponent visible without manufacturing later projections.
+    current_xpts = (payload.get("projection") or {}).get("x_points")
+    if cutoff > 0 and isinstance(current_xpts, (int, float)) and cutoff not in dict(horizon):
+        horizon = sorted([*horizon, (cutoff, float(current_xpts))])
     # Everything from this gameweek on. A horizon matrix that still carries
     # finished gameweeks must not put a "projection" where the record already
     # sits — the played dots own those rounds.

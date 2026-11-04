@@ -73,6 +73,36 @@ def early_cards(payloads, meta):
     return cards.replace(note, note+leaders, 1)
 
 
+def render_homepage(payloads, rows, meta, matches, fixtures_checked_at):
+    """Keep the normal homepage ledger and fixture rail on an early preview."""
+    from evmax.fpl_build import fpl_track_ledger
+    gw=meta['gameweek']
+    ranked=sorted(rows,key=lambda r:-r['x_points'])
+    lead,second=ranked[:2]
+    stamp=dt(meta['as_of'])
+    date=f'{stamp.day} {stamp:%B %Y}'
+    title=f'GW{gw} early preview: {lead["name"]} leads the model'
+    summary=(f'{lead["name"]} leads at {lead["x_points"]:.2f} expected points, followed by '
+             f'{second["name"]} at {second["x_points"]:.2f}. Fresh Tuesday projections, provisional ahead of Europe.')
+    checked=dt(fixtures_checked_at)
+    home=clean_page(render.landing_page(gw,{'slug':'preview',
+        'prose':{'headline':title,'standfirst':summary},'viz_html':table(ranked[:10],payloads)},[],
+        date_str=date,section=render.FPL,available_rounds=list(range(1,gw+1)),
+        cards_html=early_cards(payloads,meta),duel_history=fpl_track_ledger(),
+        fixtures=matches,rail_label=f'GW{gw} fixtures · UTC',rail_link=False,
+        extra_style=fpl_players.CARD_CSS+fpl_players.TOP_CARDS_CSS+render._NAV_SCROLL_CSS,
+        deadline_iso=meta['deadline'],
+        pre_feed_html='<p><a style="text-decoration:underline" href="/fpl/gw9/update/">GW9 final results</a> · '
+            '<a style="text-decoration:underline" href="/track-record/">Full evaluation record</a> · '
+            '<a style="text-decoration:underline" href="/fpl/accuracy/">Forecast accuracy</a></p>'
+            '<p class="method">GW8 and GW9 have no frozen model forecast to evaluate. '
+            f'Fixture times checked {checked.day} {checked:%B, %H:%M} UTC; '
+            f'match projections from {stamp.day} {stamp:%B, %H:%M} UTC.</p>'))
+    home=home.replace('<div class="pagelabel">Latest analysis</div>\n<div class="feed"></div>', '')
+    return re.sub(r'<p class="hs-what">.*?</p>',
+        '<p class="hs-what">Player projections from 50,000 simulations, the results of our published squads, and this week’s fixtures.</p>',home,flags=re.S)
+
+
 def build(source: Path, out: Path):
     boot, fixtures = read(source/'inputs/bootstrap.json'), read(source/'inputs/fixtures.json')
     artifact, players = read(source/'artifact-gw10.json'), read(source/'players-gw10.json')
@@ -207,13 +237,7 @@ def build(source: Path, out: Path):
            'bottom_line':f'{lead["name"]} leads this early run. Recheck availability and European minutes before Friday’s deadline.'}
     article = clean_page(render.article_page(10,'preview',title,prose,[],[],api,'',generated_at=generated,
         date_str=date,show_table=False,available_rounds=list(range(1,11)),section=render.FPL))
-    home = clean_page(render.landing_page(10,{'slug':'preview','prose':prose,'viz_html':top_table},[],date_str=date,
-        section=render.FPL,available_rounds=list(range(1,11)),cards_html=early_cards(payloads,meta),
-        extra_style=fpl_players.CARD_CSS+fpl_players.TOP_CARDS_CSS+render._NAV_SCROLL_CSS,
-        deadline_iso=event['deadline_time'],
-        pre_feed_html='<p><a style="text-decoration:underline" href="/fpl/gw9/update/">GW9 results update</a> · '
-                      '<a style="text-decoration:underline" href="/track-record/">Graded model record</a></p>'))
-    home = home.replace('<div class="pagelabel">Latest analysis</div>\n<div class="feed"></div>', '')
+    home = render_homepage(payloads,rows,meta,artifact['matches'],source_times['official'])
     for path,page in [('index.html',home),('fpl/gw10/index.html',home),('fpl/gw10/preview/index.html',article)]:
         write(path,page)
     if (source/'official/bootstrap-release.json').exists():

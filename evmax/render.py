@@ -2270,9 +2270,9 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
 
     history: fpl_build.fpl_track_ledger() rows. duel: as _duel_strip_html.
     """
-    if not duel:
+    if not duel and not history:
         return ""
-    live = duel.get("live") or {}
+    live = (duel or {}).get("live") or {}
     rows = []
     graded_now = False
     for r in history or []:
@@ -2317,7 +2317,7 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
     last = (history or [{}])[-1] if history else {}
     score = (f'{last.get("duel_model", 0)}–{last.get("duel_consensus", 0)}'
              if history else "0–0")
-    if not graded_now:
+    if duel and not graded_now:
         rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
                     f'<span class="dl-now">live</span></td>'
                     f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
@@ -2341,11 +2341,13 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
                     f'<span class="dl-now">preview</span></td>'
                     f'{_pcell("model")}{_pcell("consensus")}'
                     f'<td class="dl-score dl-score-now">{score}</td></tr>')
+    live_note = ('the live row shows the frozen projection and points so far. '
+                 if duel and not graded_now else 'Projections are the retained pre-deadline estimates. ')
     return (f'<table class="duel-ledger"><thead><tr><th></th>'
             f'<th>Model XI</th><th>Consensus XI</th><th>Duel</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>'
             f'<p class="dl-note">Official points once a gameweek is graded; '
-            f'the live row shows the frozen projection and points so far. '
+            f'{live_note}'
             f'<a href="/track-record/">Full ledger →</a></p>')
 
 def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
@@ -2603,7 +2605,7 @@ def landing_page(round_no, featured, feed, date_str=None, fixtures=None, quick_p
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel else ""}{extra_style}</style>
+<style>{_STYLE}{_MATCH_CSS}{_DUEL_CSS if duel or duel_history else ""}{extra_style}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="home")}
