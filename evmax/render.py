@@ -1635,7 +1635,7 @@ def _accuracy_table_html(ledger: list) -> str:
         f'<tbody>{"".join(rows)}</tbody></table></div></div>')
 
 
-def accuracy_page(ledger: list, date_str: str = None) -> str:
+def accuracy_page(ledger: list, date_str: str = None, comparisons: list = None) -> str:
     """/fpl/accuracy/ — the graded ledger in full, the method in plain
     language, links to every grading JSON, and how to check us.
 
@@ -1652,6 +1652,11 @@ def accuracy_page(ledger: list, date_str: str = None) -> str:
                 'gameweek appears here the Monday after it finishes — we grade '
                 'the snapshot that was frozen before the deadline, not a '
                 'rebuild.</div>')
+    if comparisons:
+        body += ('<h2>GW8–9 comparisons</h2><p>The recovered GW8 early forecast and assumed consensus teams '
+                 'are separate from the frozen-forecast accuracy series above. '
+                 '<a href="/fpl/gw8-9/review/">Early-forecast accuracy and scoring details</a>.</p>'
+                 + _duel_table_html(None, comparisons, 10, section=FPL))
     description = ("Every evmax FPL projection graded against realized official "
                    "points — per-gameweek error, our squad against the crowd's, "
                    "and the raw grading data.")
@@ -1664,7 +1669,7 @@ def accuracy_page(ledger: list, date_str: str = None) -> str:
 {GSC_META_TAG}
 {_HEAD_COMMON}
 {_FONTS}
-<style>{_STYLE}{_TRACK_RECORD_CSS}{_TR_FPL_CSS}{_ACCURACY_CSS}</style>
+<style>{_STYLE}{_TRACK_RECORD_CSS}{_TR_FPL_CSS}{_ACCURACY_CSS}{_DUEL_CSS if comparisons else ''}</style>
 </head><body>
 <header><div class="wrap" style="display:flex;align-items:center;height:100%;width:100%">
 <a class="logo" href="/">ev<b>max</b></a>{_nav_html(active="track-record")}
@@ -1736,7 +1741,7 @@ for the World Cup work.</p>
 {_footer_html()}</body></html>"""
 
 
-def track_record_page(record: dict, fpl: list = None) -> str:
+def track_record_page(record: dict, fpl: list = None, comparisons: list = None) -> str:
     """/track-record/ — the site's credibility layer. Deterministic text only:
     every number here comes straight from evmax.backtest, no LLM prose, because
     trust requires that this specific page never has room for a model to shade
@@ -1751,6 +1756,9 @@ def track_record_page(record: dict, fpl: list = None) -> str:
 
     fpl_html = _tr_fpl_section(fpl) if fpl else ""
     fpl_css = _TR_FPL_CSS if fpl else ""
+    if comparisons:
+        fpl_html += '<h2>GW8–9 comparisons</h2>' + _duel_table_html(None, comparisons, 10, section=FPL)
+        fpl_css += _DUEL_CSS
     description = (
         "evmax grades its own fantasy predictions against official points, misses "
         "included — the FPL gameweek ledger and the World Cup 2026 retrospective."
@@ -2273,13 +2281,15 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
     if not duel and not history:
         return ""
     live = (duel or {}).get("live") or {}
+    has_accounts = any(r.get('account_realized') is not None for r in history or [])
     rows = []
     graded_now = False
     for r in history or []:
         if r["gw"] > round_no:
             continue
         m, c = r.get("model_realized"), r.get("consensus_realized")
-        if m is None or c is None:
+        comparison = r.get('comparison_only', False)
+        if (m is None or c is None) and not comparison:
             continue
         # The gameweek being built can already be graded (Monday's rebuild
         # after the last whistle): it renders as an official row, highlighted,
@@ -2287,17 +2297,26 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
         # "so far" totals until the next gameweek's Thursday build.
         current = r["gw"] == round_no
         graded_now = graded_now or current
-        win = "model" if m > c else ("consensus" if c > m else "")
+        win = ("model" if m > c else ("consensus" if c > m else "")) if not comparison else ""
         label = (f'GW{r["gw"]}<span class="dl-now">graded</span>' if current
                  else f'<a href="{section.landing_path(r["gw"])}">GW{r["gw"]}</a>')
+        if comparison:
+            label = f'<a href="/fpl/gw8-9/review/">GW{r["gw"]}</a>'
+        def past_cell(key, value):
+            projected = r.get(f'{key}_projected')
+            sub = (f'<span class="dl-proj">proj {projected:.1f}</span>' if projected is not None else '')
+            if r.get(f'{key}_label'):
+                sub += f'<span class="dl-proj">{_html.escape(r[f"{key}_label"])}</span>'
+            return (f'<td class="dl-num{" dl-win" if win == key else ""}">'
+                    f'{value if value is not None else "—"}{sub}</td>')
+        account = (f'<td class="dl-num">{r.get("account_realized") if r.get("account_realized") is not None else "—"}</td>'
+                   if has_accounts else '')
+        score_cell = '—' if comparison else f'{r["duel_model"]}–{r["duel_consensus"]}'
         rows.append(
             f'<tr class="dl-past{" dl-graded-now" if current else ""}"><td class="dl-gw">'
             f'{label}</td>'
-            f'<td class="dl-num{" dl-win" if win == "model" else ""}">{m}'
-            f'<span class="dl-proj">proj {r["model_projected"]:.1f}</span></td>'
-            f'<td class="dl-num{" dl-win" if win == "consensus" else ""}">{c}'
-            f'<span class="dl-proj">proj {r["consensus_projected"]:.1f}</span></td>'
-            f'<td class="dl-score">{r["duel_model"]}–{r["duel_consensus"]}</td></tr>')
+            f'{past_cell("model", m)}{past_cell("consensus", c)}{account}'
+            f'<td class="dl-score">{score_cell}</td></tr>')
     # the live row
     def _cell(key, slug):
         meta = duel[key]
@@ -2314,13 +2333,15 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
                 f'<span class="dl-sofar">{so_far}</span>'
                 f'<span class="dl-meta">{_html.escape(meta["formation"])} · '
                 f'{_html.escape(meta["captain"])} (c)</span></a></td>')
-    last = (history or [{}])[-1] if history else {}
+    scored_history = [r for r in history or [] if not r.get('comparison_only')]
+    last = scored_history[-1] if scored_history else {}
     score = (f'{last.get("duel_model", 0)}–{last.get("duel_consensus", 0)}'
              if history else "0–0")
     if duel and not graded_now:
         rows.append(f'<tr class="dl-live"><td class="dl-gw">GW{round_no}'
                     f'<span class="dl-now">live</span></td>'
                     f'{_cell("model", "our-squad")}{_cell("consensus", "consensus-squad")}'
+                    f'{"<td>—</td>" if has_accounts else ""}'
                     f'<td class="dl-score dl-score-now">{score}</td></tr>')
     # Next week's row, the moment this week is graded (owner, 2026-09-16:
     # "people will look for stuff the whole week"): both squads as they
@@ -2340,15 +2361,21 @@ def _duel_table_html(duel: dict, history: list, round_no: int, section=WC,
         rows.append(f'<tr class="dl-preview"><td class="dl-gw">GW{preview["gameweek"]}'
                     f'<span class="dl-now">preview</span></td>'
                     f'{_pcell("model")}{_pcell("consensus")}'
+                    f'{"<td>—</td>" if has_accounts else ""}'
                     f'<td class="dl-score dl-score-now">{score}</td></tr>')
     live_note = ('the live row shows the frozen projection and points so far. '
                  if duel and not graded_now else 'Projections are the retained pre-deadline estimates. ')
     return (f'<table class="duel-ledger"><thead><tr><th></th>'
-            f'<th>Model XI</th><th>Consensus XI</th><th>Duel</th></tr></thead>'
+            f'<th>Model XI</th><th>Consensus XI</th>{"<th>Account</th>" if has_accounts else ""}<th>Duel</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>'
             f'<p class="dl-note">Official points once a gameweek is graded; '
             f'{live_note}'
-            f'<a href="/track-record/">Full ledger →</a></p>')
+            f'<a href="/track-record/">Full ledger →</a></p>'
+            + ('<p class="dl-note">GW8 model: 21 October early recommendation. GW9 model: not published. '
+               'Consensus in GW8–9 reuses the last published team, captain and bench order; '
+               'these are reconstructed results, not new expert selections. Account: actual scores '
+               'supplied by the owner. These comparison rows do not change the duel tally. '
+               '<a href="/fpl/gw8-9/review/">Scoring and assumptions →</a></p>' if has_accounts else ''))
 
 def _duel_strip_html(duel: dict, round_no: int, section=WC) -> str:
     """The landing's compact model-vs-consensus strip: both published squads'

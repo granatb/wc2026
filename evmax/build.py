@@ -80,8 +80,9 @@ def write_site_chrome(w, fpl_ledger=None) -> None:
     # Track record (backtest our own published predictions vs reality) — the
     # site's credibility layer, linked from every page's nav.
     record = backtest.build_track_record()
+    from games.fpl import continuity
     w("/track-record/index.html", render.track_record_page(record,
-                                                           fpl=fpl_ledger))
+        fpl=fpl_ledger, comparisons=continuity.rows() if fpl_ledger else None))
     w("/api/track-record.json", json.dumps(
         render.track_record_json(record), ensure_ascii=False, indent=2))
 

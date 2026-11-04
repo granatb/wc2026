@@ -60,6 +60,15 @@ def archive_card_note(page: str, preview: dict) -> str:
 def render_pages(record: dict) -> tuple[str, str]:
     """Use the site's existing hero, table and article styles for official results."""
     current, previous, upcoming = record['current'], record['previous'], record['next']
+    from games.fpl import continuity
+    recovered = continuity.load()
+    early_points = recovered['evaluation']['comparisons'][0]['model_scoring']['total_so_far'] if recovered else None
+    comparison_copy = (f'The published 21 October GW8 early team scored {early_points}. GW9 has no published model selection. '
+                       '<a style="text-decoration:underline" href="/fpl/gw8-9/review/">'
+                       'See the early-model, stable-consensus and account comparisons</a>. '
+                       if recovered else
+                       'The latest graded Model XI is GW7, which scored 59. '
+                       'There is no frozen GW8 or GW9 model forecast to add to that ledger. ')
     gw = current['gameweek']
     stamp = datetime.fromisoformat(record['captured_at'].replace('Z', '+00:00'))
     date = f'{stamp.day} {stamp:%B %Y}'
@@ -105,8 +114,7 @@ def render_pages(record: dict) -> tuple[str, str]:
             f'{html.escape(summary)}</p><h2>GW{gw} {"final results" if final else "results so far"}</h2>{table}'
             f'<p>{finality_body}</p>'
             f'<h2>Completed gameweek</h2><p>{previous_copy} '
-            'The latest graded Model XI is GW7, which scored 59. '
-            'There is no frozen GW8 or GW9 model forecast to add to that ledger. '
+            f'{comparison_copy}'
             '<a style="text-decoration:underline" href="/track-record/">See the graded record</a>.</p>'
             f'<h2>First GW{upcoming["gameweek"]} preview</h2>'
             f'{preview_body}'

@@ -954,8 +954,9 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
     # /fpl/accuracy/ (phase 2B, P4) — the ledger in full, the method, and the
     # "how to check us" chain. FPL builds only; /track-record/'s FPL block is
     # what links it (no nav pill — that chrome is shared with the WC pages).
+    from games.fpl import continuity
     w(f"{render.ACCURACY_PATH}index.html",
-      render.accuracy_page(ledger, date_str=date_str))
+      render.accuracy_page(ledger, date_str=date_str, comparisons=continuity.rows()))
     # The comparison page: checkable properties only, no cross-site accuracy
     # claims (different samples prove nothing). Sits beside the ledger.
     from evmax import compare as _compare
@@ -1042,7 +1043,7 @@ def build(gameweek: int, sims: int = 50_000, out: str = "dist",
                                   deadline_iso=deadline_iso,
                                   # every graded gameweek as a duel row, from
                                   # the same accuracy files /track-record/ reads
-                                  duel_history=fpl_track_ledger(),
+                                  duel_history=sorted(fpl_track_ledger()+continuity.rows(),key=lambda r:r['gw']),
                                   extra_style=(fpl_players.CARD_CSS +
                                                fpl_players.TOP_CARDS_CSS +
                                                render._NAV_SCROLL_CSS))
@@ -1528,6 +1529,10 @@ def _publish_accuracy(w) -> None:
     says "grading JSONs public", so the FPL build ships every gw{N}.json at
     /api/fpl/accuracy/gw{N}.json, byte-for-byte what the repo grades against.
     Final-selection corrections have a separate API record."""
+    from games.fpl import continuity
+    recovered = continuity.load()
+    if recovered:
+        w(continuity.API, continuity.PATH.read_text())
     acc_dir = _accuracy_dir()
     if not os.path.isdir(acc_dir):
         return

@@ -76,6 +76,11 @@ def early_cards(payloads, meta):
 def render_homepage(payloads, rows, meta, matches, fixtures_checked_at):
     """Keep the normal homepage ledger and fixture rail on an early preview."""
     from evmax.fpl_build import fpl_track_ledger
+    from games.fpl import continuity
+    comparison_rows = continuity.rows()
+    history = sorted(fpl_track_ledger() + comparison_rows, key=lambda r:r['gw'])
+    continuity_copy = ('GW8 early-model and GW8–9 reconstructed consensus results are now included. '
+                       if comparison_rows else 'GW8 and GW9 have no frozen model forecast to evaluate. ')
     gw=meta['gameweek']
     ranked=sorted(rows,key=lambda r:-r['x_points'])
     lead,second=ranked[:2]
@@ -88,14 +93,14 @@ def render_homepage(payloads, rows, meta, matches, fixtures_checked_at):
     home=clean_page(render.landing_page(gw,{'slug':'preview',
         'prose':{'headline':title,'standfirst':summary},'viz_html':table(ranked[:10],payloads)},[],
         date_str=date,section=render.FPL,available_rounds=list(range(1,gw+1)),
-        cards_html=early_cards(payloads,meta),duel_history=fpl_track_ledger(),
+        cards_html=early_cards(payloads,meta),duel_history=history,
         fixtures=matches,rail_label=f'GW{gw} fixtures · UTC',rail_link=False,
         extra_style=fpl_players.CARD_CSS+fpl_players.TOP_CARDS_CSS+render._NAV_SCROLL_CSS,
         deadline_iso=meta['deadline'],
         pre_feed_html='<p><a style="text-decoration:underline" href="/fpl/gw9/update/">GW9 final results</a> · '
             '<a style="text-decoration:underline" href="/track-record/">Full evaluation record</a> · '
             '<a style="text-decoration:underline" href="/fpl/accuracy/">Forecast accuracy</a></p>'
-            '<p class="method">GW8 and GW9 have no frozen model forecast to evaluate. '
+            f'<p class="method">{continuity_copy}'
             f'Fixture times checked {checked.day} {checked:%B, %H:%M} UTC; '
             f'match projections from {stamp.day} {stamp:%B, %H:%M} UTC.</p>'))
     home=home.replace('<div class="pagelabel">Latest analysis</div>\n<div class="feed"></div>', '')

@@ -20,6 +20,15 @@ def validate_preview_week(out, gameweek):
 def validate(out):
     out = Path(out)
     errors = []
+    comparison_path = out/'api/fpl/comparisons/gw8-gw9.json'
+    if comparison_path.exists():
+        try:
+            from games.fpl import continuity
+            public = json.loads(comparison_path.read_text())
+            if public != continuity.load():
+                raise ValueError('comparison export differs from the validated result record')
+        except (KeyError, ValueError, OSError, TypeError) as exc:
+            errors.append(f'invalid recovered comparison: {exc}')
     for required in ('index.html', '_headers', 'api/latest.json'):
         if not (out / required).is_file():
             errors.append(f'missing {required}')
